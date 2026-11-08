@@ -1,0 +1,556 @@
+diff --git a/mptrack/AboutDialog.cpp b/mptrack/AboutDialog.cpp
+index 17d25df..e22c5fd 100644
+--- a/mptrack/AboutDialog.cpp
++++ b/mptrack/AboutDialog.cpp
+@@ -478,6 +478,7 @@ mpt::ustring CAboutDlg::GetTabText(int tab)
+ 			text += UL_("\n\nBug Tracker:\n") + Build::GetURL(Build::Url::Bugtracker);
+ 			text += UL_("\n\nUpdates:\n") + Build::GetURL(Build::Url::Updates);
+ 			break;
++#if MPT_OS_WINDOWS
+ 		case 5:
+ 			try
+ 			{
+@@ -569,6 +570,7 @@ mpt::ustring CAboutDlg::GetTabText(int tab)
+ 				text += UL_("Exception: ") + mpt::get_exception_text<mpt::ustring>(e) + UL_("\n");
+ 			}
+ 			break;
++#endif // MPT_OS_WINDOWS
+ 	}
+ 	return text;
+ }
+diff --git a/mptrack/AbstractVstEditor.cpp b/mptrack/AbstractVstEditor.cpp
+index e12151d..c9b09c7 100644
+--- a/mptrack/AbstractVstEditor.cpp
++++ b/mptrack/AbstractVstEditor.cpp
+@@ -183,7 +183,7 @@ void CAbstractVstEditor::OnDropFiles(HDROP hDropInfo)
+ 		std::vector<TCHAR> fileName(size, _T('\0'));
+ 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
+ 		{
+-			m_VstPlugin.LoadProgram(mpt::PathString::FromNative(fileName.data()));
++			m_VstPlugin.LoadProgram(mpt::PathString::FromCString(fileName.data()));
+ 		}
+ 	}
+ 	::DragFinish(hDropInfo);
+diff --git a/mptrack/AutoSaver.cpp b/mptrack/AutoSaver.cpp
+index 0bac20b..36ac99a 100644
+--- a/mptrack/AutoSaver.cpp
++++ b/mptrack/AutoSaver.cpp
+@@ -133,7 +133,7 @@ mpt::PathString CAutoSaver::GetBasePath(const CModDoc &modDoc, bool createPath)
+ 	}
+ 	std::error_code ec;
+ 	if(createPath)
+-		std::filesystem::create_directories(mpt::support_long_path(path.AsNative()), ec);
++		std::filesystem::create_directories(mpt::support_long_path(path.AsNative()).c_str(), ec);
+ 	if(!mpt::native_fs{}.is_directory(path))
+ 		path = theApp.GetConfigPath();
+ 
+@@ -219,7 +219,7 @@ void CAutoSaver::DeleteAutosave(const mpt::PathString &fileName, bool deletePerm
+ 	// Note: We could supply multiple filenames here. However, if the files in total are too big for the recycling bin,
+ 	// this will cause all of them to be deleted permanently. If we supply them one by one, at least some of them
+ 	// will go to the recycling bin until it is full.
+-	mpt::winstring path = fileName.AsNative() + _T('\0');
++	mpt::winstring path = fileName.ToWide() + _T('\0');
+ 	SHFILEOPSTRUCT fos{};
+ 	fos.hwnd = CMainFrame::GetMainFrame()->m_hWnd;
+ 	fos.wFunc = FO_DELETE;
+diff --git a/mptrack/ExternalSamples.cpp b/mptrack/ExternalSamples.cpp
+index de6a213..5c5f7d5 100644
+--- a/mptrack/ExternalSamples.cpp
++++ b/mptrack/ExternalSamples.cpp
+@@ -59,7 +59,7 @@ BOOL MissingExternalSamplesDlg::OnInitDialog()
+ 	m_List.SetExtendedStyle(m_List.GetExtendedStyle() | LVS_EX_FULLROWSELECT);
+ 
+ 	GenerateList();
+-	SetWindowText((_T("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().AsNative()).c_str());
++	SetWindowText((_T("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+ 
+ 	return TRUE;
+ }
+@@ -79,7 +79,7 @@ void MissingExternalSamplesDlg::GenerateList()
+ 			int insertAt = m_List.InsertItem(m_List.GetItemCount(), s);
+ 			if(insertAt == -1)
+ 				continue;
+-			m_List.SetItemText(insertAt, 1, m_sndFile.GetSamplePath(smp).AsNative().c_str());
++			m_List.SetItemText(insertAt, 1, m_sndFile.GetSamplePath(smp).ToCString());
+ 			m_List.SetItemData(insertAt, smp);
+ 		}
+ 	}
+@@ -165,7 +165,7 @@ void MissingExternalSamplesDlg::OnScanFolder()
+ 			if(tick < lastTick || tick > lastTick + 100)
+ 			{
+ 				lastTick = tick;
+-				SetDlgItemText(IDC_STATIC1, fileName.AsNative().c_str());
++				SetDlgItemText(IDC_STATIC1, fileName.ToCString());
+ 				MSG msg;
+ 				while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+ 				{
+@@ -200,7 +200,7 @@ bool MissingExternalSamplesDlg::SetSample(SAMPLEINDEX smp, const mpt::PathString
+ 	const mpt::PathString oldPath = m_sndFile.GetSamplePath(smp);
+ 	if(!m_sndFile.LoadExternalSample(smp, fileName))
+ 	{
+-		Reporting::Information(_T("Unable to load sample:\n") + fileName.AsNative());
++		Reporting::Information(_T("Unable to load sample:\n") + fileName.ToWide());
+ 		m_modDoc.GetSampleUndo().RemoveLastUndoStep(smp);
+ 		return false;
+ 	} else
+@@ -254,7 +254,7 @@ BOOL ModifiedExternalSamplesDlg::OnInitDialog()
+ 	m_List.SetExtendedStyle(m_List.GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
+ 
+ 	GenerateList();
+-	SetWindowText((_T("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().AsNative()).c_str());
++	SetWindowText((_T("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+ 
+ 	return TRUE;
+ }
+@@ -286,7 +286,7 @@ void ModifiedExternalSamplesDlg::GenerateList()
+ 		if(insertAt == -1)
+ 			continue;
+ 		m_List.SetItemText(insertAt, 1, status.c_str());
+-		m_List.SetItemText(insertAt, 2, m_sndFile.GetSamplePath(smp).AsNative().c_str());
++		m_List.SetItemText(insertAt, 2, m_sndFile.GetSamplePath(smp).ToCString());
+ 		m_List.SetCheck(insertAt, TRUE);
+ 		m_List.SetItemData(insertAt, smp);
+ 	}
+diff --git a/mptrack/FolderScanner.cpp b/mptrack/FolderScanner.cpp
+index bdbb50a..48c1415 100644
+--- a/mptrack/FolderScanner.cpp
++++ b/mptrack/FolderScanner.cpp
+@@ -53,7 +53,7 @@ bool FolderScanner::Next(mpt::PathString &file, WIN32_FIND_DATA *fileInfo)
+ 		{
+ 			do
+ 			{
+-				file = m_currentPath + mpt::PathString::FromNative(m_wfd.cFileName);
++				file = m_currentPath + mpt::PathString::FromCString(m_wfd.cFileName);
+ 				if(m_wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+ 				{
+ 					if(_tcscmp(m_wfd.cFileName, _T("..")) && _tcscmp(m_wfd.cFileName, _T(".")))
+diff --git a/mptrack/GeneralConfigDlg.cpp b/mptrack/GeneralConfigDlg.cpp
+index 77b4bb7..369fe5a 100644
+--- a/mptrack/GeneralConfigDlg.cpp
++++ b/mptrack/GeneralConfigDlg.cpp
+@@ -137,7 +137,7 @@ BOOL COptionsGeneral::OnInitDialog()
+ 	{
+ 		file = file.GetFilename();
+ 	}
+-	m_defaultTemplate.SetWindowText(file.AsNative().c_str());
++	m_defaultTemplate.SetWindowText(file.ToCString());
+ 
+ 	CheckRadioButton(IDC_RADIO1, IDC_RADIO3, IDC_RADIO1 + TrackerSettings::Instance().defaultNewFileAction);
+ 
+@@ -219,7 +219,7 @@ void COptionsGeneral::OnBrowseTemplate()
+ 		dlg.WorkingDirectory(basePath);
+ 	} else
+ 	{
+-		if(defaultFile.AsNative().find_first_of(_T("/\\")) == mpt::RawPathString::npos)
++		if(defaultFile.ToWide().find_first_of(_T("/\\")) == std::wstring::npos)
+ 		{
+ 			// Relative path
+ 			defaultFile = basePath + defaultFile;
+@@ -233,7 +233,7 @@ void COptionsGeneral::OnBrowseTemplate()
+ 		{
+ 			defaultFile = defaultFile.GetFilename();
+ 		}
+-		m_defaultTemplate.SetWindowText(defaultFile.AsNative().c_str());
++		m_defaultTemplate.SetWindowText(defaultFile.ToCString());
+ 		OnTemplateChanged();
+ 	}
+ }
+diff --git a/mptrack/IPCWindow.cpp b/mptrack/IPCWindow.cpp
+index 91448ef..442433c 100644
+--- a/mptrack/IPCWindow.cpp
++++ b/mptrack/IPCWindow.cpp
+@@ -39,7 +39,7 @@ namespace IPCWindow
+ 					std::size_t count = copyData.cbData / sizeof(WCHAR);
+ 					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
+ 					const std::wstring name = std::wstring(data, data + count);
+-					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).AsNative().c_str()) ? 1 : 2;
++					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).ToCString()) ? 1 : 2;
+ 				}
+ 				break;
+ 			case Function::SetWindowForeground:
+diff --git a/mptrack/LinkResolver.cpp b/mptrack/LinkResolver.cpp
+index af74514..db8c335 100644
+--- a/mptrack/LinkResolver.cpp
++++ b/mptrack/LinkResolver.cpp
+@@ -53,7 +53,7 @@ mpt::PathString LinkResolver::Resolve(const TCHAR *inPath)
+ 		{
+ 			TCHAR outPath[MAX_PATH];
+ 			psl->GetPath(outPath, mpt::saturate_cast<int>(std::size(outPath)), nullptr, 0);
+-			return mpt::PathString::FromNative(outPath);
++			return mpt::PathString::FromCString(outPath);
+ 		}
+ 	}
+ 	return {};
+diff --git a/mptrack/MPTrackUtil.cpp b/mptrack/MPTrackUtil.cpp
+index 3b87633..2c91445 100644
+--- a/mptrack/MPTrackUtil.cpp
++++ b/mptrack/MPTrackUtil.cpp
+@@ -23,7 +23,7 @@ static bool CreateShellLink(const IID &type, const mpt::PathString &path, const
+ 	if(SUCCEEDED(hres))
+ 	{
+ 		IPersistFile *ppf = nullptr;
+-		psl->SetPath(target.AsNative().c_str()); 
++		psl->SetPath(target.ToWide().c_str()); 
+ 		psl->SetDescription(mpt::ToWin(description).c_str());
+ 		hres = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
+ 		if(SUCCEEDED(hres))
+diff --git a/mptrack/MainFrm.cpp b/mptrack/MainFrm.cpp
+index 8076817..0979b35 100644
+--- a/mptrack/MainFrm.cpp
++++ b/mptrack/MainFrm.cpp
+@@ -526,7 +526,7 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
+ 		std::vector<TCHAR> fileName(size, L'\0');
+ 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
+ 		{
+-			const mpt::PathString file = mpt::PathString::FromNative(fileName.data());
++			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+ #ifdef MPT_BUILD_DEBUG
+ 			// Debug Hack: Quickly scan a folder containing module files (without running out of window handles ;)
+ 			if(scanAll && mpt::native_fs{}.is_directory(file))
+@@ -3165,7 +3165,7 @@ void CMainFrame::OnHelp()
+ 	}
+ 
+ 	const mpt::PathString helpFile = theApp.GetInstallPath() + P_("OpenMPT Manual.chm") + mpt::PathString::FromUTF8(page) + P_(">OpenMPT");
+-	if(!::HtmlHelp(m_hWnd, helpFile.AsNative().c_str(), strcmp(page, "") ? HH_DISPLAY_TOC : HH_DISPLAY_TOPIC, NULL))
++	if(!::HtmlHelp(m_hWnd, helpFile.ToCString(), strcmp(page, "") ? HH_DISPLAY_TOC : HH_DISPLAY_TOPIC, NULL))
+ 	{
+ 		Reporting::Error(_T("Could not find help file:\n") + helpFile.ToCString());
+ 		return;
+@@ -3294,7 +3294,7 @@ HMENU CMainFrame::CreateFileMenu(const size_t maxCount, std::vector<mpt::PathStr
+ #endif
+ 	std::sort(paths.begin(), paths.end(), [stringCompareFlags](const mpt::PathString &left, const mpt::PathString &right)
+ 	{
+-		return ::CompareString(LOCALE_USER_DEFAULT, stringCompareFlags, left.AsNative().c_str(), -1, right.AsNative().c_str(), -1) == CSTR_LESS_THAN;
++		return ::CompareString(LOCALE_USER_DEFAULT, stringCompareFlags, left.ToWide().c_str(), -1, right.ToWide().c_str(), -1) == CSTR_LESS_THAN;
+ 	});
+ 
+ 	HMENU hMenu = ::CreatePopupMenu();
+@@ -3407,7 +3407,7 @@ void CMainFrame::UpdateMRUList()
+ 			}
+ 
+ 			const mpt::PathString &pathMPT = TrackerSettings::Instance().mruFiles[i];
+-			mpt::winstring path = pathMPT.AsNative();
++			mpt::winstring path = pathMPT.ToWide();
+ 			if(!mpt::PathCompareNoCase(workDir, pathMPT.GetDirectoryWithDrive()))
+ 			{
+ 				// Only show filename
+diff --git a/mptrack/Mptrack.cpp b/mptrack/Mptrack.cpp
+index b4a665a..6c2f024 100644
+--- a/mptrack/Mptrack.cpp
++++ b/mptrack/Mptrack.cpp
+@@ -221,7 +221,7 @@ struct AllSoundDeviceComponents
+ 		result.Pulseaudio = IsComponentAvailable(m_PulseAudio);
+ #endif // MPT_WITH_PULSEAUDIO && MPT_ENABLE_PULSEAUDIO_FULL
+ #if defined(MPT_WITH_PULSEAUDIO) && defined(MPT_WITH_PULSEAUDIOSIMPLE)
+-		result.PulseaudioSimple = IsComponentAvailable(m_PulseAudioSimple);
++		result.PulseaudioSimple = IsComponentAvailable(m_PulseaudioSimple);
+ #endif // MPT_WITH_PULSEAUDIO && MPT_WITH_PULSEAUDIOSIMPLE
+ #if MPT_OS_WINDOWS
+ 		result.WaveOut = IsComponentAvailable(m_WaveOut);
+@@ -335,7 +335,7 @@ public:
+ 	{
+ 		std::vector<TCHAR> curDir(::GetCurrentDirectory(0, nullptr), _T('\0'));
+ 		::GetCurrentDirectory(static_cast<DWORD>(curDir.size()), curDir.data());
+-		m_workingDir = mpt::PathString::FromNative(curDir.data());
++		m_workingDir = mpt::PathString::FromCString(curDir.data());
+ 	}
+ 
+ 	void ParseParam(LPCTSTR param, BOOL isFlag, BOOL isLast) override
+@@ -359,7 +359,7 @@ public:
+ #endif
+ 		} else
+ 		{
+-			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromNative(param), m_workingDir));
++			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromCString(param), m_workingDir));
+ 			if(m_nShellCommand == FileNew) m_nShellCommand = FileOpen;
+ 		}
+ 		CCommandLineInfo::ParseParam(param, isFlag, isLast);
+@@ -535,7 +535,7 @@ std::future<std::vector<std::unique_ptr<CDLSBank>>> CTrackApp::LoadDefaultDLSBan
+ 				mpt::winstring filenamestr = ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::winstring>(filenameT.data(), dwSize);
+ 				std::vector<TCHAR> filenameExpanded(::ExpandEnvironmentStrings(filenamestr.c_str(), nullptr, 0));
+ 				::ExpandEnvironmentStrings(filenamestr.c_str(), filenameExpanded.data(), static_cast<DWORD>(filenameExpanded.size()));
+-				auto filename = mpt::PathString::FromNative(filenameExpanded.data());
++				auto filename = mpt::PathString::FromCString(filenameExpanded.data());
+ 				ImportMidiConfig(filename, true);
+ 				paths.insert(std::move(filename));
+ 			}
+@@ -1012,7 +1012,7 @@ void CTrackApp::SetupPaths(bool overridePortable)
+ 			|| (SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK))
+ 		{
+ 			// Store our app settings in %APPDATA% or "My Documents"
+-			configPathUser = mpt::PathString::FromNative(dir) + P_("\\OpenMPT\\");
++			configPathUser = mpt::PathString::FromCString(dir) + P_("\\OpenMPT\\");
+ 		}
+ 	}
+ 
+@@ -1418,7 +1418,9 @@ BOOL CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
+ 	SoundDevice::SysInfo sysInfo = GetSysInfo();
+ 	SoundDevice::AppInfo appInfo;
+ 	appInfo.SetName(U_("OpenMPT"));
++#if MPT_OS_WINDOWS
+ 	appInfo.SetHWND(*m_pMainWnd);
++#endif // MPT_OS_WINDOWS
+ 	appInfo.BoostedThreadPriorityXP = TrackerSettings::Instance().SoundBoostedThreadPriority;
+ 	appInfo.BoostedThreadMMCSSClassVista = TrackerSettings::Instance().SoundBoostedThreadMMCSSClass;
+ 	appInfo.BoostedThreadRealtimePosix = TrackerSettings::Instance().SoundBoostedThreadRealtimePosix;
+@@ -2535,7 +2537,7 @@ bool CTrackApp::OpenURL(const mpt::PathString &lpszURL, const mpt::tstring &para
+ 		if(reinterpret_cast<INT_PTR>(ShellExecute(
+ 			theApp.m_pMainWnd->m_hWnd,
+ 			_T("open"),
+-			lpszURL.AsNative().c_str(),
++			lpszURL.ToCString(),
+ 			param.empty() ? nullptr : param.c_str(),
+ 			nullptr,
+ 			SW_SHOW)) >= 32)
+diff --git a/mptrack/OPLExport.cpp b/mptrack/OPLExport.cpp
+index 2c91faa..ea6712f 100644
+--- a/mptrack/OPLExport.cpp
++++ b/mptrack/OPLExport.cpp
+@@ -559,7 +559,7 @@ public:
+ 
+ 			mpt::PathString currentFileName = fileName;
+ 			if(m_subSongs.size() > 1)
+-				currentFileName = fileName.ReplaceExtension(mpt::PathString::FromNative(MPT_TFORMAT(" ({})")(mpt::ufmt::fmt(i + 1, songIndexFmt))) + fileName.GetFilenameExtension());
++				currentFileName = fileName.ReplaceExtension(mpt::PathString::FromUnicode(MPT_UFORMAT(" ({})")(mpt::ufmt::fmt(i + 1, songIndexFmt))) + fileName.GetFilenameExtension());
+ 			mpt::IO::SafeOutputFile sf(currentFileName, std::ios::binary, mpt::IO::FlushModeFromBool(TrackerSettings::Instance().MiscFlushFileBuffersOnSave));
+ 			mpt::IO::ofstream &f = sf;
+ 			try
+diff --git a/mptrack/PathConfigDlg.cpp b/mptrack/PathConfigDlg.cpp
+index b9602a4..549dad1 100644
+--- a/mptrack/PathConfigDlg.cpp
++++ b/mptrack/PathConfigDlg.cpp
+@@ -96,7 +96,7 @@ BOOL PathConfigDlg::OnInitDialog()
+ 	// Default paths
+ 	for(const auto & [path, id] : PathSettings)
+ 	{
+-		SetDlgItemText(id, (settings.*path).GetDefaultDir().AsNative().c_str());
++		SetDlgItemText(id, (settings.*path).GetDefaultDir().ToCString());
+ 	}
+ 
+ 	// Autosave
+@@ -162,7 +162,7 @@ void PathConfigDlg::BrowseFolder(UINT nID)
+ 	BrowseForFolder dlg(GetPath(nID), prompt);
+ 	if(dlg.Show(this))
+ 	{
+-		SetDlgItemText(nID, dlg.GetDirectory().AsNative().c_str());
++		SetDlgItemText(nID, dlg.GetDirectory().ToCString());
+ 		OnSettingsChanged();
+ 	}
+ }
+diff --git a/mptrack/PatternEditorDialogs.cpp b/mptrack/PatternEditorDialogs.cpp
+index 89b68cc..ed7af49 100644
+--- a/mptrack/PatternEditorDialogs.cpp
++++ b/mptrack/PatternEditorDialogs.cpp
+@@ -1953,7 +1953,7 @@ void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, CComboBox
+ 	} else
+ 	{
+ 		combo.SetCurSel(2);
+-		edit.SetWindowText(path.AsNative().c_str());
++		edit.SetWindowText(path.ToCString());
+ 		enable = TRUE;
+ 	}
+ 	edit.EnableWindow(enable);
+diff --git a/mptrack/PlugNotFoundDlg.cpp b/mptrack/PlugNotFoundDlg.cpp
+index 076f8be..187b85c 100644
+--- a/mptrack/PlugNotFoundDlg.cpp
++++ b/mptrack/PlugNotFoundDlg.cpp
+@@ -50,10 +50,10 @@ BOOL PlugNotFoundDialog::OnInitDialog()
+ 
+ 	for(const auto &plug : m_plugins)
+ 	{
+-		const int insertAt = m_List.InsertItem(m_List.GetItemCount(), plug->libraryName.AsNative().c_str());
++		const int insertAt = m_List.InsertItem(m_List.GetItemCount(), plug->libraryName.ToCString());
+ 		if(insertAt == -1)
+ 			continue;
+-		m_List.SetItemText(insertAt, 1, plug->dllPath.AsNative().c_str());
++		m_List.SetItemText(insertAt, 1, plug->dllPath.ToCString());
+ 		m_List.SetItemDataPtr(insertAt, plug);
+ 		m_List.SetCheck(insertAt);
+ 	}
+diff --git a/mptrack/QuickStartDialog.cpp b/mptrack/QuickStartDialog.cpp
+index 946faa1..6cebaeb 100644
+--- a/mptrack/QuickStartDialog.cpp
++++ b/mptrack/QuickStartDialog.cpp
+@@ -290,14 +290,14 @@ void QuickStartDlg::UpdateFileList(LPARAM highlight, CString filter)
+ 		lvi.iGroupId = static_cast<int>(groupId);
+ 		for(size_t i = 0; i < m_paths[groupId].size(); i++)
+ 		{
+-			if(m_paths[groupId][i].empty() || (applyFilter && !PathMatchSpec(m_paths[groupId][i].AsNative().c_str(), filter)))
++			if(m_paths[groupId][i].empty() || (applyFilter && !PathMatchSpec(m_paths[groupId][i].ToCString(), filter)))
+ 				continue;
+-			const auto filename = m_paths[groupId][i].GetFilename().AsNative();
++			const auto filename = m_paths[groupId][i].GetFilename().ToWide();
+ 			lvi.iItem = ++itemId;
+ 			lvi.lParam = static_cast<LPARAM>(i | (groupId << 24));
+ 			lvi.pszText = const_cast<TCHAR *>(filename.c_str());
+ 			m_list.InsertItem(&lvi);
+-			m_list.SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().AsNative().c_str());
++			m_list.SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().ToCString());
+ 			if(lvi.lParam == highlight)
+ 			{
+ 				m_list.SetItemState(itemId, LVIS_SELECTED, LVIS_SELECTED);
+diff --git a/mptrack/View_ins.cpp b/mptrack/View_ins.cpp
+index 571924c..5be9c9f 100644
+--- a/mptrack/View_ins.cpp
++++ b/mptrack/View_ins.cpp
+@@ -2072,7 +2072,7 @@ void CViewInstrument::OnDropFiles(HDROP hDropInfo)
+ 		std::vector<TCHAR> fileName(size, _T('\0'));
+ 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
+ 		{
+-			const mpt::PathString file = mpt::PathString::FromNative(fileName.data());
++			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+ 			PrepareUndo("Replace Envelope");
+ 			if(GetDocument()->LoadEnvelope(m_nInstrument, m_nEnv, file))
+ 			{
+diff --git a/mptrack/View_smp.cpp b/mptrack/View_smp.cpp
+index d32a789..ce0e3f2 100644
+--- a/mptrack/View_smp.cpp
++++ b/mptrack/View_smp.cpp
+@@ -3131,7 +3131,7 @@ void CViewSample::OnDropFiles(HDROP hDropInfo)
+ 		std::vector<TCHAR> fileName(size, _T('\0'));
+ 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
+ 		{
+-			const mpt::PathString file = mpt::PathString::FromNative(fileName.data());
++			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+ 			if(SendCtrlMessage(CTRLMSG_SMP_OPENFILE, (LPARAM)&file) && f < nFiles - 1)
+ 			{
+ 				// Insert more sample slots
+diff --git a/mptrack/View_tre.cpp b/mptrack/View_tre.cpp
+index d112605..32e9389 100644
+--- a/mptrack/View_tre.cpp
++++ b/mptrack/View_tre.cpp
+@@ -232,7 +232,7 @@ void CModTree::Init()
+ 			TrackerSettings::Instance().PathSamples.GetDefaultDir(),
+ 			TrackerSettings::Instance().PathInstruments.GetDefaultDir(),
+ 			TrackerSettings::Instance().PathSongs.GetDefaultDir(),
+-			mpt::PathString::FromNative(curDir.data())
++			mpt::PathString::FromCString(curDir.data())
+ 		};
+ 		for(auto &path : dirs)
+ 		{
+@@ -651,7 +651,7 @@ void CModTree::RefreshDlsBanks()
+ 			DeleteChildren(m_tiDLS[iDls]);
+ 		else
+ 			m_tiDLS[iDls] = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
+-				dlsBank.GetFileName().GetFilename().AsNative().c_str(), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, iDls, TVI_ROOT, hInsertAfter);
++				dlsBank.GetFileName().GetFilename().ToCString(), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, iDls, TVI_ROOT, hInsertAfter);
+ 
+ 		std::map<uint16, HTREEITEM> banks;
+ 		HTREEITEM hDrums = nullptr;
+@@ -1574,7 +1574,7 @@ BOOL CModTree::PlayItem(HTREEITEM hItem, ModCommand::NOTE note, int volume)
+ 					// Preview sample / instrument file
+ 					auto file = InsLibGetFullPath(hItem);
+ 					// If it's a shell link, resolve the link target
+-					if(auto resolvedName = LinkResolver().Resolve(file.AsNative().c_str()); !resolvedName.empty())
++					if(auto resolvedName = LinkResolver().Resolve(file.ToCString()); !resolvedName.empty())
+ 						file = std::move(resolvedName);
+ 
+ 					if(pMainFrm)
+@@ -1806,7 +1806,7 @@ void CModTree::DeleteTreeItem(HTREEITEM hItem, const bool permanently)
+ 	case MODITEM_INSLIB_INSTRUMENT:
+ 		{
+ 			// Create double-null-terminated path
+-			const mpt::winstring fullPath = InsLibGetFullPath(hItem).AsNative() + _T('\0');
++			const mpt::winstring fullPath = InsLibGetFullPath(hItem).ToWide() + _T('\0');
+ 			SHFILEOPSTRUCT fos;
+ 			MemsetZero(fos);
+ 			fos.hwnd = m_hWnd;
+@@ -2095,11 +2095,11 @@ void CModTree::FillInstrumentLibrary(const TCHAR *selectedItem)
+ 						type = IMAGE_FOLDER;
+ 				} else if(wfd.nFileSizeHigh > 0 || wfd.nFileSizeLow >= 9)
+ 				{
+-					type = FilterFile(mpt::PathString::FromNative(wfd.cFileName));
++					type = FilterFile(mpt::PathString::FromCString(wfd.cFileName));
+ 					if(type == FILTER_UNKNOWN_FILE)
+ 					{
+ 						// Try resolving file as link if it wasn't a module or instrument
+-						const auto nativePath = (m_InstrLibPath.AsNative() + wfd.cFileName);
++						const auto nativePath = (m_InstrLibPath.ToWide() + wfd.cFileName);
+ 						if(const auto resolvedName = linkResolver.Resolve(nativePath.c_str()); !resolvedName.empty())
+ 						{
+ 							if(mpt::native_fs{}.is_directory(resolvedName) && showDirs)
+@@ -2442,15 +2442,15 @@ void CModTree::InstrumentLibraryChDir(mpt::PathString dir, bool isSong)
+ 			} else
+ 			{
+ 				// Go one dir up.
+-				mpt::winstring prevDir = m_InstrLibPath.GetDirectoryWithDrive().AsNative();
++				mpt::winstring prevDir = m_InstrLibPath.GetDirectoryWithDrive().ToWide();
+ 				mpt::winstring::size_type pos = prevDir.find_last_of(_T("\\/"), prevDir.length() - 2);
+ 				if(pos != mpt::winstring::npos)
+ 				{
+-					m_InstrLibHighlightPath = mpt::PathString::FromNative(prevDir.substr(pos + 1, prevDir.length() - pos - 2));  // Highlight previously accessed directory
++					m_InstrLibHighlightPath = mpt::PathString::FromWide(prevDir.substr(pos + 1, prevDir.length() - pos - 2));  // Highlight previously accessed directory
+ 					prevDir = prevDir.substr(0, pos + 1);
+ 				}
+ 				m_previousPath = m_InstrLibHighlightPath;
+-				dir = mpt::PathString::FromNative(prevDir);
++				dir = mpt::PathString::FromWide(prevDir);
+ 			}
+ 		} else
+ 		{
+@@ -3958,7 +3958,7 @@ void CModTree::OnReloadItem()
+ 		if(!sndFile.LoadExternalSample(smpID, sndFile.GetSamplePath(smpID)))
+ 		{
+ 			pModDoc->GetSampleUndo().RemoveLastUndoStep(smpID);
+-			Reporting::Error(_T("Unable to load sample:\n") + sndFile.GetSamplePath(smpID).AsNative());
++			Reporting::Error(_T("Unable to load sample:\n") + sndFile.GetSamplePath(smpID).ToWide());
+ 		} else
+ 		{
+ 			if(!sndFile.GetSample(smpID).uFlags[SMP_KEEPONDISK])
+@@ -4116,10 +4116,10 @@ BOOL CModTree::OnDrop(COleDataObject *pDataObject, DROPEFFECT, CPoint)
+ 			switch(m_itemDrag.type)
+ 			{
+ 			case MODITEM_MIDIINSTRUMENT:
+-				bOk = SetMidiInstrument(m_itemDrag.val1, mpt::PathString::FromNative(fileName.data()));
++				bOk = SetMidiInstrument(m_itemDrag.val1, mpt::PathString::FromCString(fileName.data()));
+ 				break;
+ 			case MODITEM_MIDIPERCUSSION:
+-				bOk = SetMidiPercussion(m_itemDrag.val1, mpt::PathString::FromNative(fileName.data()));
++				bOk = SetMidiPercussion(m_itemDrag.val1, mpt::PathString::FromCString(fileName.data()));
+ 				break;
+ 			default:
+ 				break;
+@@ -4683,7 +4683,7 @@ void CModTree::OnEndLabelEdit(NMHDR *nmhdr, LRESULT *result)
+ 		}
+ 	} else if(modItem.type == MODITEM_HDR_INSTRUMENTLIB)
+ 	{
+-		const auto newPath = mpt::PathString::FromNative(info->item.pszText);
++		const auto newPath = mpt::PathString::FromCString(info->item.pszText);
+ 		if(mpt::PathCompareNoCase(newPath, m_InstrLibPath + m_SongFileName))
+ 			SetFullInstrumentLibraryPath(newPath);
+ 	}
+@@ -4702,7 +4702,7 @@ void CModTree::OnDropFiles(HDROP hDropInfo)
+ 		std::vector<TCHAR> fileName(size, _T('\0'));
+ 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
+ 		{
+-			mpt::PathString file(mpt::PathString::FromNative(fileName.data()));
++			mpt::PathString file(mpt::PathString::FromCString(fileName.data()));
+ 			if(IsSampleBrowser())
+ 			{
+ 				// Set sample browser location to this directory or file
+diff --git a/mptrack/dlg_misc.cpp b/mptrack/dlg_misc.cpp
+index a54e294..1b57c42 100644
+--- a/mptrack/dlg_misc.cpp
++++ b/mptrack/dlg_misc.cpp
+@@ -904,7 +904,7 @@ CSoundBankProperties::CSoundBankProperties(const CDLSBank &bank, CWnd *parent)
+ 		info += "\r\nSoftware:\t" + bi.szSoftware;
+ 	if (bi.szComments.size())
+ 		info += "\r\n\r\nComments:\r\n" + bi.szComments;
+-	SetCaption((bank.GetFileName().AsNative() + _T(" - Sound Bank Information")));
++	SetCaption((bank.GetFileName().ToWide() + _T(" - Sound Bank Information")));
+ 	SetContent(mpt::ToWin(mpt::Charset::Locale, info));
+ }
+ 
+diff --git a/mptrack/mod2midi.cpp b/mptrack/mod2midi.cpp
+index 5c057cb..a596d54 100644
+--- a/mptrack/mod2midi.cpp
++++ b/mptrack/mod2midi.cpp
+@@ -1012,7 +1012,7 @@ void CModToMidi::DoConversion(const mpt::PathString &fileName)
+ 
+ 		mpt::PathString currentFileName = fileName;
+ 		if(m_subSongs.size() > 1)
+-			currentFileName = fileName.ReplaceExtension(mpt::PathString::FromNative(MPT_TFORMAT(" ({})")(mpt::ufmt::fmt(i + 1, songIndexFmt))) + fileName.GetFilenameExtension());
++			currentFileName = fileName.ReplaceExtension(mpt::PathString::FromUnicode(MPT_UFORMAT(" ({})")(mpt::ufmt::fmt(i + 1, songIndexFmt))) + fileName.GetFilenameExtension());
+ 		mpt::IO::SafeOutputFile sf(currentFileName, std::ios::binary, mpt::IO::FlushModeFromBool(TrackerSettings::Instance().MiscFlushFileBuffersOnSave));
+ 		mpt::IO::ofstream &f = sf;
+ 

@@ -28,6 +28,11 @@
 #include <strings.h>
 
 #include "mpt/fs/fs.hpp"
+#include "mpt/string/buffer.hpp"
+
+#include <array>
+#include <type_traits>
+#include <vector>
 
 namespace mpt
 {
@@ -111,6 +116,16 @@ using native_fs = fs<mpt::native_path>;
 class common_directories
 {
 public:
+	// The directory of the running executable, with a trailing slash.
+	static mpt::native_path get_application_directory()
+	{
+		std::error_code ec;
+		auto exe = std::filesystem::read_symlink("/proc/self/exe", ec);
+		if(ec)
+			return mpt::native_path::FromNative(mpt::RawPathString("./"));
+		return mpt::native_path::FromNative(mpt::RawPathString(exe.parent_path().string().c_str())).WithTrailingSlash();
+	}
+	static mpt::native_path get_system_directory() { return mpt::native_path::FromNative(mpt::RawPathString("/usr/lib/")); }
 	static mpt::native_path get_temp_directory()
 	{
 		std::error_code ec;
@@ -127,6 +142,17 @@ namespace Trace
 {
 inline void Enable(std::size_t) { }
 inline void Disable() { }
+enum ThreadKind
+{
+	ThreadKindGUI,
+	ThreadKindAudio,
+	ThreadKindNotify,
+	ThreadKindWatchdir,
+};
+inline void SetThreadId(ThreadKind, uint32) { }
+inline uint32 GetThreadId(ThreadKind) { return 0; }
+inline void Seal() { }
+inline bool Dump(const mpt::PathString &) { return false; }
 } // namespace Trace
 } // namespace log
 
@@ -189,7 +215,89 @@ public:
 			mpt::native_fs{}.delete_tree(dirname);
 	}
 };
+
+// Upstream's Windows-only fixed-buffer string helpers (src/mpt/string/
+// buffer.hpp and common/mptStringBuffer.h), for TCHAR (wide) buffers.
+template <typename Tchar, std::size_t size>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>> ReadWinBuf(const std::array<Tchar, size> &buf)
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>>(buf.data(), size);
+}
+template <typename Tchar, std::size_t size>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>> ReadWinBuf(const Tchar (&buf)[size])
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>>(buf, size);
+}
+template <typename Tchar>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>> ReadWinBuf(const Tchar *buf, std::size_t size)
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, std::add_const_t<Tchar>>(buf, size);
+}
+template <typename Tchar, std::size_t size>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar> WriteWinBuf(std::array<Tchar, size> &buf)
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar>(buf.data(), size);
+}
+template <typename Tchar, std::size_t size>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar> WriteWinBuf(Tchar (&buf)[size])
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar>(buf, size);
+}
+template <typename Tchar>
+inline StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar> WriteWinBuf(Tchar *buf, std::size_t size)
+{
+	return StringBufRefImpl<std::basic_string<std::remove_const_t<Tchar>>, Tchar>(buf, size);
+}
+namespace String
+{
+using mpt::ReadWinBuf;
+using mpt::WriteWinBuf;
+using mpt::ReadCStringBuf;
+using mpt::WriteCStringBuf;
+} // namespace String
 } // namespace mpt
+
+namespace mpt
+{
+namespace OS
+{
+namespace Windows
+{
+// Upstream's misc/mptOS.h declares these only on Windows. The tracker shows
+// the architecture in the About dialog and compares it between instances
+// (IPCWindow). Same enum values as upstream; implemented in mpt_extras.cpp.
+enum class Architecture
+{
+	unknown = -1,
+	x86 = 0x0401,
+	amd64 = 0x0801,
+	arm = 0x0402,
+	arm64 = 0x0802,
+	mips = 0x0403,
+	ppc = 0x0404,
+	shx = 0x0405,
+	alpha = 0x0406,
+	alpha64 = 0x0806,
+	ia64 = 0x0807,
+};
+int Bitness(Architecture arch) noexcept;
+mpt::ustring Name(Architecture arch);
+// The host and the process architecture are the same on Linux.
+Architecture GetHostArchitecture() noexcept;
+Architecture GetProcessArchitecture() noexcept;
+std::vector<Architecture> GetSupportedProcessArchitectures(Architecture host);
+uint64 GetSystemMemorySize();
+} // namespace Windows
+} // namespace OS
+} // namespace mpt
+
+// Upstream's common/misc_util.h declares this only on Windows. Reads a
+// registry-style string (REG_SZ) that may or may not be NUL-terminated.
+template <typename Tstring, typename Tbuf, typename Tsize>
+Tstring ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes(const Tbuf *buf, Tsize sizeBytes)
+{
+	return Tstring(reinterpret_cast<const typename Tstring::value_type *>(buf), reinterpret_cast<const typename Tstring::value_type *>(buf) + (sizeBytes / sizeof(typename Tstring::value_type))).c_str();
+}
 
 #define MPT_TFORMAT_MESSAGE(f) mpt::format_message_typed<mpt::default_formatter, mpt::parse_format_string_argument_count(TEXT(f)), mpt::tstring>(TEXT(f))
 #define MPT_TFORMAT(f) MPT_TFORMAT_MESSAGE(f)

@@ -57,7 +57,7 @@ engine test calls, because the real `Moddoc.cpp` (now compiling, see below)
 cannot be linked until the MFC layer has an implementation.
 `ExceptionHandler.cpp` (needs Windows dbghelp) gets a Linux replacement later.
 
-### Step 2b: the rest of mptrack/ against the MFC layer
+### Step 2b and 2c: the rest of mptrack/ against the MFC layer (done)
 
 The goal is that every upstream UI file compiles unchanged, so step 3 only
 has to implement MFC and Win32 on top of Qt, not rewrite OpenMPT's UI.
@@ -67,97 +67,49 @@ has to implement MFC and Win32 on top of Qt, not rewrite OpenMPT's UI.
   notifications, `ON_NOTIFY`, `ON_MESSAGE` and the `ON_WM_*` handlers build
   the same tables as MFC, and `CCmdTarget::OnCmdMsg` routes commands through
   them (tested by `msgmap_test`).
-- `mpt_tracker_ui` compiles the UI files that build cleanly. It is not linked
-  into anything yet.
-- The audio export encoders (`src/openmpt/streamencoder/`) are now part of
-  `mpt_tracker_logic`.
+- MFC run-time classes are real too (`RUNTIME_CLASS`, `DECLARE_DYNCREATE`,
+  `IMPLEMENT_DYNAMIC`, `CreateObject`, `IsKindOf`), since document templates
+  create frames and views through them and the tracker compares view class
+  names.
+- The Win32 and MFC UI surface is declared in
+  `compat/include/linopenmpt/`: `win32_user.h` (windows, messages, menus,
+  keyboard, mouse, cursors, hooks), `win32_gdi.h` (GDI), `win32_commctrl.h`
+  (common controls), `win32_shell.h` (COM, shell, time, file search) and
+  `mfc_ui.h` (the MFC classes). Smaller headers stand in for `<afxole.h>`
+  (drag and drop), `<afxdatarecovery.h>`, `<gdiplus.h>` (the GDI+ subset the
+  tracker loads PNG/SVG images with), `<atlbase.h>`, `<uxtheme.h>`,
+  `<HtmlHelp.h>`, `<mmsystem.h>` (MIDI input) and others.
+- Header-only parts are implemented (geometry classes, collections, dynamic
+  layout resources, CTime). Everything that needs a window system is
+  declared only, so step 3 gets a complete list of what to implement from
+  the linker.
+- `mpt_tracker_ui` compiles 92 upstream UI files: all of them except the
+  Windows-only files below. It is not linked into anything yet.
+- One upstream patch,
+  [`0003-tracker-ui-portability.patch`](../patches/0003-tracker-ui-portability.patch),
+  touches 21 files. Almost all of it replaces `AsNative()`/`FromNative()`
+  with the TCHAR accessors (`ToCString()`, `FromCString()`, `ToWide()`)
+  where upstream assumes native paths are wide. Those are the same thing on
+  Windows. See [patches/README.md](../patches/README.md).
 
-Compiling: 38 of 112 files (not counting `MPTrackLink.cpp` and
-`WineSoundDeviceStub.cpp`, which only matter on Windows/Wine). Among them are
-`Moddoc.cpp`, `Modedit.cpp`, `PatternClipboard.cpp`, `ModConvert.cpp`,
-`CleanupSong.cpp`, `AppendModule.cpp`, `SampleTrimmer.cpp`, `Reporting.cpp`
-and several dialogs.
+Left out because they only make sense on Windows, and what replaces each:
 
-Not compiling yet, with the number of compile errors. Most errors are missing
-GDI (`CDC` drawing), menu, virtual key, common control (tree, list, toolbar,
-tooltip) and window-management declarations, shared by many files.
+| File | What it does | Replacement |
+|------|--------------|-------------|
+| `ExceptionHandler.cpp` | Crash dumps with dbghelp | Signal handler that saves open documents and writes a backtrace (step 3) |
+| `FileDialog.cpp` | Win32 common file dialogs | `FileDialog`/`BrowseForFolder` (same header) on `QFileDialog`, with sample preview (step 3) |
+| `HTTP.cpp` | WinInet | HTTP client for the update check (step 4) |
+| `UpdateCheck.cpp` | Update check, verified with Windows CNG | Same checks with a portable crypto library, or distribution packages (step 4) |
+| `MPTrackWine.cpp`, `MPTrackUtilWine.cpp` | Integration for running under Wine | Not needed natively; `GetWine()` returns nothing |
+| `MPTrackLink.cpp`, `WineSoundDeviceStub.cpp` | MSVC linker directives, Wine sound bridge | Not needed |
 
-| File | Errors |
-|------|-------:|
-| `AboutDialog.cpp` | 1 |
-| `CImageListEx.cpp` | 1 |
-| `Childfrm.cpp` | 1 |
-| `ExceptionHandler.cpp` | 1 |
-| `FolderScanner.cpp` | 1 |
-| `Globals.cpp` | 1 |
-| `HTTP.cpp` | 1 |
-| `Image.cpp` | 1 |
-| `LinkResolver.cpp` | 1 |
-| `MPTrackWine.cpp` | 1 |
-| `MainFrm.cpp` | 1 |
-| `Mpt_midi.cpp` | 1 |
-| `Mptrack.cpp` | 1 |
-| `OPLExport.cpp` | 1 |
-| `QuickStartDialog.cpp` | 1 |
-| `View_gen.cpp` | 1 |
-| `View_tre.cpp` | 1 |
-| `mod2midi.cpp` | 1 |
-| `PathConfigDlg.cpp` | 2 |
-| `PlugNotFoundDlg.cpp` | 2 |
-| `plugins/LFOPluginEditor.cpp` | 2 |
-| `PatternGotoDialog.cpp` | 3 |
-| `ColourEdit.cpp` | 5 |
-| `Ctrl_gen.cpp` | 5 |
-| `ModDocTemplate.cpp` | 5 |
-| `OPLInstrDlg.cpp` | 5 |
-| `GeneralConfigDlg.cpp` | 7 |
-| `MIDIMappingDialog.cpp` | 9 |
-| `WelcomeDialog.cpp` | 9 |
-| `CDecimalSupport.cpp` | 12 |
-| `ExternalSamples.cpp` | 14 |
-| `HighDPISupport.cpp` | 14 |
-| `ColorPickerButton.cpp` | 16 |
-| `Ctrl_com.cpp` | 16 |
-| `Mod2wave.cpp` | 16 |
-| `SampleEditorDialogs.cpp` | 16 |
-| `tuningRatioMapWnd.cpp` | 16 |
-| `AdvancedConfigDlg.cpp` | 17 |
-| `AutoSaver.cpp` | 17 |
-| `MPTrackUtil.cpp` | 17 |
-| `PatternFindReplaceDlg.cpp` | 17 |
-| `UpdateToolTip.cpp` | 17 |
-| `DefaultVstEditor.cpp` | 18 |
-| `ProgressDialog.cpp` | 18 |
-| `IPCWindow.cpp` | 23 |
-| `PatternEditorDialogs.cpp` | 23 |
-| `ResizableDialog.cpp` | 27 |
-| `DialogBase.cpp` | 29 |
-| `FileDialog.cpp` | 36 |
-| `TempoSwingDialog.cpp` | 39 |
-| `Ctrl_pat.cpp` | 40 |
-| `Mpdlgs.cpp` | 40 |
-| `Ctrl_smp.cpp` | 41 |
-| `MPTrackUtilWine.cpp` | 44 |
-| `PatternFont.cpp` | 48 |
-| `UpdateCheck.cpp` | 49 |
-| `ColorConfigDlg.cpp` | 53 |
-| `InputHandler.cpp` | 53 |
-| `SelectPluginDialog.cpp` | 59 |
-| `EffectVis.cpp` | 67 |
-| `view_com.cpp` | 68 |
-| `TuningDialog.cpp` | 70 |
-| `dlg_misc.cpp` | 71 |
-| `AbstractVstEditor.cpp` | 76 |
-| `Draw_pat.cpp` | 86 |
-| `KeyConfigDlg.cpp` | 92 |
-| `ChannelManagerDlg.cpp` | 96 |
-| `Ctrl_ins.cpp` | 97 |
-| `Ctrl_seq.cpp` | 106 |
-| `View_ins.cpp` | 106 |
-| `View_pat.cpp` | 138 |
-| `Mainbar.cpp` | 188 |
-| `View_smp.cpp` | 230 |
-| `CommandSet.cpp` | 281 |
+Known gaps to handle in later steps:
+
+- The tree view's file browser lists drive letters. Linux has none, so it
+  needs mount points and the home folder instead (step 4).
+- Windows shell links (`.lnk`) are not resolved; symbolic links work as
+  normal paths.
+- Registry lookups (the DirectMusic GM bank) find nothing.
 
 ## Step 3: Qt6 shell
 

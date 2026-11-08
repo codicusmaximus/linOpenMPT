@@ -143,6 +143,20 @@ HANDLE CreateFile(const char *path, DWORD access, DWORD share, void *security, D
 	return reinterpret_cast<HANDLE>(static_cast<intptr_t>(fd) + 1);
 }
 
+HANDLE CreateFile(LPCWSTR path, DWORD access, DWORD share, void *security, DWORD disposition, DWORD flags, HANDLE templateFile)
+{
+	std::mbstate_t state{};
+	const wchar_t *src = path;
+	const std::size_t len = std::wcsrtombs(nullptr, &src, 0, &state);
+	if(len == static_cast<std::size_t>(-1))
+		return INVALID_HANDLE_VALUE;
+	std::string narrow(len, '\0');
+	src = path;
+	state = {};
+	std::wcsrtombs(narrow.data(), &src, len, &state);
+	return CreateFile(narrow.c_str(), access, share, security, disposition, flags, templateFile);
+}
+
 BOOL CloseHandle(HANDLE handle)
 {
 	if(handle == nullptr || handle == INVALID_HANDLE_VALUE)

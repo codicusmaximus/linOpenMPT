@@ -146,9 +146,9 @@ protected: \
 	{ WM_NOTIFY + WM_REFLECT_BASE, (UINT)(WORD)(int)(code), 0, 0, AfxSig_notify, ::linopenmpt::msgmap::notify(memberFxn) },
 
 // ---- user and registered messages ---------------------------------------
-#define ON_MESSAGE(message, memberFxn) \
-	{ (UINT)(message), 0, 0, 0, AfxSig_message, ::linopenmpt::msgmap::message(memberFxn) },
-#define ON_THREAD_MESSAGE(message, memberFxn) ON_MESSAGE(message, memberFxn)
+#define ON_MESSAGE(msg, memberFxn) \
+	{ (UINT)(msg), 0, 0, 0, AfxSig_message, ::linopenmpt::msgmap::message(memberFxn) },
+#define ON_THREAD_MESSAGE(msg, memberFxn) ON_MESSAGE(msg, memberFxn)
 
 // ---- standard window messages --------------------------------------------
 // The handler name is fixed per message, exactly as in MFC.

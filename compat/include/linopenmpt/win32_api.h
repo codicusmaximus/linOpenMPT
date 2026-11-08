@@ -155,9 +155,42 @@ struct MIDIINCAPS
 };
 UINT midiInGetNumDevs();
 MMRESULT midiInGetDevCaps(UINT_PTR id, MIDIINCAPS *caps, UINT size);
+// MIDI input. The platform layer implements these on the ALSA sequencer.
+#define CALLBACK_NULL 0x00000000L
+#define CALLBACK_WINDOW 0x00010000L
+#define CALLBACK_THREAD 0x00020000L
+#define CALLBACK_FUNCTION 0x00030000L
+#define MIM_OPEN 0x3C1
+#define MIM_CLOSE 0x3C2
+#define MIM_DATA 0x3C3
+#define MIM_LONGDATA 0x3C4
+#define MIM_ERROR 0x3C5
+#define MIM_LONGERROR 0x3C6
+#define MIM_MOREDATA 0x3CC
+#define MHDR_DONE 0x00000001
+#define MHDR_PREPARED 0x00000002
+#define MHDR_INQUEUE 0x00000004
+using LPMIDIHDR = MIDIHDR *;
+using LPHMIDIIN = HMIDIIN *;
+MMRESULT midiInOpen(LPHMIDIIN handle, UINT deviceID, DWORD_PTR callback, DWORD_PTR instance, DWORD flags);
+MMRESULT midiInClose(HMIDIIN handle);
+MMRESULT midiInStart(HMIDIIN handle);
+MMRESULT midiInStop(HMIDIIN handle);
+MMRESULT midiInReset(HMIDIIN handle);
+MMRESULT midiInPrepareHeader(HMIDIIN handle, LPMIDIHDR header, UINT size);
+MMRESULT midiInUnprepareHeader(HMIDIIN handle, LPMIDIHDR header, UINT size);
+MMRESULT midiInAddBuffer(HMIDIIN handle, LPMIDIHDR header, UINT size);
 
 // ---- TCHAR string routines -------------------------------------------------
 inline std::size_t _tcslen(const wchar_t *s) { return std::wcslen(s); }
+inline wchar_t *_tcsdup(const wchar_t *s) { return ::wcsdup(s); }
+inline wchar_t *_tcscat(wchar_t *d, const wchar_t *s) { return std::wcscat(d, s); }
+inline int _tcsncmp(const wchar_t *a, const wchar_t *b, std::size_t n) { return std::wcsncmp(a, b, n); }
+template <typename... Args>
+inline int _sntprintf(wchar_t *buffer, std::size_t count, const wchar_t *format, Args... args)
+{
+	return std::swprintf(buffer, count, format, args...);
+}
 inline int _tcscmp(const wchar_t *a, const wchar_t *b) { return std::wcscmp(a, b); }
 inline int _tcsicmp(const wchar_t *a, const wchar_t *b) { return ::wcscasecmp(a, b); }
 inline int _tcsncicmp(const wchar_t *a, const wchar_t *b, std::size_t n) { return ::wcsncasecmp(a, b, n); }
@@ -201,6 +234,99 @@ BOOL IsWindow(HWND hwnd);
 // Native paths are narrow (UTF-8/locale) on Linux.
 BOOL CreateDirectory(const char *path, void *securityAttributes);
 BOOL CopyFile(const char *from, const char *to, BOOL failIfExists);
+BOOL RemoveDirectory(const char *path);
+BOOL SetCurrentDirectory(const char *path);
+// Buffer-returning functions write TCHAR (wide) text, as with UNICODE.
+DWORD GetCurrentDirectory(DWORD size, LPWSTR buffer);
+DWORD ExpandEnvironmentStrings(LPCWSTR src, LPWSTR dst, DWORD size);
+DWORD GetLastError();
+void SetLastError(DWORD error);
+#define ERROR_SUCCESS 0L
+#define ERROR_FILE_NOT_FOUND 2L
+#define ERROR_PATH_NOT_FOUND 3L
+#define ERROR_ACCESS_DENIED 5L
+#define ERROR_INVALID_HANDLE 6L
+#define ERROR_NOT_READY 21L
+#define ERROR_ALREADY_EXISTS 183L
+#define ERROR_INSUFFICIENT_BUFFER 122L
+#define ERROR_MORE_DATA 234L
+#define ERROR_CANCELLED 1223L
+
+// ---- events and waiting ----------------------------------------------------
+#define INFINITE 0xFFFFFFFF
+#define WAIT_OBJECT_0 0x00000000L
+#define WAIT_ABANDONED 0x00000080L
+#define WAIT_TIMEOUT 0x00000102L
+#define WAIT_FAILED ((DWORD)0xFFFFFFFF)
+HANDLE CreateEvent(void *securityAttributes, BOOL manualReset, BOOL initialState, LPCWSTR name);
+BOOL SetEvent(HANDLE event);
+BOOL ResetEvent(HANDLE event);
+DWORD WaitForSingleObject(HANDLE handle, DWORD milliseconds);
+DWORD WaitForMultipleObjects(DWORD count, const HANDLE *handles, BOOL waitAll, DWORD milliseconds);
+
+// Directory change notifications (inotify in the platform layer).
+#define FILE_NOTIFY_CHANGE_FILE_NAME 0x00000001
+#define FILE_NOTIFY_CHANGE_DIR_NAME 0x00000002
+#define FILE_NOTIFY_CHANGE_ATTRIBUTES 0x00000004
+#define FILE_NOTIFY_CHANGE_SIZE 0x00000008
+#define FILE_NOTIFY_CHANGE_LAST_WRITE 0x00000010
+HANDLE FindFirstChangeNotification(const char *path, BOOL watchSubtree, DWORD filter);
+BOOL FindNextChangeNotification(HANDLE handle);
+BOOL FindCloseChangeNotification(HANDLE handle);
+
+// Drives. Linux has no drive letters: every letter is DRIVE_NO_ROOT_DIR.
+#define DRIVE_UNKNOWN 0
+#define DRIVE_NO_ROOT_DIR 1
+#define DRIVE_REMOVABLE 2
+#define DRIVE_FIXED 3
+#define DRIVE_REMOTE 4
+#define DRIVE_CDROM 5
+#define DRIVE_RAMDISK 6
+UINT GetDriveType(LPCWSTR rootPath);
+
+// ---- processes -------------------------------------------------------------
+[[noreturn]] void ExitProcess(UINT exitCode);
+BOOL IsDebuggerPresent();
+HANDLE GetCurrentProcess();
+BOOL SetPriorityClass(HANDLE process, DWORD priorityClass);
+DWORD GetPriorityClass(HANDLE process);
+
+// Structured exception handling. GCC has no SEH: __try is libstdc++'s own
+// macro for `try`, and __except catches C++ exceptions only. Crashes are
+// handled by the platform layer's signal handler instead.
+#ifndef __try
+#define __try try
+#endif
+#define __except(filter) catch(...)
+struct _EXCEPTION_POINTERS;
+_EXCEPTION_POINTERS *GetExceptionInformation();
+#define EXCEPTION_EXECUTE_HANDLER 1
+#define EXCEPTION_CONTINUE_SEARCH 0
+#define EXCEPTION_CONTINUE_EXECUTION (-1)
+
+// ---- registry --------------------------------------------------------------
+// Linux has no registry: the platform layer opens no keys, so callers take
+// their fallback paths.
+using PHKEY = HKEY *;
+using REGSAM = DWORD;
+using LSTATUS = LONG;
+#define HKEY_CLASSES_ROOT ((HKEY)(ULONG_PTR)((LONG)0x80000000))
+#define HKEY_CURRENT_USER ((HKEY)(ULONG_PTR)((LONG)0x80000001))
+#define HKEY_LOCAL_MACHINE ((HKEY)(ULONG_PTR)((LONG)0x80000002))
+#define KEY_QUERY_VALUE 0x0001
+#define KEY_SET_VALUE 0x0002
+#define KEY_READ 0x20019
+#define KEY_WRITE 0x20006
+#define KEY_WOW64_64KEY 0x0100
+#define KEY_WOW64_32KEY 0x0200
+#define REG_NONE 0
+#define REG_SZ 1
+#define REG_EXPAND_SZ 2
+#define REG_BINARY 3
+#define REG_DWORD 4
+LSTATUS RegOpenKeyEx(HKEY key, LPCWSTR subKey, DWORD options, REGSAM desired, PHKEY result);
+LSTATUS RegQueryValueEx(HKEY key, LPCWSTR valueName, LPDWORD reserved, LPDWORD type, LPBYTE data, LPDWORD size);
+LSTATUS RegCloseKey(HKEY key);
 BOOL IsTextUnicode(const void *buf, int size, LPINT result);
 
 // INI files (compat/src/win32_profile.cpp). Text is wide as on Windows with
@@ -227,6 +353,10 @@ BOOL WritePrivateProfileSection(LPCWSTR section, LPCWSTR data, const char *file)
 #define TRUNCATE_EXISTING 5
 #define FILE_ATTRIBUTE_READONLY 0x00000001
 #define FILE_ATTRIBUTE_HIDDEN 0x00000002
+#define FILE_ATTRIBUTE_SYSTEM 0x00000004
+#define FILE_ATTRIBUTE_ARCHIVE 0x00000020
+#define FILE_ATTRIBUTE_OFFLINE 0x00001000
+#define FILE_READ_ATTRIBUTES 0x0080
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010
 #define FILE_ATTRIBUTE_NORMAL 0x00000080
 #define FILE_ATTRIBUTE_TEMPORARY 0x00000100
@@ -234,6 +364,8 @@ BOOL WritePrivateProfileSection(LPCWSTR section, LPCWSTR data, const char *file)
 #define INVALID_HANDLE_VALUE (reinterpret_cast<HANDLE>(static_cast<LONG_PTR>(-1)))
 #endif
 HANDLE CreateFile(const char *path, DWORD access, DWORD share, void *security, DWORD disposition, DWORD flags, HANDLE templateFile);
+// Wide (TCHAR) paths are encoded as the locale (UTF-8) expects.
+HANDLE CreateFile(LPCWSTR path, DWORD access, DWORD share, void *security, DWORD disposition, DWORD flags, HANDLE templateFile);
 BOOL CloseHandle(HANDLE handle);
 BOOL DeleteFile(const char *path);
 BOOL MoveFile(const char *from, const char *to);

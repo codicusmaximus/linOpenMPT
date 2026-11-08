@@ -6,6 +6,7 @@
 #include "mpt/uuid/uuid.hpp"
 
 #include <time.h>
+#include <unistd.h>
 
 namespace mpt
 {
@@ -53,6 +54,76 @@ mpt::PathString RelativePathToAbsolute(const mpt::PathString &path, const mpt::P
 	}
 	return path;
 }
+
+namespace OS
+{
+namespace Windows
+{
+
+int Bitness(Architecture arch) noexcept
+{
+	return (static_cast<int>(arch) & 0x0800) ? 64 : 32;
+}
+
+mpt::ustring Name(Architecture arch)
+{
+	// Same names as upstream (misc/mptOS.cpp).
+	switch(arch)
+	{
+	case Architecture::x86: return U_("x86");
+	case Architecture::amd64: return U_("amd64");
+	case Architecture::arm: return U_("arm");
+	case Architecture::arm64: return U_("arm64");
+	case Architecture::mips: return U_("mips");
+	case Architecture::ppc: return U_("ppc");
+	case Architecture::shx: return U_("shx");
+	case Architecture::alpha: return U_("alpha");
+	case Architecture::alpha64: return U_("alpha64");
+	case Architecture::ia64: return U_("ia64");
+	default: return U_("unknown");
+	}
+}
+
+Architecture GetProcessArchitecture() noexcept
+{
+#if defined(__x86_64__)
+	return Architecture::amd64;
+#elif defined(__i386__)
+	return Architecture::x86;
+#elif defined(__aarch64__)
+	return Architecture::arm64;
+#elif defined(__arm__)
+	return Architecture::arm;
+#elif defined(__mips__)
+	return Architecture::mips;
+#elif defined(__powerpc__)
+	return Architecture::ppc;
+#else
+	return Architecture::unknown;
+#endif
+}
+
+Architecture GetHostArchitecture() noexcept
+{
+	return GetProcessArchitecture();
+}
+
+std::vector<Architecture> GetSupportedProcessArchitectures(Architecture host)
+{
+	return {host};
+}
+
+uint64 GetSystemMemorySize()
+{
+	const long pages = ::sysconf(_SC_PHYS_PAGES);
+	const long pageSize = ::sysconf(_SC_PAGE_SIZE);
+	if(pages <= 0 || pageSize <= 0)
+		return 0;
+	return static_cast<uint64>(pages) * static_cast<uint64>(pageSize);
+}
+
+} // namespace Windows
+} // namespace OS
 
 } // namespace mpt
 

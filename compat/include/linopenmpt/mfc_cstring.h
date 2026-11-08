@@ -149,6 +149,8 @@ public:
 	int GetAllocLength() const noexcept { return static_cast<int>(m_str.capacity()); }
 	bool IsEmpty() const noexcept { return m_str.empty(); }
 	void Empty() noexcept { m_str.clear(); }
+	void SetString(const T *str) { m_str = str ? std::basic_string<T>(str) : std::basic_string<T>(); }
+	void SetString(const T *str, int length) { m_str.assign(str, static_cast<std::size_t>(length)); }
 	PCXSTR GetString() const noexcept { return m_str.c_str(); }
 	operator PCXSTR() const noexcept { return m_str.c_str(); }
 	T GetAt(int i) const { return m_str.at(static_cast<std::size_t>(i)); }
