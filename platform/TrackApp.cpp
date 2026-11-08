@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <iostream>
 #include <system_error>
+#include "MptrackResources.h"
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -91,6 +92,8 @@ mpt::ustring CUpdateCheck::GetDefaultAPIURL()
 
 CTrackApp::CTrackApp()
 {
+	// mptrack.rc, linked into the binary as on Windows.
+	LinOpenMPTRegisterMptrackResources();
 	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART | AFX_RESTART_MANAGER_REOPEN_PREVIOUS_FILES;
 }
 

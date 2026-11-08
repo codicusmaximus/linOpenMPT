@@ -1402,9 +1402,13 @@ public:
 #define LM_LENGTHY 0x0020
 #define LM_COMMIT 0x0040
 // Splitter cursors.
-#define AFX_IDC_HSPLITBAR 30977
-#define AFX_IDC_VSPLITBAR 30978
-#define AFX_IDC_SMALLARROWS 30976
+// MFC's standard cursors (afxres.h values).
+#define AFX_IDC_CONTEXTHELP 30977
+#define AFX_IDC_MAGNIFY 30978
+#define AFX_IDC_SMALLARROWS 30979
+#define AFX_IDC_HSPLITBAR 30980
+#define AFX_IDC_VSPLITBAR 30981
+#define AFX_IDC_NODROPCRSR 30982
 class CControlBar : public CWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CControlBar)

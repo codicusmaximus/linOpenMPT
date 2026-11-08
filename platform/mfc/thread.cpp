@@ -4,15 +4,14 @@
 // PreTranslateMessage and OnIdle are plugged into it.
 #include "MfcInternal.h"
 
+#include "QtWin.h"
+
 namespace
 {
 
 CWinApp *g_app = nullptr;
 HINSTANCE g_resourceHandle = nullptr;
 
-// The executable has no module handle on Linux; resources are looked up by
-// this sentinel, as Win32 programs look them up by their module.
-HINSTANCE const g_instanceHandle = reinterpret_cast<HINSTANCE>(static_cast<ULONG_PTR>(0x400000));
 
 int g_waitCursorCount = 0;
 HCURSOR g_cursorBeforeWait = nullptr;
@@ -56,7 +55,7 @@ CWinApp::CWinApp(LPCTSTR appName)
 {
 	g_app = this;
 	m_pszAppName = appName;
-	m_hInstance = g_instanceHandle;
+	m_hInstance = ::GetModuleHandle(nullptr);
 }
 
 CWinApp::~CWinApp()
@@ -84,12 +83,13 @@ CWnd *AfxGetMainWnd()
 
 HINSTANCE AfxGetInstanceHandle()
 {
-	return g_instanceHandle;
+	// The executable, whose resources are upstream's mptrack.rc.
+	return ::GetModuleHandle(nullptr);
 }
 
 HINSTANCE AfxGetResourceHandle()
 {
-	return g_resourceHandle != nullptr ? g_resourceHandle : g_instanceHandle;
+	return g_resourceHandle != nullptr ? g_resourceHandle : AfxGetInstanceHandle();
 }
 
 void AfxSetResourceHandle(HINSTANCE instance)
@@ -195,7 +195,18 @@ void CCmdTarget::RestoreWaitCursor()
 
 HCURSOR CWinApp::LoadCursor(UINT id) const
 {
-	return ::LoadCursor(AfxGetResourceHandle(), MAKEINTRESOURCE(id));
+	if(HCURSOR cursor = ::LoadCursor(AfxGetResourceHandle(), MAKEINTRESOURCE(id)))
+		return cursor;
+	// MFC's own cursors (afxres.rc), which ship with MFC: the system's.
+	switch(id)
+	{
+	case AFX_IDC_HSPLITBAR: return linopenmpt::qtwin::SystemCursor(Qt::SplitHCursor);
+	case AFX_IDC_VSPLITBAR: return linopenmpt::qtwin::SystemCursor(Qt::SplitVCursor);
+	case AFX_IDC_SMALLARROWS: return linopenmpt::qtwin::SystemCursor(Qt::SizeAllCursor);
+	case AFX_IDC_CONTEXTHELP: return linopenmpt::qtwin::SystemCursor(Qt::WhatsThisCursor);
+	case AFX_IDC_NODROPCRSR: return linopenmpt::qtwin::SystemCursor(Qt::ForbiddenCursor);
+	default: return nullptr;
+	}
 }
 
 HCURSOR CWinApp::LoadCursor(LPCTSTR name) const
@@ -221,4 +232,14 @@ HICON CWinApp::LoadIcon(LPCTSTR name) const
 HICON CWinApp::LoadStandardIcon(LPCTSTR name) const
 {
 	return ::LoadIcon(nullptr, name);
+}
+
+// CString::LoadString
+bool LinOpenMPTLoadStringResource(UINT id, std::wstring &wide, std::string &utf8)
+{
+	LPCTSTR text = nullptr;
+	const int length = ::LoadString(AfxGetResourceHandle(), id, reinterpret_cast<LPTSTR>(&text), 0);
+	wide.assign(text != nullptr ? text : L"", static_cast<std::size_t>(length));
+	utf8 = QString::fromStdWString(wide).toStdString();
+	return length > 0;
 }

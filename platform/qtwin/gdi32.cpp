@@ -925,6 +925,11 @@ Bitmap *NewBitmap(int width, int height)
 
 } // namespace
 
+QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines)
+{
+	return DibImage(bits, bmi, lines).copy();
+}
+
 // ---- backing images -------------------------------------------------------------
 
 bool EnsureSurface(Win32Widget *w)

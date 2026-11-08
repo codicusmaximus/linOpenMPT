@@ -45,3 +45,13 @@ if(TARGET linopenmpt_mfc)
   add_test(NAME mfc_test COMMAND mfc_test)
   set_tests_properties(mfc_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# Upstream's resources (mptrack.rc) through the resource API, offscreen.
+if(TARGET linopenmpt_resources)
+  add_executable(resource_test resource_test.cpp)
+  target_link_libraries(resource_test PRIVATE linopenmpt_mfc linopenmpt_resources)
+  target_include_directories(resource_test PRIVATE ${MPT_UPSTREAM_DIR}/mptrack)
+  target_compile_definitions(resource_test PRIVATE "LINOPENMPT_UPSTREAM_DIR=\"${MPT_UPSTREAM_DIR}\"")
+  add_test(NAME resource_test COMMAND resource_test)
+  set_tests_properties(resource_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

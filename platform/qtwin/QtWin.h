@@ -182,6 +182,10 @@ struct IconData
 	bool shared = false;        // system icons and cursors are never destroyed
 };
 HCURSOR SystemCursor(Qt::CursorShape shape);
+// A device-independent bitmap as a top-down image (copied).
+QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines = -1);
+// Icons and cursors from a module's resources (resource.cpp).
+HICON LoadResourceIcon(HINSTANCE module, LPCTSTR name, bool cursor, int cx, int cy, bool shared);
 QCursor ToQCursor(HCURSOR cursor);
 
 } // namespace linopenmpt::qtwin

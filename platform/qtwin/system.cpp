@@ -356,10 +356,10 @@ BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows)
 
 HCURSOR LoadCursor(HINSTANCE instance, LPCTSTR name)
 {
+	if(instance != nullptr)
+		return LoadResourceIcon(instance, name, true, GetSystemMetrics(SM_CXCURSOR), GetSystemMetrics(SM_CYCURSOR), true);
 	if(!IS_INTRESOURCE(name))
 		return nullptr;
-	if(instance != nullptr)
-		return nullptr; // application cursors come with the resources
 	switch(static_cast<WORD>(reinterpret_cast<ULONG_PTR>(name)))
 	{
 	case 32512: return SystemCursor(Qt::ArrowCursor);
@@ -410,8 +410,10 @@ int ShowCursor(BOOL show)
 
 HICON LoadIcon(HINSTANCE instance, LPCTSTR name)
 {
-	if(!IS_INTRESOURCE(name) || instance != nullptr)
-		return nullptr; // application icons come with the resources
+	if(instance != nullptr)
+		return LoadResourceIcon(instance, name, false, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), true);
+	if(!IS_INTRESOURCE(name))
+		return nullptr;
 	QStyle::StandardPixmap pixmap;
 	switch(static_cast<WORD>(reinterpret_cast<ULONG_PTR>(name)))
 	{
