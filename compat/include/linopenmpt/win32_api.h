@@ -10,6 +10,9 @@
 
 #include "linopenmpt/win32_types.h"
 
+#include <cerrno>
+#include <cstdlib>
+
 // ---- structures ----------------------------------------------------------
 struct WINDOWPLACEMENT
 {
@@ -84,6 +87,16 @@ struct VARIANT { WORD vt; LONG lVal; };
 #define CF_TEXT 1
 #define CF_UNICODETEXT 13
 #define _CVTBUFSIZE (309 + 40)
+// MSVC's secure ecvt, on glibc's ecvt_r. Returns 0 on success.
+inline int _ecvt_s(char *buffer, size_t size, double value, int count, int *dec, int *sign)
+{
+	return ::ecvt_r(value, count, dec, sign, buffer, size) == 0 ? 0 : EINVAL;
+}
+template <size_t size>
+inline int _ecvt_s(char (&buffer)[size], double value, int count, int *dec, int *sign)
+{
+	return _ecvt_s(buffer, size, value, count, dec, sign);
+}
 
 // ---- system information ------------------------------------------------------
 using DWORDLONG = std::uint64_t;
@@ -166,6 +179,13 @@ BOOL CloseClipboard();
 BOOL EmptyClipboard();
 HANDLE GetClipboardData(UINT format);
 HANDLE SetClipboardData(UINT format, HANDLE mem);
+// Global memory blocks, as used for clipboard data (compat/src/win32.cpp).
+#define GMEM_FIXED 0x0000
+#define GMEM_MOVEABLE 0x0002
+#define GMEM_ZEROINIT 0x0040
+#define GMEM_DDESHARE 0x2000
+#define GHND (GMEM_MOVEABLE | GMEM_ZEROINIT)
+#define GPTR (GMEM_FIXED | GMEM_ZEROINIT)
 LPVOID GlobalLock(HGLOBAL mem);
 BOOL GlobalUnlock(HGLOBAL mem);
 HGLOBAL GlobalAlloc(UINT flags, SIZE_T bytes);
@@ -191,3 +211,51 @@ BOOL GetPrivateProfileStruct(LPCWSTR section, LPCWSTR key, LPVOID data, UINT siz
 BOOL WritePrivateProfileString(LPCWSTR section, LPCWSTR key, LPCWSTR value, const char *file);
 BOOL WritePrivateProfileStruct(LPCWSTR section, LPCWSTR key, LPVOID data, UINT size, const char *file);
 BOOL WritePrivateProfileSection(LPCWSTR section, LPCWSTR data, const char *file);
+
+// ---- files (compat/src/win32.cpp) ----------------------------------------
+// Only what upstream uses: create/open a file to set attributes, and the
+// rename/delete helpers. Paths are native (narrow).
+#define GENERIC_READ 0x80000000u
+#define GENERIC_WRITE 0x40000000u
+#define FILE_SHARE_READ 0x00000001
+#define FILE_SHARE_WRITE 0x00000002
+#define FILE_SHARE_DELETE 0x00000004
+#define CREATE_NEW 1
+#define CREATE_ALWAYS 2
+#define OPEN_EXISTING 3
+#define OPEN_ALWAYS 4
+#define TRUNCATE_EXISTING 5
+#define FILE_ATTRIBUTE_READONLY 0x00000001
+#define FILE_ATTRIBUTE_HIDDEN 0x00000002
+#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
+#define FILE_ATTRIBUTE_NORMAL 0x00000080
+#define FILE_ATTRIBUTE_TEMPORARY 0x00000100
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE (reinterpret_cast<HANDLE>(static_cast<LONG_PTR>(-1)))
+#endif
+HANDLE CreateFile(const char *path, DWORD access, DWORD share, void *security, DWORD disposition, DWORD flags, HANDLE templateFile);
+BOOL CloseHandle(HANDLE handle);
+BOOL DeleteFile(const char *path);
+BOOL MoveFile(const char *from, const char *to);
+void Sleep(DWORD milliseconds);
+
+// ---- atomics -------------------------------------------------------------
+inline long InterlockedExchange(volatile long *target, long value) { return __atomic_exchange_n(target, value, __ATOMIC_SEQ_CST); }
+inline LONG InterlockedExchange(volatile LONG *target, LONG value) { return __atomic_exchange_n(target, value, __ATOMIC_SEQ_CST); }
+inline long InterlockedIncrement(volatile long *target) { return __atomic_add_fetch(target, 1, __ATOMIC_SEQ_CST); }
+inline long InterlockedDecrement(volatile long *target) { return __atomic_sub_fetch(target, 1, __ATOMIC_SEQ_CST); }
+
+// ---- windows (UI layer) --------------------------------------------------
+// Declared here, implemented by the UI layer (headless for now in
+// platform/UiBoundary.cpp, Qt later).
+HWND GetActiveWindow();
+HWND GetFocus();
+HWND SetFocus(HWND hwnd);
+BOOL GetClientRect(HWND hwnd, LPRECT rect);
+BOOL GetWindowRect(HWND hwnd, LPRECT rect);
+BOOL SendNotifyMessage(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+int GetSystemMetrics(int index);
+
+// Windows taskbar progress (COM). Not available on Linux; upstream only
+// holds a pointer, which stays null.
+struct ITaskbarList3;

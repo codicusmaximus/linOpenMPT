@@ -24,3 +24,8 @@ if(TARGET mpt_soundlib)
   set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_config")
 endif()
+
+# MFC message maps in compat/ (command routing used by every menu and dialog).
+add_executable(msgmap_test msgmap_test.cpp)
+target_link_libraries(msgmap_test PRIVATE linopenmpt_compat)
+add_test(NAME msgmap_test COMMAND msgmap_test)

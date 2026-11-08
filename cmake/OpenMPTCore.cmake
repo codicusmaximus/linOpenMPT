@@ -47,8 +47,7 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
 
   # The non-UI half of upstream's tracker application (mptrack/), compiled
   # unchanged against compat/. Files are added here as they are ported; the
-  # list is the running record of plan step 2. UI files are not listed: the
-  # Qt application replaces them.
+  # list is the running record of plan step 2.
   set(MPT_TRACKER_LOGIC_SOURCES
     ${MPT_UPSTREAM_DIR}/mptrack/MIDIMapping.cpp
     ${MPT_UPSTREAM_DIR}/mptrack/Settings.cpp
@@ -56,6 +55,14 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
     ${MPT_UPSTREAM_DIR}/mptrack/TrackerSettings.cpp
     ${MPT_UPSTREAM_DIR}/mptrack/Undo.cpp
     ${MPT_UPSTREAM_DIR}/mptrack/VstPresets.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoder.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderAU.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderFLAC.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderMP3.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderOpus.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderRAW.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderVorbis.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderWAV.cpp
     ${MPT_UPSTREAM_DIR}/tracklib/SampleEdit.cpp
     ${MPT_UPSTREAM_DIR}/tracklib/TimeStretchPitchShift.cpp
     ${MPT_UPSTREAM_DIR}/include/r8brain/r8bbase.cpp)
@@ -64,6 +71,40 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   target_include_directories(mpt_tracker_logic PUBLIC ${MPT_UPSTREAM_DIR}/mptrack PRIVATE ${MPT_UPSTREAM_DIR}/include/SignalsmithStretch ${MPT_UPSTREAM_DIR}/include/r8brain)
   target_compile_options(mpt_tracker_logic PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_tracker_logic PUBLIC mpt_soundlib mpt_sounddevice)
+
+  # The rest of upstream's tracker (documents, frames, views, dialogs),
+  # compiled unchanged against compat/'s MFC. It is compiled but not linked
+  # into anything yet: its MFC and Win32 calls get implementations on top of
+  # Qt in plan step 3. The list grows as compat/ covers more of MFC; see
+  # docs/PORTING-STATUS.md for the files still missing.
+  set(MPT_TRACKER_UI_SOURCES
+    ${MPT_UPSTREAM_DIR}/mptrack/AppendModule.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Autotune.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/CleanupSong.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/CloseMainDialog.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/EffectInfo.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/MIDIMacroDialog.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/MPTHacks.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/ModConvert.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Moddoc.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Modedit.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/MoveFXSlotDialog.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/PSRatioCalc.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/PatternClipboard.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/PatternFindReplace.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/PluginComboBox.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Reporting.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/SampleConfigDlg.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/SampleGenerator.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/SampleTrimmer.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/ScaleEnvPointsDlg.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/VSTEditor.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Vstplug.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/plugins/MidiInOut.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/plugins/MidiInOutEditor.cpp)
+  add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})
+  target_compile_options(mpt_tracker_ui PRIVATE ${MPT_WARN_OPTS})
+  target_link_libraries(mpt_tracker_ui PUBLIC mpt_tracker_logic)
 endif()
 
 # ---- mpt_libopenmpt (player configuration, stepping stone) ----------------

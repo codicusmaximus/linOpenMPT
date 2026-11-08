@@ -2,10 +2,24 @@
 // Compiled as part of mpt_common (tracker configuration).
 #include "stdafx.h"
 
+#include "mptRandom.h"
+#include "mpt/uuid/uuid.hpp"
+
 #include <time.h>
 
 namespace mpt
 {
+
+mpt::PathString NewTemporaryPathname(const mpt::PathString &fileNameExtension)
+{
+	// Same naming as upstream: OpenMPT-<uuid>.<ext> in the temp directory.
+	const mpt::UUID uuid = mpt::UUID::GenerateLocalUseOnly(mpt::global_prng());
+	mpt::PathString name = mpt::PathString::FromNative(mpt::common_directories::get_temp_directory().AsNative())
+		+ MPT_PATHSTRING("OpenMPT-") + mpt::PathString::FromUnicode(uuid.ToUString());
+	if(!fileNameExtension.empty())
+		name += MPT_PATHSTRING(".") + fileNameExtension;
+	return name;
+}
 
 static bool IsBelow(const mpt::RawPathString &path, const mpt::RawPathString &base)
 {

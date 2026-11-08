@@ -23,8 +23,10 @@
 #ifndef VERIFY
 #if defined(NDEBUG)
 #define VERIFY(x) ((void)(x))
+#define ASSERT_VALID(p) ASSERT((p) != nullptr)
 #else
 #define VERIFY(x) assert(x)
+#define ASSERT_VALID(p) ASSERT((p) != nullptr)
 #endif
 #endif
 #ifndef TRACE

@@ -49,6 +49,13 @@ public:
 	winstring_result(mpt::winstring s) : mpt::winstring(std::move(s)) { }
 	operator mpt::RawPathString() const { return mpt::PathString::FromWide(*this).AsNative(); }
 };
+// Let mpt's string machinery (format, transcode, ToUString) treat it as the
+// wide string it is.
+template <>
+struct make_string_type<winstring_result>
+{
+	using type = mpt::winstring;
+};
 
 template <typename Tsrc>
 inline winstring_result ToWin(Tsrc &&str)
@@ -133,6 +140,55 @@ inline int PathCompareNoCase(const PathString &a, const PathString &b)
 // Paths below relativeTo become "./sub/path"; others are returned unchanged.
 mpt::PathString AbsolutePathToRelative(const mpt::PathString &path, const mpt::PathString &relativeTo);
 mpt::PathString RelativePathToAbsolute(const mpt::PathString &path, const mpt::PathString &relativeTo);
+
+// Upstream's temporary file helpers (common/mptFileTemporary.h) are
+// Windows-only. Same interface and behaviour on POSIX.
+mpt::PathString NewTemporaryPathname(const mpt::PathString &fileNameExtension);
+
+// Returns a new unique absolute path in the temp directory.
+class TemporaryPathname
+{
+	mpt::PathString m_Path;
+public:
+	TemporaryPathname(const mpt::PathString &fileNameExtension = MPT_PATHSTRING("tmp"))
+		: m_Path(NewTemporaryPathname(fileNameExtension)) { }
+	mpt::PathString GetPathname() const { return m_Path; }
+};
+
+// Deletes the file when going out of scope. The file is not created.
+class TempFileGuard
+{
+	const mpt::PathString filename;
+public:
+	TempFileGuard(const mpt::TemporaryPathname &pathname = mpt::TemporaryPathname{})
+		: filename(pathname.GetPathname()) { }
+	mpt::PathString GetFilename() const { return filename; }
+	~TempFileGuard()
+	{
+		if(!filename.empty())
+			std::remove(filename.AsNative().c_str());
+	}
+};
+
+// Creates the directory, and deletes it with its contents when going out of scope.
+class TempDirGuard
+{
+	mpt::PathString dirname;
+public:
+	TempDirGuard(const mpt::TemporaryPathname &pathname = mpt::TemporaryPathname{})
+		: dirname(pathname.GetPathname().WithTrailingSlash())
+	{
+		std::error_code ec;
+		if(!dirname.empty() && !std::filesystem::create_directory(std::filesystem::path(dirname.AsNative().c_str()), ec))
+			dirname = mpt::PathString();
+	}
+	mpt::PathString GetDirname() const { return dirname; }
+	~TempDirGuard()
+	{
+		if(!dirname.empty())
+			mpt::native_fs{}.delete_tree(dirname);
+	}
+};
 } // namespace mpt
 
 #define MPT_TFORMAT_MESSAGE(f) mpt::format_message_typed<mpt::default_formatter, mpt::parse_format_string_argument_count(TEXT(f)), mpt::tstring>(TEXT(f))
