@@ -80,6 +80,7 @@ using LPCTSTR = const TCHAR *;
 using PCSTR = LPCSTR;
 using PCWSTR = LPCWSTR;
 using LPBYTE = BYTE *;
+using PBYTE = BYTE *;
 using LPWORD = WORD *;
 using LPDWORD = DWORD *;
 using LPLONG = LONG *;
@@ -111,6 +112,7 @@ LINOPENMPT_DECLARE_HANDLE(HBITMAP);
 LINOPENMPT_DECLARE_HANDLE(HBRUSH);
 LINOPENMPT_DECLARE_HANDLE(HPEN);
 LINOPENMPT_DECLARE_HANDLE(HRGN);
+LINOPENMPT_DECLARE_HANDLE(HPALETTE);
 LINOPENMPT_DECLARE_HANDLE(HMENU);
 LINOPENMPT_DECLARE_HANDLE(HICON);
 LINOPENMPT_DECLARE_HANDLE(HKEY);
@@ -122,7 +124,6 @@ LINOPENMPT_DECLARE_HANDLE(HMIDIIN);
 LINOPENMPT_DECLARE_HANDLE(HMIDIOUT);
 LINOPENMPT_DECLARE_HANDLE(HACCEL);
 LINOPENMPT_DECLARE_HANDLE(HTREEITEM);
-#undef LINOPENMPT_DECLARE_HANDLE
 using HMODULE = HINSTANCE;
 using HCURSOR = HICON;
 using HGDIOBJ = void *;
@@ -218,19 +219,35 @@ using REFCLSID = const CLSID &;
 inline bool operator==(const GUID &a, const GUID &b) noexcept { return std::memcmp(&a, &b, sizeof(GUID)) == 0; }
 inline bool operator!=(const GUID &a, const GUID &b) noexcept { return !(a == b); }
 
+// 100-nanosecond intervals since 1601-01-01 (UTC).
+struct FILETIME { DWORD dwLowDateTime; DWORD dwHighDateTime; };
+using LPFILETIME = FILETIME *;
+
 // ---- word/byte helpers ---------------------------------------------------
+#define LODWORD(l) ((DWORD)(((DWORD_PTR)(l)) & 0xFFFFFFFF))
+#define HIDWORD(l) ((DWORD)((((DWORD_PTR)(l)) >> 32) & 0xFFFFFFFF))
 #define MAKEWORD(a, b) (static_cast<WORD>((static_cast<BYTE>(a)) | (static_cast<WORD>(static_cast<BYTE>(b)) << 8)))
 #define MAKELONG(a, b) (static_cast<LONG>((static_cast<WORD>(a)) | (static_cast<DWORD>(static_cast<WORD>(b)) << 16)))
-#define LOWORD(l) (static_cast<WORD>(static_cast<DWORD_PTR>(l) & 0xFFFF))
-#define HIWORD(l) (static_cast<WORD>((static_cast<DWORD_PTR>(l) >> 16) & 0xFFFF))
-#define LOBYTE(w) (static_cast<BYTE>(static_cast<DWORD_PTR>(w) & 0xFF))
-#define HIBYTE(w) (static_cast<BYTE>((static_cast<DWORD_PTR>(w) >> 8) & 0xFF))
+// C-style casts as in the Windows SDK, so handles such as HKL work too.
+#define LOWORD(l) ((WORD)(((DWORD_PTR)(l)) & 0xFFFF))
+#define HIWORD(l) ((WORD)((((DWORD_PTR)(l)) >> 16) & 0xFFFF))
+#define LOBYTE(w) ((BYTE)(((DWORD_PTR)(w)) & 0xFF))
+#define HIBYTE(w) ((BYTE)((((DWORD_PTR)(w)) >> 8) & 0xFF))
 #define MAKELPARAM(l, h) (static_cast<LPARAM>(static_cast<DWORD>(MAKELONG(l, h))))
 #define MAKEWPARAM(l, h) (static_cast<WPARAM>(static_cast<DWORD>(MAKELONG(l, h))))
 
 #define S_OK ((HRESULT)0L)
 #define S_FALSE ((HRESULT)1L)
 #define E_FAIL ((HRESULT)0x80004005L)
+#define E_NOTIMPL ((HRESULT)0x80004001L)
+#define E_NOINTERFACE ((HRESULT)0x80004002L)
+#define E_POINTER ((HRESULT)0x80004003L)
+#define E_ABORT ((HRESULT)0x80004004L)
+#define E_OUTOFMEMORY ((HRESULT)0x8007000EL)
+#define E_INVALIDARG ((HRESULT)0x80070057L)
+using SCODE = LONG;
+#define ResultFromScode(sc) ((HRESULT)(sc))
+#define GetScode(hr) ((SCODE)(hr))
 #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
 #define FAILED(hr) (((HRESULT)(hr)) < 0)
 
@@ -251,6 +268,19 @@ inline bool operator!=(const GUID &a, const GUID &b) noexcept { return !(a == b)
 #endif
 #ifndef APIENTRY
 #define APIENTRY
+#endif
+// Microsoft source annotations (SAL) carry no meaning for GCC.
+#ifndef _In_
+#define _In_
+#define _In_opt_
+#define _In_z_
+#define _Inout_
+#define _Inout_opt_
+#define _Out_
+#define _Out_opt_
+#define _Outptr_
+#define _Ret_maybenull_
+#define _Success_(x)
 #endif
 #ifndef STDMETHODCALLTYPE
 #define STDMETHODCALLTYPE

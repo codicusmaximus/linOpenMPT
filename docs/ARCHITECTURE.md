@@ -68,6 +68,17 @@ How the compat layer works:
   error, which is how the UI boundary is found and kept small.
 - Message maps are real MFC-style tables, so commands and window messages
   can be routed to upstream's handlers unchanged once Qt drives them.
+- Run-time class information is real as well, so document templates can
+  create upstream's frames and views with `CreateObject()`.
+- Win32 functions follow one rule for strings: functions that take a path
+  to open or change (`CreateFile`, `CreateDirectory`, `FindFirstFile`) take
+  native narrow paths, as upstream passes them `AsNative().c_str()`;
+  functions that fill or take TCHAR text take wide strings, as with
+  `UNICODE`. Where upstream mixes the two, `patches/0003` switches it to
+  the TCHAR accessors, which is a no-op on Windows.
+- Windows facilities with no Linux counterpart (registry, COM servers, shell
+  links, SEH) are declared with their Windows values and report "not
+  found", so upstream takes its existing fallback paths.
 - Native paths are UTF-8 (`char`) on Linux. `P_()` path literals have their
   backslashes turned into `/`.
 - `GetPrivateProfile*`/`WritePrivateProfile*` are reimplemented, so
@@ -86,9 +97,10 @@ rtkit (via D-Bus) gives the audio thread realtime priority without root.
 
 1. **Repo set up to follow upstream** (done): submodule, CMake build of the
    core and sound device layer, smoke tests, sync script, CI.
-2. **Non-UI half of the tracker compiling on Linux**: build `soundlib` in
-   tracker configuration, then the logic half of `mptrack/`, against
-   `compat/`. See [PORTING-STATUS.md](PORTING-STATUS.md) for the inventory.
+2. **Tracker compiling on Linux** (done): `soundlib` and the logic half of
+   `mptrack/` build and run in tracker configuration, and every UI file that
+   is not Windows-only compiles against `compat/`. See
+   [PORTING-STATUS.md](PORTING-STATUS.md) for the inventory.
 3. **Qt6 app shell with low-latency audio**: main window, document tabs,
    toolbar, playback through JACK. Done when any module opens and plays as in
    the Windows app.
