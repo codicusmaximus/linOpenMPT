@@ -30,6 +30,7 @@ file(GLOB MPT_SOUNDDEVICE_SOURCES CONFIGURE_DEPENDS
 set(MPT_UPSTREAM_INCLUDE_DIRS
   ${U}
   ${U}/common
+  ${U}/soundlib
   ${U}/src
   ${U}/include
   ${U}/include/nlohmann-json/include)

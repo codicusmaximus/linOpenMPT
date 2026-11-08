@@ -1,7 +1,8 @@
 # Core libraries built from upstream OpenMPT sources.
 #
 #   mpt_common     common/, misc/, src/openmpt/*  -- tracker configuration
-#                  (MODPLUG_TRACKER). Builds on Linux today, unmodified.
+#                  (MODPLUG_TRACKER, MPT_WITH_MFC, UNICODE), exactly as in
+#                  OpenMPT.exe, with MFC/Win32 supplied by compat/.
 #   mpt_soundlib   soundlib/, sounddsp/, plugins  -- tracker configuration.
 #                  Needs the Win32/MFC compatibility layer from plan step 2,
 #                  so it is OFF by default (LINOPENMPT_TRACKER_SOUNDLIB).
@@ -24,15 +25,17 @@ option(LINOPENMPT_TRACKER_SOUNDLIB "Build soundlib in tracker configuration (nee
 set(MPT_WARN_OPTS -fpermissive -w)   # upstream's Linux build uses -fpermissive too
 
 # ---- mpt_common (tracker configuration) -----------------------------------
-add_library(mpt_common STATIC ${MPT_COMMON_SOURCES})
+add_library(mpt_common STATIC ${MPT_COMMON_SOURCES} ${LINOPENMPT_COMPAT_MPT_SOURCES})
 add_library(linopenmpt::common ALIAS mpt_common)
 target_include_directories(mpt_common PUBLIC ${MPT_UPSTREAM_INCLUDE_DIRS})
 target_compile_definitions(mpt_common PUBLIC
   MODPLUG_TRACKER
+  MPT_BUILD_ENABLE_PCH
   MPT_WITH_NLOHMANNJSON
   $<$<CONFIG:Debug>:MPT_BUILD_DEBUG>)
 target_compile_options(mpt_common PRIVATE ${MPT_WARN_OPTS})
-target_link_libraries(mpt_common PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+target_compile_options(mpt_common PUBLIC ${LINOPENMPT_FORCE_INCLUDES})
+target_link_libraries(mpt_common PUBLIC linopenmpt_compat Threads::Threads ${CMAKE_DL_LIBS})
 
 # ---- mpt_soundlib (tracker configuration, step 2) -------------------------
 if(LINOPENMPT_TRACKER_SOUNDLIB)

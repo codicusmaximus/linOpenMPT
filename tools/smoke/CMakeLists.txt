@@ -13,3 +13,12 @@ foreach(f test.xm test.mptm)
   add_test(NAME render_${f} COMMAND render_module ${MPT_UPSTREAM_DIR}/test/${f} 3 --allow-silent)
 endforeach()
 add_test(NAME sounddev_list COMMAND sounddev_list)
+
+# Plan step 2: tracker-configuration engine (load, render, edit, save, reload).
+if(TARGET mpt_soundlib)
+  add_executable(tracker_engine tracker_engine.cpp)
+  target_link_libraries(tracker_engine PRIVATE mpt_soundlib linopenmpt_platform)
+  target_compile_options(tracker_engine PRIVATE -fpermissive -w)
+  add_test(NAME tracker_engine_mod COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_mod.it)
+  add_test(NAME tracker_engine_s3m COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.s3m ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_s3m.it)
+endif()
