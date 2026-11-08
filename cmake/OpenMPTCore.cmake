@@ -1,10 +1,10 @@
 # Core libraries built from upstream OpenMPT sources.
 #
 #   mpt_common     common/, misc/, src/openmpt/*  -- tracker configuration
-#                  (MODPLUG_TRACKER). Builds on Linux today, unmodified.
+#                  (MODPLUG_TRACKER, MPT_WITH_MFC, UNICODE), exactly as in
+#                  OpenMPT.exe, with MFC/Win32 supplied by compat/.
 #   mpt_soundlib   soundlib/, sounddsp/, plugins  -- tracker configuration.
-#                  Needs the Win32/MFC compatibility layer from plan step 2,
-#                  so it is OFF by default (LINOPENMPT_TRACKER_SOUNDLIB).
+#   mpt_tracker_logic  the non-UI files of mptrack/ and tracklib/.
 #   mpt_libopenmpt the same soundlib in upstream's *player* configuration
 #                  (LIBOPENMPT_BUILD). Builds on Linux today and is used to
 #                  prove the toolchain and file loading/rendering work. It is
@@ -19,20 +19,22 @@ pkg_check_modules(MPT_DEPS REQUIRED IMPORTED_TARGET
   zlib libmpg123 ogg vorbis vorbisfile)
 pkg_check_modules(MPT_FLAC IMPORTED_TARGET flac)
 
-option(LINOPENMPT_TRACKER_SOUNDLIB "Build soundlib in tracker configuration (needs plan step 2)" OFF)
+option(LINOPENMPT_TRACKER_SOUNDLIB "Build the engine and app logic in tracker configuration" ON)
 
 set(MPT_WARN_OPTS -fpermissive -w)   # upstream's Linux build uses -fpermissive too
 
 # ---- mpt_common (tracker configuration) -----------------------------------
-add_library(mpt_common STATIC ${MPT_COMMON_SOURCES})
+add_library(mpt_common STATIC ${MPT_COMMON_SOURCES} ${LINOPENMPT_COMPAT_MPT_SOURCES})
 add_library(linopenmpt::common ALIAS mpt_common)
 target_include_directories(mpt_common PUBLIC ${MPT_UPSTREAM_INCLUDE_DIRS})
 target_compile_definitions(mpt_common PUBLIC
   MODPLUG_TRACKER
+  MPT_BUILD_ENABLE_PCH
   MPT_WITH_NLOHMANNJSON
   $<$<CONFIG:Debug>:MPT_BUILD_DEBUG>)
 target_compile_options(mpt_common PRIVATE ${MPT_WARN_OPTS})
-target_link_libraries(mpt_common PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+target_compile_options(mpt_common PUBLIC ${LINOPENMPT_FORCE_INCLUDES})
+target_link_libraries(mpt_common PUBLIC linopenmpt_compat Threads::Threads ${CMAKE_DL_LIBS})
 
 # ---- mpt_soundlib (tracker configuration, step 2) -------------------------
 if(LINOPENMPT_TRACKER_SOUNDLIB)
@@ -42,6 +44,26 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
     MPT_WITH_ZLIB MPT_WITH_MPG123 MPT_WITH_OGG MPT_WITH_VORBIS MPT_WITH_VORBISFILE)
   target_compile_options(mpt_soundlib PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_soundlib PUBLIC mpt_common PkgConfig::MPT_DEPS)
+
+  # The non-UI half of upstream's tracker application (mptrack/), compiled
+  # unchanged against compat/. Files are added here as they are ported; the
+  # list is the running record of plan step 2. UI files are not listed: the
+  # Qt application replaces them.
+  set(MPT_TRACKER_LOGIC_SOURCES
+    ${MPT_UPSTREAM_DIR}/mptrack/MIDIMapping.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Settings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/StreamEncoderSettings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/TrackerSettings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Undo.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/VstPresets.cpp
+    ${MPT_UPSTREAM_DIR}/tracklib/SampleEdit.cpp
+    ${MPT_UPSTREAM_DIR}/tracklib/TimeStretchPitchShift.cpp
+    ${MPT_UPSTREAM_DIR}/include/r8brain/r8bbase.cpp)
+  add_library(mpt_tracker_logic STATIC ${MPT_TRACKER_LOGIC_SOURCES})
+  add_library(linopenmpt::tracker_logic ALIAS mpt_tracker_logic)
+  target_include_directories(mpt_tracker_logic PUBLIC ${MPT_UPSTREAM_DIR}/mptrack PRIVATE ${MPT_UPSTREAM_DIR}/include/SignalsmithStretch ${MPT_UPSTREAM_DIR}/include/r8brain)
+  target_compile_options(mpt_tracker_logic PRIVATE ${MPT_WARN_OPTS})
+  target_link_libraries(mpt_tracker_logic PUBLIC mpt_soundlib mpt_sounddevice)
 endif()
 
 # ---- mpt_libopenmpt (player configuration, stepping stone) ----------------

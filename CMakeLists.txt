@@ -27,9 +27,15 @@ option(LINOPENMPT_BUILD_QT   "Build the Qt6 application (stub until step 3)" ON)
 option(LINOPENMPT_BUILD_TESTS "Build smoke tests" ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(UpstreamPatches)
 include(OpenMPTSources)
+add_subdirectory(compat)
 include(OpenMPTCore)
 include(OpenMPTSoundDevice)
+
+if(TARGET mpt_soundlib)
+  add_subdirectory(platform)
+endif()
 
 if(LINOPENMPT_BUILD_TESTS)
   enable_testing()

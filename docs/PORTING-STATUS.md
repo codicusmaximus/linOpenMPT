@@ -11,46 +11,51 @@ Upstream: OpenMPT-1.32.12.00
   silent by design; upstream's `openmpt123` renders them as silence too.)
 - `sounddev_list` enumerates devices through OpenMPT's sound device layer.
 
-## Step 2: soundlib in tracker configuration (starting point)
+## Step 2: tracker engine on Linux (done)
 
-Building `mpt_soundlib` with `-DLINOPENMPT_TRACKER_SOUNDLIB=ON`:
-**116 of 142** translation units fail. Nearly all of it comes from a few
-headers, so a small compatibility layer should clear most of it.
+The engine half of the tracker now builds from upstream sources in its real
+tracker configuration (`MODPLUG_TRACKER`, `MPT_WITH_MFC`, `UNICODE`), the same
+way `OpenMPT.exe` is built. Upstream code is used unchanged apart from two
+one-line patches (see `patches/README.md`).
 
-Missing identifiers, by number of errors:
+What builds:
 
-| Identifier | Errors | Kind |
-|------------|-------:|------|
-| `CString` | 664 | MFC string |
-| `DWORD` | 533 | Win32 type |
-| `UINT` | 455 | Win32 type |
-| `LONG` | 54 | Win32 type |
-| `ASSERT` | 32 | MFC macro |
-| `COLORREF` | 13 | Win32 type |
-| `afx_msg`, `HDC`, `HMODULE`, `CWnd`, … | under 15 each | MFC/Win32 UI, via `mptrack/` headers |
+- `mpt_soundlib`: all of `soundlib/`, `sounddsp/`, `soundlib/plugins/` (built-in
+  plugins and OpenMPT's own DMO effect emulations), `unarchiver/`.
+- `mpt_tracker_logic`: the non-UI parts of `mptrack/` (`Settings.cpp`,
+  `TrackerSettings.cpp`, `MIDIMapping.cpp`, `Undo.cpp`,
+  `StreamEncoderSettings.cpp`, `VstPresets.cpp`) and `tracklib/` (sample
+  editing, time stretch and pitch shift).
+- `linopenmpt_platform`: a Linux `CTrackApp` that loads and saves
+  `mptrack.ini` in `$XDG_CONFIG_HOME/linOpenMPT` (or `$LINOPENMPT_CONFIG_DIR`),
+  creates the settings, plugin cache and sound device manager.
 
-Headers the errors come from:
+What is proven by tests (`tracker_engine_mod`, `tracker_engine_s3m`): start the
+app object, load a module, render it (output matches libopenmpt), convert it
+to IT, edit a pattern cell, save it with OpenMPT's own IT writer, load it back
+and check the cell. The saved file opens in openmpt123 and identifies as
+written by OpenMPT 1.32.
 
-| Header | Errors | Note |
-|--------|-------:|------|
-| `sounddsp/AGC.h`, `sounddsp/DSP.h` | ~800 | Win32 integer types only |
-| `soundlib/MIDIMacros.h` | ~300 | `CString` in tracker-only helpers |
-| `mptrack/TrackerSettings.h`, `Settings.h` | ~270 | tracker settings, used by soundlib |
-| `mptrack/Mptrack.h` | ~160 | app object |
-| `soundlib/plugins/PlugInterface.h` | ~180 | plugin base class, Win32 types and editor hooks |
-| `mptrack/MIDIMapping.h`, `Vstplug.h` | ~120 | MIDI mapping, VST host |
+Turned off on Linux for now:
 
-`mptrack/` headers that soundlib includes in tracker configuration (these
-are the coupling points between engine and app that step 2 has to handle):
-`TrackerSettings.h` (11), `Moddoc.h` (8), `Mptrack.h` (4), `Vstplug.h` (3),
-`Reporting.h` (3), `Mainfrm.h` (2), `AbstractVstEditor.h` (2), and one each of
-`MidiInOut.h`, `LFOPluginEditor.h`, `WindowMessages.h`, `VstPresets.h`,
-`MIDIMapping.h`, `InputHandler.h`, `FileDialog.h`, `ExceptionHandler.h`,
-`DefaultVstEditor.h`.
+- `MPT_WITH_VST`: hosting of VST plugins (step 4, native Linux VSTs and a
+  bridge for Windows ones).
+- `MPT_WITH_DMO`: hosting of Windows DirectX Media Object plugins. OpenMPT's
+  built-in emulations of the DMO effects still work.
+- MIDI input reports no devices until RtMidi is wired in.
 
-Also needed: `dmoreg.h` (Windows DirectX Media Objects) and `Msctf.h` (Windows
-text input), which only matter for Windows-specific features and will be
-stubbed or guarded.
+The headless UI boundary (`platform/UiBoundary.cpp`) is the list of UI symbols
+the engine reaches. Each one becomes a Qt implementation in step 3:
+`CMainFrame::GetMainFrame`, `SetHelpText`, `Reporting::*` (messages to
+stderr), `FileDialog::Show`, `HighDPISupport::GetWindowPlacement`,
+`PatternClipboard`, the plugin editor classes (`CAbstractVstEditor`,
+`CDefaultVstEditor`, `LFOPluginEditor`), `DialogBase`, `ResizableDialog`,
+`MidiInOut::Create`, `GetAsyncKeyState`, `PostMessage`.
+
+Still to compile from upstream (next): `Moddoc.cpp`, `Modedit.cpp` and
+`PatternClipboard.cpp`. Until then `platform/ModDocHooks.cpp` supplies the
+handful of `CModDoc` members the engine calls. `ExceptionHandler.cpp` (needs
+Windows dbghelp) gets a Linux replacement later.
 
 ## Step 3: Qt6 shell
 

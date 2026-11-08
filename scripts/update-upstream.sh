@@ -20,16 +20,10 @@ if [[ $# -eq 0 ]]; then
 fi
 
 tag="$1"
+# Drop our applied patches before switching; CMake re-applies them.
+git -C upstream checkout -q -- .
 git -C upstream fetch --depth 1 origin tag "$tag"
 git -C upstream checkout -q "$tag"
-
-# Re-apply our upstream patches, if any (see patches/README.md).
-shopt -s nullglob
-for p in patches/*.patch; do
-  echo "Applying $p"
-  git -C upstream apply --check "../$p" || { echo "Patch $p no longer applies; refresh it."; exit 1; }
-  git -C upstream apply "../$p"
-done
 
 cmake -S . -B build -G Ninja
 cmake --build build

@@ -37,6 +37,12 @@ Smoke tools built so far:
   with the upstream engine.
 - `build/tools/smoke/sounddev_list` lists audio devices through OpenMPT's own
   sound device layer (JACK, PulseAudio, ALSA).
+- `build/tools/smoke/tracker_engine <file> <out.it>` starts the tracker's app
+  object, renders the module, edits a pattern cell and saves it as IT, using
+  the tracker's own engine.
+
+Settings are kept in `$XDG_CONFIG_HOME/linOpenMPT/mptrack.ini` (normally
+`~/.config/linOpenMPT`). Set `LINOPENMPT_CONFIG_DIR` to use another folder.
 
 ## Following upstream
 

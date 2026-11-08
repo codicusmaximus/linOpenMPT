@@ -1,0 +1,14 @@
+diff --git a/mptrack/Settings.cpp b/mptrack/Settings.cpp
+index 829da44..febb79f 100644
+--- a/mptrack/Settings.cpp
++++ b/mptrack/Settings.cpp
+@@ -431,7 +431,9 @@ static std::vector<char> ReadFile(const mpt::PathString &filename)
+ 
+ static void WriteFileUTF16LE(const mpt::PathString &filename, const std::wstring &str)
+ {
++#if MPT_OS_WINDOWS
+ 	static_assert(sizeof(wchar_t) == 2);
++#endif
+ 	mpt::IO::SafeOutputFile sinifile(filename, std::ios::binary, mpt::IO::FlushMode::Full);
+ 	mpt::IO::ofstream& inifile = sinifile;
+ 	const uint8 UTF16LE_BOM[] = { 0xff, 0xfe };
