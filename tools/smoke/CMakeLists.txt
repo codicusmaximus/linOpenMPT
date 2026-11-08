@@ -55,3 +55,12 @@ if(TARGET linopenmpt_resources)
   add_test(NAME resource_test COMMAND resource_test)
   set_tests_properties(resource_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# Borders, scroll bars and menus around the client area, offscreen.
+if(TARGET linopenmpt_resources)
+  add_executable(nonclient_test nonclient_test.cpp)
+  target_link_libraries(nonclient_test PRIVATE linopenmpt_mfc linopenmpt_resources)
+  target_include_directories(nonclient_test PRIVATE ${MPT_UPSTREAM_DIR}/mptrack)
+  add_test(NAME nonclient_test COMMAND nonclient_test)
+  set_tests_properties(nonclient_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

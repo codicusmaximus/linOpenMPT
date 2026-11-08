@@ -135,12 +135,38 @@ Known gaps to handle in later steps:
   from `mptrack.rc`, MIDI input, and a few shell and COM calls. These are
   the next parts of step 3.
 
+### Step 3b: resources, the non-client area and menus (done)
+
+- `tools/rc`: upstream's `mptrack.rc` is compiled unchanged into a Win32
+  `.res` file (byte for byte what llvm-rc writes, where llvm-rc can read the
+  script) and linked into the executable. `FindResource`, `LoadResource`,
+  `LoadString`, `LoadBitmap`, `LoadImage`, `LoadIcon` and `LoadCursor` read
+  it, and so do MFC's loaders (`CString::LoadString`, `CBitmap::LoadBitmap`,
+  `CWinApp::LoadIcon`/`LoadCursor`). Icons pick the image for the display
+  scale.
+- The non-client area works as on Windows: `WM_NCCALCSIZE` decides the
+  client area (so MFC's control bars can reserve borders), `WM_NCPAINT`
+  draws borders, client edges, child captions and the scroll bar corner,
+  and `WM_NCHITTEST` reports what the mouse is over, with `WM_NC*` mouse
+  messages outside the client area. Client coordinates, client DCs and
+  child positions start at the client origin; `GetWindowDC` covers the
+  whole window. Top-level frames and captions stay the window manager's.
+- Menus: `HMENU` with the whole Win32 menu API (loaded from `MENU` and
+  `MENUEX` resources), menu bars on `QMenuBar` in the non-client area,
+  popup menus on `QMenu` with `TrackPopupMenu(Ex)` and `TPM_RETURNCMD`,
+  `WM_INITMENU`/`WM_INITMENUPOPUP` before a menu shows (so MFC's command UI
+  updates it), `WM_MENUSELECT`, `WM_COMMAND`, the menu loop messages, and
+  Alt+letter, Alt and F10 through `SC_KEYMENU`. `CMenu` and the menu
+  functions of `CWnd` wrap it.
+- Keys reach windows before Qt shortcuts, as accelerators do on Windows.
+- Tests: `resource_test` (24 checks) and `nonclient_test` (41 checks) pass at
+  display scales 1, 1.5 and 2, with the earlier tests.
+
 ### Next in step 3
 
-1. Resources: dialogs, menus, accelerators, bitmaps, icons and strings from
-   `mptrack.rc`, compiled into the binary.
-2. Menus and common controls on Qt widgets, dialogs (`DoModal`,
-   `IsDialogMessage`).
+1. Dialogs from the resources (`DoModal`, `IsDialogMessage`, dynamic
+   layouts) and accelerators.
+2. Common controls on Qt widgets.
 3. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
    upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
 4. Playback through JACK from the main window.

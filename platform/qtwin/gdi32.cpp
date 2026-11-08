@@ -345,6 +345,7 @@ struct DC
 	Bitmap *bitmap = nullptr; // memory DCs
 	bool holdsSurfacePainter = false;
 	bool paintDC = false; // from BeginPaint
+	bool wholeWindow = false; // GetWindowDC: the non-client area too
 	QRegion paintClip; // the update region, for BeginPaint DCs
 	DCState s;
 	std::vector<DCState> saved;
@@ -453,12 +454,21 @@ bool Paintable(const QImage &image)
 	}
 }
 
+// Where a window DC's device coordinates start in the window's widget:
+// client DCs start at the client area, window DCs at the window's corner.
+QPoint DeviceOffset(const DC &dc)
+{
+	return (dc.type == DC::Window && dc.window && !dc.wholeWindow) ? ClientOrigin(dc.window) : QPoint();
+}
+
 QRect DeviceBounds(const DC &dc)
 {
 	switch(dc.type)
 	{
 	case DC::Window:
-		return dc.window ? dc.window->rect() : QRect();
+		if(dc.window == nullptr)
+			return QRect();
+		return dc.wholeWindow ? dc.window->rect() : QRect(QPoint(0, 0), ClientRect(dc.window).size());
 	case DC::Memory:
 		return dc.bitmap ? QRect(QPoint(0, 0), (QSizeF(dc.bitmap->image.size()) / dc.bitmap->image.devicePixelRatio()).toSize()) : QRect();
 	case DC::Screen:
@@ -523,6 +533,7 @@ QPainter *Painter(DC &dc)
 	if(p == nullptr || !p->isActive())
 		return nullptr;
 	p->resetTransform();
+	p->translate(DeviceOffset(dc));
 	p->setRenderHint(QPainter::Antialiasing, false);
 	p->setRenderHint(QPainter::SmoothPixmapTransform, dc.s.stretchMode == HALFTONE);
 	p->setCompositionMode(QPainter::CompositionMode_SourceOver);
@@ -781,7 +792,20 @@ const QImage *SourceImage(const DC &dc, QImage &holder)
 	switch(dc.type)
 	{
 	case DC::Window:
-		return (dc.window && !dc.window->surface.isNull()) ? &dc.window->surface : nullptr;
+		{
+			if(dc.window == nullptr || dc.window->surface.isNull())
+				return nullptr;
+			const QPoint offset = DeviceOffset(dc);
+			if(offset.isNull())
+				return &dc.window->surface;
+			// A client DC of a window with a non-client area: its pixels start
+			// at the client area.
+			const qreal dpr = dc.window->surface.devicePixelRatio();
+			const QRect area(offset, DeviceBounds(dc).size());
+			holder = dc.window->surface.copy(QRectF(area.x() * dpr, area.y() * dpr, area.width() * dpr, area.height() * dpr).toAlignedRect());
+			holder.setDevicePixelRatio(dpr);
+			return &holder;
+		}
 	case DC::Memory:
 		if(dc.bitmap == nullptr || dc.bitmap->image.isNull())
 			return nullptr;
@@ -930,6 +954,15 @@ QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines)
 	return DibImage(bits, bmi, lines).copy();
 }
 
+QImage BitmapImage(HBITMAP bitmap)
+{
+	Bitmap *b = ToBitmap(bitmap);
+	if(b == nullptr)
+		return QImage();
+	b->EndPainter();
+	return b->image.copy();
+}
+
 // ---- backing images -------------------------------------------------------------
 
 bool EnsureSurface(Win32Widget *w)
@@ -1011,9 +1044,14 @@ HDC GetDC(HWND hwnd)
 
 HDC GetWindowDC(HWND hwnd)
 {
-	// Windows have no non-client area of their own here (frames belong to
-	// the window manager), so the window DC is the client DC.
-	return GetDC(hwnd);
+	// The whole window, non-client area included (top-level frames and
+	// captions belong to the window manager).
+	Win32Widget *w = FromHandle(hwnd);
+	if(w == nullptr)
+		return hwnd == nullptr ? GetDC(nullptr) : nullptr;
+	DC *dc = NewDC(DC::Window, w);
+	dc->wholeWindow = true;
+	return Handle(dc);
 }
 
 int ReleaseDC(HWND, HDC hdc)
@@ -1039,7 +1077,7 @@ HDC BeginPaint(HWND hwnd, LPPAINTSTRUCT ps)
 	if(w == nullptr || ps == nullptr)
 		return nullptr;
 	EnsureSurface(w);
-	const QRegion update = w->invalid & w->rect();
+	const QRegion update = w->invalid & QRect(QPoint(0, 0), ClientRect(w).size());
 	w->invalid = QRegion();
 	DC *dc = NewDC(DC::Window, w);
 	dc->paintDC = true;
@@ -1060,7 +1098,7 @@ BOOL EndPaint(HWND hwnd, const PAINTSTRUCT *ps)
 	if(ps == nullptr)
 		return FALSE;
 	if(Win32Widget *w = FromHandle(hwnd))
-		w->update(QRect(ps->rcPaint.left, ps->rcPaint.top, ps->rcPaint.right - ps->rcPaint.left, ps->rcPaint.bottom - ps->rcPaint.top));
+		w->update(QRect(ps->rcPaint.left, ps->rcPaint.top, ps->rcPaint.right - ps->rcPaint.left, ps->rcPaint.bottom - ps->rcPaint.top).translated(ClientOrigin(w)));
 	DestroyDC(ToDC(ps->hdc));
 	return TRUE;
 }

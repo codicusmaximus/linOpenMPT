@@ -320,6 +320,7 @@ void LinOpenMPTRegisterResources(HMODULE module, const void *res, size_t size);
 #define MF_HELP 0x00004000L
 #define MF_RIGHTJUSTIFY 0x00004000L
 #define MF_MOUSESELECT 0x00008000L
+#define MF_END 0x00000080L
 #define MFT_STRING MF_STRING
 #define MFT_SEPARATOR MF_SEPARATOR
 #define MFT_RADIOCHECK 0x00000200L
@@ -418,6 +419,10 @@ BOOL SetMenu(HWND hwnd, HMENU menu);
 BOOL DrawMenuBar(HWND hwnd);
 HMENU GetSystemMenu(HWND hwnd, BOOL revert);
 BOOL GetMenuBarInfo(HWND hwnd, LONG object, LONG item, MENUBARINFO *info);
+BOOL IsMenu(HMENU menu);
+HMENU LoadMenuIndirect(const void *menuTemplate);
+UINT GetMenuDefaultItem(HMENU menu, UINT byPos, UINT flags);
+BOOL EndMenu();
 
 // ---- scroll bars ---------------------------------------------------------
 #define SB_HORZ 0
@@ -525,6 +530,7 @@ BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows);
 #define HTBOTTOMLEFT 16
 #define HTBOTTOMRIGHT 17
 #define HTBORDER 18
+#define HTSIZE 4
 #define HTCLOSE 20
 #define CW_USEDEFAULT ((int)0x80000000)
 #define WS_EX_DLGMODALFRAME 0x00000001L

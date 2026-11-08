@@ -591,7 +591,8 @@ class CMenu : public CObject
 {
 public:
 	HMENU m_hMenu = nullptr;
-	virtual ~CMenu() = default;
+	// Destroys the menu it holds, as MFC does.
+	virtual ~CMenu();
 	operator HMENU() const { return m_hMenu; }
 	HMENU GetSafeHmenu() const { return this ? m_hMenu : nullptr; }
 	BOOL Attach(HMENU menu) { m_hMenu = menu; return menu != nullptr; }

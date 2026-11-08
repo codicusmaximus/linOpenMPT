@@ -226,6 +226,13 @@ Win32Widget::~Win32Widget()
 
 bool Win32Widget::event(QEvent *e)
 {
+	if(e->type() == QEvent::ShortcutOverride)
+	{
+		// Keys go to the window first, as on Windows, where accelerators
+		// are translated by the message loop (TranslateAccelerator).
+		e->accept();
+		return true;
+	}
 	if(e->type() == QEvent::Enter && data.trackLeave)
 	{
 		// TrackMouseEvent() requests are one-shot.
@@ -236,6 +243,12 @@ bool Win32Widget::event(QEvent *e)
 void Win32Widget::paintEvent(QPaintEvent *e)
 {
 	EnsureSurface(this);
+	if(data.ncDirty)
+	{
+		data.ncDirty = false;
+		if(!data.nonClient.isNull())
+			::SendMessage(hwnd(), WM_NCPAINT, 1, 0);
+	}
 	if(!invalid.isEmpty())
 	{
 		::SendMessage(hwnd(), WM_PAINT, 0, 0);
@@ -251,6 +264,47 @@ void Win32Widget::paintEvent(QPaintEvent *e)
 	painter.drawImage(r, surface, QRectF(r.x() * dpr, r.y() * dpr, r.width() * dpr, r.height() * dpr));
 }
 
+namespace
+{
+// Mouse messages for the non-client area (borders, the scroll bar corner):
+// WM_NCHITTEST says what is under the mouse. Returns false for the client
+// area, or when the mouse is captured (captured input is client input).
+bool NonClientMouse(Win32Widget *w, QMouseEvent *e, UINT clientMessage)
+{
+	if(g_capture == w->hwnd() || ClientRect(w).contains(e->position().toPoint()))
+		return false;
+	const QPoint g = e->globalPosition().toPoint();
+	const LRESULT hit = ::SendMessage(w->hwnd(), WM_NCHITTEST, 0, PointParam(g));
+	if(hit == HTCLIENT)
+		return false;
+	UINT message = 0;
+	switch(clientMessage)
+	{
+	case WM_MOUSEMOVE:
+		::SendMessage(w->hwnd(), WM_SETCURSOR, reinterpret_cast<WPARAM>(w->hwnd()), MAKELPARAM(hit, WM_MOUSEMOVE));
+		message = WM_NCMOUSEMOVE;
+		break;
+	case WM_LBUTTONDOWN: message = WM_NCLBUTTONDOWN; break;
+	case WM_LBUTTONUP: message = WM_NCLBUTTONUP; break;
+	case WM_LBUTTONDBLCLK: message = WM_NCLBUTTONDBLCLK; break;
+	case WM_RBUTTONDOWN: message = WM_NCRBUTTONDOWN; break;
+	case WM_RBUTTONUP: message = WM_NCRBUTTONUP; break;
+	case WM_RBUTTONDBLCLK: message = WM_NCRBUTTONDBLCLK; break;
+	case WM_MBUTTONDOWN: message = WM_NCMBUTTONDOWN; break;
+	case WM_MBUTTONUP: message = WM_NCMBUTTONUP; break;
+	case WM_MBUTTONDBLCLK: message = WM_NCMBUTTONDBLCLK; break;
+	default: return true;
+	}
+	PumpInputMessage(MakeMsg(w->hwnd(), message, static_cast<WPARAM>(hit), PointParam(g)));
+	return true;
+}
+
+LPARAM ClientPointParam(const Win32Widget *w, const QMouseEvent *e)
+{
+	return PointParam(e->position().toPoint() - ClientOrigin(w));
+}
+} // namespace
+
 void Win32Widget::mousePressEvent(QMouseEvent *e)
 {
 	UINT message = 0;
@@ -263,7 +317,9 @@ void Win32Widget::mousePressEvent(QMouseEvent *e)
 	}
 	if(focusPolicy() != Qt::NoFocus && !hasFocus())
 		setFocus(Qt::MouseFocusReason);
-	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), PointParam(e->position().toPoint())));
+	if(NonClientMouse(this, e, message))
+		return;
+	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), ClientPointParam(this, e)));
 }
 
 void Win32Widget::mouseReleaseEvent(QMouseEvent *e)
@@ -276,7 +332,9 @@ void Win32Widget::mouseReleaseEvent(QMouseEvent *e)
 	case Qt::MiddleButton: message = WM_MBUTTONUP; SetKeyState(VK_MBUTTON, false); break;
 	default: QWidget::mouseReleaseEvent(e); return;
 	}
-	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), PointParam(e->position().toPoint())));
+	if(NonClientMouse(this, e, message))
+		return;
+	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), ClientPointParam(this, e)));
 	// Windows sends WM_CONTEXTMENU after the right button is released.
 	if(e->button() == Qt::RightButton)
 	{
@@ -297,15 +355,19 @@ void Win32Widget::mouseDoubleClickEvent(QMouseEvent *e)
 	case Qt::MiddleButton: message = dblClks ? WM_MBUTTONDBLCLK : WM_MBUTTONDOWN; break;
 	default: QWidget::mouseDoubleClickEvent(e); return;
 	}
-	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), PointParam(e->position().toPoint())));
+	if(NonClientMouse(this, e, message))
+		return;
+	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), ClientPointParam(this, e)));
 }
 
 void Win32Widget::mouseMoveEvent(QMouseEvent *e)
 {
+	if(NonClientMouse(this, e, WM_MOUSEMOVE))
+		return;
 	// The window (or its parents) picks the cursor; not while captured.
 	if(g_capture == nullptr)
 		::SendMessage(hwnd(), WM_SETCURSOR, reinterpret_cast<WPARAM>(hwnd()), MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
-	PumpInputMessage(MakeMsg(hwnd(), WM_MOUSEMOVE, MouseKeyFlags(e->buttons(), e->modifiers()), PointParam(e->position().toPoint())));
+	PumpInputMessage(MakeMsg(hwnd(), WM_MOUSEMOVE, MouseKeyFlags(e->buttons(), e->modifiers()), ClientPointParam(this, e)));
 }
 
 void Win32Widget::wheelEvent(QWheelEvent *e)
@@ -413,28 +475,33 @@ void Win32Widget::resizeEvent(QResizeEvent *)
 		else if(isMaximized())
 			type = SIZE_MAXIMIZED;
 	}
-	const QSize oldSize = surface.isNull() ? QSize() : (QSizeF(surface.size()) / surface.devicePixelRatio()).toSize();
 	EnsureSurface(this);
+	UpdateNonClient(this);
+	if(!data.nonClient.isNull())
+		data.ncDirty = true;
+	const QSize oldSize = data.clientSize;
+	const QSize client = ClientRect(this).size();
 	// Windows invalidates the whole window for CS_HREDRAW / CS_VREDRAW
 	// classes, and only the newly exposed parts otherwise.
 	const UINT classStyle = data.windowClass ? data.windowClass->wc.style : 0;
 	const bool redrawAll = oldSize.isEmpty()
-		|| ((classStyle & CS_HREDRAW) && oldSize.width() != width())
-		|| ((classStyle & CS_VREDRAW) && oldSize.height() != height());
-	QRegion exposed = redrawAll ? QRegion(rect()) : QRegion(rect()).subtracted(QRegion(QRect(QPoint(0, 0), oldSize)));
+		|| ((classStyle & CS_HREDRAW) && oldSize.width() != client.width())
+		|| ((classStyle & CS_VREDRAW) && oldSize.height() != client.height());
+	const QRegion clientArea(QRect(QPoint(0, 0), client));
+	const QRegion exposed = redrawAll ? clientArea : clientArea.subtracted(QRegion(QRect(QPoint(0, 0), oldSize)));
 	if(!exposed.isEmpty())
 	{
 		invalid += exposed;
 		erasePending = true;
 	}
-	LayoutScrollBars(this);
-	const QRect client = ClientRect(this);
+	data.clientSize = client;
 	::SendMessage(hwnd(), WM_SIZE, type, MAKELPARAM(client.width(), client.height()));
 }
 
 void Win32Widget::moveEvent(QMoveEvent *)
 {
-	const QPoint p = isWindow() ? mapToGlobal(QPoint(0, 0)) : pos();
+	// The client area's position: on the screen, or in the parent's client area.
+	const QPoint p = isWindow() ? mapToGlobal(ClientOrigin(this)) : pos() + ClientOrigin(this) - ClientOrigin(parentWidget());
 	::SendMessage(hwnd(), WM_MOVE, 0, PointParam(p));
 }
 
@@ -555,7 +622,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		w = 640;
 		h = 480;
 	}
-	widget->setGeometry(x, y, std::max(w, 0), std::max(h, 0));
+	const QPoint parentOrigin = child ? ClientOrigin(parentWidget) : QPoint();
+	widget->setGeometry(x + parentOrigin.x(), y + parentOrigin.y(), std::max(w, 0), std::max(h, 0));
 	InitScrollBars(widget);
 
 	CREATESTRUCT cs{};
@@ -586,6 +654,9 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 			::DestroyWindow(hwnd);
 		return nullptr;
 	}
+	if(!child && menu != nullptr)
+		AttachMenuBar(widget, menu);
+	UpdateNonClient(widget);
 	if(::SendMessage(hwnd, WM_CREATE, 0, reinterpret_cast<LPARAM>(&cs)) == -1 || !FromHandle(hwnd))
 	{
 		if(FromHandle(hwnd))
@@ -594,9 +665,16 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 	}
 	{
 		const QRect client = ClientRect(widget);
+		widget->data.clientSize = client.size();
+		// A new window is invalid all over, as on Windows.
+		widget->invalid = QRegion(QRect(QPoint(0, 0), client.size()));
+		widget->erasePending = true;
 		::SendMessage(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(client.width(), client.height()));
 	}
-	::SendMessage(hwnd, WM_MOVE, 0, MAKELPARAM(widget->x(), widget->y()));
+	{
+		const QPoint p = widget->pos() + ClientOrigin(widget) - parentOrigin;
+		::SendMessage(hwnd, WM_MOVE, 0, PointParam(p));
+	}
 	if(child && parentWidget)
 		::SendMessage(parent, WM_PARENTNOTIFY, MAKEWPARAM(WM_CREATE, d.id), reinterpret_cast<LPARAM>(hwnd));
 	if(style & WS_VISIBLE)
@@ -794,6 +872,12 @@ LPARAM SetMessageExtraInfo(LPARAM info)
 
 // ---- DefWindowProc ---------------------------------------------------------------
 
+namespace
+{
+// Alt pressed and released with no other key: SC_KEYMENU, as on Windows.
+bool g_altAlone = false;
+} // namespace
+
 LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	Win32Widget *w = FromHandle(hwnd);
@@ -816,6 +900,31 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			w->showMaximized();
 		else if((wp & 0xFFF0) == SC_RESTORE)
 			w->showNormal();
+		else if((wp & 0xFFF0) == SC_KEYMENU)
+		{
+			// Alt+letter opens that menu, F10 or Alt alone the menu bar.
+			if(!OpenMenuByKey(w, static_cast<WCHAR>(lp)) && lp != 0)
+				::MessageBeep(0);
+		}
+		return 0;
+	case WM_SYSKEYDOWN:
+		g_altAlone = wp == VK_MENU && !(lp & 0x40000000);
+		if(wp == VK_F4 && (lp & 0x20000000))
+			::PostMessage(::GetAncestor(hwnd, GA_ROOT), WM_SYSCOMMAND, SC_CLOSE, 0);
+		return 0;
+	case WM_SYSKEYUP:
+	case WM_KEYUP:
+		if((wp == VK_MENU && g_altAlone) || (msg == WM_SYSKEYUP && wp == VK_F10))
+			::SendMessage(::GetAncestor(hwnd, GA_ROOT), WM_SYSCOMMAND, SC_KEYMENU, 0);
+		g_altAlone = false;
+		return 0;
+	case WM_KEYDOWN:
+		g_altAlone = false;
+		return 0;
+	case WM_SYSCHAR:
+		g_altAlone = false;
+		if(wp != VK_RETURN && wp != VK_ESCAPE && (lp & 0x20000000))
+			::SendMessage(::GetAncestor(hwnd, GA_ROOT), WM_SYSCOMMAND, SC_KEYMENU, wp);
 		return 0;
 	case WM_PAINT:
 		{
@@ -870,7 +979,15 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				return ::SendMessage(p->hwnd(), msg, wp, lp);
 		return 0;
 	case WM_NCHITTEST:
-		return HTCLIENT;
+		return DefNcHitTest(w, QPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+	case WM_NCCALCSIZE:
+		DefNcCalcSize(w, reinterpret_cast<RECT *>(lp));
+		return 0;
+	case WM_NCPAINT:
+		DefNcPaint(w);
+		return 0;
+	case WM_NCACTIVATE:
+		return TRUE;
 	case WM_MOUSEACTIVATE:
 		return MA_ACTIVATE;
 	case WM_SETCURSOR:
@@ -928,7 +1045,10 @@ HWND SetParent(HWND child, HWND parent)
 	const HWND old = GetParent(child);
 	Win32Widget *p = FromHandle(parent);
 	const bool visible = w->isVisible();
+	// The window keeps its position in client coordinates.
+	const QPoint clientPos = w->pos() - (w->isWindow() ? QPoint() : ClientOrigin(w->parentWidget()));
 	w->setParent(p, p ? w->windowFlags() & ~Qt::Window : w->windowFlags() | Qt::Window);
+	w->move(clientPos + (p ? ClientOrigin(p) : QPoint()));
 	if(visible)
 		w->show();
 	return old;
@@ -1324,7 +1444,7 @@ BOOL ScreenToClient(HWND hwnd, LPPOINT point)
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr || point == nullptr)
 		return FALSE;
-	const QPoint p = w->mapFromGlobal(QPoint(point->x, point->y));
+	const QPoint p = w->mapFromGlobal(QPoint(point->x, point->y)) - ClientOrigin(w);
 	*point = POINT{p.x(), p.y()};
 	return TRUE;
 }
@@ -1334,7 +1454,7 @@ BOOL ClientToScreen(HWND hwnd, LPPOINT point)
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr || point == nullptr)
 		return FALSE;
-	const QPoint p = w->mapToGlobal(QPoint(point->x, point->y));
+	const QPoint p = w->mapToGlobal(QPoint(point->x, point->y) + ClientOrigin(w));
 	*point = POINT{p.x(), p.y()};
 	return TRUE;
 }
@@ -1372,7 +1492,9 @@ BOOL MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
 		wd->resize(std::max(w - fw, 0), std::max(h - fh, 0));
 	} else
 	{
-		wd->setGeometry(x, y, std::max(w, 0), std::max(h, 0));
+		// Child windows are placed in the parent's client coordinates.
+		const QPoint origin = ClientOrigin(wd->parentWidget());
+		wd->setGeometry(x + origin.x(), y + origin.y(), std::max(w, 0), std::max(h, 0));
 	}
 	if(repaint)
 		wd->update();
@@ -1391,7 +1513,8 @@ BOOL SetWindowPos(HWND hwnd, HWND after, int x, int y, int cx, int cy, UINT flag
 		POINT pos{rc.left, rc.top};
 		if(!w->isWindow())
 		{
-			pos = POINT{w->x(), w->y()};
+			const QPoint p = w->pos() - ClientOrigin(w->parentWidget());
+			pos = POINT{p.x(), p.y()};
 		}
 		if(!(flags & SWP_NOMOVE))
 			pos = POINT{x, y};
@@ -1402,6 +1525,19 @@ BOOL SetWindowPos(HWND hwnd, HWND after, int x, int y, int cx, int cy, UINT flag
 			height = cy;
 		}
 		MoveWindow(hwnd, pos.x, pos.y, width, height, !(flags & SWP_NOREDRAW));
+	}
+	if(flags & SWP_FRAMECHANGED)
+	{
+		// The non-client area is recalculated (WM_NCCALCSIZE) and redrawn.
+		w->data.ncDirty = true;
+		if(UpdateNonClient(w))
+		{
+			const QSize client = ClientRect(w).size();
+			w->data.clientSize = client;
+			::InvalidateRect(hwnd, nullptr, TRUE);
+			::SendMessage(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(client.width(), client.height()));
+		}
+		w->update();
 	}
 	if(!(flags & SWP_NOZORDER))
 	{
@@ -1464,7 +1600,7 @@ BOOL GetWindowPlacement(HWND hwnd, WINDOWPLACEMENT *placement)
 		return FALSE;
 	placement->flags = 0;
 	placement->showCmd = w->isMinimized() ? SW_SHOWMINIMIZED : w->isMaximized() ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
-	const QRect r = w->isWindow() ? w->normalGeometry() : w->geometry();
+	const QRect r = w->isWindow() ? w->normalGeometry() : w->geometry().translated(-ClientOrigin(w->parentWidget()));
 	placement->rcNormalPosition = RECT{r.left(), r.top(), r.left() + r.width(), r.top() + r.height()};
 	placement->ptMinPosition = POINT{-1, -1};
 	placement->ptMaxPosition = POINT{-1, -1};
@@ -1477,7 +1613,8 @@ BOOL SetWindowPlacement(HWND hwnd, const WINDOWPLACEMENT *placement)
 	if(w == nullptr || placement == nullptr)
 		return FALSE;
 	const RECT &r = placement->rcNormalPosition;
-	w->setGeometry(r.left, r.top, r.right - r.left, r.bottom - r.top);
+	const QPoint origin = w->isWindow() ? QPoint() : ClientOrigin(w->parentWidget());
+	w->setGeometry(r.left + origin.x(), r.top + origin.y(), r.right - r.left, r.bottom - r.top);
 	ShowWindow(hwnd, static_cast<int>(placement->showCmd));
 	return TRUE;
 }
@@ -1497,11 +1634,13 @@ HWND ChildWindowFromPoint(HWND parent, POINT point)
 	Win32Widget *p = FromHandle(parent);
 	if(p == nullptr)
 		return nullptr;
-	if(!p->rect().contains(point.x, point.y))
+	// point is in the parent's client coordinates.
+	const QPoint pt = QPoint(point.x, point.y) + ClientOrigin(p);
+	if(!p->rect().contains(pt))
 		return nullptr;
 	for(Win32Widget *c : ChildWindows(p))
 	{
-		if(c->geometry().contains(point.x, point.y))
+		if(c->geometry().contains(pt))
 			return c->hwnd();
 	}
 	return parent;
@@ -1537,13 +1676,15 @@ BOOL InvalidateRect(HWND hwnd, const RECT *rect, BOOL erase)
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr)
 		return FALSE;
-	const QRect r = (rect ? ToQRect(*rect) : w->rect()) & w->rect();
+	// The update region is in client coordinates.
+	const QRect client(QPoint(0, 0), ClientRect(w).size());
+	const QRect r = (rect ? ToQRect(*rect) : client) & client;
 	if(r.isEmpty())
 		return TRUE;
 	w->invalid += r;
 	if(erase)
 		w->erasePending = true;
-	w->update(r);
+	w->update(r.translated(ClientOrigin(w)));
 	return TRUE;
 }
 
@@ -1590,7 +1731,7 @@ BOOL UpdateWindow(HWND hwnd)
 		::SendMessage(hwnd, WM_PAINT, 0, 0);
 		w->invalid = QRegion();
 		w->erasePending = false;
-		w->update(r);
+		w->update(r.translated(ClientOrigin(w)));
 	}
 	return TRUE;
 }
@@ -1626,21 +1767,22 @@ int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll, const RECT *cl
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr)
 		return 0; // ERROR
+	const QPoint origin = ClientOrigin(w);
 	if(flags & SW_SCROLLCHILDREN)
 	{
 		for(Win32Widget *c : ChildWindows(w))
 		{
-			if(scroll == nullptr || ToQRect(*scroll).intersects(c->geometry()))
+			if(scroll == nullptr || ToQRect(*scroll).intersects(c->geometry().translated(-origin)))
 				c->move(c->x() + dx, c->y() + dy);
 		}
 	}
-	const QRect client = ClientRect(w);
+	const QRect client(QPoint(0, 0), ClientRect(w).size());
 	QRect area = scroll ? ToQRect(*scroll) : client;
 	if(clip)
 		area &= ToQRect(*clip);
 	area &= client;
 	EnsureSurface(w);
-	ScrollSurface(w, dx, dy, area);
+	ScrollSurface(w, dx, dy, area.translated(origin));
 	// What scrolled in (and pending invalid areas, which move along).
 	const QRegion moved = QRegion(area.translated(dx, dy)) & area;
 	QRegion uncovered = QRegion(area) - moved;
@@ -1652,7 +1794,7 @@ int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll, const RECT *cl
 		if(flags & SW_ERASE)
 			w->erasePending = true;
 	}
-	w->update(area);
+	w->update(area.translated(origin));
 	if(updateRect)
 	{
 		const QRect r = uncovered.boundingRect();

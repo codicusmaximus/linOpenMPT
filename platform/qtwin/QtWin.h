@@ -35,6 +35,7 @@
 #include <vector>
 
 class QScrollBar;
+class QMenuBar;
 
 namespace linopenmpt::qtwin
 {
@@ -80,6 +81,12 @@ struct WindowData
 	std::map<UINT_PTR, std::unique_ptr<QTimer>> timers;
 	ScrollState scroll[2]; // SB_HORZ, SB_VERT
 	bool redraw = true; // WM_SETREDRAW
+	// The non-client area (from WM_NCCALCSIZE) around the client area, and
+	// whether it needs WM_NCPAINT.
+	QMargins nonClient;
+	bool ncDirty = true;
+	QSize clientSize; // as last reported in WM_SIZE
+	QMenuBar *menuBar = nullptr; // top-level windows with a menu (SetMenu)
 };
 
 class Win32Widget : public QWidget
@@ -166,11 +173,31 @@ void ScrollSurface(Win32Widget *w, int dx, int dy, const QRect &area);
 // Called before a window goes away: invalidates its DCs.
 void ReleaseWindowDCs(Win32Widget *w);
 
-// Window scroll bars and the client area they leave (system.cpp).
-QRect ClientRect(const Win32Widget *w);
+// The non-client area (nonclient.cpp). Client coordinates of a window are
+// widget coordinates minus ClientOrigin(); child windows are placed in their
+// parent's client coordinates.
+QRect ClientRect(const Win32Widget *w); // in widget coordinates
+QPoint ClientOrigin(const QWidget *widget); // (0, 0) for non-Win32 widgets
+// Recomputes the client area with WM_NCCALCSIZE; true if it changed.
+bool UpdateNonClient(Win32Widget *w);
+QMargins FrameMargins(DWORD style, DWORD exStyle, bool child);
+int MenuBarHeight(const Win32Widget *w);
+void DefNcCalcSize(Win32Widget *w, RECT *rect);
+void DefNcPaint(Win32Widget *w);
+LRESULT DefNcHitTest(Win32Widget *w, QPoint screen);
+
+// Window scroll bars (system.cpp, laid out by nonclient.cpp).
 void InitScrollBars(Win32Widget *w);
 void LayoutScrollBars(Win32Widget *w);
 void ScrollStylesChanged(Win32Widget *w, DWORD oldStyle);
+QScrollBar *EnsureScrollBar(Win32Widget *w, int bar);
+void SyncScrollBar(Win32Widget *w, int bar);
+
+// Menus (menu.cpp): the menu bar of a top-level window.
+void LayoutMenuBar(Win32Widget *w);
+void AttachMenuBar(Win32Widget *w, HMENU menu);
+// Opens the menu bar item whose mnemonic is key (Alt+key); false if none.
+bool OpenMenuByKey(Win32Widget *w, WCHAR key);
 
 // Icons and cursors (HICON, HCURSOR) point to one of these.
 struct IconData
@@ -184,6 +211,8 @@ struct IconData
 HCURSOR SystemCursor(Qt::CursorShape shape);
 // A device-independent bitmap as a top-down image (copied).
 QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines = -1);
+// A copy of a bitmap's pixels.
+QImage BitmapImage(HBITMAP bitmap);
 // Icons and cursors from a module's resources (resource.cpp).
 HICON LoadResourceIcon(HINSTANCE module, LPCTSTR name, bool cursor, int cx, int cy, bool shared);
 QCursor ToQCursor(HCURSOR cursor);

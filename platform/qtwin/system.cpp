@@ -48,7 +48,9 @@ bool Needed(const ScrollState &s)
 	return s.page == 0 ? s.max > s.min : (s.max - s.min + 1) > static_cast<int>(s.page);
 }
 
-void Sync(Win32Widget *w, int bar)
+} // namespace
+
+void SyncScrollBar(Win32Widget *w, int bar)
 {
 	ScrollState &s = w->data.scroll[bar];
 	QScrollBar *sb = s.bar;
@@ -63,12 +65,17 @@ void Sync(Win32Widget *w, int bar)
 	sb->setEnabled(s.enabled && Needed(s) && w->isEnabled());
 }
 
+namespace
+{
+
 void SendScroll(HWND hwnd, int bar, UINT code, int pos)
 {
 	::SendMessage(hwnd, bar == SB_VERT ? WM_VSCROLL : WM_HSCROLL, MAKEWPARAM(code, static_cast<WORD>(pos)), 0);
 }
 
-QScrollBar *EnsureBar(Win32Widget *w, int bar)
+} // namespace
+
+QScrollBar *EnsureScrollBar(Win32Widget *w, int bar)
 {
 	ScrollState &s = w->data.scroll[bar];
 	if(s.bar)
@@ -120,10 +127,13 @@ QScrollBar *EnsureBar(Win32Widget *w, int bar)
 		if((s = State(hwnd, bar)) == nullptr)
 			return;
 		s->tracking = false;
-		Sync(FromHandle(hwnd), bar);
+		SyncScrollBar(FromHandle(hwnd), bar);
 	});
 	return sb;
 }
+
+namespace
+{
 
 // Shows or hides a scroll bar; the client area changes size with it.
 void SetShown(Win32Widget *w, int bar, bool shown)
@@ -137,49 +147,18 @@ void SetShown(Win32Widget *w, int bar, bool shown)
 		w->data.style |= styleBit;
 	else
 		w->data.style &= ~styleBit;
-	LayoutScrollBars(w);
-	const QRect client = ClientRect(w);
-	::InvalidateRect(w->hwnd(), nullptr, TRUE);
-	::SendMessage(w->hwnd(), WM_SIZE, SIZE_RESTORED, MAKELPARAM(client.width(), client.height()));
+	const QSize before = ClientRect(w).size();
+	UpdateNonClient(w);
+	const QSize client = ClientRect(w).size();
+	if(client != before)
+	{
+		::InvalidateRect(w->hwnd(), nullptr, TRUE);
+		w->data.clientSize = client;
+		::SendMessage(w->hwnd(), WM_SIZE, SIZE_RESTORED, MAKELPARAM(client.width(), client.height()));
+	}
 }
 
 } // namespace
-
-QRect ClientRect(const Win32Widget *w)
-{
-	QRect r = w->rect();
-	const int extent = ScrollBarExtent();
-	if(w->data.scroll[SB_VERT].shown)
-		r.setWidth(std::max(0, r.width() - extent));
-	if(w->data.scroll[SB_HORZ].shown)
-		r.setHeight(std::max(0, r.height() - extent));
-	return r;
-}
-
-void LayoutScrollBars(Win32Widget *w)
-{
-	const int extent = ScrollBarExtent();
-	const bool v = w->data.scroll[SB_VERT].shown;
-	const bool h = w->data.scroll[SB_HORZ].shown;
-	for(int bar : {SB_HORZ, SB_VERT})
-	{
-		ScrollState &s = w->data.scroll[bar];
-		if(!s.shown)
-		{
-			if(s.bar)
-				s.bar->hide();
-			continue;
-		}
-		QScrollBar *sb = EnsureBar(w, bar);
-		if(bar == SB_VERT)
-			sb->setGeometry(w->width() - extent, 0, extent, std::max(0, w->height() - (h ? extent : 0)));
-		else
-			sb->setGeometry(0, w->height() - extent, std::max(0, w->width() - (v ? extent : 0)), extent);
-		Sync(w, bar);
-		sb->show();
-		sb->raise();
-	}
-}
 
 void InitScrollBars(Win32Widget *w)
 {
@@ -266,7 +245,7 @@ int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL)
 		if((s = State(hwnd, bar)) == nullptr)
 			return 0;
 	}
-	Sync(w, bar);
+	SyncScrollBar(w, bar);
 	return s->pos;
 }
 
@@ -346,7 +325,7 @@ BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows)
 		if(bar == static_cast<UINT>(b) || bar == SB_BOTH)
 		{
 			w->data.scroll[b].enabled = (arrows != ESB_DISABLE_BOTH);
-			Sync(w, b);
+			SyncScrollBar(w, b);
 		}
 	}
 	return TRUE;
@@ -474,6 +453,7 @@ int GetSystemMetrics(int index)
 	case SM_CXHTHUMB:
 		return style->pixelMetric(QStyle::PM_ScrollBarSliderMin);
 	case SM_CYCAPTION: return style->pixelMetric(QStyle::PM_TitleBarHeight);
+	case SM_CYSMCAPTION: return std::max(style->pixelMetric(QStyle::PM_TitleBarHeight) * 3 / 4, QApplication::fontMetrics().height() + 4);
 	case SM_CXBORDER:
 	case SM_CYBORDER: return 1;
 	case SM_CXDLGFRAME:
@@ -574,16 +554,20 @@ BOOL SystemParametersInfo(UINT action, UINT, PVOID data, UINT)
 	}
 }
 
-BOOL AdjustWindowRectEx(LPRECT rect, DWORD style, BOOL, DWORD)
+BOOL AdjustWindowRectEx(LPRECT rect, DWORD style, BOOL menu, DWORD exStyle)
 {
-	// Frames and menu bars belong to the window manager and Qt, outside the
-	// window's own geometry; only scroll bars take client space.
+	// The window rectangle for a client rectangle: the frame child windows
+	// draw themselves, and the menu bar. Top-level frames and captions belong
+	// to the window manager. Scroll bars are not included, as on Windows.
 	if(rect == nullptr)
 		return FALSE;
-	if(style & WS_VSCROLL)
-		rect->right += GetSystemMetrics(SM_CXVSCROLL);
-	if(style & WS_HSCROLL)
-		rect->bottom += GetSystemMetrics(SM_CYHSCROLL);
+	const QMargins frame = FrameMargins(style, exStyle, (style & WS_CHILD) != 0);
+	rect->left -= frame.left();
+	rect->top -= frame.top();
+	rect->right += frame.right();
+	rect->bottom += frame.bottom();
+	if(menu && !(style & WS_CHILD))
+		rect->top -= GetSystemMetrics(SM_CYMENU);
 	return TRUE;
 }
 
@@ -657,4 +641,10 @@ HWND GetNextDlgGroupItem(HWND dialog, HWND control, BOOL previous)
 void NotifyWinEvent(DWORD, HWND, LONG, LONG)
 {
 	// Accessibility comes from Qt's own widgets.
+}
+
+BOOL MessageBeep(UINT)
+{
+	QApplication::beep();
+	return TRUE;
 }
