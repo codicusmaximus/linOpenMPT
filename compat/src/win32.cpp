@@ -18,6 +18,11 @@ DWORD GetCurrentThreadId()
 	return static_cast<DWORD>(::syscall(SYS_gettid));
 }
 
+DWORD GetCurrentProcessId()
+{
+	return static_cast<DWORD>(::getpid());
+}
+
 DWORD GetTickCount()
 {
 	using namespace std::chrono;

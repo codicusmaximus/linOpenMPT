@@ -7,3 +7,7 @@ add_library(linopenmpt::platform ALIAS linopenmpt_platform)
 target_include_directories(linopenmpt_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic)
 target_compile_options(linopenmpt_platform PRIVATE -fpermissive -w)
+
+if(LINOPENMPT_BUILD_QT)
+  add_subdirectory(qtwin)
+endif()
