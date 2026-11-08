@@ -7,6 +7,7 @@
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QScrollBar>
 
 #include <cstdio>
 #include <vector>
@@ -55,6 +56,15 @@ const Received *Last(UINT msg)
 constexpr COLORREF kRed = RGB(255, 0, 0);
 constexpr COLORREF kBlue = RGB(0, 0, 255);
 int g_paints = 0;
+int g_cbtCreates = 0;
+HHOOK g_hook = nullptr;
+
+LRESULT CALLBACK CbtProc(int code, WPARAM wp, LPARAM lp)
+{
+	if(code == HCBT_CREATEWND)
+		g_cbtCreates++;
+	return CallNextHookEx(g_hook, code, wp, lp);
+}
 
 LRESULT CALLBACK TestProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -189,6 +199,40 @@ int main(int argc, char **argv)
 	}
 	const Received *down = Last(WM_LBUTTONDOWN);
 	Check(down && GET_X_LPARAM(down->lp) == 5 && GET_Y_LPARAM(down->lp) == 6 && (down->wp & MK_LBUTTON) && (down->wp & MK_SHIFT), "WM_LBUTTONDOWN with position and keys");
+
+	// Window scroll bars: the client area shrinks, and the bar reports
+	// actions without moving until the window procedure says so.
+	{
+		g_hook = SetWindowsHookEx(WH_CBT, CbtProc, nullptr, GetCurrentThreadId());
+		HWND sw = CreateWindowEx(0, L"LinOpenMPTTest", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 100, 100, hwnd, nullptr, nullptr, nullptr);
+		UnhookWindowsHookEx(g_hook);
+		Check(g_cbtCreates == 1, "CBT hook sees window creation");
+		RECT rc{};
+		GetClientRect(sw, &rc);
+		const int extent = GetSystemMetrics(SM_CXVSCROLL);
+		Check(extent > 0 && rc.right == 100 - extent && rc.bottom == 100, "WS_VSCROLL takes client width");
+		SCROLLINFO si{sizeof(SCROLLINFO), SIF_RANGE | SIF_PAGE | SIF_POS, 0, 99, 10, 5, 0};
+		SetScrollInfo(sw, SB_VERT, &si, TRUE);
+		SCROLLINFO got{sizeof(SCROLLINFO), SIF_ALL};
+		GetScrollInfo(sw, SB_VERT, &got);
+		Check(got.nMin == 0 && got.nMax == 99 && got.nPage == 10 && got.nPos == 5, "Set/GetScrollInfo");
+		g_log.clear();
+		QScrollBar *bar = FromHandle(sw)->findChild<QScrollBar *>();
+		Check(bar != nullptr && bar->isVisible() && bar->maximum() == 90, "scroll bar widget range");
+		if(bar)
+			bar->triggerAction(QAbstractSlider::SliderSingleStepAdd);
+		Check(Last(WM_VSCROLL) && LOWORD(Last(WM_VSCROLL)->wp) == SB_ENDSCROLL, "WM_VSCROLL ends with SB_ENDSCROLL");
+		bool sawLineDown = false;
+		for(const auto &r : g_log)
+			sawLineDown |= (r.msg == WM_VSCROLL && LOWORD(r.wp) == SB_LINEDOWN);
+		Check(sawLineDown && GetScrollPos(sw, SB_VERT) == 5 && bar && bar->value() == 5, "SB_LINEDOWN; position stays until the window moves it");
+		si.fMask = SIF_RANGE | SIF_PAGE;
+		si.nMax = 5;
+		SetScrollInfo(sw, SB_VERT, &si, TRUE);
+		GetClientRect(sw, &rc);
+		Check(rc.right == 100 && !bar->isVisible() && Last(WM_SIZE), "scroll bar hides when everything fits");
+		DestroyWindow(sw);
+	}
 
 	// Memory DCs and blits.
 	{

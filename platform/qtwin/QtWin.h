@@ -16,6 +16,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <QtGui/QCursor>
 #include <QtGui/QFont>
 #include <QtGui/QImage>
 #include <QtGui/QKeyEvent>
@@ -33,6 +34,8 @@
 #include <string>
 #include <vector>
 
+class QScrollBar;
+
 namespace linopenmpt::qtwin
 {
 
@@ -43,6 +46,20 @@ struct WindowClass
 };
 
 class Win32Widget;
+
+// A window scroll bar (WS_HSCROLL / WS_VSCROLL), as SetScrollInfo sees it.
+struct ScrollState
+{
+	int min = 0;
+	int max = 100;
+	UINT page = 0;
+	int pos = 0;
+	int trackPos = 0;
+	bool tracking = false;
+	bool shown = false;
+	bool enabled = true;
+	QScrollBar *bar = nullptr; // owned by the widget
+};
 
 // Per-window state that Win32 keeps for every HWND.
 struct WindowData
@@ -61,6 +78,8 @@ struct WindowData
 	bool trackLeave = false;
 	bool destroying = false;
 	std::map<UINT_PTR, std::unique_ptr<QTimer>> timers;
+	ScrollState scroll[2]; // SB_HORZ, SB_VERT
+	bool redraw = true; // WM_SETREDRAW
 };
 
 class Win32Widget : public QWidget
@@ -147,6 +166,12 @@ void ScrollSurface(Win32Widget *w, int dx, int dy, const QRect &area);
 // Called before a window goes away: invalidates its DCs.
 void ReleaseWindowDCs(Win32Widget *w);
 
+// Window scroll bars and the client area they leave (system.cpp).
+QRect ClientRect(const Win32Widget *w);
+void InitScrollBars(Win32Widget *w);
+void LayoutScrollBars(Win32Widget *w);
+void ScrollStylesChanged(Win32Widget *w, DWORD oldStyle);
+
 // Icons and cursors (HICON, HCURSOR) point to one of these.
 struct IconData
 {
@@ -155,5 +180,7 @@ struct IconData
 	bool isCursor = false;
 	int sharedCursorShape = -1; // Qt::CursorShape for system cursors
 };
+HCURSOR SystemCursor(Qt::CursorShape shape);
+QCursor ToQCursor(HCURSOR cursor);
 
 } // namespace linopenmpt::qtwin

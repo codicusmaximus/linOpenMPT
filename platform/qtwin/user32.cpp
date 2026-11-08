@@ -11,6 +11,7 @@
 #include <QtGui/QContextMenuEvent>
 #include <QtGui/QCursor>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QIcon>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QScreen>
@@ -124,6 +125,35 @@ LPARAM PointParam(const QPoint &p)
 }
 
 HWND g_capture = nullptr;
+HWND g_focus = nullptr;
+
+// Window hooks, most recently installed first, as Windows calls them.
+struct Hook
+{
+	int id;
+	HOOKPROC proc;
+};
+std::vector<Hook *> &Hooks()
+{
+	static std::vector<Hook *> hooks;
+	return hooks;
+}
+
+LRESULT CallHookChain(int id, std::size_t from, int code, WPARAM wp, LPARAM lp)
+{
+	auto &hooks = Hooks();
+	for(std::size_t i = from; i < hooks.size(); i++)
+	{
+		if(hooks[i]->id == id)
+			return hooks[i]->proc(code, wp, lp);
+	}
+	return 0;
+}
+
+LRESULT CallHooks(int id, int code, WPARAM wp, LPARAM lp)
+{
+	return CallHookChain(id, 0, code, wp, lp);
+}
 
 } // namespace
 
@@ -270,6 +300,9 @@ void Win32Widget::mouseDoubleClickEvent(QMouseEvent *e)
 
 void Win32Widget::mouseMoveEvent(QMouseEvent *e)
 {
+	// The window (or its parents) picks the cursor; not while captured.
+	if(g_capture == nullptr)
+		::SendMessage(hwnd(), WM_SETCURSOR, reinterpret_cast<WPARAM>(hwnd()), MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
 	PumpInputMessage(MakeMsg(hwnd(), WM_MOUSEMOVE, MouseKeyFlags(e->buttons(), e->modifiers()), PointParam(e->position().toPoint())));
 }
 
@@ -350,7 +383,13 @@ void Win32Widget::keyReleaseEvent(QKeyEvent *e)
 
 void Win32Widget::focusInEvent(QFocusEvent *)
 {
-	::SendMessage(hwnd(), WM_SETFOCUS, 0, 0);
+	// Qt has already moved the focus, so a CBT hook can watch but not veto.
+	HWND old = FromHandle(g_focus) ? g_focus : nullptr;
+	if(old == hwnd())
+		old = nullptr;
+	g_focus = hwnd();
+	CallHooks(WH_CBT, HCBT_SETFOCUS, reinterpret_cast<WPARAM>(hwnd()), reinterpret_cast<LPARAM>(old));
+	::SendMessage(hwnd(), WM_SETFOCUS, reinterpret_cast<WPARAM>(old), 0);
 }
 
 void Win32Widget::focusOutEvent(QFocusEvent *)
@@ -386,7 +425,9 @@ void Win32Widget::resizeEvent(QResizeEvent *)
 		invalid += exposed;
 		erasePending = true;
 	}
-	::SendMessage(hwnd(), WM_SIZE, type, MAKELPARAM(width(), height()));
+	LayoutScrollBars(this);
+	const QRect client = ClientRect(this);
+	::SendMessage(hwnd(), WM_SIZE, type, MAKELPARAM(client.width(), client.height()));
 }
 
 void Win32Widget::moveEvent(QMoveEvent *)
@@ -513,6 +554,7 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		h = 480;
 	}
 	widget->setGeometry(x, y, std::max(w, 0), std::max(h, 0));
+	InitScrollBars(widget);
 
 	CREATESTRUCT cs{};
 	cs.lpCreateParams = param;
@@ -528,6 +570,14 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 	cs.lpszClass = className;
 	cs.dwExStyle = exStyle;
 	const HWND hwnd = widget->hwnd();
+	// MFC attaches its CWnd and subclasses the window here.
+	CBT_CREATEWND cbt{&cs, HWND_TOP};
+	if(CallHooks(WH_CBT, HCBT_CREATEWND, reinterpret_cast<WPARAM>(hwnd), reinterpret_cast<LPARAM>(&cbt)) != 0)
+	{
+		Windows().erase(widget);
+		delete widget;
+		return nullptr;
+	}
 	if(!::SendMessage(hwnd, WM_NCCREATE, 0, reinterpret_cast<LPARAM>(&cs)) || !FromHandle(hwnd))
 	{
 		if(FromHandle(hwnd))
@@ -540,7 +590,10 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 			::DestroyWindow(hwnd);
 		return nullptr;
 	}
-	::SendMessage(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(widget->width(), widget->height()));
+	{
+		const QRect client = ClientRect(widget);
+		::SendMessage(hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(client.width(), client.height()));
+	}
 	::SendMessage(hwnd, WM_MOVE, 0, MAKELPARAM(widget->x(), widget->y()));
 	if(child && parentWidget)
 		::SendMessage(parent, WM_PARENTNOTIFY, MAKEWPARAM(WM_CREATE, d.id), reinterpret_cast<LPARAM>(hwnd));
@@ -583,6 +636,7 @@ BOOL DestroyWindow(HWND hwnd)
 		return FALSE;
 	if(w->data.destroying)
 		return TRUE;
+	CallHooks(WH_CBT, HCBT_DESTROYWND, reinterpret_cast<WPARAM>(hwnd), 0);
 	w->hide();
 	SendDestroy(w);
 	SendNcDestroy(w);
@@ -818,7 +872,32 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_MOUSEACTIVATE:
 		return MA_ACTIVATE;
 	case WM_SETCURSOR:
+		// Parents get the first say, then the class cursor applies.
+		if((d.style & WS_CHILD) && w->parentWidget())
+		{
+			if(auto *p = dynamic_cast<Win32Widget *>(w->parentWidget()))
+			{
+				if(::SendMessage(p->hwnd(), WM_SETCURSOR, wp, lp))
+					return TRUE;
+			}
+		}
+		if(LOWORD(lp) == HTCLIENT && reinterpret_cast<HWND>(wp) == hwnd)
+		{
+			HCURSOR cursor = d.windowClass ? d.windowClass->wc.hCursor : nullptr;
+			::SetCursor(cursor ? cursor : SystemCursor(Qt::ArrowCursor));
+		}
 		return FALSE;
+	case WM_SETREDRAW:
+		d.redraw = wp != FALSE;
+		w->setUpdatesEnabled(d.redraw);
+		return 0;
+	case WM_SETICON:
+		{
+			const auto *icon = reinterpret_cast<const IconData *>(lp);
+			if(w->isWindow() && icon && !icon->image.isNull())
+				w->setWindowIcon(QIcon(QPixmap::fromImage(icon->image)));
+		}
+		return 0;
 	case WM_GETDLGCODE:
 		return 0;
 	case WM_SHOWWINDOW:
@@ -1182,13 +1261,17 @@ LONG_PTR SetWindowLongPtr(HWND hwnd, int index, LONG_PTR value)
 	case GWLP_USERDATA: d->userData = value; break;
 	case GWLP_ID: d->id = static_cast<UINT_PTR>(value); break;
 	case GWL_STYLE:
+	{
+		const DWORD oldStyle = d->style;
 		d->style = static_cast<DWORD>(value) & ~WS_VISIBLE;
+		ScrollStylesChanged(d->widget, oldStyle);
 		d->widget->setEnabled(!(value & WS_DISABLED));
 		if((value & WS_VISIBLE) != 0 && !d->widget->isVisible())
 			d->widget->show();
 		else if((value & WS_VISIBLE) == 0 && d->widget->isVisible())
 			d->widget->hide();
 		break;
+	}
 	case GWL_EXSTYLE: d->exStyle = static_cast<DWORD>(value); break;
 	default:
 		if(index >= 0 && static_cast<std::size_t>(index) / sizeof(LONG_PTR) < d->extra.size())
@@ -1215,7 +1298,8 @@ BOOL GetClientRect(HWND hwnd, LPRECT rect)
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr || rect == nullptr)
 		return FALSE;
-	*rect = RECT{0, 0, w->width(), w->height()};
+	const QRect r = ClientRect(w);
+	*rect = RECT{0, 0, r.width(), r.height()};
 	return TRUE;
 }
 
@@ -1548,10 +1632,11 @@ int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll, const RECT *cl
 				c->move(c->x() + dx, c->y() + dy);
 		}
 	}
-	QRect area = scroll ? ToQRect(*scroll) : w->rect();
+	const QRect client = ClientRect(w);
+	QRect area = scroll ? ToQRect(*scroll) : client;
 	if(clip)
 		area &= ToQRect(*clip);
-	area &= w->rect();
+	area &= client;
 	EnsureSurface(w);
 	ScrollSurface(w, dx, dy, area);
 	// What scrolled in (and pending invalid areas, which move along).
@@ -1727,4 +1812,37 @@ BOOL FlashWindow(HWND hwnd, BOOL)
 	if(Win32Widget *w = FromHandle(hwnd))
 		QApplication::alert(w->window());
 	return TRUE;
+}
+
+// ---- hooks --------------------------------------------------------------------------
+
+HHOOK SetWindowsHookEx(int idHook, HOOKPROC proc, HINSTANCE, DWORD)
+{
+	// Only thread-local CBT hooks are delivered; others are accepted and
+	// never called, as there are no system-wide hooks on Linux.
+	if(proc == nullptr)
+		return nullptr;
+	auto *hook = new Hook{idHook, proc};
+	Hooks().insert(Hooks().begin(), hook);
+	return reinterpret_cast<HHOOK>(hook);
+}
+
+BOOL UnhookWindowsHookEx(HHOOK handle)
+{
+	auto &hooks = Hooks();
+	auto it = std::find(hooks.begin(), hooks.end(), reinterpret_cast<Hook *>(handle));
+	if(it == hooks.end())
+		return FALSE;
+	delete *it;
+	hooks.erase(it);
+	return TRUE;
+}
+
+LRESULT CallNextHookEx(HHOOK handle, int code, WPARAM wp, LPARAM lp)
+{
+	auto &hooks = Hooks();
+	auto it = std::find(hooks.begin(), hooks.end(), reinterpret_cast<Hook *>(handle));
+	if(it == hooks.end())
+		return 0;
+	return CallHookChain((*it)->id, static_cast<std::size_t>(it - hooks.begin()) + 1, code, wp, lp);
 }

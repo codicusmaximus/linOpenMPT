@@ -363,8 +363,13 @@ void NotifyWinEvent(DWORD event, HWND hwnd, LONG idObject, LONG idChild);
 #define WH_CBT 5
 #define WH_MOUSE 7
 #define WH_KEYBOARD_LL 13
+#define HCBT_MOVESIZE 0
+#define HCBT_MINMAX 1
+#define HCBT_CREATEWND 3
+#define HCBT_DESTROYWND 4
 #define HCBT_ACTIVATE 5
 #define HCBT_SETFOCUS 9
+struct CBT_CREATEWND { CREATESTRUCT *lpcs; HWND hwndInsertAfter; };
 #define HC_ACTION 0
 using HOOKPROC = LRESULT (*)(int code, WPARAM wParam, LPARAM lParam);
 HHOOK SetWindowsHookEx(int idHook, HOOKPROC proc, HINSTANCE module, DWORD threadId);
