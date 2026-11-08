@@ -7,9 +7,10 @@
 # so the platform layer always links it (and through it Qt).
 add_subdirectory(qtwin)
 add_subdirectory(mfc)
+add_subdirectory(resources)
 
 add_library(linopenmpt_platform STATIC TrackApp.cpp UiBoundary.cpp ModDocHooks.cpp)
 add_library(linopenmpt::platform ALIAS linopenmpt_platform)
 target_include_directories(linopenmpt_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic linopenmpt_mfc)
+target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic linopenmpt_mfc linopenmpt_resources)
 target_compile_options(linopenmpt_platform PRIVATE -fpermissive -w)

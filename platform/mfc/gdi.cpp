@@ -134,6 +134,8 @@ BOOL CFont::CreatePointFont(int pointSize, LPCTSTR faceName, CDC *dc)
 }
 int CFont::GetLogFont(LOGFONT *font) { return GetObject(sizeof(LOGFONT), font); }
 
+BOOL CBitmap::LoadBitmap(UINT id) { return Attach(::LoadBitmap(AfxGetResourceHandle(), MAKEINTRESOURCE(id))); }
+BOOL CBitmap::LoadBitmap(LPCTSTR name) { return Attach(::LoadBitmap(AfxGetResourceHandle(), name)); }
 BOOL CBitmap::CreateBitmap(int w, int h, UINT planes, UINT bitCount, const void *bits) { return Attach(::CreateBitmap(w, h, planes, bitCount, bits)); }
 BOOL CBitmap::CreateCompatibleBitmap(CDC *dc, int w, int h) { return Attach(::CreateCompatibleBitmap(dc ? dc->m_hDC : nullptr, w, h)); }
 int CBitmap::GetBitmap(BITMAP *bitmap) { return GetObject(sizeof(BITMAP), bitmap); }

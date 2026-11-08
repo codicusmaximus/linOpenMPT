@@ -23,6 +23,7 @@
 #include <cctype>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #ifndef _CSTRING_DISABLE_NARROW_WIDE_CONVERSION
@@ -114,6 +115,9 @@ std::basic_string<T> translate_format(const T *fmt)
 }
 
 } // namespace linopenmpt::detail
+
+// The string resource with this id, in both encodings (platform/mfc).
+bool LinOpenMPTLoadStringResource(UINT id, std::wstring &wide, std::string &utf8);
 
 template <typename T>
 class CStringT
@@ -349,8 +353,18 @@ public:
 	// COM string (BSTR); only meaningful for wide strings.
 	BSTR AllocSysString() const;
 
-	// String resources don't exist on Linux; the Qt UI has its own strings.
-	bool LoadString(UINT) { m_str.clear(); return false; }
+	// A string from the resources (AfxGetResourceHandle()), as in MFC.
+	BOOL LoadString(UINT id)
+	{
+		std::wstring wide;
+		std::string utf8;
+		const bool found = LinOpenMPTLoadStringResource(id, wide, utf8);
+		if constexpr(std::is_same_v<T, wchar_t>)
+			m_str = wide;
+		else
+			m_str = utf8;
+		return found ? TRUE : FALSE;
+	}
 
 	// --- operators
 	friend CStringT operator+(const CStringT &a, const CStringT &b) { CStringT r(a); r += b; return r; }

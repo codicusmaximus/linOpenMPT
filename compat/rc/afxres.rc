@@ -1,0 +1,4 @@
+// MFC's standard resources ("afxres.rc", included at the end of mptrack.rc).
+// On Windows these are prompts and cursors of MFC's own UI (print preview,
+// OLE, context help), none of which OpenMPT uses; the strings it does use
+// come from mptrack.rc itself.

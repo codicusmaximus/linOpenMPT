@@ -251,7 +251,12 @@ LINOPENMPT_DECLARE_HANDLE(HRSRC);
 #define RT_RCDATA MAKEINTRESOURCE(10)
 #define RT_GROUP_ICON MAKEINTRESOURCE(14)
 #define RT_HTML MAKEINTRESOURCE(23)
-#define RT_DIALOG_LAYOUT MAKEINTRESOURCE(240)
+#define RT_CURSOR MAKEINTRESOURCE(1)
+#define RT_GROUP_CURSOR MAKEINTRESOURCE(12)
+#define RT_VERSION MAKEINTRESOURCE(16)
+#define RT_DLGINIT MAKEINTRESOURCE(240)
+// MFC's dynamic layout data (afxres.h): a named resource type.
+#define RT_DIALOG_LAYOUT _T("AFX_DIALOG_LAYOUT")
 
 HCURSOR LoadCursor(HINSTANCE instance, LPCTSTR name);
 HCURSOR SetCursor(HCURSOR cursor);
@@ -279,6 +284,13 @@ LPVOID LockResource(HGLOBAL data);
 DWORD SizeofResource(HMODULE module, HRSRC resource);
 HMODULE GetModuleHandle(LPCTSTR name);
 int LoadString(HINSTANCE instance, UINT id, LPTSTR buffer, int max);
+HRSRC FindResourceEx(HMODULE module, LPCTSTR type, LPCTSTR name, WORD language);
+BOOL FreeResource(HGLOBAL data);
+HBITMAP LoadBitmap(HINSTANCE instance, LPCTSTR name);
+// linOpenMPT: makes a compiled .res file (as tools/rc/rc.py writes it) the
+// resources of a module, as they are linked into a Windows executable.
+// GetModuleHandle(nullptr) is the executable.
+void LinOpenMPTRegisterResources(HMODULE module, const void *res, size_t size);
 
 // ---- menus ---------------------------------------------------------------
 #define MF_INSERT 0x00000000L
@@ -308,6 +320,7 @@ int LoadString(HINSTANCE instance, UINT id, LPTSTR buffer, int max);
 #define MF_HELP 0x00004000L
 #define MF_RIGHTJUSTIFY 0x00004000L
 #define MF_MOUSESELECT 0x00008000L
+#define MF_END 0x00000080L
 #define MFT_STRING MF_STRING
 #define MFT_SEPARATOR MF_SEPARATOR
 #define MFT_RADIOCHECK 0x00000200L
@@ -406,6 +419,10 @@ BOOL SetMenu(HWND hwnd, HMENU menu);
 BOOL DrawMenuBar(HWND hwnd);
 HMENU GetSystemMenu(HWND hwnd, BOOL revert);
 BOOL GetMenuBarInfo(HWND hwnd, LONG object, LONG item, MENUBARINFO *info);
+BOOL IsMenu(HMENU menu);
+HMENU LoadMenuIndirect(const void *menuTemplate);
+UINT GetMenuDefaultItem(HMENU menu, UINT byPos, UINT flags);
+BOOL EndMenu();
 
 // ---- scroll bars ---------------------------------------------------------
 #define SB_HORZ 0
@@ -513,6 +530,7 @@ BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows);
 #define HTBOTTOMLEFT 16
 #define HTBOTTOMRIGHT 17
 #define HTBORDER 18
+#define HTSIZE 4
 #define HTCLOSE 20
 #define CW_USEDEFAULT ((int)0x80000000)
 #define WS_EX_DLGMODALFRAME 0x00000001L
