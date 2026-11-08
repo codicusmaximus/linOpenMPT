@@ -1,0 +1,48 @@
+# mpt_sounddevice: OpenMPT's own sound device layer (src/openmpt/sounddevice),
+# the same code OpenMPT.exe uses for audio output. On Linux it drives the
+# bundled RtAudio, which we compile with JACK, PulseAudio and ALSA backends.
+# JACK gives the lowest latency; on PipeWire systems it runs via pipewire-jack.
+
+set(RTAUDIO_DEFS "")
+set(RTAUDIO_LIBS "")
+if(LINOPENMPT_WITH_JACK)
+  pkg_check_modules(JACK REQUIRED IMPORTED_TARGET jack)
+  list(APPEND RTAUDIO_DEFS __UNIX_JACK__)
+  list(APPEND RTAUDIO_LIBS PkgConfig::JACK)
+endif()
+if(LINOPENMPT_WITH_PULSE)
+  pkg_check_modules(PULSE REQUIRED IMPORTED_TARGET libpulse libpulse-simple)
+  list(APPEND RTAUDIO_DEFS __LINUX_PULSE__)
+  list(APPEND RTAUDIO_LIBS PkgConfig::PULSE)
+endif()
+if(LINOPENMPT_WITH_ALSA)
+  pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
+  list(APPEND RTAUDIO_DEFS __LINUX_ALSA__)
+  list(APPEND RTAUDIO_LIBS PkgConfig::ALSA)
+endif()
+
+add_library(mpt_rtaudio STATIC ${MPT_UPSTREAM_DIR}/include/rtaudio/RtAudio.cpp)
+target_include_directories(mpt_rtaudio PUBLIC ${MPT_UPSTREAM_DIR}/include/rtaudio)
+target_compile_definitions(mpt_rtaudio PRIVATE ${RTAUDIO_DEFS})
+target_compile_options(mpt_rtaudio PRIVATE -w)
+target_link_libraries(mpt_rtaudio PUBLIC ${RTAUDIO_LIBS} Threads::Threads)
+
+set(SOUNDDEV_EXTRA "")
+pkg_check_modules(DBUS IMPORTED_TARGET dbus-1)
+if(DBUS_FOUND)
+  # rtkit lets the audio thread get realtime priority without root.
+  list(APPEND SOUNDDEV_EXTRA ${MPT_UPSTREAM_DIR}/include/rtkit/rtkit.c)
+endif()
+
+add_library(mpt_sounddevice STATIC ${MPT_SOUNDDEVICE_SOURCES} ${SOUNDDEV_EXTRA})
+add_library(linopenmpt::sounddevice ALIAS mpt_sounddevice)
+target_link_libraries(mpt_sounddevice PUBLIC mpt_common mpt_rtaudio)
+target_compile_definitions(mpt_sounddevice PUBLIC MPT_WITH_RTAUDIO)
+if(LINOPENMPT_WITH_PULSE)
+  target_compile_definitions(mpt_sounddevice PUBLIC MPT_WITH_PULSEAUDIO MPT_WITH_PULSEAUDIOSIMPLE)
+endif()
+if(DBUS_FOUND)
+  target_compile_definitions(mpt_sounddevice PUBLIC MPT_WITH_DBUS MPT_WITH_RTKIT)
+  target_link_libraries(mpt_sounddevice PUBLIC PkgConfig::DBUS)
+endif()
+target_compile_options(mpt_sounddevice PRIVATE -fpermissive -w)
