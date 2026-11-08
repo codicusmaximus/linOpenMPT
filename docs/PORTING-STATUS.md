@@ -161,6 +161,11 @@ Known gaps to handle in later steps:
 - Keys reach windows before Qt shortcuts, as accelerators do on Windows.
 - Tests: `resource_test` (24 checks) and `nonclient_test` (41 checks) pass at
   display scales 1, 1.5 and 2, with the earlier tests.
+- Linking upstream's UI files now leaves 399 undefined symbols, down from
+  430. Menus and resources are no longer among them. What is left: common
+  controls (tree, list, list box, toolbar, edit, combo, spin, tab, slider),
+  frames, control bars and document/view, GDI+ (used for PNGs), the
+  clipboard, dialogs and a few shell and COM calls.
 
 ### Next in step 3
 

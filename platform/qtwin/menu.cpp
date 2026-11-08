@@ -1049,3 +1049,8 @@ BOOL EndMenu()
 		popup->close();
 	return TRUE;
 }
+
+BOOL AppendMenuW(HMENU h, UINT flags, UINT_PTR id, LPCWSTR text)
+{
+	return AppendMenu(h, flags, id, text);
+}
