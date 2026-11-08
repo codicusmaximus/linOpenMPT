@@ -233,3 +233,6 @@ void StopApp()
 	static_cast<CWinThread &>(OPENMPT_NAMESPACE::theApp).ExitInstance();
 }
 } // namespace linopenmpt
+
+BEGIN_MESSAGE_MAP(CTrackApp, CWinApp)
+END_MESSAGE_MAP()

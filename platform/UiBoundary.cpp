@@ -143,3 +143,16 @@ BOOL CWnd::PostMessage(UINT, WPARAM, LPARAM)
 {
 	return FALSE;
 }
+
+// Empty message maps for the UI classes whose upstream .cpp files are not
+// compiled yet. They go away as each file is brought in.
+BEGIN_MESSAGE_MAP(DialogBase, CDialog)
+END_MESSAGE_MAP()
+BEGIN_MESSAGE_MAP(ResizableDialog, DialogBase)
+END_MESSAGE_MAP()
+BEGIN_MESSAGE_MAP(CAbstractVstEditor, ResizableDialog)
+END_MESSAGE_MAP()
+BEGIN_MESSAGE_MAP(CDefaultVstEditor, CAbstractVstEditor)
+END_MESSAGE_MAP()
+BEGIN_MESSAGE_MAP(LFOPluginEditor, CAbstractVstEditor)
+END_MESSAGE_MAP()

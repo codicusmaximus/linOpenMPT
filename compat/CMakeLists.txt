@@ -2,7 +2,7 @@
 # non-UI code uses (CString, Win32 base types, MFC class skeletons, a few
 # functions). Its include directory provides <afx.h> and friends, so upstream
 # code that includes them compiles unchanged.
-add_library(linopenmpt_compat STATIC src/win32.cpp src/win32_profile.cpp)
+add_library(linopenmpt_compat STATIC src/win32.cpp src/win32_profile.cpp src/mfc_msgmap.cpp)
 add_library(linopenmpt::compat ALIAS linopenmpt_compat)
 target_include_directories(linopenmpt_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(linopenmpt_compat PUBLIC MPT_WITH_MFC UNICODE _UNICODE)

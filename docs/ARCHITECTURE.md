@@ -48,7 +48,8 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 | `mpt_sounddevice` | tracker; RtAudio with JACK, PulseAudio, ALSA; rtkit | builds, enumerates devices |
 | `mpt_libopenmpt` | player (`LIBOPENMPT_BUILD`) | builds, renders modules; stepping stone only |
 | `mpt_soundlib` | tracker | builds; loads, renders, edits and saves modules |
-| `mpt_tracker_logic` | tracker | non-UI `mptrack/` files and `tracklib/`; builds |
+| `mpt_tracker_logic` | tracker | non-UI `mptrack/` files, `tracklib/`, audio export encoders; builds |
+| `mpt_tracker_ui` | tracker | upstream UI files (documents, dialogs) compiled against the MFC layer; compile-only until step 3 |
 | `linopenmpt_compat` | - | MFC/Win32 compat layer |
 | `linopenmpt_platform` | tracker | Linux `CTrackApp`, settings, headless UI boundary |
 
@@ -65,6 +66,8 @@ How the compat layer works:
 - MFC UI classes are skeletons: virtual functions have empty defaults, other
   members are only declared. Any UI call that reaches a Linux binary is a link
   error, which is how the UI boundary is found and kept small.
+- Message maps are real MFC-style tables, so commands and window messages
+  can be routed to upstream's handlers unchanged once Qt drives them.
 - Native paths are UTF-8 (`char`) on Linux. `P_()` path literals have their
   backslashes turned into `/`.
 - `GetPrivateProfile*`/`WritePrivateProfile*` are reimplemented, so
