@@ -352,7 +352,8 @@ class CGdiObject : public CObject
 {
 public:
 	HGDIOBJ m_hObject = nullptr;
-	virtual ~CGdiObject() = default;
+	// Deletes the GDI object, as in MFC.
+	virtual ~CGdiObject();
 	operator HGDIOBJ() const { return m_hObject; }
 	HGDIOBJ GetSafeHandle() const { return this ? m_hObject : nullptr; }
 	BOOL Attach(HGDIOBJ object) { m_hObject = object; return object != nullptr; }
@@ -422,7 +423,8 @@ public:
 	HDC m_hDC = nullptr;
 	HDC m_hAttribDC = nullptr;
 	CDC() = default;
-	virtual ~CDC() = default;
+	// Deletes the DC if it still has one, as in MFC.
+	virtual ~CDC();
 	operator HDC() const { return m_hDC; }
 	HDC GetSafeHdc() const { return this ? m_hDC : nullptr; }
 	BOOL Attach(HDC dc) { m_hDC = m_hAttribDC = dc; return dc != nullptr; }
@@ -627,7 +629,11 @@ class CWnd : public CCmdTarget
 	LINOPENMPT_MFC_DYNAMIC(CWnd)
 public:
 	HWND m_hWnd = nullptr;
-	virtual ~CWnd() = default;
+	// The window procedure MFC subclassed, called for default processing.
+	WNDPROC m_pfnSuper = nullptr;
+	CWnd() = default;
+	// Destroys the window if it still exists, as MFC does.
+	virtual ~CWnd();
 	HWND GetSafeHwnd() const { return this ? m_hWnd : nullptr; }
 	operator HWND() const { return m_hWnd; }
 	static CWnd *FromHandle(HWND h);
@@ -686,13 +692,28 @@ public:
 	void SetDlgItemText(int id, LPCTSTR text);
 	UINT GetDlgItemInt(int id, BOOL *ok = nullptr, BOOL isSigned = TRUE) const;
 	void SetDlgItemInt(int id, UINT value, BOOL isSigned = TRUE);
-	virtual BOOL PreTranslateMessage(MSG *msg) { return 0; }
-	virtual BOOL OnCommand(WPARAM wp, LPARAM lp) { return 0; }
-	virtual BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result) { return 0; }
-	virtual LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp) { return 0; }
+	// Message processing, implemented in platform/mfc as in MFC: the window
+	// procedure of every MFC window calls WindowProc, which dispatches
+	// through the message map (OnWndMsg) or falls back to DefWindowProc.
+	virtual BOOL PreTranslateMessage(MSG *msg);
+	virtual BOOL OnCommand(WPARAM wp, LPARAM lp);
+	virtual BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result);
+	virtual LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp);
+	virtual BOOL OnWndMsg(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result);
+	// Messages a parent reflects back to the control that sent them.
+	virtual BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result);
+	BOOL ReflectChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result);
+	static BOOL ReflectLastMsg(HWND child, LRESULT *result = nullptr);
+	BOOL SendChildNotifyLastMsg(LRESULT *result = nullptr);
+	// The message being processed, as GetCurrentMessage() in MFC.
+	static const MSG *GetCurrentMessage();
+	// PreTranslateMessage() of each window from msg->hwnd up to stop.
+	static BOOL WalkPreTranslateTree(HWND stop, MSG *msg);
+	virtual void PreSubclassWindow() { }
+	virtual WNDPROC *GetSuperWndProcAddr() { return &m_pfnSuper; }
 	virtual void DoDataExchange(CDataExchange *dx) { }
-	virtual BOOL PreCreateWindow(CREATESTRUCT &cs) { return 0; }
-	virtual BOOL DestroyWindow() { return 0; }
+	virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
+	virtual BOOL DestroyWindow();
 	virtual void PostNcDestroy() { }
 	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const { return 0; }
 	virtual BOOL OnGesturePan(CPoint from, CPoint to) { return FALSE; }
@@ -701,8 +722,9 @@ public:
 	virtual BOOL OnGestureTwoFingerTap(CPoint center) { return FALSE; }
 	virtual BOOL OnGesturePressAndTap(CPoint press, long delta) { return FALSE; }
 	CWnd *SetParent(CWnd *newParent);
-	virtual BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, CCreateContext *context = nullptr) { return FALSE; }
+	virtual BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, CCreateContext *context = nullptr);
 	BOOL CreateEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, LPVOID param = nullptr);
+	BOOL CreateEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD style, int x, int y, int width, int height, HWND parent, HMENU menuOrId, LPVOID param = nullptr);
 	BOOL SubclassDlgItem(UINT id, CWnd *parent);
 	BOOL SubclassWindow(HWND hwnd);
 	HWND UnsubclassWindow();
@@ -740,7 +762,7 @@ public:
 	BOOL SetMenu(CMenu *menu);
 	void DrawMenuBar();
 	LRESULT Default();
-	virtual LRESULT DefWindowProc(UINT msg, WPARAM wp, LPARAM lp) { return 0; }
+	virtual LRESULT DefWindowProc(UINT msg, WPARAM wp, LPARAM lp);
 	static CWnd *FromHandlePermanent(HWND hwnd);
 	// SetWindowPos() insert-after placeholders.
 	static const CWnd wndTop;
@@ -831,6 +853,14 @@ public:
 	afx_msg BOOL OnQueryEndSession();
 	afx_msg void OnEndSession(BOOL ending);
 	afx_msg HBRUSH OnCtlColor(CDC *dc, CWnd *wnd, UINT ctlColor);
+	afx_msg void OnNcDestroy();
+	afx_msg void OnSysKeyUp(UINT ch, UINT repCnt, UINT flags);
+	afx_msg void OnSysChar(UINT ch, UINT repCnt, UINT flags);
+	afx_msg void OnCaptureChanged(CWnd *wnd);
+	afx_msg void OnWindowPosChanged(WINDOWPOS *pos);
+	afx_msg void OnWindowPosChanging(WINDOWPOS *pos);
+	afx_msg void OnParentNotify(UINT message, LPARAM lParam);
+	afx_msg void OnEnable(BOOL enable);
 	// Active Accessibility hooks (no-ops on Linux; Qt provides accessibility).
 	void EnableActiveAccessibility() { }
 	virtual HRESULT get_accName(VARIANT child, BSTR *name) { return 0; }
@@ -1899,13 +1929,15 @@ class CWinThread : public CCmdTarget
 	LINOPENMPT_MFC_DYNAMIC(CWinThread)
 public:
 	CWnd *m_pMainWnd = nullptr;
+	MSG m_msgCur{};
 	virtual CWnd *GetMainWnd() { return m_pMainWnd; }
 	virtual BOOL InitInstance() { return 0; }
-	virtual int ExitInstance() { return 0; }
-	virtual int Run() { return 0; }
-	virtual BOOL OnIdle(LONG count) { return 0; }
-	virtual BOOL PreTranslateMessage(MSG *msg) { return 0; }
-	virtual LRESULT ProcessWndProcException(CException *e, const MSG *msg) { return 0; }
+	virtual int ExitInstance() { return static_cast<int>(m_msgCur.wParam); }
+	// The message loop and its idle processing (platform/mfc).
+	virtual int Run();
+	virtual BOOL OnIdle(LONG count);
+	virtual BOOL PreTranslateMessage(MSG *msg);
+	virtual LRESULT ProcessWndProcException(CException *e, const MSG *msg);
 };
 
 // Command line as MFC parses it: ParseParam() is called for each argument,
@@ -1945,6 +1977,10 @@ class CWinApp : public CWinThread
 {
 	LINOPENMPT_MFC_DYNAMIC(CWinApp)
 public:
+	// Registers the application object (AfxGetApp), as in MFC.
+	explicit CWinApp(LPCTSTR appName = nullptr);
+	~CWinApp() override;
+	BOOL OnIdle(LONG count) override;
 	LPCTSTR m_pszAppName = nullptr;
 	DWORD m_dwRestartManagerSupportFlags = 0;
 	int m_nAutosaveInterval = 5 * 60 * 1000;
@@ -2001,6 +2037,8 @@ LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIFrameWndEx, CMDIFrameWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIChildWndEx, CMDIChildWnd)
 
 CWinApp *AfxGetApp();
+CWinThread *AfxGetThread();
+LPCTSTR AfxRegisterWndClass(UINT classStyle, HCURSOR cursor = nullptr, HBRUSH background = nullptr, HICON icon = nullptr);
 HINSTANCE AfxGetResourceHandle();
 HINSTANCE AfxGetInstanceHandle();
 void AfxSetResourceHandle(HINSTANCE instance);

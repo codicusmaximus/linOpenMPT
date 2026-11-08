@@ -3,7 +3,9 @@
 
 #include "QtWin.h"
 
+#include <QtCore/QAbstractEventDispatcher>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QEventLoop>
 #include <QtCore/QDateTime>
 #include <QtCore/QDeadlineTimer>
 #include <QtCore/QElapsedTimer>
@@ -1845,4 +1847,74 @@ LRESULT CallNextHookEx(HHOOK handle, int code, WPARAM wp, LPARAM lp)
 	if(it == hooks.end())
 		return 0;
 	return CallHookChain((*it)->id, static_cast<std::size_t>(it - hooks.begin()) + 1, code, wp, lp);
+}
+
+// ---- message loops (linOpenMPT extensions) ------------------------------------------
+
+namespace
+{
+using IdleProc = BOOL (*)(LONG);
+std::vector<IdleProc> g_idleStack;
+std::vector<QEventLoop *> g_modalLoops;
+bool g_inIdle = false;
+
+// Idle processing runs whenever Qt's event loop is about to wait, which is
+// when a Win32 loop would find its queue empty.
+void RunIdle()
+{
+	if(g_inIdle || g_idleStack.empty() || g_idleStack.back() == nullptr)
+		return;
+	g_inIdle = true;
+	const IdleProc idle = g_idleStack.back();
+	for(LONG count = 0; count < 16 && idle(count); count++)
+	{
+	}
+	g_inIdle = false;
+}
+
+void ConnectIdle()
+{
+	static bool connected = false;
+	if(connected)
+		return;
+	if(QAbstractEventDispatcher *dispatcher = QAbstractEventDispatcher::instance())
+	{
+		QObject::connect(dispatcher, &QAbstractEventDispatcher::aboutToBlock, dispatcher, &RunIdle);
+		connected = true;
+	}
+}
+} // namespace
+
+void LinOpenMPTSetPreTranslateHook(BOOL (*hook)(MSG *msg))
+{
+	SetPreTranslateHook(hook);
+}
+
+int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count))
+{
+	if(g_quitPosted)
+		return g_quitCode;
+	ConnectIdle();
+	g_idleStack.push_back(idle);
+	const int result = QApplication::exec();
+	g_idleStack.pop_back();
+	return result;
+}
+
+int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count))
+{
+	ConnectIdle();
+	QEventLoop loop;
+	g_modalLoops.push_back(&loop);
+	g_idleStack.push_back(idle);
+	const int result = loop.exec(QEventLoop::DialogExec);
+	g_idleStack.pop_back();
+	g_modalLoops.erase(std::find(g_modalLoops.begin(), g_modalLoops.end(), &loop));
+	return result;
+}
+
+void LinOpenMPTEndModalLoop(int result)
+{
+	if(!g_modalLoops.empty())
+		g_modalLoops.back()->exit(result);
 }

@@ -179,6 +179,7 @@ struct IconData
 	QPoint hotspot;
 	bool isCursor = false;
 	int sharedCursorShape = -1; // Qt::CursorShape for system cursors
+	bool shared = false;        // system icons and cursors are never destroyed
 };
 HCURSOR SystemCursor(Qt::CursorShape shape);
 QCursor ToQCursor(HCURSOR cursor);

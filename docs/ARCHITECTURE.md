@@ -20,8 +20,10 @@ port therefore:
    settings, key bindings, plugin management), compiled against a thin
    compatibility layer for the MFC/Win32 types it touches (`CString`, `DWORD`,
    settings and file APIs);
-3. rewrites **only the views and dialogs** in Qt6, one by one, against the
-   same document model the Windows UI uses.
+3. runs **upstream's views and dialogs too**, by implementing the Win32 API
+   they are written against on Qt6 (`platform/qtwin`) and MFC on top of that
+   Win32 API (`platform/mfc`), the way MFC is built on Windows. Only what
+   cannot work that way (Windows-only facilities) is rewritten in Qt.
 
 Upstream is a git submodule in `upstream/`, pinned to a release tag. Port code
 lives outside it. Changes to upstream files are a last resort and are kept as
@@ -34,7 +36,9 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 | `upstream/` | OpenMPT (submodule, release tag); `patches/` applied at configure time |
 | `cmake/` | Build of upstream sources: source lists, core, sound device |
 | `compat/` | MFC/Win32 compatibility layer: types, `CString`, MFC class skeletons, INI files, POSIX paths |
-| `platform/` | Linux app object (`CTrackApp`) and the headless UI boundary that Qt replaces in step 3 |
+| `platform/` | Linux app object (`CTrackApp`) and the remaining headless UI boundary |
+| `platform/qtwin/` | Win32 windows, messages, GDI, keyboard, cursors and scroll bars on Qt6 widgets |
+| `platform/mfc/` | MFC (`CWnd`, message dispatch, `CDC`, `CWinApp` message loop) on the Win32 API |
 | `app/` | (step 3) the Qt6 application |
 | `tools/smoke/` | Small programs and tests that prove each layer works |
 | `scripts/` | Upstream sync script |
@@ -51,7 +55,9 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 | `mpt_tracker_logic` | tracker | non-UI `mptrack/` files, `tracklib/`, audio export encoders; builds |
 | `mpt_tracker_ui` | tracker | upstream UI files (documents, dialogs) compiled against the MFC layer; compile-only until step 3 |
 | `linopenmpt_compat` | - | MFC/Win32 compat layer |
-| `linopenmpt_platform` | tracker | Linux `CTrackApp`, settings, headless UI boundary |
+| `linopenmpt_qtwin` | - | Win32 UI API on Qt6 Widgets |
+| `linopenmpt_mfc` | - | MFC classes on the Win32 API; links `linopenmpt_qtwin` |
+| `linopenmpt_platform` | tracker | Linux `CTrackApp`, settings, headless UI boundary; links `linopenmpt_mfc` |
 
 The tracker and player configurations use different C++ namespaces upstream,
 so both can coexist in one build.
@@ -85,6 +91,36 @@ How the compat layer works:
   `mptrack.ini` works as on Windows. Files are written as UTF-8, and UTF-16
   files copied from a Windows install are read too.
 
+## UI layering
+
+```
+upstream mptrack/ views and dialogs        (unchanged)
+        |  MFC calls
+platform/mfc     CWnd, message maps, CDC, CWinApp::Run   (Win32 calls only)
+        |  Win32 calls
+platform/qtwin   HWND = QWidget, WM_* from Qt events, GDI on QPainter
+        |
+Qt6 Widgets
+```
+
+- Every HWND is a `QWidget`. Qt's input, focus, resize and timer events are
+  turned into the window messages Windows would send, in the same order, and
+  go through `PreTranslateMessage`, `TranslateMessage` and the window
+  procedure.
+- Each window paints into a persistent backing image, as a Windows window
+  keeps its pixels: `WM_PAINT` is sent only for invalidated areas, and
+  `ScrollWindowEx` moves pixels. GDI follows Windows' pixel rules (lines
+  exclude their end point, raster operations, DIB sections with writable
+  bits), so upstream's hand-drawn views look the same at any display scale.
+- Keys come with Windows virtual-key codes and scan codes, so OpenMPT's key
+  bindings and keyboard note entry work with the same `.mkb` files.
+- MFC is implemented as on Windows: a CBT hook attaches the `CWnd` before
+  `WM_CREATE` and subclasses the window to `AfxWndProc`; messages are cracked
+  through upstream's message maps; notifications are reflected to the child
+  that sent them; idle time sends `WM_IDLEUPDATECMDUI` and deletes temporary
+  objects. The message loop is Qt's, with MFC's `PreTranslateMessage` and
+  `OnIdle` plugged into it.
+
 ## Audio
 
 OpenMPT's own sound device layer (`src/openmpt/sounddevice`) is used as-is, so
@@ -101,8 +137,9 @@ rtkit (via D-Bus) gives the audio thread realtime priority without root.
    `mptrack/` build and run in tracker configuration, and every UI file that
    is not Windows-only compiles against `compat/`. See
    [PORTING-STATUS.md](PORTING-STATUS.md) for the inventory.
-3. **Qt6 app shell with low-latency audio**: main window, document tabs,
-   toolbar, playback through JACK. Done when any module opens and plays as in
+3. **Qt6 app shell with low-latency audio**: the Win32 and MFC layers on Qt,
+   then upstream's main window, document tabs and toolbar running on them,
+   with playback through JACK. Done when any module opens and plays as in
    the Windows app.
 4. **Every view and dialog ported to parity**: pattern, sample, instrument,
    order list and comments views, then every dialog, then plugins (native

@@ -442,6 +442,7 @@ int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL redraw);
 BOOL GetScrollInfo(HWND hwnd, int bar, LPSCROLLINFO info);
 int GetScrollPos(HWND hwnd, int bar);
 int SetScrollPos(HWND hwnd, int bar, int pos, BOOL redraw);
+BOOL SetScrollRange(HWND hwnd, int bar, int minPos, int maxPos, BOOL redraw);
 BOOL GetScrollRange(HWND hwnd, int bar, LPINT minPos, LPINT maxPos);
 BOOL ShowScrollBar(HWND hwnd, int bar, BOOL show);
 BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows);
@@ -744,6 +745,20 @@ BOOL GetMessage(LPMSG msg, HWND hwnd, UINT filterMin, UINT filterMax);
 BOOL TranslateMessage(const MSG *msg);
 LRESULT DispatchMessage(const MSG *msg);
 BOOL IsDialogMessage(HWND dlg, LPMSG msg);
+// linOpenMPT extensions, for MFC's message loop on top of Qt's. Input
+// reaches windows from Qt's event loop rather than from GetMessage(), so a
+// message loop hands over its pre-translation step and idle processing:
+//  - hook sees every input and posted message before it is dispatched, as
+//    PreTranslateMessage() does in a Win32 message loop (TRUE: handled);
+//  - LinOpenMPTRunMessageLoop() runs until WM_QUIT and returns its exit
+//    code, calling idle(count) with count 0, 1, ... whenever no messages
+//    are waiting, until it returns FALSE.
+void LinOpenMPTSetPreTranslateHook(BOOL (*hook)(MSG *msg));
+int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count));
+// Runs a nested loop until LinOpenMPTEndModalLoop() (modal dialogs and
+// menus), with the same pre-translation and idle processing.
+int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count));
+void LinOpenMPTEndModalLoop(int result);
 int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 
 // ---- system parameters -------------------------------------------------------

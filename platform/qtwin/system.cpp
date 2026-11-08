@@ -408,10 +408,38 @@ int ShowCursor(BOOL show)
 	return g_cursorShowCount;
 }
 
+HICON LoadIcon(HINSTANCE instance, LPCTSTR name)
+{
+	if(!IS_INTRESOURCE(name) || instance != nullptr)
+		return nullptr; // application icons come with the resources
+	QStyle::StandardPixmap pixmap;
+	switch(static_cast<WORD>(reinterpret_cast<ULONG_PTR>(name)))
+	{
+	case 32512: pixmap = QStyle::SP_DesktopIcon; break;          // IDI_APPLICATION
+	case 32513: pixmap = QStyle::SP_MessageBoxCritical; break;   // IDI_ERROR
+	case 32514: pixmap = QStyle::SP_MessageBoxQuestion; break;   // IDI_QUESTION
+	case 32515: pixmap = QStyle::SP_MessageBoxWarning; break;    // IDI_WARNING
+	case 32516: pixmap = QStyle::SP_MessageBoxInformation; break; // IDI_INFORMATION
+	case 32517: pixmap = QStyle::SP_DesktopIcon; break;          // IDI_WINLOGO
+	case 32518: pixmap = QStyle::SP_MessageBoxWarning; break;    // IDI_SHIELD
+	default: return nullptr;
+	}
+	static std::map<int, IconData *> icons;
+	auto &icon = icons[pixmap];
+	if(icon == nullptr)
+	{
+		icon = new IconData;
+		icon->shared = true;
+		const int size = GetSystemMetrics(SM_CXICON);
+		icon->image = QApplication::style()->standardIcon(pixmap).pixmap(size, size).toImage();
+	}
+	return reinterpret_cast<HICON>(icon);
+}
+
 BOOL DestroyCursor(HCURSOR cursor)
 {
 	auto *data = reinterpret_cast<IconData *>(cursor);
-	if(data == nullptr || data->sharedCursorShape >= 0)
+	if(data == nullptr || data->shared || data->sharedCursorShape >= 0)
 		return TRUE; // shared
 	delete data;
 	return TRUE;
