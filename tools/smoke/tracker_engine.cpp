@@ -7,6 +7,7 @@
 // Usage: tracker_engine <module> <output.it>
 
 #include "stdafx.h"
+#include "../../platform/Platform.h"
 #include "../soundlib/Sndfile.h"
 #include "../soundlib/AudioReadTarget.h"
 #include "openmpt/soundbase/Dither.hpp"
@@ -65,6 +66,15 @@ int main(int argc, char **argv)
 		return 2;
 	}
 
+	// Start the application services (settings, sound devices) the engine
+	// uses in tracker configuration, as OpenMPT.exe does at start-up.
+	if(!linopenmpt::StartApp())
+	{
+		std::cerr << "FAIL: could not start application services\n";
+		return 1;
+	}
+	struct AppExit { ~AppExit() { linopenmpt::StopApp(); } } appExit;
+
 	auto sndFile = Load(argv[1]);
 	if(!sndFile)
 	{
@@ -83,7 +93,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	// Edit: put a C-5 with instrument 1 and effect Cxx (volume) into pattern 0, row 3, channel 0.
+	// Convert to IT (as File > Save As IT does), then edit pattern 0, row 3,
+	// channel 0: C-5, instrument 1, volume column v32, effect A06 (speed 6).
+	sndFile->ChangeModTypeTo(MOD_TYPE_IT);
 	if(!sndFile->Patterns.IsValidPat(0))
 	{
 		std::cerr << "FAIL: no pattern 0\n";
@@ -92,9 +104,10 @@ int main(int argc, char **argv)
 	ModCommand *m = sndFile->Patterns[0].GetpModCommand(3, 0);
 	m->note = NOTE_MIDDLEC;
 	m->instr = 1;
-	m->command = CMD_VOLUME;
-	m->param = 0x20;
-	sndFile->ChangeModTypeTo(MOD_TYPE_IT);
+	m->volcmd = VOLCMD_VOLUME;
+	m->vol = 32;
+	m->command = CMD_SPEED;
+	m->param = 6;
 
 	{
 		std::ofstream out(argv[2], std::ios::binary | std::ios::trunc);
@@ -113,9 +126,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	const ModCommand &r = *reloaded->Patterns[0].GetpModCommand(3, 0);
-	if(r.note != NOTE_MIDDLEC || r.instr != 1 || r.command != CMD_VOLUME || r.param != 0x20)
+	if(r.note != NOTE_MIDDLEC || r.instr != 1 || r.volcmd != VOLCMD_VOLUME || r.vol != 32 || r.command != CMD_SPEED || r.param != 6)
 	{
-		std::cerr << "FAIL: edit did not survive save/reload\n";
+		std::cerr << "FAIL: edit did not survive save/reload (note " << int(r.note) << ", instr " << int(r.instr)
+		          << ", volcmd " << int(r.volcmd) << ", vol " << int(r.vol) << ", command " << int(r.command) << ", param " << int(r.param) << ")\n";
 		return 1;
 	}
 	std::cout << "reloaded: edit preserved\nOK\n";

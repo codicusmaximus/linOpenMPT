@@ -85,6 +85,78 @@ struct VARIANT { WORD vt; LONG lVal; };
 #define CF_UNICODETEXT 13
 #define _CVTBUFSIZE (309 + 40)
 
+// ---- system information ------------------------------------------------------
+using DWORDLONG = std::uint64_t;
+#ifndef SIZE_T_MAX
+#define SIZE_T_MAX SIZE_MAX
+#endif
+struct MEMORYSTATUSEX
+{
+	DWORD dwLength;
+	DWORD dwMemoryLoad;
+	DWORDLONG ullTotalPhys;
+	DWORDLONG ullAvailPhys;
+	DWORDLONG ullTotalPageFile;
+	DWORDLONG ullAvailPageFile;
+	DWORDLONG ullTotalVirtual;
+	DWORDLONG ullAvailVirtual;
+	DWORDLONG ullAvailExtendedVirtual;
+};
+BOOL GlobalMemoryStatusEx(MEMORYSTATUSEX *status);
+
+// System colours (default Windows 10 values; the Qt UI uses its palette).
+#define COLOR_WINDOW 5
+#define COLOR_WINDOWTEXT 8
+#define COLOR_HIGHLIGHT 13
+#define COLOR_HIGHLIGHTTEXT 14
+#define COLOR_BTNFACE 15
+#define COLOR_BTNSHADOW 16
+#define COLOR_GRAYTEXT 17
+#define COLOR_BTNTEXT 18
+#define COLOR_BTNHIGHLIGHT 20
+#define COLOR_3DDKSHADOW 21
+#define COLOR_3DLIGHT 22
+DWORD GetSysColor(int index);
+
+// Known folders. Maps to XDG directories on Linux.
+#define CSIDL_PERSONAL 0x0005
+#define CSIDL_MYDOCUMENTS CSIDL_PERSONAL
+#define CSIDL_APPDATA 0x001a
+#define CSIDL_LOCAL_APPDATA 0x001c
+#define SHGFP_TYPE_CURRENT 0
+HRESULT SHGetFolderPath(HWND owner, int folder, HANDLE token, DWORD flags, LPWSTR path);
+
+int MulDiv(int number, int numerator, int denominator);
+
+// ---- MIDI input (winmm). No devices until the MIDI milestone. --------------
+#define MAXPNAMELEN 32
+#define MMSYSERR_NOERROR 0
+#define MMSYSERR_BADDEVICEID 2
+struct MIDIINCAPS
+{
+	WORD wMid;
+	WORD wPid;
+	UINT vDriverVersion;
+	WCHAR szPname[MAXPNAMELEN];
+	DWORD dwSupport;
+};
+UINT midiInGetNumDevs();
+MMRESULT midiInGetDevCaps(UINT_PTR id, MIDIINCAPS *caps, UINT size);
+
+// ---- TCHAR string routines -------------------------------------------------
+inline std::size_t _tcslen(const wchar_t *s) { return std::wcslen(s); }
+inline int _tcscmp(const wchar_t *a, const wchar_t *b) { return std::wcscmp(a, b); }
+inline int _tcsicmp(const wchar_t *a, const wchar_t *b) { return ::wcscasecmp(a, b); }
+inline int _tcsncicmp(const wchar_t *a, const wchar_t *b, std::size_t n) { return ::wcsncasecmp(a, b, n); }
+inline wchar_t *_tcscpy(wchar_t *d, const wchar_t *s) { return std::wcscpy(d, s); }
+inline wchar_t *_tcsncpy(wchar_t *d, const wchar_t *s, std::size_t n) { return std::wcsncpy(d, s, n); }
+inline const wchar_t *_tcschr(const wchar_t *s, wchar_t c) { return std::wcschr(s, c); }
+inline const wchar_t *_tcsrchr(const wchar_t *s, wchar_t c) { return std::wcsrchr(s, c); }
+inline long _tcstol(const wchar_t *s, wchar_t **end, int base) { return std::wcstol(s, end, base); }
+inline double _tcstod(const wchar_t *s, wchar_t **end) { return std::wcstod(s, end); }
+inline int _ttoi(const wchar_t *s) { return static_cast<int>(std::wcstol(s, nullptr, 10)); }
+inline wchar_t *_wcsdup(const wchar_t *s) { return ::wcsdup(s); }
+
 // ---- functions -----------------------------------------------------------
 BSTR SysAllocString(const wchar_t *s);
 void SysFreeString(BSTR s);
@@ -108,3 +180,14 @@ int GetLocaleInfo(LCID locale, DWORD type, LPTSTR data, int size);
 BOOL IsWindow(HWND hwnd);
 // Native paths are narrow (UTF-8/locale) on Linux.
 BOOL CreateDirectory(const char *path, void *securityAttributes);
+BOOL CopyFile(const char *from, const char *to, BOOL failIfExists);
+BOOL IsTextUnicode(const void *buf, int size, LPINT result);
+
+// INI files (compat/src/win32_profile.cpp). Text is wide as on Windows with
+// UNICODE; file names are native (narrow) paths.
+DWORD GetPrivateProfileString(LPCWSTR section, LPCWSTR key, LPCWSTR def, LPWSTR out, DWORD size, const char *file);
+UINT GetPrivateProfileInt(LPCWSTR section, LPCWSTR key, INT def, const char *file);
+BOOL GetPrivateProfileStruct(LPCWSTR section, LPCWSTR key, LPVOID data, UINT size, const char *file);
+BOOL WritePrivateProfileString(LPCWSTR section, LPCWSTR key, LPCWSTR value, const char *file);
+BOOL WritePrivateProfileStruct(LPCWSTR section, LPCWSTR key, LPVOID data, UINT size, const char *file);
+BOOL WritePrivateProfileSection(LPCWSTR section, LPCWSTR data, const char *file);

@@ -10,6 +10,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <ctime>
+#include <cwchar>
 
 #ifndef ASSERT
 #if defined(NDEBUG)
@@ -50,5 +52,30 @@ public:
 };
 class CMemoryException : public CException { };
 class CFileException : public CException { };
+
+// MFC CTime: seconds since the epoch, local-time formatting.
+class CTime
+{
+	std::time_t m_time = 0;
+public:
+	CTime() = default;
+	explicit CTime(std::time_t t) : m_time(t) { }
+	static CTime GetCurrentTime() { return CTime(std::time(nullptr)); }
+	std::time_t GetTime() const { return m_time; }
+	CString Format(const wchar_t *fmt) const
+	{
+		std::tm tm{};
+		localtime_r(&m_time, &tm);
+		wchar_t buf[256];
+		const std::size_t n = std::wcsftime(buf, 256, fmt, &tm);
+		return CString(buf, static_cast<int>(n));
+	}
+	int GetYear() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_year + 1900; }
+	int GetMonth() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_mon + 1; }
+	int GetDay() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_mday; }
+	int GetHour() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_hour; }
+	int GetMinute() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_min; }
+	int GetSecond() const { std::tm tm{}; localtime_r(&m_time, &tm); return tm.tm_sec; }
+};
 
 [[noreturn]] inline void AfxThrowMemoryException() { throw new CMemoryException(); }

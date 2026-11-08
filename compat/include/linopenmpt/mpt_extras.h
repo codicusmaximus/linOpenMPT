@@ -37,6 +37,8 @@ using tstring_view = std::wstring_view;
 using winstring = mpt::tstring;
 using winstring_view = mpt::tstring_view;
 
+using tfmt = fmtT<mpt::tstring>;
+
 // Result of ToWin(). On Windows a native path string *is* a winstring, and
 // upstream code (e.g. FileDialog.h) assigns one to the other. On Linux native
 // paths are narrow, so this wide string also converts to a native path.
@@ -97,6 +99,30 @@ public:
 };
 using native_fs = fs<mpt::native_path>;
 
+// Upstream's mpt::common_directories (src/mpt/fs/common_directories.hpp)
+// is Windows-only.
+class common_directories
+{
+public:
+	static mpt::native_path get_temp_directory()
+	{
+		std::error_code ec;
+		auto dir = std::filesystem::temp_directory_path(ec);
+		return mpt::native_path::FromNative(mpt::RawPathString((ec ? std::string("/tmp") : dir.string()).c_str())).WithTrailingSlash();
+	}
+};
+
+// Upstream's Trace facility (common/Logging.h) is Windows-only; settings
+// still toggle it, so provide the switch as a no-op.
+namespace log
+{
+namespace Trace
+{
+inline void Enable(std::size_t) { }
+inline void Disable() { }
+} // namespace Trace
+} // namespace log
+
 // Upstream compares paths case-insensitively on Windows (lstrcmpi).
 inline int PathCompareNoCase(const PathString &a, const PathString &b)
 {
@@ -108,6 +134,9 @@ inline int PathCompareNoCase(const PathString &a, const PathString &b)
 mpt::PathString AbsolutePathToRelative(const mpt::PathString &path, const mpt::PathString &relativeTo);
 mpt::PathString RelativePathToAbsolute(const mpt::PathString &path, const mpt::PathString &relativeTo);
 } // namespace mpt
+
+#define MPT_TFORMAT_MESSAGE(f) mpt::format_message_typed<mpt::default_formatter, mpt::parse_format_string_argument_count(TEXT(f)), mpt::tstring>(TEXT(f))
+#define MPT_TFORMAT(f) MPT_TFORMAT_MESSAGE(f)
 
 namespace Util
 {
@@ -124,5 +153,25 @@ public:
 	uint64 NowNanoseconds() const;
 };
 } // namespace Util
+
+namespace linopenmpt
+{
+// Upstream writes Windows separators in path literals, e.g.
+// GetConfigPath() + P_("tunings\\"). On Linux every backslash in such a
+// literal becomes '/', so the same code builds the right paths.
+inline mpt::PathString PortablePathLiteral(const mpt::PathString &path)
+{
+	mpt::RawPathString raw = path.AsNative();
+	for(auto &c : raw)
+	{
+		if(c == '\\')
+			c = '/';
+	}
+	return mpt::PathString::FromNative(raw);
+}
+} // namespace linopenmpt
+
+#undef P_
+#define P_(x) ::linopenmpt::PortablePathLiteral(MPT_PATHSTRING(x))
 
 #endif // MODPLUG_TRACKER && !MPT_OS_WINDOWS

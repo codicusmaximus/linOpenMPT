@@ -2,10 +2,11 @@
 //
 // Upstream's shared headers (Mptrack.h, Mainfrm.h, Moddoc.h, ...) mention MFC
 // window classes in member declarations and signatures. These skeletons let
-// those headers compile unchanged. They have no behaviour: most methods are
-// declared but not defined, so any UI call that reaches a Linux binary shows
-// up as a link error, which is exactly the list of things the Qt UI has to
-// provide. Simple value types (CRect, CPoint, CSize) and the document base
+// those headers compile unchanged. They have no behaviour. Virtual functions
+// have do-nothing defaults (as MFC's base implementations mostly do), so the
+// classes' vtables exist; non-virtual methods are declared but not defined,
+// so any direct UI call that reaches a Linux binary shows up as a link error,
+// which is exactly the list of things the Qt UI has to provide. Simple value types (CRect, CPoint, CSize) and the document base
 // class are implemented, because non-UI logic uses them directly.
 
 #pragma once
@@ -158,10 +159,10 @@ class CCmdUI
 {
 public:
 	UINT m_nID = 0;
-	virtual void Enable(BOOL on = TRUE);
-	virtual void SetCheck(int check = 1);
-	virtual void SetRadio(BOOL on = TRUE);
-	virtual void SetText(LPCTSTR text);
+	virtual void Enable(BOOL on = TRUE) { }
+	virtual void SetCheck(int check = 1) { }
+	virtual void SetRadio(BOOL on = TRUE) { }
+	virtual void SetText(LPCTSTR text) { }
 	virtual ~CCmdUI() = default;
 };
 
@@ -263,21 +264,21 @@ public:
 	void SetDlgItemText(int id, LPCTSTR text);
 	UINT GetDlgItemInt(int id, BOOL *ok = nullptr, BOOL isSigned = TRUE) const;
 	void SetDlgItemInt(int id, UINT value, BOOL isSigned = TRUE);
-	virtual BOOL PreTranslateMessage(MSG *msg);
-	virtual BOOL OnCommand(WPARAM wp, LPARAM lp);
-	virtual BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result);
-	virtual LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp);
-	virtual void DoDataExchange(CDataExchange *dx);
-	virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
-	virtual BOOL DestroyWindow();
-	virtual void PostNcDestroy();
-	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const;
+	virtual BOOL PreTranslateMessage(MSG *msg) { return 0; }
+	virtual BOOL OnCommand(WPARAM wp, LPARAM lp) { return 0; }
+	virtual BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result) { return 0; }
+	virtual LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp) { return 0; }
+	virtual void DoDataExchange(CDataExchange *dx) { }
+	virtual BOOL PreCreateWindow(CREATESTRUCT &cs) { return 0; }
+	virtual BOOL DestroyWindow() { return 0; }
+	virtual void PostNcDestroy() { }
+	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const { return 0; }
 	// Active Accessibility hooks (no-ops on Linux; Qt provides accessibility).
 	void EnableActiveAccessibility() { }
-	virtual HRESULT get_accName(VARIANT child, BSTR *name);
-	virtual HRESULT get_accValue(VARIANT child, BSTR *value);
-	virtual HRESULT get_accDescription(VARIANT child, BSTR *description);
-	virtual HRESULT get_accRole(VARIANT child, VARIANT *role);
+	virtual HRESULT get_accName(VARIANT child, BSTR *name) { return 0; }
+	virtual HRESULT get_accValue(VARIANT child, BSTR *value) { return 0; }
+	virtual HRESULT get_accDescription(VARIANT child, BSTR *description) { return 0; }
+	virtual HRESULT get_accRole(VARIANT child, VARIANT *role) { return 0; }
 };
 
 class CMFCDynamicLayout
@@ -315,6 +316,7 @@ public:
 	int FindStringExact(int start, LPCTSTR text) const;
 	void SetRedraw(BOOL redraw = TRUE);
 };
+class CComboBoxEx : public CComboBox { };
 class CListBox : public CWnd
 {
 public:
@@ -372,9 +374,9 @@ class CControlBar : public CWnd
 public:
 	DWORD GetBarStyle();
 	void SetBarStyle(DWORD style);
-	virtual CSize CalcFixedLayout(BOOL stretch, BOOL horz);
-	virtual CSize CalcDynamicLayout(int length, DWORD mode);
-	virtual void DelayShow(BOOL show);
+	virtual CSize CalcFixedLayout(BOOL stretch, BOOL horz) { return {}; }
+	virtual CSize CalcDynamicLayout(int length, DWORD mode) { return {}; }
+	virtual void DelayShow(BOOL show) { }
 };
 class CToolBar : public CControlBar { };
 class CStatusBar : public CControlBar { };
@@ -387,14 +389,14 @@ class CDialog : public CWnd
 public:
 	CDialog() = default;
 	explicit CDialog(UINT id, CWnd *parent = nullptr);
-	virtual INT_PTR DoModal();
-	virtual BOOL OnInitDialog();
-	virtual void OnOK();
-	virtual void OnCancel();
+	virtual INT_PTR DoModal() { return 0; }
+	virtual BOOL OnInitDialog() { return 0; }
+	virtual void OnOK() { }
+	virtual void OnCancel() { }
 	BOOL Create(UINT id, CWnd *parent = nullptr);
 	void EndDialog(int result);
 	CMFCDynamicLayout *GetDynamicLayout();
-	virtual void ResizeDynamicLayout();
+	virtual void ResizeDynamicLayout() { }
 };
 class CDialogEx : public CDialog
 {
@@ -406,9 +408,9 @@ class CPropertyPage : public CDialog
 public:
 	CPropertyPage() = default;
 	explicit CPropertyPage(UINT id, UINT caption = 0);
-	virtual BOOL OnSetActive();
-	virtual BOOL OnKillActive();
-	virtual BOOL OnApply();
+	virtual BOOL OnSetActive() { return 0; }
+	virtual BOOL OnKillActive() { return 0; }
+	virtual BOOL OnApply() { return 0; }
 	void SetModified(BOOL changed = TRUE);
 };
 class CPropertySheet : public CWnd { };
@@ -417,12 +419,12 @@ class CFileDialog : public CDialog { };
 class CFrameWnd : public CWnd
 {
 public:
-	virtual void OnUpdateFrameTitle(BOOL addToTitle);
-	virtual void RecalcLayout(BOOL notify = TRUE);
+	virtual void OnUpdateFrameTitle(BOOL addToTitle) { }
+	virtual void RecalcLayout(BOOL notify = TRUE) { }
 	void SetMessageText(LPCTSTR text);
-	virtual class CDocument *GetActiveDocument();
-	virtual class CView *GetActiveView() const;
-	virtual CFrameWnd *GetActiveFrame();
+	virtual class CDocument *GetActiveDocument() { return nullptr; }
+	virtual class CView *GetActiveView() const { return nullptr; }
+	virtual CFrameWnd *GetActiveFrame() { return nullptr; }
 };
 class CMDIFrameWnd : public CFrameWnd
 {
@@ -437,10 +439,10 @@ class CView : public CWnd
 {
 public:
 	class CDocument *GetDocument() const;
-	virtual void OnDraw(CDC *dc);
-	virtual void OnInitialUpdate();
-	virtual void OnUpdate(CView *sender, LPARAM hint, CObject *hintObj);
-	virtual void OnActivateView(BOOL activate, CView *activateView, CView *deactiveView);
+	virtual void OnDraw(CDC *dc) { }
+	virtual void OnInitialUpdate() { }
+	virtual void OnUpdate(CView *sender, LPARAM hint, CObject *hintObj) { }
+	virtual void OnActivateView(BOOL activate, CView *activateView, CView *deactiveView) { }
 	CFrameWnd *GetParentFrame() const;
 };
 class CScrollView : public CView { };
@@ -470,14 +472,14 @@ public:
 	virtual BOOL OnNewDocument() { m_bModified = FALSE; m_strPathName.Empty(); return TRUE; }
 	virtual BOOL OnOpenDocument(LPCTSTR path) { (void)path; return TRUE; }
 	virtual BOOL OnSaveDocument(LPCTSTR path) { (void)path; m_bModified = FALSE; return TRUE; }
-	virtual void OnCloseDocument();
-	virtual BOOL SaveModified();
-	virtual BOOL DoSave(LPCTSTR path, BOOL replace = TRUE);
-	virtual BOOL DoFileSave();
+	virtual void OnCloseDocument() { }
+	virtual BOOL SaveModified() { return TRUE; }
+	virtual BOOL DoSave(LPCTSTR path, BOOL replace = TRUE) { return 0; }
+	virtual BOOL DoFileSave() { return 0; }
 	virtual void DeleteContents() { }
-	virtual BOOL CanCloseFrame(CFrameWnd *frame);
-	virtual void PreCloseFrame(CFrameWnd *frame);
-	virtual void OnChangedViewList();
+	virtual BOOL CanCloseFrame(CFrameWnd *frame) { return TRUE; }
+	virtual void PreCloseFrame(CFrameWnd *frame) { }
+	virtual void OnChangedViewList() { }
 	virtual void SetDocumentTitle() { }
 	void UpdateAllViews(CView *sender, LPARAM hint = 0, CObject *hintObj = nullptr);
 	CDocTemplate *GetDocTemplate() const;
@@ -490,30 +492,34 @@ public:
 class CDataRecoveryHandler : public CObject { };
 
 // ---- application ---------------------------------------------------------
+#define AFX_RESTART_MANAGER_SUPPORT_RESTART 0x01
+#define AFX_RESTART_MANAGER_REOPEN_PREVIOUS_FILES 0x08
+
 class CWinThread : public CCmdTarget
 {
 public:
 	CWnd *m_pMainWnd = nullptr;
-	virtual BOOL InitInstance();
-	virtual int ExitInstance();
-	virtual int Run();
-	virtual BOOL OnIdle(LONG count);
-	virtual BOOL PreTranslateMessage(MSG *msg);
-	virtual LRESULT ProcessWndProcException(CException *e, const MSG *msg);
+	virtual BOOL InitInstance() { return 0; }
+	virtual int ExitInstance() { return 0; }
+	virtual int Run() { return 0; }
+	virtual BOOL OnIdle(LONG count) { return 0; }
+	virtual BOOL PreTranslateMessage(MSG *msg) { return 0; }
+	virtual LRESULT ProcessWndProcException(CException *e, const MSG *msg) { return 0; }
 };
 
 class CWinApp : public CWinThread
 {
 public:
 	LPCTSTR m_pszAppName = nullptr;
+	DWORD m_dwRestartManagerSupportFlags = 0;
 	LPCTSTR m_pszExeName = nullptr;
 	HINSTANCE m_hInstance = nullptr;
-	virtual CDocument *OpenDocumentFile(LPCTSTR path);
-	virtual CDocument *OpenDocumentFile(LPCTSTR path, BOOL addToMRU);
-	virtual void AddToRecentFileList(LPCTSTR path);
-	virtual CDataRecoveryHandler *GetDataRecoveryHandler();
-	virtual BOOL SaveAllModified();
-	virtual void WinHelp(DWORD_PTR data, UINT cmd = 0);
+	virtual CDocument *OpenDocumentFile(LPCTSTR path) { return nullptr; }
+	virtual CDocument *OpenDocumentFile(LPCTSTR path, BOOL addToMRU) { return nullptr; }
+	virtual void AddToRecentFileList(LPCTSTR path) { }
+	virtual CDataRecoveryHandler *GetDataRecoveryHandler() { return nullptr; }
+	virtual BOOL SaveAllModified() { return 0; }
+	virtual void WinHelp(DWORD_PTR data, UINT cmd = 0) { }
 	void AddDocTemplate(CDocTemplate *tmpl);
 };
 

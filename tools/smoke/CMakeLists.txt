@@ -21,4 +21,6 @@ if(TARGET mpt_soundlib)
   target_compile_options(tracker_engine PRIVATE -fpermissive -w)
   add_test(NAME tracker_engine_mod COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_mod.it)
   add_test(NAME tracker_engine_s3m COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.s3m ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_s3m.it)
+  set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
+    ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_config")
 endif()

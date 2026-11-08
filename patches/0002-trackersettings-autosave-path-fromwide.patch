@@ -1,0 +1,13 @@
+diff --git a/mptrack/TrackerSettings.cpp b/mptrack/TrackerSettings.cpp
+index 0363770..679d3fe 100644
+--- a/mptrack/TrackerSettings.cpp
++++ b/mptrack/TrackerSettings.cpp
+@@ -1447,7 +1447,7 @@ mpt::PathString TrackerSettings::GetDefaultAutosavePath()
+ 		   || (SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK)
+ 		   || (SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK))
+ 		{
+-			path = mpt::PathString::FromNative(dir);
++			path = mpt::PathString::FromWide(dir);
+ 		} else
+ 		{
+ 			path = mpt::common_directories::get_temp_directory();
