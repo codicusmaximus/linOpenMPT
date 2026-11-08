@@ -1,0 +1,50 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config g++ \
+            qt6-base-dev \
+            libjack-jackd2-dev libpulse-dev libasound2-dev libdbus-1-dev \
+            zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # Tracks progress on plan step 2: how much of soundlib builds in the
+  # tracker configuration. Expected to fail until step 2 is done.
+  tracker-soundlib:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config g++ \
+            libjack-jackd2-dev libpulse-dev libasound2-dev libdbus-1-dev \
+            zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev
+      - name: Build tracker soundlib
+        run: |
+          cmake -S . -B build -G Ninja -DLINOPENMPT_TRACKER_SOUNDLIB=ON -DLINOPENMPT_BUILD_QT=OFF -DLINOPENMPT_BUILD_TESTS=OFF
+          cmake --build build --target mpt_soundlib -- -k 0 2>&1 | tee build.log || true
+          echo "Failed translation units: $(grep -c '^FAILED' build.log || true)" >> "$GITHUB_STEP_SUMMARY"
