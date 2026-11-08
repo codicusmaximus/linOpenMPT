@@ -307,6 +307,65 @@ BOOL UnionRect(LPRECT dest, const RECT *a, const RECT *b);
 BOOL SubtractRect(LPRECT dest, const RECT *a, const RECT *b);
 BOOL EqualRect(const RECT *a, const RECT *b);
 
+// More of GDI, for MFC's CDC and friends.
+#define HS_HORIZONTAL 0
+#define HS_VERTICAL 1
+#define HS_FDIAGONAL 2
+#define HS_BDIAGONAL 3
+#define HS_CROSS 4
+#define HS_DIAGCROSS 5
+#define OBJ_PEN 1
+#define OBJ_BRUSH 2
+#define OBJ_DC 3
+#define OBJ_REGION 8
+#define OBJ_FONT 6
+#define OBJ_BITMAP 7
+#define OBJ_MEMDC 10
+#define MM_TEXT 1
+#define BLACKONWHITE 1
+#define WHITEONBLACK 2
+#define COLORONCOLOR 3
+#define HALFTONE 4
+#define DI_MASK 0x0001
+#define DI_IMAGE 0x0002
+#define DI_NORMAL 0x0003
+#define DI_COMPAT 0x0004
+#define DI_DEFAULTSIZE 0x0008
+#define ETO_OPAQUE 0x0002
+#define ETO_CLIPPED 0x0004
+#define ALTERNATE 1
+#define WINDING 2
+#define CLR_INVALID 0xFFFFFFFF
+#define GDI_ERROR 0xFFFFFFFFL
+#define HGDI_ERROR ((HANDLE)-1)
+HPEN CreatePenIndirect(const LOGPEN *pen);
+HBRUSH CreateBrushIndirect(const LOGBRUSH *brush);
+HBRUSH CreateHatchBrush(int hatch, COLORREF color);
+HGDIOBJ GetCurrentObject(HDC dc, UINT type);
+DWORD GetObjectType(HGDIOBJ object);
+int GetBkMode(HDC dc);
+UINT GetTextAlign(HDC dc);
+int GetROP2(HDC dc);
+int SetMapMode(HDC dc, int mode);
+int SetStretchBltMode(HDC dc, int mode);
+BOOL SetBrushOrgEx(HDC dc, int x, int y, LPPOINT old);
+BOOL SetViewportOrgEx(HDC dc, int x, int y, LPPOINT old);
+BOOL GetViewportOrgEx(HDC dc, LPPOINT point);
+BOOL OffsetViewportOrgEx(HDC dc, int dx, int dy, LPPOINT old);
+BOOL SetWindowOrgEx(HDC dc, int x, int y, LPPOINT old);
+BOOL GetCurrentPositionEx(HDC dc, LPPOINT point);
+BOOL PolyPolyline(HDC dc, const POINT *points, const DWORD *counts, int polylines);
+BOOL RoundRect(HDC dc, int left, int top, int right, int bottom, int w, int h);
+BOOL PtVisible(HDC dc, int x, int y);
+BOOL SetPixelV(HDC dc, int x, int y, COLORREF color);
+BOOL FillRgn(HDC dc, HRGN region, HBRUSH brush);
+BOOL PaintRgn(HDC dc, HRGN region);
+BOOL PtInRegion(HRGN region, int x, int y);
+int OffsetRgn(HRGN region, int dx, int dy);
+int GetRgnBox(HRGN region, LPRECT rect);
+int GetClipRgn(HDC dc, HRGN region);
+HWND WindowFromDC(HDC dc);
+
 // windowsx.h helpers.
 #define SelectFont(dc, font) ((HFONT)SelectObject((dc), (HGDIOBJ)(HFONT)(font)))
 #define SelectPen(dc, pen) ((HPEN)SelectObject((dc), (HGDIOBJ)(HPEN)(pen)))

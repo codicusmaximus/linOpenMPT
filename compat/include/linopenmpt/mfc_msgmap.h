@@ -49,6 +49,13 @@ struct AFX_MSGMAP_ENTRY
 	AFX_PMSG pfn;
 };
 
+// What CWnd::OnNotify passes to OnCmdMsg for WM_NOTIFY handlers.
+struct AFX_NOTIFY
+{
+	LRESULT *pResult;
+	NMHDR *pNMHDR;
+};
+
 struct AFX_MSGMAP
 {
 	const AFX_MSGMAP *(*pfnGetBaseMap)();
@@ -213,6 +220,21 @@ protected: \
 #define ON_WM_VSCROLL() LINOPENMPT_ON_WM(WM_VSCROLL, OnVScroll)
 #define ON_WM_XBUTTONDOWN() LINOPENMPT_ON_WM(WM_XBUTTONDOWN, OnXButtonDown)
 #define ON_WM_XBUTTONUP() LINOPENMPT_ON_WM(WM_XBUTTONUP, OnXButtonUp)
+#define ON_WM_NCDESTROY() LINOPENMPT_ON_WM(WM_NCDESTROY, OnNcDestroy)
+#define ON_WM_SYSKEYDOWN() LINOPENMPT_ON_WM(WM_SYSKEYDOWN, OnSysKeyDown)
+#define ON_WM_SYSKEYUP() LINOPENMPT_ON_WM(WM_SYSKEYUP, OnSysKeyUp)
+#define ON_WM_SYSCHAR() LINOPENMPT_ON_WM(WM_SYSCHAR, OnSysChar)
+#define ON_WM_CAPTURECHANGED() LINOPENMPT_ON_WM(WM_CAPTURECHANGED, OnCaptureChanged)
+#define ON_WM_WINDOWPOSCHANGED() LINOPENMPT_ON_WM(WM_WINDOWPOSCHANGED, OnWindowPosChanged)
+#define ON_WM_WINDOWPOSCHANGING() LINOPENMPT_ON_WM(WM_WINDOWPOSCHANGING, OnWindowPosChanging)
+#define ON_WM_PARENTNOTIFY() LINOPENMPT_ON_WM(WM_PARENTNOTIFY, OnParentNotify)
+#define ON_WM_ENABLE() LINOPENMPT_ON_WM(WM_ENABLE, OnEnable)
+#define ON_WM_MEASUREITEM() LINOPENMPT_ON_WM(WM_MEASUREITEM, OnMeasureItem)
+#define ON_WM_ENDSESSION() LINOPENMPT_ON_WM(WM_ENDSESSION, OnEndSession)
+// Registered messages: function-local message maps are built on first use,
+// after the message variables got their values.
+#define ON_REGISTERED_MESSAGE(nMessageVariable, memberFxn) \
+	{ (UINT)(nMessageVariable), 0, 0, 0, AfxSig_message, ::linopenmpt::msgmap::message(memberFxn) },
 
 // Looks up the first entry in a class's map chain that matches a message,
 // notification code and control/command ID. Used by the Qt dispatcher.

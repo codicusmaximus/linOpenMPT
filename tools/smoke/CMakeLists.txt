@@ -29,3 +29,19 @@ endif()
 add_executable(msgmap_test msgmap_test.cpp)
 target_link_libraries(msgmap_test PRIVATE linopenmpt_compat)
 add_test(NAME msgmap_test COMMAND msgmap_test)
+
+# Win32 windowing, messages and GDI on Qt (plan step 3), offscreen.
+if(TARGET linopenmpt_qtwin)
+  add_executable(qtwin_test qtwin_test.cpp)
+  target_link_libraries(qtwin_test PRIVATE linopenmpt_qtwin)
+  add_test(NAME qtwin_test COMMAND qtwin_test)
+  set_tests_properties(qtwin_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
+# The MFC layer on Qt (CWnd, message maps, CDC, CWinApp::Run), offscreen.
+if(TARGET linopenmpt_mfc)
+  add_executable(mfc_test mfc_test.cpp)
+  target_link_libraries(mfc_test PRIVATE linopenmpt_mfc)
+  add_test(NAME mfc_test COMMAND mfc_test)
+  set_tests_properties(mfc_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

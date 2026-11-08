@@ -128,22 +128,6 @@ IMixPlugin *MidiInOut::Create(VSTPluginLib &, CSoundFile &, SNDMIXPLUGIN &)
 
 OPENMPT_NAMESPACE_END
 
-// ---- Win32 calls that target windows ----------------------------------------
-SHORT GetAsyncKeyState(int)
-{
-	return 0;
-}
-
-BOOL PostMessage(HWND, UINT, WPARAM, LPARAM)
-{
-	return FALSE;
-}
-
-BOOL CWnd::PostMessage(UINT, WPARAM, LPARAM)
-{
-	return FALSE;
-}
-
 // Empty message maps for the UI classes whose upstream .cpp files are not
 // compiled yet. They go away as each file is brought in.
 BEGIN_MESSAGE_MAP(DialogBase, CDialog)

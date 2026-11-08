@@ -363,8 +363,13 @@ void NotifyWinEvent(DWORD event, HWND hwnd, LONG idObject, LONG idChild);
 #define WH_CBT 5
 #define WH_MOUSE 7
 #define WH_KEYBOARD_LL 13
+#define HCBT_MOVESIZE 0
+#define HCBT_MINMAX 1
+#define HCBT_CREATEWND 3
+#define HCBT_DESTROYWND 4
 #define HCBT_ACTIVATE 5
 #define HCBT_SETFOCUS 9
+struct CBT_CREATEWND { CREATESTRUCT *lpcs; HWND hwndInsertAfter; };
 #define HC_ACTION 0
 using HOOKPROC = LRESULT (*)(int code, WPARAM wParam, LPARAM lParam);
 HHOOK SetWindowsHookEx(int idHook, HOOKPROC proc, HINSTANCE module, DWORD threadId);
@@ -437,6 +442,7 @@ int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL redraw);
 BOOL GetScrollInfo(HWND hwnd, int bar, LPSCROLLINFO info);
 int GetScrollPos(HWND hwnd, int bar);
 int SetScrollPos(HWND hwnd, int bar, int pos, BOOL redraw);
+BOOL SetScrollRange(HWND hwnd, int bar, int minPos, int maxPos, BOOL redraw);
 BOOL GetScrollRange(HWND hwnd, int bar, LPINT minPos, LPINT maxPos);
 BOOL ShowScrollBar(HWND hwnd, int bar, BOOL show);
 BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows);
@@ -698,6 +704,7 @@ BOOL ClientToScreen(HWND hwnd, LPPOINT point);
 int MapWindowPoints(HWND from, HWND to, LPPOINT points, UINT count);
 BOOL InvalidateRect(HWND hwnd, const RECT *rect, BOOL erase);
 BOOL ValidateRect(HWND hwnd, const RECT *rect);
+BOOL GetUpdateRect(HWND hwnd, LPRECT rect, BOOL erase);
 BOOL UpdateWindow(HWND hwnd);
 BOOL RedrawWindow(HWND hwnd, const RECT *update, HRGN region, UINT flags);
 int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll, const RECT *clip, HRGN update, LPRECT updateRect, UINT flags);
@@ -705,6 +712,7 @@ LRESULT SendMessageW(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 BOOL PostThreadMessage(DWORD threadID, UINT msg, WPARAM wp, LPARAM lp);
 void PostQuitMessage(int exitCode);
 UINT RegisterWindowMessage(LPCTSTR name);
+typedef void (*TIMERPROC)(HWND, UINT, UINT_PTR, DWORD);
 UINT_PTR SetTimer(HWND hwnd, UINT_PTR id, UINT elapse, void *proc);
 BOOL KillTimer(HWND hwnd, UINT_PTR id);
 BOOL FlashWindow(HWND hwnd, BOOL invert);
@@ -737,6 +745,20 @@ BOOL GetMessage(LPMSG msg, HWND hwnd, UINT filterMin, UINT filterMax);
 BOOL TranslateMessage(const MSG *msg);
 LRESULT DispatchMessage(const MSG *msg);
 BOOL IsDialogMessage(HWND dlg, LPMSG msg);
+// linOpenMPT extensions, for MFC's message loop on top of Qt's. Input
+// reaches windows from Qt's event loop rather than from GetMessage(), so a
+// message loop hands over its pre-translation step and idle processing:
+//  - hook sees every input and posted message before it is dispatched, as
+//    PreTranslateMessage() does in a Win32 message loop (TRUE: handled);
+//  - LinOpenMPTRunMessageLoop() runs until WM_QUIT and returns its exit
+//    code, calling idle(count) with count 0, 1, ... whenever no messages
+//    are waiting, until it returns FALSE.
+void LinOpenMPTSetPreTranslateHook(BOOL (*hook)(MSG *msg));
+int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count));
+// Runs a nested loop until LinOpenMPTEndModalLoop() (modal dialogs and
+// menus), with the same pre-translation and idle processing.
+int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count));
+void LinOpenMPTEndModalLoop(int result);
 int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 
 // ---- system parameters -------------------------------------------------------

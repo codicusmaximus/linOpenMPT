@@ -113,7 +113,37 @@ Known gaps to handle in later steps:
 
 ## Step 3: Qt6 shell
 
-Not started. Qt6 is found by the build already.
+### Step 3a: Win32 and MFC window core on Qt (done)
+
+- `platform/qtwin`: windows and window classes, sent and posted messages,
+  timers, the message loop with idle time and modal loops, painting with
+  invalid regions and a persistent backing image, the whole GDI used by
+  upstream (DCs, pens, brushes, fonts, bitmaps, DIB sections, blits and
+  raster ops, text, regions, clipping, `DrawEdge`/`DrawFrameControl`),
+  keyboard with Windows virtual keys and scan codes, mouse and capture,
+  window scroll bars, cursors and system icons, system metrics, CBT hooks.
+- `platform/mfc`: `CWnd` (handle maps, creation through the CBT hook,
+  subclassing, message cracking, command and notification routing,
+  reflection, every Win32 wrapper), `CDC` and the GDI object classes,
+  `CPaintDC`/`CClientDC`/`CWindowDC`, `CWinApp`/`CWinThread` with `Run`,
+  `PreTranslateMessage`, `OnIdle` and wait cursors.
+- Tests: `qtwin_test` (44 checks) and `mfc_test` (20 checks) run offscreen and
+  pass at display scales 1, 1.25, 1.5 and 2.
+- Linking upstream's UI files now leaves 430 undefined symbols, down from 853:
+  common controls (tree, list, combo, edit, toolbar, tab, spin, slider and
+  so on), menus, frame and document/view classes, the clipboard, resources
+  from `mptrack.rc`, MIDI input, and a few shell and COM calls. These are
+  the next parts of step 3.
+
+### Next in step 3
+
+1. Resources: dialogs, menus, accelerators, bitmaps, icons and strings from
+   `mptrack.rc`, compiled into the binary.
+2. Menus and common controls on Qt widgets, dialogs (`DoModal`,
+   `IsDialogMessage`).
+3. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
+   upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
+4. Playback through JACK from the main window.
 
 ## Step 4: views and dialogs
 
