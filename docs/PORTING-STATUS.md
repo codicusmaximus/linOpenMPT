@@ -192,11 +192,43 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 318 undefined symbols, down from
   399. Dialogs and the standard controls are no longer among them.
 
+### Step 3d: the common controls, part 1 (done)
+
+- Win32 window procedures drawn with the Qt style, following comctl32 (and
+  Wine's comctl32 where the documentation is quiet):
+  - trackbars (`msctls_trackbar32`): ranges, ticks, page and line sizes,
+    keys, wheel, dragging, buddies, `TBS_TOOLTIPS` and custom draw;
+  - up-down controls (`msctls_updown32`): buddies (`UDS_AUTOBUDDY`,
+    `UDS_SETBUDDYINT`, alignment), accelerators and `UDN_DELTAPOS`;
+  - progress bars (`msctls_progress32`), with the marquee;
+  - image lists (`ImageList_*`), with 32-bit alpha, masks and overlays;
+  - tab controls (`SysTabControl32`): single and multiple rows, the scroll
+    arrows, owner draw, `TCM_ADJUSTRECT`;
+  - header controls (`SysHeader32`): ordering, divider dragging, sort arrows,
+    owner draw;
+  - list views (`SysListView32`) in report view, the only view upstream
+    uses: groups, check boxes, owner data (`LVS_OWNERDATA`), sorting, label
+    editing, incremental search and custom draw. The icon, small icon and
+    list views fall back to one column;
+  - tree views (`SysTreeView32`): lines and buttons, images and state
+    images, check boxes, bold and cut items, callbacks, single expand,
+    sorting, label editing, drag notifications, the insert mark and custom
+    draw.
+- MFC: `CSliderCtrl`, `CSpinButtonCtrl`, `CProgressCtrl`, `CImageList`,
+  `CTabCtrl`, `CHeaderCtrl`, `CListCtrl`, `CMFCListCtrl` (cell colours and
+  sorting by a header click) and `CTreeCtrl`.
+- Tests: `commctrl_test` covers the controls' messages, notifications and
+  mouse and key input; it and the earlier tests pass at display scales 1,
+  1.5 and 2. `dialog_test` now creates every control in `mptrack.rc` except
+  the toolbars, `ComboBoxEx32` and `SysLink`.
+- Linking upstream's UI files now leaves 208 undefined symbols, down from
+  318.
+
 ### Next in step 3
 
-1. Property sheets and the common controls on Qt widgets (trackbar, spin,
-   progress, tab, list and tree views, toolbar, `ComboBoxEx`, SysLink),
-   then accelerators and dynamic dialog layouts.
+1. The common controls, part 2: tooltips (and MFC's `EnableToolTips`),
+   toolbars, `ComboBoxEx`, SysLink, property sheets; then accelerators and
+   dynamic dialog layouts.
 2. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
    upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
 3. Playback through JACK from the main window.
