@@ -228,6 +228,8 @@ HWND CWnd::Detach()
 
 CWnd::~CWnd()
 {
+	delete m_pDynamicLayout;
+	m_pDynamicLayout = nullptr;
 	if(m_hWnd != nullptr && FromHandlePermanent(m_hWnd) == this)
 	{
 		// Destroying the window while its object goes away; MFC does the
@@ -326,6 +328,8 @@ BOOL CWnd::DestroyWindow()
 
 void CWnd::OnNcDestroy()
 {
+	delete m_pDynamicLayout;
+	m_pDynamicLayout = nullptr;
 	// The main window going away ends the application, as in MFC.
 	if(CWinThread *thread = AfxGetThread())
 	{
@@ -371,6 +375,9 @@ LRESULT CWnd::WindowProc(UINT msg, WPARAM wp, LPARAM lp)
 	LRESULT result = 0;
 	if(!OnWndMsg(msg, wp, lp, &result))
 		result = DefWindowProc(msg, wp, lp);
+	// Controls follow the window, after the window's own WM_SIZE handling.
+	if(msg == WM_SIZE && m_hWnd != nullptr)
+		ResizeDynamicLayout();
 	return result;
 }
 

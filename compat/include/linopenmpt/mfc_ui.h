@@ -128,7 +128,6 @@ struct MEASUREITEMSTRUCT
 };
 using LPMEASUREITEMSTRUCT = MEASUREITEMSTRUCT *;
 
-struct MINMAXINFO { POINT ptReserved; POINT ptMaxSize; POINT ptMaxPosition; POINT ptMinTrackSize; POINT ptMaxTrackSize; };
 struct _EXCEPTION_RECORD;
 struct _CONTEXT;
 struct _EXCEPTION_POINTERS { _EXCEPTION_RECORD *ExceptionRecord; _CONTEXT *ContextRecord; };
@@ -622,6 +621,7 @@ public:
 	WNDPROC m_pfnSuper = nullptr;
 	UINT m_nFlags = 0;
 	int m_nModalResult = 0;
+	class CMFCDynamicLayout *m_pDynamicLayout = nullptr;
 	CWnd() = default;
 	// Destroys the window if it still exists, as MFC does.
 	virtual ~CWnd();
@@ -776,8 +776,13 @@ public:
 	virtual class CScrollBar *GetScrollBarCtrl(int bar) const { return nullptr; }
 	void EnableScrollBarCtrl(int bar, BOOL enable = TRUE);
 	BOOL EnableScrollBar(int bar, UINT arrows = ESB_ENABLE_BOTH);
+	// MFC's dynamic layout (AFX_DIALOG_LAYOUT): controls that move and grow
+	// with the window. ResizeDynamicLayout() runs on every WM_SIZE.
 	void EnableDynamicLayout(BOOL enable = TRUE);
-	BOOL IsDynamicLayoutEnabled() const;
+	BOOL IsDynamicLayoutEnabled() const { return m_pDynamicLayout != nullptr; }
+	class CMFCDynamicLayout *GetDynamicLayout() { return m_pDynamicLayout; }
+	BOOL LoadDynamicLayoutResource(LPCTSTR resourceName);
+	virtual void ResizeDynamicLayout();
 	BOOL UpdateData(BOOL saveAndValidate = TRUE);
 	// Modal loops (dialogs, and any window run modally), as in MFC.
 	virtual int RunModalLoop(DWORD flags = 0);
@@ -880,7 +885,7 @@ public:
 class CMFCDynamicLayout
 {
 public:
-	// How far a control moves or grows, in percent of the dialog's growth.
+	// How far a control moves or grows, in percent of the window's growth.
 	struct MoveSettings
 	{
 		int m_nXRatio = 0;
@@ -890,7 +895,34 @@ public:
 		bool IsNone() const { return !IsHorizontal() && !IsVertical(); }
 	};
 	using SizeSettings = MoveSettings;
+	static MoveSettings MoveNone() { return {}; }
+	static MoveSettings MoveHorizontal(int ratio) { return {ratio, 0}; }
+	static MoveSettings MoveVertical(int ratio) { return {0, ratio}; }
+	static MoveSettings MoveHorizontalAndVertical(int x, int y) { return {x, y}; }
+	static SizeSettings SizeNone() { return {}; }
+	static SizeSettings SizeHorizontal(int ratio) { return {ratio, 0}; }
+	static SizeSettings SizeVertical(int ratio) { return {0, ratio}; }
+	static SizeSettings SizeHorizontalAndVertical(int x, int y) { return {x, y}; }
+	BOOL Create(CWnd *host);
 	BOOL AddItem(HWND hwnd, MoveSettings move, SizeSettings size);
+	BOOL AddItem(int id, MoveSettings move, SizeSettings size);
+	BOOL HasItem(HWND hwnd) const;
+	BOOL IsEmpty() const { return m_items.empty(); }
+	CWnd *GetHostWnd() { return m_pHostWnd; }
+	void Adjust();
+	static BOOL LoadResource(CWnd *host, LPVOID resource, DWORD size);
+
+private:
+	struct Item
+	{
+		HWND hwnd;
+		RECT initial; // in the host's client coordinates
+		MoveSettings move;
+		SizeSettings size;
+	};
+	CWnd *m_pHostWnd = nullptr;
+	SIZE m_initialClient{};
+	std::vector<Item> m_items;
 };
 
 // MFC's reader for AFX_DIALOG_LAYOUT resources: a version WORD (0), then
@@ -1580,8 +1612,6 @@ public:
 	void SetDefID(UINT id);
 	DWORD GetDefID() const;
 	void MapDialogRect(LPRECT rect) const;
-	CMFCDynamicLayout *GetDynamicLayout();
-	virtual void ResizeDynamicLayout() { }
 	LPCTSTR m_lpszTemplateName = nullptr;
 	UINT m_nIDHelp = 0;
 	CWnd *m_pParentWnd = nullptr;

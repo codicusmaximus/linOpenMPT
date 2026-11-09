@@ -16,6 +16,7 @@
 #include <QtGui/QIcon>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QResizeEvent>
 #include <QtGui/QScreen>
 #include <QtGui/QWheelEvent>
 #include <QtWidgets/QApplication>
@@ -616,9 +617,44 @@ void Win32Widget::contextMenuEvent(QContextMenuEvent *e)
 	e->accept();
 }
 
+// Top-level windows: the procedure's WM_GETMINMAXINFO limits become the
+// widget's minimum and maximum sizes, which the window manager enforces while
+// the user resizes.
+void ApplyMinMaxInfo(Win32Widget *w)
+{
+	if(!w->isWindow())
+		return;
+	const QRect screen = w->screen() ? w->screen()->availableGeometry() : QRect(0, 0, 1920, 1080);
+	MINMAXINFO mmi{};
+	mmi.ptMaxSize = {screen.width(), screen.height()};
+	mmi.ptMaxPosition = {0, 0};
+	const POINT defMin = {::GetSystemMetrics(SM_CXMIN), ::GetSystemMetrics(SM_CYMIN)};
+	const POINT defMax = {::GetSystemMetrics(SM_CXVIRTUALSCREEN), ::GetSystemMetrics(SM_CYVIRTUALSCREEN)};
+	mmi.ptMinTrackSize = defMin;
+	mmi.ptMaxTrackSize = defMax;
+	::SendMessage(w->hwnd(), WM_GETMINMAXINFO, 0, reinterpret_cast<LPARAM>(&mmi));
+	w = FromHandle(w->hwnd());
+	if(w == nullptr)
+		return;
+	// The sizes are window sizes, with the frame (as in MoveWindow).
+	const QRect frame = w->frameGeometry(), inner = w->geometry();
+	const int fw = frame.width() - inner.width(), fh = frame.height() - inner.height();
+	const QSize minSize(std::max(0, static_cast<int>(mmi.ptMinTrackSize.x) - fw), std::max(0, static_cast<int>(mmi.ptMinTrackSize.y) - fh));
+	QSize maxSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+	if(mmi.ptMaxTrackSize.x != defMax.x)
+		maxSize.setWidth(std::max(minSize.width(), static_cast<int>(mmi.ptMaxTrackSize.x) - fw));
+	if(mmi.ptMaxTrackSize.y != defMax.y)
+		maxSize.setHeight(std::max(minSize.height(), static_cast<int>(mmi.ptMaxTrackSize.y) - fh));
+	if(w->minimumSize() != minSize)
+		w->setMinimumSize(minSize);
+	if(w->maximumSize() != maxSize)
+		w->setMaximumSize(maxSize);
+}
+
 void Win32Widget::showEvent(QShowEvent *)
 {
 	data.style |= WS_VISIBLE;
+	ApplyMinMaxInfo(this);
 	::SendMessage(hwnd(), WM_SHOWWINDOW, TRUE, 0);
 }
 
@@ -1643,7 +1679,22 @@ BOOL MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
 		const QPoint origin = ClientOrigin(wd->parentWidget());
 		wd->setGeometry(x + origin.x(), y + origin.y(), std::max(w, 0), std::max(h, 0));
 	}
-	if(repaint)
+	// Qt holds back move and resize events for hidden widgets until they
+	// show; Windows sends WM_MOVE and WM_SIZE at once (dialogs lay out their
+	// controls before they first show).
+	if(FromHandle(hwnd) == wd && wd->testAttribute(Qt::WA_PendingMoveEvent))
+	{
+		wd->setAttribute(Qt::WA_PendingMoveEvent, false);
+		QMoveEvent e(wd->pos(), wd->pos());
+		QApplication::sendEvent(wd, &e);
+	}
+	if(FromHandle(hwnd) == wd && wd->testAttribute(Qt::WA_PendingResizeEvent))
+	{
+		wd->setAttribute(Qt::WA_PendingResizeEvent, false);
+		QResizeEvent e(wd->size(), QSize());
+		QApplication::sendEvent(wd, &e);
+	}
+	if(repaint && FromHandle(hwnd) == wd)
 		wd->update();
 	return TRUE;
 }
