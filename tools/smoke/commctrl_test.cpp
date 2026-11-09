@@ -1,0 +1,425 @@
+// The common controls (trackbars, up-down controls, progress bars), run
+// offscreen: their messages, the notifications they send their parent, and
+// mouse and key input, checked against comctl32's behaviour.
+#include <afxwin.h>
+#include <afxcmn.h>
+
+#include "QtWin.h"
+
+#include <QtGui/QKeyEvent>
+#include <QtGui/QMouseEvent>
+#include <QtWidgets/QApplication>
+
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+using namespace linopenmpt::qtwin;
+
+namespace
+{
+int g_failures = 0;
+
+void Check(bool ok, const char *what)
+{
+	std::printf("%s %s\n", ok ? "ok  " : "FAIL", what);
+	if(!ok)
+		g_failures++;
+}
+
+void Pump()
+{
+	for(int i = 0; i < 5; i++)
+		QApplication::processEvents();
+}
+
+struct Scroll
+{
+	UINT msg;
+	WORD code;
+	short pos;
+	HWND from;
+};
+std::vector<Scroll> g_scrolls;
+std::vector<NMUPDOWN> g_deltas;
+std::vector<UINT> g_notifies;
+int g_vetoDelta = 0;      // UDN_DELTAPOS answers nonzero
+int g_changeDelta = 0;    // UDN_DELTAPOS changes iDelta to this
+LRESULT g_customDraw = CDRF_DODEFAULT;
+std::vector<DWORD> g_drawStages;
+
+LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+	switch(msg)
+	{
+	case WM_HSCROLL:
+	case WM_VSCROLL:
+		g_scrolls.push_back(Scroll{msg, LOWORD(wp), static_cast<short>(HIWORD(wp)), reinterpret_cast<HWND>(lp)});
+		return 0;
+	case WM_NOTIFY:
+		{
+			const auto *hdr = reinterpret_cast<const NMHDR *>(lp);
+			g_notifies.push_back(hdr->code);
+			if(hdr->code == UDN_DELTAPOS)
+			{
+				auto *nm = reinterpret_cast<NMUPDOWN *>(lp);
+				g_deltas.push_back(*nm);
+				if(g_changeDelta != 0)
+					nm->iDelta = g_changeDelta;
+				return g_vetoDelta;
+			}
+			if(hdr->code == NM_CUSTOMDRAW)
+			{
+				const auto *cd = reinterpret_cast<const NMCUSTOMDRAW *>(lp);
+				g_drawStages.push_back(cd->dwDrawStage | (cd->dwDrawStage & CDDS_ITEM ? static_cast<DWORD>(cd->dwItemSpec) << 8 : 0));
+				return cd->dwDrawStage == CDDS_PREPAINT ? g_customDraw : CDRF_DODEFAULT;
+			}
+			return 0;
+		}
+	default:
+		return ::DefWindowProc(hwnd, msg, wp, lp);
+	}
+}
+
+void Mouse(HWND hwnd, QEvent::Type type, int x, int y)
+{
+	Win32Widget *w = FromHandle(hwnd);
+	if(w == nullptr)
+		return;
+	const QPoint local = QPoint(x, y) + ClientOrigin(w);
+	const Qt::MouseButtons buttons = type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::LeftButton;
+	const Qt::MouseButton button = type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton;
+	QMouseEvent e(type, QPointF(local), QPointF(w->mapToGlobal(local)), button, buttons, Qt::NoModifier);
+	QApplication::sendEvent(w, &e);
+	Pump();
+}
+
+void Wheel(HWND hwnd, int delta)
+{
+	Win32Widget *w = FromHandle(hwnd);
+	if(w == nullptr)
+		return;
+	const QPointF local(2, 2);
+	QWheelEvent e(local, w->mapToGlobal(local), QPoint(), QPoint(0, delta), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+	QApplication::sendEvent(w, &e);
+	Pump();
+}
+
+void Key(int key)
+{
+	QWidget *target = QApplication::focusWidget();
+	if(target == nullptr)
+		return;
+	QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+	QApplication::sendEvent(target, &press);
+	QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+	if(QWidget *again = QApplication::focusWidget())
+		QApplication::sendEvent(again, &release);
+	Pump();
+}
+
+std::wstring Text(HWND hwnd)
+{
+	wchar_t buf[256] = {};
+	::GetWindowText(hwnd, buf, 256);
+	return buf;
+}
+
+bool HasScroll(WORD code)
+{
+	for(const Scroll &s : g_scrolls)
+	{
+		if(s.code == code)
+			return true;
+	}
+	return false;
+}
+
+void Trackbars(HWND parent)
+{
+	HWND tb = ::CreateWindowEx(0, TRACKBAR_CLASS, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_AUTOTICKS, 10, 10, 200, 30, parent, reinterpret_cast<HMENU>(100), nullptr, nullptr);
+	Check(tb != nullptr, "trackbar: created");
+	Check(::SendMessage(tb, TBM_GETRANGEMIN, 0, 0) == 0 && ::SendMessage(tb, TBM_GETRANGEMAX, 0, 0) == 100, "trackbar: default range 0..100");
+	Check(::SendMessage(tb, TBM_GETPAGESIZE, 0, 0) == 20 && ::SendMessage(tb, TBM_GETLINESIZE, 0, 0) == 1, "trackbar: default page 20, line 1");
+	::SendMessage(tb, TBM_SETRANGE, TRUE, MAKELPARAM(0, 50));
+	Check(::SendMessage(tb, TBM_GETPAGESIZE, 0, 0) == 10, "trackbar: the page follows the range (a fifth)");
+	::SendMessage(tb, TBM_SETPAGESIZE, 0, 7);
+	::SendMessage(tb, TBM_SETRANGEMAX, TRUE, 200);
+	Check(::SendMessage(tb, TBM_GETPAGESIZE, 0, 0) == 7, "trackbar: a page size set stays");
+	::SendMessage(tb, TBM_SETPOS, TRUE, 500);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 200, "trackbar: TBM_SETPOS clamps");
+	::SendMessage(tb, TBM_SETRANGEMIN, TRUE, -50);
+	::SendMessage(tb, TBM_SETPOS, TRUE, -60);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == -50, "trackbar: negative ranges");
+	Check(g_scrolls.empty(), "trackbar: TBM_SETPOS does not notify");
+
+	::SendMessage(tb, TBM_SETRANGEMIN, FALSE, 0);
+	::SendMessage(tb, TBM_SETRANGEMAX, FALSE, 10);
+	::SendMessage(tb, TBM_SETTICFREQ, 2, 0);
+	Check(::SendMessage(tb, TBM_GETNUMTICS, 0, 0) == 6, "trackbar: TBS_AUTOTICKS tics (0, 2, 4, 6, 8, 10)");
+	Check(::SendMessage(tb, TBM_GETTIC, 0, 0) == 2, "trackbar: TBM_GETTIC skips the first tic");
+	Check(::SendMessage(tb, TBM_GETTICPOS, 0, 0) > 0, "trackbar: TBM_GETTICPOS");
+
+	// Keys: lines and pages, nothing at the end, TB_ENDTRACK on release.
+	::SendMessage(tb, TBM_SETPOS, TRUE, 0);
+	::SetFocus(tb);
+	Pump();
+	Check(::GetFocus() == tb, "trackbar: takes the focus");
+	Check(::SendMessage(tb, WM_GETDLGCODE, 0, 0) & DLGC_WANTARROWS, "trackbar: wants arrows");
+	g_scrolls.clear();
+	Key(Qt::Key_Right);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 1, "trackbar: Right is a line");
+	Check(g_scrolls.size() == 2 && g_scrolls[0].msg == WM_HSCROLL && g_scrolls[0].code == TB_LINEDOWN && g_scrolls[1].code == TB_ENDTRACK && g_scrolls[0].from == tb,
+		"trackbar: WM_HSCROLL TB_LINEDOWN, then TB_ENDTRACK");
+	Key(Qt::Key_PageDown);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 8, "trackbar: PageDown is a page (7, as set)");
+	Key(Qt::Key_End);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 10, "trackbar: End");
+	g_scrolls.clear();
+	Key(Qt::Key_Right);
+	Check(g_scrolls.size() == 1 && g_scrolls[0].code == TB_ENDTRACK, "trackbar: at the end, only TB_ENDTRACK");
+	Key(Qt::Key_Home);
+	Key(Qt::Key_Up);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 0, "trackbar: Up is a line up");
+
+	// The thumb: dragging tracks, releasing gives the position.
+	RECT thumb{};
+	::SendMessage(tb, TBM_GETTHUMBRECT, 0, reinterpret_cast<LPARAM>(&thumb));
+	Check(thumb.right > thumb.left && thumb.bottom > thumb.top, "trackbar: TBM_GETTHUMBRECT");
+	RECT channel{};
+	::SendMessage(tb, TBM_GETCHANNELRECT, 0, reinterpret_cast<LPARAM>(&channel));
+	Check(channel.right - channel.left > 100, "trackbar: TBM_GETCHANNELRECT");
+	g_scrolls.clear();
+	const int cy = (thumb.top + thumb.bottom) / 2;
+	const int cx = (thumb.left + thumb.right) / 2;
+	Mouse(tb, QEvent::MouseButtonPress, cx, cy);
+	Mouse(tb, QEvent::MouseMove, channel.right, cy);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 10, "trackbar: dragging the thumb to the end");
+	Check(HasScroll(TB_THUMBTRACK) && g_scrolls.back().pos == 10, "trackbar: TB_THUMBTRACK with the position");
+	Mouse(tb, QEvent::MouseMove, (channel.left + channel.right) / 2, cy);
+	const LRESULT middle = ::SendMessage(tb, TBM_GETPOS, 0, 0);
+	Check(middle >= 4 && middle <= 6, "trackbar: dragging to the middle");
+	Mouse(tb, QEvent::MouseButtonRelease, (channel.left + channel.right) / 2, cy);
+	Check(g_scrolls.size() >= 3 && g_scrolls[g_scrolls.size() - 2].code == TB_THUMBPOSITION && g_scrolls[g_scrolls.size() - 2].pos == middle && g_scrolls.back().code == TB_ENDTRACK,
+		"trackbar: TB_THUMBPOSITION, then TB_ENDTRACK");
+	Check(::GetCapture() == nullptr, "trackbar: capture released");
+
+	// A click in the channel pages toward it.
+	::SendMessage(tb, TBM_SETPAGESIZE, 0, 2);
+	::SendMessage(tb, TBM_SETPOS, TRUE, 0);
+	g_scrolls.clear();
+	Mouse(tb, QEvent::MouseButtonPress, channel.right - 2, cy);
+	Mouse(tb, QEvent::MouseButtonRelease, channel.right - 2, cy);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 2, "trackbar: a click in the channel is a page");
+	Check(!g_scrolls.empty() && g_scrolls.front().code == TB_PAGEDOWN && g_scrolls.back().code == TB_ENDTRACK, "trackbar: TB_PAGEDOWN, then TB_ENDTRACK");
+
+	// The wheel: up moves toward the minimum.
+	::SendMessage(tb, TBM_SETPOS, TRUE, 5);
+	g_scrolls.clear();
+	Wheel(tb, -WHEEL_DELTA);
+	Check(::SendMessage(tb, TBM_GETPOS, 0, 0) == 8, "trackbar: wheel down is three lines toward the maximum");
+	Check(!g_scrolls.empty() && g_scrolls.front().code == TB_LINEDOWN, "trackbar: wheel notifies TB_LINEDOWN");
+
+	// Custom draw.
+	g_customDraw = CDRF_NOTIFYITEMDRAW;
+	g_drawStages.clear();
+	::InvalidateRect(tb, nullptr, TRUE);
+	::UpdateWindow(tb);
+	Pump();
+	auto has = [](DWORD stage)
+	{
+		return std::find(g_drawStages.begin(), g_drawStages.end(), stage) != g_drawStages.end();
+	};
+	Check(has(CDDS_PREPAINT) && has(CDDS_ITEMPREPAINT | (TBCD_CHANNEL << 8)) && has(CDDS_ITEMPREPAINT | (TBCD_THUMB << 8)) && has(CDDS_ITEMPREPAINT | (TBCD_TICS << 8)),
+		"trackbar: NM_CUSTOMDRAW for the tics, channel and thumb");
+	g_customDraw = CDRF_DODEFAULT;
+
+	// Vertical: WM_VSCROLL, minimum at the top.
+	HWND vt = ::CreateWindowEx(0, TRACKBAR_CLASS, nullptr, WS_CHILD | WS_VISIBLE | TBS_VERT, 220, 10, 30, 150, parent, reinterpret_cast<HMENU>(101), nullptr, nullptr);
+	::SendMessage(vt, TBM_SETRANGE, TRUE, MAKELPARAM(0, 10));
+	RECT top{}, bottom{};
+	::SendMessage(vt, TBM_GETTHUMBRECT, 0, reinterpret_cast<LPARAM>(&top));
+	::SendMessage(vt, TBM_SETPOS, TRUE, 10);
+	::SendMessage(vt, TBM_GETTHUMBRECT, 0, reinterpret_cast<LPARAM>(&bottom));
+	Check(top.top < bottom.top, "trackbar: vertical minimum at the top");
+	g_scrolls.clear();
+	::SetFocus(vt);
+	Pump();
+	Key(Qt::Key_Up);
+	Check(!g_scrolls.empty() && g_scrolls[0].msg == WM_VSCROLL && g_scrolls[0].code == TB_LINEUP, "trackbar: vertical sends WM_VSCROLL");
+
+	// MFC's wrapper.
+	CSliderCtrl slider;
+	slider.Attach(tb);
+	slider.SetRange(-1000, 100000);
+	Check(slider.GetRangeMin() == -1000 && slider.GetRangeMax() == 100000, "CSliderCtrl: 32-bit ranges");
+	slider.SetPos(1234);
+	Check(slider.GetPos() == 1234, "CSliderCtrl: SetPos and GetPos");
+	slider.Detach();
+	::DestroyWindow(vt);
+	::DestroyWindow(tb);
+}
+
+void UpDowns(HWND parent)
+{
+	HWND edit = ::CreateWindowEx(WS_EX_CLIENTEDGE, L"Edit", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 60, 80, 22, parent, reinterpret_cast<HMENU>(200), nullptr, nullptr);
+	HWND ud = ::CreateWindowEx(0, UPDOWN_CLASS, nullptr, WS_CHILD | WS_VISIBLE | UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS, 0, 0, 16, 10, parent, reinterpret_cast<HMENU>(201), nullptr, nullptr);
+	Check(ud != nullptr, "up-down: created");
+	Check(reinterpret_cast<HWND>(::SendMessage(ud, UDM_GETBUDDY, 0, 0)) == edit, "up-down: UDS_AUTOBUDDY takes the previous control");
+	RECT er{}, ur{};
+	::GetWindowRect(edit, &er);
+	::GetWindowRect(ud, &ur);
+	Check(er.right - er.left == 64 && ur.left == er.right && ur.top == er.top && ur.bottom == er.bottom, "up-down: UDS_ALIGNRIGHT sits at the buddy's right, as tall as it");
+	const LRESULT range = ::SendMessage(ud, UDM_GETRANGE, 0, 0);
+	Check(static_cast<short>(HIWORD(range)) == 100 && static_cast<short>(LOWORD(range)) == 0, "up-down: default range 100..0");
+
+	::SendMessage(ud, UDM_SETRANGE32, 0, 2000);
+	::SendMessage(ud, UDM_SETPOS32, 0, 1500);
+	Check(Text(edit) == ToWString(QStringLiteral("1") + QLocale().groupSeparator() + QStringLiteral("500")), "up-down: UDS_SETBUDDYINT writes the buddy, with thousands");
+	::SetWindowText(edit, L"42");
+	BOOL error = TRUE;
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, reinterpret_cast<LPARAM>(&error)) == 42 && !error, "up-down: UDM_GETPOS32 reads the buddy");
+	::SetWindowText(edit, L"abc");
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, reinterpret_cast<LPARAM>(&error)) == 42 && error, "up-down: an invalid buddy text is an error");
+	::SetWindowText(edit, L"5000");
+	::SendMessage(ud, UDM_GETPOS32, 0, reinterpret_cast<LPARAM>(&error));
+	Check(error, "up-down: an out of range buddy text is an error");
+	::SendMessage(ud, UDM_SETPOS32, 0, 9999);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 2000, "up-down: UDM_SETPOS32 clamps");
+
+	// The arrows: UDN_DELTAPOS, then the scroll message with the position.
+	::SendMessage(ud, UDM_SETPOS32, 0, 10);
+	RECT client{};
+	::GetClientRect(ud, &client);
+	g_scrolls.clear();
+	g_deltas.clear();
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, 2);
+	Check(::GetFocus() == edit, "up-down: a click focuses the edit buddy");
+	Check(g_deltas.size() == 1 && g_deltas[0].iPos == 10 && g_deltas[0].iDelta == 1, "up-down: UDN_DELTAPOS before the change");
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 11 && Text(edit) == L"11", "up-down: the up arrow increments");
+	Check(g_scrolls.size() == 1 && g_scrolls[0].msg == WM_VSCROLL && g_scrolls[0].code == SB_THUMBPOSITION && g_scrolls[0].pos == 11 && g_scrolls[0].from == ud,
+		"up-down: WM_VSCROLL SB_THUMBPOSITION with the position");
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, 2);
+	Check(g_scrolls.size() == 2 && g_scrolls[1].code == SB_ENDSCROLL, "up-down: SB_ENDSCROLL on release");
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, client.bottom - 2);
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, client.bottom - 2);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 10, "up-down: the down arrow decrements");
+
+	// A reversed range: up goes toward "upper".
+	::SendMessage(ud, UDM_SETRANGE32, 20, 0);
+	::SendMessage(ud, UDM_SETPOS32, 0, 10);
+	g_deltas.clear();
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, 2);
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, 2);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 9 && !g_deltas.empty() && g_deltas[0].iDelta == -1, "up-down: a reversed range counts down");
+
+	// The parent can veto or change the step.
+	::SendMessage(ud, UDM_SETRANGE32, 0, 100);
+	::SendMessage(ud, UDM_SETPOS32, 0, 10);
+	g_vetoDelta = 1;
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, 2);
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, 2);
+	g_vetoDelta = 0;
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 10, "up-down: a nonzero UDN_DELTAPOS answer vetoes");
+	g_changeDelta = 5;
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, 2);
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, 2);
+	g_changeDelta = 0;
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 15, "up-down: the parent can change iDelta");
+
+	// Acceleration.
+	UDACCEL accel[] = {{0, 10}, {2, 100}};
+	Check(::SendMessage(ud, UDM_SETACCEL, 2, reinterpret_cast<LPARAM>(accel)) == TRUE, "up-down: UDM_SETACCEL");
+	UDACCEL back[2]{};
+	Check(::SendMessage(ud, UDM_GETACCEL, 2, reinterpret_cast<LPARAM>(back)) == 2 && back[1].nInc == 100, "up-down: UDM_GETACCEL");
+	Mouse(ud, QEvent::MouseButtonPress, client.right / 2, 2);
+	Mouse(ud, QEvent::MouseButtonRelease, client.right / 2, 2);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 25, "up-down: the first acceleration step");
+
+	// The buddy's arrow keys and the clamp at the end; UDS_WRAP wraps.
+	::SetFocus(edit);
+	Pump();
+	Key(Qt::Key_Up);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 35, "up-down: UDS_ARROWKEYS through the buddy");
+	::SendMessage(ud, UDM_SETPOS32, 0, 95);
+	Key(Qt::Key_Up);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 100, "up-down: stops at the end");
+	::SetWindowLongPtr(ud, GWL_STYLE, ::GetWindowLongPtr(ud, GWL_STYLE) | UDS_WRAP);
+	Key(Qt::Key_Up);
+	Check(::SendMessage(ud, UDM_GETPOS32, 0, 0) == 0, "up-down: UDS_WRAP wraps");
+
+	// Base 16.
+	Check(::SendMessage(ud, UDM_SETBASE, 16, 0) == 10, "up-down: UDM_SETBASE");
+	::SendMessage(ud, UDM_SETPOS32, 0, 26);
+	Check(Text(edit) == L"0x001A", "up-down: hexadecimal buddy text");
+
+	// MFC's wrapper.
+	CSpinButtonCtrl spin;
+	spin.Attach(ud);
+	spin.SetBase(10);
+	spin.SetRange(1, 9);
+	int lower = 0, upper = 0;
+	spin.GetRange(lower, upper);
+	Check(lower == 1 && upper == 9, "CSpinButtonCtrl: SetRange and GetRange");
+	spin.SetPos(7);
+	Check(LOWORD(spin.GetPos()) == 7 && HIWORD(spin.GetPos()) == 0, "CSpinButtonCtrl: SetPos and GetPos");
+	Check(spin.GetBuddy() != nullptr && spin.GetBuddy()->m_hWnd == edit, "CSpinButtonCtrl: GetBuddy");
+	spin.Detach();
+	::DestroyWindow(ud);
+	::DestroyWindow(edit);
+}
+
+void Progress(HWND parent)
+{
+	HWND pb = ::CreateWindowEx(0, PROGRESS_CLASS, nullptr, WS_CHILD | WS_VISIBLE, 10, 100, 200, 16, parent, reinterpret_cast<HMENU>(300), nullptr, nullptr);
+	Check(pb != nullptr, "progress: created");
+	PBRANGE r{};
+	::SendMessage(pb, PBM_GETRANGE, 0, reinterpret_cast<LPARAM>(&r));
+	Check(r.iLow == 0 && r.iHigh == 100, "progress: default range 0..100");
+	Check(::SendMessage(pb, PBM_SETPOS, 50, 0) == 0 && ::SendMessage(pb, PBM_GETPOS, 0, 0) == 50, "progress: PBM_SETPOS returns the old position");
+	::SendMessage(pb, PBM_SETPOS, 500, 0);
+	Check(::SendMessage(pb, PBM_GETPOS, 0, 0) == 100, "progress: PBM_SETPOS clamps");
+	::SendMessage(pb, PBM_SETRANGE32, 0, 1000000);
+	::SendMessage(pb, PBM_SETPOS, 0, 0);
+	::SendMessage(pb, PBM_DELTAPOS, 250000, 0);
+	Check(::SendMessage(pb, PBM_GETPOS, 0, 0) == 250000, "progress: 32-bit ranges and PBM_DELTAPOS");
+	::SendMessage(pb, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
+	::SendMessage(pb, PBM_SETPOS, 95, 0);
+	::SendMessage(pb, PBM_STEPIT, 0, 0);
+	Check(::SendMessage(pb, PBM_GETPOS, 0, 0) == 5, "progress: PBM_STEPIT wraps past the end");
+	::SetWindowLongPtr(pb, GWL_STYLE, ::GetWindowLongPtr(pb, GWL_STYLE) | PBS_MARQUEE);
+	Check(::SendMessage(pb, PBM_SETMARQUEE, TRUE, 30) == TRUE, "progress: PBM_SETMARQUEE");
+	::UpdateWindow(pb);
+	Pump();
+	CProgressCtrl progress;
+	progress.Attach(pb);
+	progress.SetRange32(10, 20);
+	progress.SetPos(15);
+	Check(progress.GetPos() == 15, "CProgressCtrl: SetRange32 and SetPos");
+	progress.Detach();
+	::DestroyWindow(pb);
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+	QApplication app(argc, argv);
+	WNDCLASS wc{};
+	wc.lpfnWndProc = ParentProc;
+	wc.lpszClassName = L"CommCtrlTestParent";
+	wc.hbrBackground = ::GetSysColorBrush(COLOR_BTNFACE);
+	::RegisterClass(&wc);
+	::InitCommonControls();
+	HWND parent = ::CreateWindowEx(0, L"CommCtrlTestParent", L"common controls", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 400, 300, nullptr, nullptr, nullptr, nullptr);
+	if(Win32Widget *w = FromHandle(parent))
+		w->activateWindow();
+	Pump();
+	Trackbars(parent);
+	UpDowns(parent);
+	Progress(parent);
+	::DestroyWindow(parent);
+	std::printf("passed: %d failure(s)\n", g_failures);
+	return g_failures == 0 ? 0 : 1;
+}

@@ -23,6 +23,7 @@
 #define NM_KILLFOCUS (NM_FIRST - 8)
 #define NM_CUSTOMDRAW (NM_FIRST - 12)
 #define NM_HOVER (NM_FIRST - 13)
+#define NM_RELEASEDCAPTURE (NM_FIRST - 16)
 #define LVN_FIRST (0U - 100U)
 #define TVN_FIRST (0U - 400U)
 #define TTN_FIRST (0U - 520U)
@@ -563,6 +564,21 @@ struct NMUPDOWN { NMHDR hdr; int iPos; int iDelta; };
 using LPNMUPDOWN = NMUPDOWN *;
 using NM_UPDOWN = NMUPDOWN;
 #define UDN_DELTAPOS (UDN_FIRST - 1)
+#define UPDOWN_CLASS L"msctls_updown32"
+#define UDM_SETRANGE (WM_USER + 101)
+#define UDM_GETRANGE (WM_USER + 102)
+#define UDM_SETPOS (WM_USER + 103)
+#define UDM_GETPOS (WM_USER + 104)
+#define UDM_SETBUDDY (WM_USER + 105)
+#define UDM_GETBUDDY (WM_USER + 106)
+#define UDM_SETACCEL (WM_USER + 107)
+#define UDM_GETACCEL (WM_USER + 108)
+#define UDM_SETBASE (WM_USER + 109)
+#define UDM_GETBASE (WM_USER + 110)
+#define UDM_SETRANGE32 (WM_USER + 111)
+#define UDM_GETRANGE32 (WM_USER + 112)
+#define UDM_SETPOS32 (WM_USER + 113)
+#define UDM_GETPOS32 (WM_USER + 114)
 
 // ---- trackbar (slider) -------------------------------------------------------
 #define TBM_GETPOS 0x0400
@@ -574,6 +590,42 @@ using NM_UPDOWN = NMUPDOWN;
 #define TBM_SETRANGE 0x0406
 #define TBM_SETRANGEMIN 0x0407
 #define TBM_SETRANGEMAX 0x0408
+#define TBM_CLEARTICS 0x0409
+#define TBM_SETSEL 0x040A
+#define TBM_SETSELSTART 0x040B
+#define TBM_SETSELEND 0x040C
+#define TBM_GETPTICS 0x040E
+#define TBM_GETTICPOS 0x040F
+#define TBM_GETNUMTICS 0x0410
+#define TBM_GETSELSTART 0x0411
+#define TBM_GETSELEND 0x0412
+#define TBM_CLEARSEL 0x0413
+#define TBM_SETTICFREQ 0x0414
+#define TBM_SETPAGESIZE 0x0415
+#define TBM_GETPAGESIZE 0x0416
+#define TBM_SETLINESIZE 0x0417
+#define TBM_GETLINESIZE 0x0418
+#define TBM_GETTHUMBRECT 0x0419
+#define TBM_GETCHANNELRECT 0x041A
+#define TBM_SETTHUMBLENGTH 0x041B
+#define TBM_GETTHUMBLENGTH 0x041C
+#define TBM_SETTOOLTIPS 0x041D
+#define TBM_GETTOOLTIPS 0x041E
+#define TBM_SETTIPSIDE 0x041F
+#define TBM_SETBUDDY 0x0420
+#define TBM_GETBUDDY 0x0421
+#define TBM_SETPOSNOTIFY 0x0422
+#define TRACKBAR_CLASS L"msctls_trackbar32"
+#define TBCD_TICS 0x0001
+#define TBCD_THUMB 0x0002
+#define TBCD_CHANNEL 0x0003
+#define TBTS_TOP 0
+#define TBTS_LEFT 1
+#define TBTS_BOTTOM 2
+#define TBTS_RIGHT 3
+#define TRBN_FIRST (0U - 1501U)
+#define TRBN_THUMBPOSCHANGING (TRBN_FIRST - 1)
+struct NMTRBTHUMBPOSCHANGING { NMHDR hdr; DWORD dwPos; int nReason; };
 #define TBS_AUTOTICKS 0x0001
 #define TBS_VERT 0x0002
 #define TBS_HORZ 0x0000
@@ -613,6 +665,16 @@ using NM_UPDOWN = NMUPDOWN;
 #define PBM_GETPOS (WM_USER + 8)
 #define PBM_SETMARQUEE (WM_USER + 10)
 #define PBM_SETSTATE (WM_USER + 16)
+#define PBM_GETSTEP (WM_USER + 13)
+#define PBM_SETBARCOLOR (WM_USER + 9)
+#define PBM_SETBKCOLOR 0x2001
+#define PBM_GETSTATE (WM_USER + 17)
+#define PBST_NORMAL 0x0001
+#define PBST_ERROR 0x0002
+#define PBST_PAUSED 0x0003
+#define PROGRESS_CLASS L"msctls_progress32"
+struct PBRANGE { int iLow; int iHigh; };
+using PPBRANGE = PBRANGE *;
 
 // ---- ComboBoxEx -------------------------------------------------------------
 #define CBEIF_TEXT 0x00000001
@@ -665,3 +727,15 @@ BOOL ImageList_SetIconSize(HIMAGELIST list, int cx, int cy);
 BOOL ImageList_GetIconSize(HIMAGELIST list, int *cx, int *cy);
 
 void InitCommonControls();
+struct INITCOMMONCONTROLSEX { DWORD dwSize; DWORD dwICC; };
+using LPINITCOMMONCONTROLSEX = INITCOMMONCONTROLSEX *;
+#define ICC_LISTVIEW_CLASSES 0x00000001
+#define ICC_TREEVIEW_CLASSES 0x00000002
+#define ICC_BAR_CLASSES 0x00000004
+#define ICC_TAB_CLASSES 0x00000008
+#define ICC_UPDOWN_CLASS 0x00000010
+#define ICC_PROGRESS_CLASS 0x00000020
+#define ICC_WIN95_CLASSES 0x000000FF
+#define ICC_STANDARD_CLASSES 0x00004000
+#define ICC_LINK_CLASS 0x00008000
+BOOL InitCommonControlsEx(const INITCOMMONCONTROLSEX *icc);
