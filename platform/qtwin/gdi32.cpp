@@ -2390,7 +2390,32 @@ int DrawTextImpl(HDC hdc, QString text, LPRECT rect, UINT format)
 		const int width = (format & DT_WORDBREAK) ? std::max(r.width(), 1) : INT_MAX / 4;
 		const QRect b = fm.boundingRect(QRect(r.left(), r.top(), width, INT_MAX / 4), (flags & ~(Qt::AlignHorizontal_Mask | Qt::AlignVertical_Mask)) | Qt::AlignLeft | Qt::AlignTop, text);
 		const int height = text.isEmpty() ? fm.height() : b.height();
-		rect->right = rect->left + (text.isEmpty() ? 0 : b.width());
+		int textWidth = b.width();
+		if(!(format & (DT_WORDBREAK | DT_EXPANDTABS)))
+		{
+			// As on Windows, a line measures what GetTextExtentPoint32 says,
+			// whatever the font's ink extends to.
+			textWidth = 0;
+			const QStringList lines = singleLine ? QStringList{QString(text).replace(QLatin1Char('\n'), QLatin1Char(' '))} : text.split(QLatin1Char('\n'));
+			for(QString line : lines)
+			{
+				if(!(format & DT_NOPREFIX))
+				{
+					QString shown;
+					for(qsizetype i = 0; i < line.size(); i++)
+					{
+						if(line[i] == QLatin1Char('&') && i + 1 < line.size())
+							i++;
+						else if(line[i] == QLatin1Char('&'))
+							continue;
+						shown += line[i];
+					}
+					line = shown;
+				}
+				textWidth = std::max(textWidth, fm.horizontalAdvance(line));
+			}
+		}
+		rect->right = rect->left + (text.isEmpty() ? 0 : textWidth);
 		rect->bottom = rect->top + height;
 		return height;
 	}
