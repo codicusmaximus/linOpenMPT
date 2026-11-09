@@ -95,6 +95,14 @@ struct WindowData
 	QMenuBar *menuBar = nullptr; // top-level windows with a menu (SetMenu)
 	bool transparent = false; // see SetTransparent()
 	std::unique_ptr<ControlState> control; // built-in controls
+	// Child windows maximize and minimize inside their parent: the state
+	// (SIZE_RESTORED, SIZE_MINIMIZED, SIZE_MAXIMIZED) and the rectangle to
+	// restore, in the parent's client coordinates.
+	UINT childShow = SIZE_RESTORED;
+	QRect restoreRect;
+	// A mask keeps a child that reaches outside its parent's client area
+	// off the parent's borders (see ClipToParentClient).
+	bool clipMask = false;
 };
 
 class Win32Widget : public QWidget
@@ -207,6 +215,33 @@ int MenuBarHeight(const Win32Widget *w);
 void DefNcCalcSize(Win32Widget *w, RECT *rect);
 void DefNcPaint(Win32Widget *w);
 LRESULT DefNcHitTest(Win32Widget *w, QPoint screen);
+// Caption buttons of child windows with WS_SYSMENU (HTCLOSE, HTMAXBUTTON,
+// HTMINBUTTON), in widget coordinates; empty if the window has none.
+QRect CaptionButtonRect(const Win32Widget *w, LRESULT hit);
+// Child windows: moving and sizing by the frame, and caption buttons
+// (DefWindowProc's WM_NCLBUTTONDOWN). While it lasts, the window's mouse
+// events go here; returns true when the event was used.
+void BeginNonClientTracking(Win32Widget *w, LRESULT hit, QPoint screen);
+bool NonClientTrackingEvent(Win32Widget *w, QMouseEvent *e);
+// The caption button drawn pushed, if any (HTCLOSE, ...).
+LRESULT PushedCaptionButton(const Win32Widget *w);
+
+// Child windows: maximized, minimized or restored inside the parent.
+// rect is the window rectangle for the new state, in the parent's client
+// coordinates (ignored when restoring).
+void SetChildShowState(Win32Widget *w, UINT sizeType, const QRect &rect);
+QRect ChildWindowRect(const Win32Widget *w); // in the parent's client coordinates
+// Windows clips child windows to the parent's client area; Qt clips them to
+// the parent widget, borders and all. Children that reach outside the client
+// area get a mask (a maximized MDI child's caption, for one).
+void ClipToParentClient(Win32Widget *w);
+
+// MDI (mdi.cpp): what user32 asks of MDI clients about their children.
+bool MdiShowWindow(HWND child, int cmd);       // true if handled
+bool MdiIsActiveChild(HWND child);
+void MdiChildCreated(HWND child);
+void MdiChildDestroying(HWND child);
+void MdiDefaultRect(HWND client, int &x, int &y, int &w, int &h);
 
 // Window scroll bars (system.cpp, laid out by nonclient.cpp).
 void InitScrollBars(Win32Widget *w);
@@ -224,6 +259,7 @@ bool OpenMenuByKey(Win32Widget *w, WCHAR key);
 // Built-in controls (controls.cpp, edit.cpp, listbox.cpp, combobox.cpp):
 // registers the system window classes ("Button", "Edit", ...).
 void RegisterSystemClasses();
+void RegisterMdiClientClass();
 // DefWindowProc's WM_CTLCOLOR* answer: system colours.
 LRESULT DefCtlColor(HDC dc, UINT msg);
 // The state of a built-in control, if hwnd is one of type T.

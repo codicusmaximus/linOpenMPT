@@ -38,6 +38,10 @@ struct __POSITION { };
 using POSITION = __POSITION *;
 #include "mfc_coll.h"
 
+#define FWS_ADDTOTITLE 0x00008000L
+#define FWS_PREFIXTITLE 0x00040000L
+#define FWS_SNAPTOBARS 0x00080000L
+
 struct CCreateContext
 {
 	CRuntimeClass *m_pNewViewClass = nullptr;
@@ -287,15 +291,37 @@ public:
 	void RestoreWaitCursor();
 };
 
+class CMenu;
+// The state of a menu item or control a command belongs to, as MFC
+// updates it (ON_UPDATE_COMMAND_UI): for a menu item, m_pMenu and m_nIndex;
+// for anything else, m_pOther (control bars subclass it).
 class CCmdUI
 {
 public:
 	UINT m_nID = 0;
-	virtual void Enable(BOOL on = TRUE) { }
-	virtual void SetCheck(int check = 1) { }
-	virtual void SetRadio(BOOL on = TRUE) { }
-	virtual void SetText(LPCTSTR text) { }
+	UINT m_nIndex = 0;
+	CMenu *m_pMenu = nullptr;
+	CMenu *m_pSubMenu = nullptr;
+	CMenu *m_pParentMenu = nullptr;
+	CWnd *m_pOther = nullptr;
+	UINT m_nIndexMax = 0;
+	BOOL m_bEnableChanged = FALSE;
+	BOOL m_bContinueRouting = FALSE;
+	virtual void Enable(BOOL on = TRUE);
+	virtual void SetCheck(int check = 1);
+	virtual void SetRadio(BOOL on = TRUE);
+	virtual void SetText(LPCTSTR text);
+	void ContinueRouting() { m_bContinueRouting = TRUE; }
+	// Asks target (and what it routes to) for the state; disables the item
+	// when nothing handles the command and disableIfNoHandler is set.
+	BOOL DoUpdate(CCmdTarget *target, BOOL disableIfNoHandler);
 	virtual ~CCmdUI() = default;
+};
+// What OnCmdMsg fills in when asked whether a handler exists.
+struct AFX_CMDHANDLERINFO
+{
+	CCmdTarget *pTarget;
+	void (CCmdTarget::*pmf)();
 };
 
 // Dialog data exchange (UpdateData, DoDataExchange, DDX_ and DDV_).
@@ -776,6 +802,11 @@ public:
 	virtual class CScrollBar *GetScrollBarCtrl(int bar) const { return nullptr; }
 	void EnableScrollBarCtrl(int bar, BOOL enable = TRUE);
 	BOOL EnableScrollBar(int bar, UINT arrows = ESB_ENABLE_BOTH);
+	// Lays out the control bars (WM_SIZEPARENT) and puts the window with
+	// idLeftOver in what is left of the client area.
+	enum RepositionFlags { reposDefault = 0, reposQuery = 1, reposExtra = 2, reposNoPosLeftOver = 0x8000 };
+	void RepositionBars(UINT idFirst, UINT idLast, UINT idLeftOver, UINT flag = reposDefault, LPRECT param = nullptr, LPCRECT clientRect = nullptr, BOOL stretch = TRUE);
+	BOOL IsTopParentActive() const;
 	// MFC's dynamic layout (AFX_DIALOG_LAYOUT): controls that move and grow
 	// with the window. ResizeDynamicLayout() runs on every WM_SIZE.
 	void EnableDynamicLayout(BOOL enable = TRUE);
@@ -1571,19 +1602,58 @@ protected:
 	LPCTSTR m_lpszTemplateName = nullptr;
 };
 class CReBar : public CControlBar { };
+// Static splitter windows, as MFC's winsplit.cpp: a grid of panes (views)
+// with bars between them that the mouse drags. (Dynamic splitters, which
+// create panes on the fly, are not used by upstream.)
 class CSplitterWnd : public CWnd
 {
+	LINOPENMPT_MFC_DYNAMIC(CSplitterWnd)
 public:
-	virtual BOOL CreateStatic(CWnd *parent, int rows, int cols, DWORD style = 0, UINT id = 0) { return FALSE; }
-	virtual BOOL CreateView(int row, int col, CRuntimeClass *viewClass, SIZE initialSize, CCreateContext *context) { return FALSE; }
-	virtual void DeleteView(int row, int col) { }
-	virtual void RecalcLayout() { }
+	virtual BOOL CreateStatic(CWnd *parent, int rows, int cols, DWORD style = WS_CHILD | WS_VISIBLE, UINT id = AFX_IDW_PANE_FIRST);
+	virtual BOOL CreateView(int row, int col, CRuntimeClass *viewClass, SIZE initialSize, CCreateContext *context);
+	virtual void DeleteView(int row, int col);
+	virtual void RecalcLayout();
 	CWnd *GetPane(int row, int col) const;
+	int GetRowCount() const { return static_cast<int>(m_rows.size()); }
+	int GetColumnCount() const { return static_cast<int>(m_cols.size()); }
 	void SetRowInfo(int row, int ideal, int min);
 	void GetRowInfo(int row, int &cur, int &min) const;
 	void SetColumnInfo(int col, int ideal, int min);
 	void GetColumnInfo(int col, int &cur, int &min) const;
-	int IdFromRowCol(int row, int col) const;
+	int IdFromRowCol(int row, int col) const { return AFX_IDW_PANE_FIRST + row * 16 + col; }
+	BOOL IsChildPane(CWnd *wnd, int *row, int *col);
+	virtual CWnd *GetActivePane(int *row = nullptr, int *col = nullptr);
+	virtual void SetActivePane(int row, int col, CWnd *wnd = nullptr);
+	// The width of the bars between panes, and of the borders around them.
+	int m_cxSplitter = 7, m_cySplitter = 7;
+	int m_cxSplitterGap = 7, m_cySplitterGap = 7;
+	int m_cxBorder = 2, m_cyBorder = 2;
+protected:
+	struct RowColInfo
+	{
+		int nMinSize = 0;
+		int nIdealSize = 0;
+		int nCurSize = 0;
+	};
+	std::vector<RowColInfo> m_rows, m_cols;
+	// Dragging a bar: which one (row bar if >= 0 in m_trackRow, column bar
+	// in m_trackCol), and where the drag started.
+	int m_trackRow = -1, m_trackCol = -1;
+	CPoint m_trackStart;
+	int m_trackStartSize = 0;
+	int HitTestBar(CPoint point, BOOL &row) const;
+	CRect PaneRect(int row, int col) const;
+	void TrackTo(CPoint point);
+	BOOL OnCommand(WPARAM wp, LPARAM lp) override;
+	BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result) override;
+	afx_msg void OnSize(UINT type, int cx, int cy);
+	afx_msg void OnPaint();
+	afx_msg void OnLButtonDown(UINT flags, CPoint point);
+	afx_msg void OnLButtonUp(UINT flags, CPoint point);
+	afx_msg void OnMouseMove(UINT flags, CPoint point);
+	afx_msg BOOL OnSetCursor(CWnd *wnd, UINT hitTest, UINT message);
+	afx_msg void OnCaptureChanged(CWnd *wnd);
+	DECLARE_MESSAGE_MAP()
 };
 
 class CDialog : public CWnd
@@ -1851,15 +1921,46 @@ public:
 	CString GetHotKeyName() const;
 };
 
+// What control bars get with WM_SIZEPARENT: the rectangle left for the
+// frame's client, which each bar takes its part of.
+struct AFX_SIZEPARENTPARAMS
+{
+	HDWP hDWP;
+	RECT rect;
+	SIZE sizeTotal;
+	BOOL bStretch;
+};
+
 class CFrameWnd : public CWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CFrameWnd)
 public:
-	virtual void OnUpdateFrameTitle(BOOL addToTitle) { }
-	virtual void RecalcLayout(BOOL notify = TRUE) { }
-	void SetMessageText(LPCTSTR text);
-	virtual BOOL OnCreateClient(LPCREATESTRUCT cs, CCreateContext *context) { return TRUE; }
+	static const CRect rectDefault;
+	CFrameWnd() = default;
+	BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style = WS_OVERLAPPEDWINDOW, const RECT &rect = rectDefault, CWnd *parent = nullptr, LPCTSTR menuName = nullptr, DWORD exStyle = 0, CCreateContext *context = nullptr);
+	virtual BOOL LoadFrame(UINT resourceID, DWORD style = WS_OVERLAPPEDWINDOW | FWS_ADDTOTITLE, CWnd *parent = nullptr, CCreateContext *context = nullptr);
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL PreTranslateMessage(MSG *msg) override;
+	BOOL OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo) override;
+	BOOL OnCommand(WPARAM wp, LPARAM lp) override;
+	void PostNcDestroy() override;
+	// The frame's client: views (OnCreateClient) and control bars (RecalcLayout).
+	virtual BOOL OnCreateClient(LPCREATESTRUCT cs, CCreateContext *context);
+	CWnd *CreateView(CCreateContext *context, UINT id = AFX_IDW_PANE_FIRST);
+	virtual void RecalcLayout(BOOL notify = TRUE);
+	virtual void ActivateFrame(int cmdShow = -1);
+	void InitialUpdateFrame(class CDocument *doc, BOOL makeVisible);
+	virtual void OnUpdateFrameTitle(BOOL addToTitle);
+	void UpdateFrameTitleForDocument(LPCTSTR docName);
+	virtual void OnUpdateFrameMenu(HMENU menuAlt);
+	virtual HACCEL GetDefaultAccelerator();
+	// Views and documents.
+	virtual class CView *GetActiveView() const { return m_pViewActive; }
 	void SetActiveView(class CView *view, BOOL notify = TRUE);
+	virtual class CDocument *GetActiveDocument();
+	virtual CFrameWnd *GetActiveFrame() { return this; }
+	CFrameWnd *GetTopLevelFrame() const;
+	// Control bars (the docking itself comes with the control bars).
 	void EnableDocking(DWORD dockStyle);
 	void DockControlBar(CControlBar *bar, UINT dockBarID = 0, LPCRECT rect = nullptr);
 	void FloatControlBar(CControlBar *bar, CPoint point, DWORD style = CBRS_ALIGN_TOP);
@@ -1869,66 +1970,136 @@ public:
 	void RemoveControlBar(CControlBar *bar);
 	void LoadBarState(LPCTSTR profileName);
 	void SaveBarState(LPCTSTR profileName) const;
-	void UpdateFrameTitleForDocument(LPCTSTR docName);
+	void SetMessageText(LPCTSTR text);
+	void SetMessageText(UINT id);
 	afx_msg BOOL OnBarCheck(UINT id);
 	afx_msg void OnUpdateControlBarMenu(CCmdUI *cmdUI);
 	BOOL m_bAutoMenuEnable = TRUE;
-	virtual void ActivateFrame(int cmdShow = -1) { }
-	virtual BOOL LoadFrame(UINT resourceID, DWORD style = 0, CWnd *parent = nullptr, CCreateContext *context = nullptr) { return FALSE; }
-	virtual void OnUpdateFrameMenu(HMENU menuAlt) { }
-	virtual class CDocument *GetActiveDocument() { return nullptr; }
-	virtual class CView *GetActiveView() const { return nullptr; }
-	virtual CFrameWnd *GetActiveFrame() { return nullptr; }
 	// Title of the frame, and its index among frames showing one document.
 	CString m_strTitle;
 	int m_nWindow = -1;
 	CString GetTitle() const { return m_strTitle; }
 	void SetTitle(LPCTSTR title) { m_strTitle = title; }
+	HMENU m_hMenuDefault = nullptr;
+	HACCEL m_hAccelTable = nullptr;
+	UINT m_nIDHelp = 0;
+	CRect m_rectBorder;
+	std::vector<CControlBar *> m_listControlBars;
+protected:
+	class CView *m_pViewActive = nullptr;
+	BOOL m_bInRecalcLayout = FALSE;
+	int OnCreateHelper(LPCREATESTRUCT cs, CCreateContext *context);
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnDestroy();
+	afx_msg void OnClose();
+	afx_msg void OnSize(UINT type, int cx, int cy);
+	afx_msg void OnSetFocus(CWnd *oldWnd);
+	afx_msg BOOL OnEraseBkgnd(CDC *dc);
+	afx_msg void OnInitMenuPopup(CMenu *popup, UINT index, BOOL sysMenu);
+	afx_msg LRESULT OnIdleUpdateCmdUI(WPARAM wp, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
 };
 // CFrameWnd styles.
-#define FWS_ADDTOTITLE 0x00008000L
-#define FWS_PREFIXTITLE 0x00040000L
-#define FWS_SNAPTOBARS 0x00080000L
 void AFXAPI AfxSetWindowText(HWND hwnd, LPCTSTR text);
+// The n-th ('\n' separated) part of a document template string.
+BOOL AFXAPI AfxExtractSubString(CString &part, LPCTSTR fullString, int index, TCHAR separator = _T('\n'));
+
 class CMDIFrameWnd : public CFrameWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CMDIFrameWnd)
 public:
 	HWND m_hWndMDIClient = nullptr;
+	BOOL LoadFrame(UINT resourceID, DWORD style = WS_OVERLAPPEDWINDOW | FWS_ADDTOTITLE, CWnd *parent = nullptr, CCreateContext *context = nullptr) override;
+	virtual BOOL CreateClient(LPCREATESTRUCT cs, CMenu *windowMenu);
+	BOOL OnCreateClient(LPCREATESTRUCT cs, CCreateContext *context) override;
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL PreTranslateMessage(MSG *msg) override;
+	BOOL OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo) override;
+	BOOL OnCommand(WPARAM wp, LPARAM lp) override;
+	LRESULT DefWindowProc(UINT msg, WPARAM wp, LPARAM lp) override;
+	void OnUpdateFrameTitle(BOOL addToTitle) override;
+	void OnUpdateFrameMenu(HMENU menuAlt) override;
+	CFrameWnd *GetActiveFrame() override;
+	// The popup of a menu bar that holds the Window commands.
+	virtual HMENU GetWindowMenuPopup(HMENU menuBar);
 	class CMDIChildWnd *MDIGetActive(BOOL *maximized = nullptr) const;
 	void MDIActivate(CWnd *child);
+	void MDIMaximize(CWnd *child);
+	void MDIRestore(CWnd *child);
 	void MDINext();
 	void MDIPrev();
 	void MDICascade();
+	void MDICascade(int type);
+	void MDITile();
 	void MDITile(int type);
 	void MDIIconArrange();
+	CMenu *MDISetMenu(CMenu *frameMenu, CMenu *windowMenu);
+protected:
+	afx_msg void OnUpdateMDIWindowCmd(CCmdUI *cmdUI);
+	afx_msg BOOL OnMDIWindowCmd(UINT id);
+	afx_msg void OnWindowNew();
+	afx_msg void OnDestroy();
+	DECLARE_MESSAGE_MAP()
 };
+
 class CMDIChildWnd : public CFrameWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CMDIChildWnd)
 public:
+	virtual BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style = WS_CHILD | WS_VISIBLE | WS_OVERLAPPEDWINDOW, const RECT &rect = rectDefault, CMDIFrameWnd *parent = nullptr, CCreateContext *context = nullptr);
+	BOOL LoadFrame(UINT resourceID, DWORD style = WS_CHILD | WS_VISIBLE | WS_OVERLAPPEDWINDOW | FWS_ADDTOTITLE, CWnd *parent = nullptr, CCreateContext *context = nullptr) override;
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL PreTranslateMessage(MSG *msg) override;
+	LRESULT DefWindowProc(UINT msg, WPARAM wp, LPARAM lp) override;
+	BOOL DestroyWindow() override;
+	void ActivateFrame(int cmdShow = -1) override;
+	void OnUpdateFrameTitle(BOOL addToTitle) override;
+	virtual void OnUpdateFrameMenu(BOOL activate, CWnd *activateWnd, HMENU menuAlt);
 	void MDIActivate();
 	void MDIDestroy();
 	void MDIMaximize();
 	void MDIRestore();
 	CMDIFrameWnd *GetMDIFrame();
-	afx_msg void OnMDIActivate(BOOL activate, CWnd *activateWnd, CWnd *deactivateWnd) { }
+	HMENU m_hMenuShared = nullptr;
+protected:
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnMDIActivate(BOOL activate, CWnd *activateWnd, CWnd *deactivateWnd);
+	afx_msg int OnMouseActivate(CWnd *topParent, UINT hitTest, UINT message);
+	DECLARE_MESSAGE_MAP()
 };
 class CMDIFrameWndEx : public CMDIFrameWnd { LINOPENMPT_MFC_DYNAMIC(CMDIFrameWndEx) };
 class CMDIChildWndEx : public CMDIChildWnd { LINOPENMPT_MFC_DYNAMIC(CMDIChildWndEx) };
+
+// The style MFC creates views with.
+#define AFX_WS_DEFAULT_VIEW (WS_CHILD | WS_VISIBLE | WS_BORDER)
 
 class CView : public CWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CView)
 public:
-	class CDocument *GetDocument() const;
-	virtual void OnDraw(CDC *dc) { }
-	virtual void OnInitialUpdate() { }
-	virtual void OnUpdate(CView *sender, LPARAM hint, CObject *hintObj) { }
-	virtual void OnActivateView(BOOL activate, CView *activateView, CView *deactiveView) { }
+	CView() = default;
+	~CView() override;
+	class CDocument *GetDocument() const { return m_pDocument; }
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo) override;
+	void PostNcDestroy() override;
+	virtual void OnDraw(CDC *dc) = 0;
+	virtual void OnInitialUpdate();
+	virtual void OnUpdate(CView *sender, LPARAM hint, CObject *hintObj);
+	virtual void OnActivateView(BOOL activate, CView *activateView, CView *deactiveView);
+	virtual void OnActivateFrame(UINT state, CFrameWnd *frame) { }
 	virtual void OnPrepareDC(CDC *dc, CPrintInfo *info = nullptr) { }
+	CFrameWnd *EnsureParentFrame() const { return GetParentFrame(); }
+	class CSplitterWnd *GetParentSplitter(const CWnd *wnd, BOOL anyState);
 protected:
+	friend class CDocument;
 	class CDocument *m_pDocument = nullptr;
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnDestroy();
+	afx_msg void OnPaint();
+	afx_msg int OnMouseActivate(CWnd *topParent, UINT hitTest, UINT message);
+	afx_msg LRESULT HandleInitialUpdate(WPARAM, LPARAM);
+	DECLARE_MESSAGE_MAP()
 };
 #define MM_TEXT 1
 class CScrollView : public CView
@@ -1936,31 +2107,57 @@ class CScrollView : public CView
 	LINOPENMPT_MFC_DYNAMIC(CScrollView)
 public:
 	static const SIZE sizeDefault;
-	virtual BOOL OnScroll(UINT scrollCode, UINT pos, BOOL doScroll = TRUE) { return FALSE; }
-	virtual BOOL OnScrollBy(CSize sizeScroll, BOOL doScroll = TRUE) { return FALSE; }
+	virtual BOOL OnScroll(UINT scrollCode, UINT pos, BOOL doScroll = TRUE);
+	virtual BOOL OnScrollBy(CSize sizeScroll, BOOL doScroll = TRUE);
 	void SetScrollSizes(int mapMode, SIZE total, const SIZE &page = sizeDefault, const SIZE &line = sizeDefault);
 	void ScrollToDevicePosition(POINT pt);
 	BOOL DoMouseWheel(UINT flags, short delta, CPoint pt);
 	CPoint GetDeviceScrollPosition() const;
+	void OnPrepareDC(CDC *dc, CPrintInfo *info = nullptr) override;
 protected:
 	int m_nMapMode = 0;
 	CSize m_totalLog, m_totalDev, m_pageDev, m_lineDev;
+	BOOL m_bInsideUpdate = FALSE;
+	void UpdateBars();
+	BOOL GetTrueClientSize(CSize &size, CSize &sizeSb);
+	void GetScrollBarSizes(CSize &sizeSb);
+	void GetScrollBarState(CSize sizeClient, CSize &needSb, CSize &sizeRange, CPoint &ptMove, BOOL insideClient);
+	afx_msg void OnSize(UINT type, int cx, int cy);
+	afx_msg void OnHScroll(UINT code, UINT pos, class CScrollBar *scrollBar);
+	afx_msg void OnVScroll(UINT code, UINT pos, class CScrollBar *scrollBar);
+	afx_msg BOOL OnMouseWheel(UINT flags, short delta, CPoint point);
+	DECLARE_MESSAGE_MAP()
 public:
 	CPoint GetScrollPosition() const;
 	void ScrollToPosition(POINT pt);
-	CSize GetTotalSize() const;
+	CSize GetTotalSize() const { return m_totalLog; }
 	void GetDeviceScrollSizes(int &mapMode, SIZE &total, SIZE &page, SIZE &line) const;
 	int GetScrollPos(int bar) const;
 	int SetScrollPos(int bar, int pos, BOOL redraw = TRUE);
 };
+// A view made from a dialog template: a modeless dialog as the view
+// window, scrolled when the view is smaller than the template.
 class CFormView : public CScrollView
 {
 	LINOPENMPT_MFC_DYNAMIC(CFormView)
+public:
+	BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, CCreateContext *context = nullptr) override;
+	BOOL PreTranslateMessage(MSG *msg) override;
+	void OnInitialUpdate() override;
+	void OnDraw(CDC *) override { }
+	void OnActivateView(BOOL activate, CView *activateView, CView *deactiveView) override;
+	void OnActivateFrame(UINT state, CFrameWnd *frame) override;
 protected:
 	explicit CFormView(UINT idTemplate) : m_lpszTemplateName(MAKEINTRESOURCE(idTemplate)), m_nIDHelp(idTemplate) { }
 	explicit CFormView(LPCTSTR templateName) : m_lpszTemplateName(templateName) { }
 	LPCTSTR m_lpszTemplateName = nullptr;
 	UINT m_nIDHelp = 0;
+	CCreateContext *m_pCreateContext = nullptr;
+	HWND m_hWndFocus = nullptr; // the control that had the focus last
+	BOOL SaveFocusControl();
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnSetFocus(CWnd *oldWnd);
+	DECLARE_MESSAGE_MAP()
 };
 
 // ---- documents -----------------------------------------------------------
@@ -1969,27 +2166,30 @@ class CDocTemplate : public CCmdTarget
 	LINOPENMPT_MFC_DYNAMIC(CDocTemplate)
 public:
 	enum DocStringIndex { windowTitle, docName, fileNewName, filterName, filterExt, regFileTypeId, regFileTypeName };
+	enum Confidence { noAttempt, maybeAttemptForeign, maybeAttemptNative, yesAttemptForeign, yesAttemptNative, yesAlreadyOpen };
 	CDocTemplate(UINT resourceID, CRuntimeClass *docClass, CRuntimeClass *frameClass, CRuntimeClass *viewClass)
 		: m_nIDResource(resourceID), m_pDocClass(docClass), m_pFrameClass(frameClass), m_pViewClass(viewClass) { }
+	virtual void LoadTemplate();
 	virtual CDocument *OpenDocumentFile(LPCTSTR pathName, BOOL addToMRU, BOOL makeVisible) = 0;
 	virtual CDocument *OpenDocumentFile(LPCTSTR pathName, BOOL makeVisible = TRUE) { return OpenDocumentFile(pathName, TRUE, makeVisible); }
-	virtual void AddDocument(CDocument *doc) { }
-	virtual void RemoveDocument(CDocument *doc) { }
+	virtual void AddDocument(CDocument *doc);
+	virtual void RemoveDocument(CDocument *doc);
 	virtual POSITION GetFirstDocPosition() const = 0;
 	virtual CDocument *GetNextDoc(POSITION &pos) const = 0;
-	virtual CDocument *CreateNewDocument() { return nullptr; }
-	virtual CFrameWnd *CreateNewFrame(CDocument *doc, CFrameWnd *other) { return nullptr; }
-	virtual void InitialUpdateFrame(CFrameWnd *frame, CDocument *doc, BOOL makeVisible = TRUE) { }
-	virtual BOOL SaveAllModified() { return TRUE; }
-	virtual void CloseAllDocuments(BOOL endSession) { }
-	virtual BOOL GetDocString(CString &string, DocStringIndex index) const { return FALSE; }
-	virtual void SetDefaultTitle(CDocument *doc) { }
+	virtual CDocument *CreateNewDocument();
+	virtual CFrameWnd *CreateNewFrame(CDocument *doc, CFrameWnd *other);
+	virtual void InitialUpdateFrame(CFrameWnd *frame, CDocument *doc, BOOL makeVisible = TRUE);
+	virtual BOOL SaveAllModified();
+	virtual void CloseAllDocuments(BOOL endSession);
+	virtual BOOL GetDocString(CString &string, DocStringIndex index) const;
+	virtual void SetDefaultTitle(CDocument *doc) = 0;
+	virtual Confidence MatchDocType(LPCTSTR pathName, CDocument *&match);
 protected:
-	UINT m_nUntitledCount = 0;
 	UINT m_nIDResource;
 	CRuntimeClass *m_pDocClass;
 	CRuntimeClass *m_pFrameClass;
 	CRuntimeClass *m_pViewClass;
+	CString m_strDocStrings;
 };
 
 class CMultiDocTemplate : public CDocTemplate
@@ -1998,29 +2198,39 @@ class CMultiDocTemplate : public CDocTemplate
 public:
 	CMultiDocTemplate(UINT resourceID, CRuntimeClass *docClass, CRuntimeClass *frameClass, CRuntimeClass *viewClass)
 		: CDocTemplate(resourceID, docClass, frameClass, viewClass) { }
-	CDocument *OpenDocumentFile(LPCTSTR pathName, BOOL addToMRU, BOOL makeVisible) override { return nullptr; }
+	~CMultiDocTemplate() override;
+	void LoadTemplate() override;
+	CDocument *OpenDocumentFile(LPCTSTR pathName, BOOL addToMRU, BOOL makeVisible) override;
 	using CDocTemplate::OpenDocumentFile;
-	// Not used by upstream, which keeps its own document set in CModDocTemplate.
-	POSITION GetFirstDocPosition() const override { return nullptr; }
-	CDocument *GetNextDoc(POSITION &pos) const override { pos = nullptr; return nullptr; }
+	void AddDocument(CDocument *doc) override;
+	void RemoveDocument(CDocument *doc) override;
+	POSITION GetFirstDocPosition() const override;
+	CDocument *GetNextDoc(POSITION &pos) const override;
+	void SetDefaultTitle(CDocument *doc) override;
 	HMENU m_hMenuShared = nullptr;
 	HACCEL m_hAccelTable = nullptr;
+protected:
+	UINT m_nUntitledCount = 0;
+	std::vector<CDocument *> m_docList;
 };
 
 class CDocManager : public CObject
 {
 public:
-	virtual ~CDocManager() = default;
-	virtual void AddDocTemplate(CDocTemplate *tmpl) { }
-	virtual POSITION GetFirstDocTemplatePosition() const { return nullptr; }
-	virtual CDocTemplate *GetNextDocTemplate(POSITION &pos) const { pos = nullptr; return nullptr; }
+	virtual ~CDocManager();
+	virtual void AddDocTemplate(CDocTemplate *tmpl);
+	virtual POSITION GetFirstDocTemplatePosition() const;
+	virtual CDocTemplate *GetNextDocTemplate(POSITION &pos) const;
 	virtual CDocument *OpenDocumentFile(LPCTSTR fileName) { return OpenDocumentFile(fileName, TRUE); }
-	virtual CDocument *OpenDocumentFile(LPCTSTR fileName, BOOL addToMRU) { return nullptr; }
-	virtual BOOL SaveAllModified() { return TRUE; }
-	virtual void CloseAllDocuments(BOOL endSession) { }
-	virtual int GetOpenDocumentCount() { return 0; }
+	virtual CDocument *OpenDocumentFile(LPCTSTR fileName, BOOL addToMRU);
+	virtual BOOL SaveAllModified();
+	virtual void CloseAllDocuments(BOOL endSession);
+	virtual int GetOpenDocumentCount();
 	virtual BOOL OnDDECommand(LPTSTR command) { return FALSE; }
-	virtual BOOL DoPromptFileName(CString &fileName, UINT titleID, DWORD flags, BOOL openFileDialog, CDocTemplate *tmpl) { return FALSE; }
+	virtual BOOL DoPromptFileName(CString &fileName, UINT titleID, DWORD flags, BOOL openFileDialog, CDocTemplate *tmpl);
+	virtual void OnFileNew();
+	virtual void OnFileOpen();
+	std::vector<CDocTemplate *> m_templateList;
 };
 
 class CDocument : public CCmdTarget
@@ -2033,37 +2243,51 @@ protected:
 	// long *, and asserts sizeof(long) == sizeof(m_bModified). long is
 	// 8 bytes on Linux, so the member is a long here.
 	long m_bModified = FALSE;
+	CDocTemplate *m_pDocTemplate = nullptr;
+	std::vector<CView *> m_viewList;
+public:
 	BOOL m_bAutoDelete = TRUE;
 	BOOL m_bEmbedded = FALSE;
-public:
+	enum DocumentEvent { onAfterNewDocument = 1, onAfterOpenDocument, onAfterSaveDocument, onAfterCloseDocument };
 	CDocument() = default;
-	virtual ~CDocument() = default;
+	~CDocument() override;
+	BOOL OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo) override;
 	const CString &GetTitle() const { return m_strTitle; }
-	virtual void SetTitle(LPCTSTR title) { m_strTitle = title; }
+	virtual void SetTitle(LPCTSTR title);
 	const CString &GetPathName() const { return m_strPathName; }
-	virtual void SetPathName(LPCTSTR path, BOOL addToMRU = TRUE) { (void)addToMRU; m_strPathName = path; }
+	virtual void SetPathName(LPCTSTR path, BOOL addToMRU = TRUE);
+	virtual void ClearPathName() { m_strPathName.Empty(); }
 	virtual BOOL IsModified() { return m_bModified; }
 	virtual void SetModifiedFlag(BOOL modified = TRUE) { m_bModified = modified; }
-	virtual BOOL OnNewDocument() { m_bModified = FALSE; m_strPathName.Empty(); return TRUE; }
-	virtual BOOL OnOpenDocument(LPCTSTR path) { (void)path; return TRUE; }
-	virtual BOOL OnSaveDocument(LPCTSTR path) { (void)path; m_bModified = FALSE; return TRUE; }
-	virtual void OnCloseDocument() { }
-	virtual BOOL SaveModified() { return TRUE; }
-	virtual BOOL DoSave(LPCTSTR path, BOOL replace = TRUE) { return 0; }
-	virtual BOOL DoFileSave() { return 0; }
+	virtual BOOL OnNewDocument();
+	virtual BOOL OnOpenDocument(LPCTSTR path);
+	virtual BOOL OnSaveDocument(LPCTSTR path);
+	virtual void OnCloseDocument();
+	virtual void OnDocumentEvent(DocumentEvent event) { }
+	virtual BOOL SaveModified();
+	virtual BOOL DoSave(LPCTSTR path, BOOL replace = TRUE);
+	virtual BOOL DoFileSave();
 	virtual void DeleteContents() { }
-	virtual BOOL CanCloseFrame(CFrameWnd *frame) { return TRUE; }
+	virtual BOOL CanCloseFrame(CFrameWnd *frame);
 	virtual void PreCloseFrame(CFrameWnd *frame) { }
-	virtual void OnChangedViewList() { }
+	virtual void OnChangedViewList();
 	virtual void SetDocumentTitle() { }
+	virtual HMENU GetDefaultMenu() { return nullptr; }
+	virtual HACCEL GetDefaultAccelerator() { return nullptr; }
 	afx_msg void OnFileClose();
 	afx_msg void OnFileSave();
 	afx_msg void OnFileSaveAs();
+	void AddView(CView *view);
+	void RemoveView(CView *view);
 	void UpdateAllViews(CView *sender, LPARAM hint = 0, CObject *hintObj = nullptr);
-	virtual void UpdateFrameCounts() { }
-	CDocTemplate *GetDocTemplate() const;
+	virtual void UpdateFrameCounts();
+	CDocTemplate *GetDocTemplate() const { return m_pDocTemplate; }
 	POSITION GetFirstViewPosition() const;
 	CView *GetNextView(POSITION &pos) const;
+protected:
+	friend class CDocTemplate;
+	friend class CMultiDocTemplate;
+	DECLARE_MESSAGE_MAP()
 };
 
 // Defined in <afxdatarecovery.h>.
@@ -2142,11 +2366,15 @@ public:
 	BOOL SupportsApplicationRecovery() const { return (m_dwRestartManagerSupportFlags & AFX_RESTART_MANAGER_SUPPORT_RECOVERY) != 0; }
 	LPCTSTR m_pszExeName = nullptr;
 	HINSTANCE m_hInstance = nullptr;
-	virtual CDocument *OpenDocumentFile(LPCTSTR path) { return nullptr; }
-	virtual CDocument *OpenDocumentFile(LPCTSTR path, BOOL addToMRU) { return nullptr; }
+	virtual CDocument *OpenDocumentFile(LPCTSTR path);
+	virtual CDocument *OpenDocumentFile(LPCTSTR path, BOOL addToMRU);
 	virtual void AddToRecentFileList(LPCTSTR path) { }
 	virtual CDataRecoveryHandler *GetDataRecoveryHandler() { return nullptr; }
-	virtual BOOL SaveAllModified() { return 0; }
+	virtual BOOL SaveAllModified();
+	void CloseAllDocuments(BOOL endSession);
+	int GetOpenDocumentCount();
+	afx_msg void OnFileNew();
+	afx_msg void OnFileOpen();
 	virtual void WinHelp(DWORD_PTR data, UINT cmd = 0) { }
 	void AddDocTemplate(CDocTemplate *tmpl);
 	HCURSOR LoadCursor(UINT id) const;
@@ -2189,6 +2417,7 @@ LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CWinApp, CWinThread)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CFormView, CScrollView)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIFrameWndEx, CMDIFrameWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIChildWndEx, CMDIChildWnd)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CSplitterWnd, CWnd)
 
 CWinApp *AfxGetApp();
 CWinThread *AfxGetThread();

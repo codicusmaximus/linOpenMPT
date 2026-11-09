@@ -172,10 +172,25 @@ CFrameWnd *CWnd::GetParentFrame() const
 
 CWnd *CWnd::GetDescendantWindow(int id, BOOL onlyPerm) const
 {
+	// As MFC: a direct child first (and, before it, a child of that child
+	// with the same id: a splitter's first pane wins over the splitter),
+	// then depth-first through the children.
+	if(HWND direct = ::GetDlgItem(m_hWnd, id))
+	{
+		if(::GetWindow(direct, GW_CHILD) != nullptr)
+		{
+			if(CWnd *found = FromHandle(direct)->GetDescendantWindow(id, onlyPerm))
+				return found;
+		}
+		if(!onlyPerm)
+			return FromHandle(direct);
+		if(CWnd *perm = FromHandlePermanent(direct))
+			return perm;
+	}
 	for(HWND child = ::GetWindow(m_hWnd, GW_CHILD); child != nullptr; child = ::GetWindow(child, GW_HWNDNEXT))
 	{
-		if(::GetDlgCtrlID(child) == id && (!onlyPerm || FromHandlePermanent(child)))
-			return FromHandle(child);
+		if(::GetWindow(child, GW_CHILD) == nullptr)
+			continue;
 		if(CWnd *found = FromHandle(child)->GetDescendantWindow(id, onlyPerm))
 			return found;
 	}

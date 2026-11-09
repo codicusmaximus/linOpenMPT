@@ -332,6 +332,17 @@ void Win32Widget::mousePressEvent(QMouseEvent *e)
 	case Qt::MiddleButton: message = WM_MBUTTONDOWN; SetKeyState(VK_MBUTTON, true); break;
 	default: QWidget::mousePressEvent(e); return;
 	}
+	// WM_MOUSEACTIVATE first: the window (and its parents) can refuse the
+	// activation, or eat the click.
+	const HWND self = hwnd();
+	if(g_capture == nullptr)
+	{
+		const QPoint g = e->globalPosition().toPoint();
+		const LRESULT hit = ClientRect(this).contains(e->position().toPoint()) ? HTCLIENT : ::SendMessage(self, WM_NCHITTEST, 0, PointParam(g));
+		const LRESULT activate = ::SendMessage(self, WM_MOUSEACTIVATE, reinterpret_cast<WPARAM>(::GetAncestor(self, GA_ROOT)), MAKELPARAM(hit, message));
+		if(FromHandle(self) != this || activate == MA_ACTIVATEANDEAT || activate == MA_NOACTIVATEANDEAT)
+			return;
+	}
 	if(focusPolicy() != Qt::NoFocus && !hasFocus())
 		setFocus(Qt::MouseFocusReason);
 	if(NonClientMouse(this, e, message))
@@ -349,6 +360,8 @@ void Win32Widget::mouseReleaseEvent(QMouseEvent *e)
 	case Qt::MiddleButton: message = WM_MBUTTONUP; SetKeyState(VK_MBUTTON, false); break;
 	default: QWidget::mouseReleaseEvent(e); return;
 	}
+	if(NonClientTrackingEvent(this, e))
+		return;
 	if(NonClientMouse(this, e, message))
 		return;
 	PumpInputMessage(MakeMsg(hwnd(), message, MouseKeyFlags(e->buttons(), e->modifiers()), ClientPointParam(this, e)));
@@ -379,6 +392,8 @@ void Win32Widget::mouseDoubleClickEvent(QMouseEvent *e)
 
 void Win32Widget::mouseMoveEvent(QMouseEvent *e)
 {
+	if(NonClientTrackingEvent(this, e))
+		return;
 	if(NonClientMouse(this, e, WM_MOUSEMOVE))
 		return;
 	// The window (or its parents) picks the cursor; not while captured.
@@ -560,6 +575,9 @@ void Win32Widget::resizeEvent(QResizeEvent *)
 			type = SIZE_MINIMIZED;
 		else if(isMaximized())
 			type = SIZE_MAXIMIZED;
+	} else
+	{
+		type = data.childShow;
 	}
 	EnsureSurface(this);
 	UpdateNonClient(this);
@@ -581,11 +599,13 @@ void Win32Widget::resizeEvent(QResizeEvent *)
 		erasePending = true;
 	}
 	data.clientSize = client;
+	ClipToParentClient(this);
 	::SendMessage(hwnd(), WM_SIZE, type, MAKELPARAM(client.width(), client.height()));
 }
 
 void Win32Widget::moveEvent(QMoveEvent *)
 {
+	ClipToParentClient(this);
 	// The client area's position: on the screen, or in the parent's client area.
 	const QPoint p = isWindow() ? mapToGlobal(ClientOrigin(this)) : pos() + ClientOrigin(this) - ClientOrigin(parentWidget());
 	::SendMessage(hwnd(), WM_MOVE, 0, PointParam(p));
@@ -662,6 +682,29 @@ void Win32Widget::hideEvent(QHideEvent *)
 {
 	data.style &= ~WS_VISIBLE;
 	::SendMessage(hwnd(), WM_SHOWWINDOW, FALSE, 0);
+}
+
+void SetChildShowState(Win32Widget *w, UINT sizeType, const QRect &rect)
+{
+	const HWND hwnd = w->hwnd();
+	if(w->data.childShow == SIZE_RESTORED && sizeType != SIZE_RESTORED)
+		w->data.restoreRect = ChildWindowRect(w);
+	const UINT old = w->data.childShow;
+	w->data.childShow = sizeType;
+	const QRect r = sizeType == SIZE_RESTORED ? (old == SIZE_RESTORED ? ChildWindowRect(w) : w->data.restoreRect) : rect;
+	const QSize before = w->size();
+	::SetWindowPos(hwnd, nullptr, r.left(), r.top(), r.width(), r.height(), SWP_NOZORDER | SWP_NOACTIVATE);
+	if(FromHandle(hwnd) != w)
+		return;
+	// The caption buttons change; WM_SIZE says the new state even when the
+	// size stays.
+	w->data.ncDirty = true;
+	w->update();
+	if(w->size() == before && old != sizeType)
+	{
+		const QSize client = ClientRect(w).size();
+		::SendMessage(hwnd, WM_SIZE, sizeType, MAKELPARAM(client.width(), client.height()));
+	}
 }
 
 } // namespace linopenmpt::qtwin
@@ -741,6 +784,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 	if(style & WS_TABSTOP)
 		widget->setFocusPolicy(Qt::StrongFocus);
 
+	if(child && (exStyle & WS_EX_MDICHILD))
+		MdiDefaultRect(parent, x, y, w, h);
 	if(x == CW_USEDEFAULT)
 		x = y = 0;
 	if(w == CW_USEDEFAULT)
@@ -812,6 +857,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		::SendMessage(parent, WM_PARENTNOTIFY, MAKEWPARAM(WM_CREATE, d.id), reinterpret_cast<LPARAM>(hwnd));
 	if(style & WS_VISIBLE)
 		widget->show();
+	if(child && (exStyle & WS_EX_MDICHILD) && FromHandle(hwnd))
+		MdiChildCreated(hwnd);
 	return hwnd;
 }
 
@@ -850,6 +897,8 @@ BOOL DestroyWindow(HWND hwnd)
 	if(w->data.destroying)
 		return TRUE;
 	CallHooks(WH_CBT, HCBT_DESTROYWND, reinterpret_cast<WPARAM>(hwnd), 0);
+	if(w->data.exStyle & WS_EX_MDICHILD)
+		MdiChildDestroying(hwnd);
 	w->hide();
 	SendDestroy(w);
 	SendNcDestroy(w);
@@ -1034,11 +1083,11 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		if((wp & 0xFFF0) == SC_CLOSE)
 			::SendMessage(hwnd, WM_CLOSE, 0, 0);
 		else if((wp & 0xFFF0) == SC_MINIMIZE)
-			w->showMinimized();
+			::ShowWindow(hwnd, SW_MINIMIZE);
 		else if((wp & 0xFFF0) == SC_MAXIMIZE)
-			w->showMaximized();
+			::ShowWindow(hwnd, SW_MAXIMIZE);
 		else if((wp & 0xFFF0) == SC_RESTORE)
-			w->showNormal();
+			::ShowWindow(hwnd, SW_RESTORE);
 		else if((wp & 0xFFF0) == SC_KEYMENU)
 		{
 			// Alt+letter opens that menu, F10 or Alt alone the menu bar.
@@ -1119,6 +1168,22 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		return 0;
 	case WM_NCHITTEST:
 		return DefNcHitTest(w, QPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+	case WM_NCLBUTTONDOWN:
+		// Child windows move and size by their frames here; top-level
+		// windows belong to the window manager.
+		if((d.style & WS_CHILD) && w->parentWidget())
+		{
+			const bool sizing = wp >= HTLEFT && wp <= HTBOTTOMRIGHT && (d.style & WS_THICKFRAME) && d.childShow == SIZE_RESTORED;
+			const bool moving = wp == HTCAPTION && d.childShow != SIZE_MAXIMIZED;
+			const bool button = wp == HTCLOSE || wp == HTMAXBUTTON || wp == HTMINBUTTON;
+			if(sizing || moving || button)
+				BeginNonClientTracking(w, static_cast<LRESULT>(wp), QPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+		}
+		return 0;
+	case WM_NCLBUTTONDBLCLK:
+		if(wp == HTCAPTION && (d.style & WS_CHILD) && (d.style & WS_MAXIMIZEBOX))
+			::SendMessage(hwnd, WM_SYSCOMMAND, d.childShow == SIZE_RESTORED ? SC_MAXIMIZE : SC_RESTORE, lp);
+		return 0;
 	case WM_CTLCOLORMSGBOX:
 	case WM_CTLCOLOREDIT:
 	case WM_CTLCOLORLISTBOX:
@@ -1136,6 +1201,15 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_NCACTIVATE:
 		return TRUE;
 	case WM_MOUSEACTIVATE:
+		// Child windows ask their parent first.
+		if((d.style & WS_CHILD) && w->parentWidget())
+		{
+			if(auto *p = dynamic_cast<Win32Widget *>(w->parentWidget()))
+			{
+				if(const LRESULT r = ::SendMessage(p->hwnd(), WM_MOUSEACTIVATE, wp, lp))
+					return r;
+			}
+		}
 		return MA_ACTIVATE;
 	case WM_SETCURSOR:
 		// Parents get the first say, then the class cursor applies.
@@ -1486,6 +1560,37 @@ BOOL ShowWindow(HWND hwnd, int cmd)
 	if(w == nullptr)
 		return FALSE;
 	const BOOL wasVisible = !w->isHidden();
+	if(!w->isWindow())
+	{
+		if((w->data.exStyle & WS_EX_MDICHILD) && MdiShowWindow(hwnd, cmd))
+			return wasVisible;
+		// Child windows maximize to their parent's client area.
+		const RECT client = [&]() { RECT r{}; ::GetClientRect(::GetParent(hwnd), &r); return r; }();
+		switch(cmd)
+		{
+		case SW_SHOWMINIMIZED:
+		case SW_MINIMIZE:
+		case SW_SHOWMINNOACTIVE:
+			{
+				const int cx = GetSystemMetrics(SM_CXMINIMIZED), cy = GetSystemMetrics(SM_CYMINIMIZED);
+				SetChildShowState(w, SIZE_MINIMIZED, QRect(0, client.bottom - cy, cx, cy));
+			}
+			break;
+		case SW_SHOWMAXIMIZED:
+			SetChildShowState(w, SIZE_MAXIMIZED, QRect(0, 0, client.right, client.bottom));
+			break;
+		case SW_RESTORE:
+			SetChildShowState(w, SIZE_RESTORED, QRect());
+			break;
+		default:
+			break;
+		}
+		if(cmd == SW_HIDE)
+			w->hide();
+		else if(w->isHidden())
+			w->show();
+		return wasVisible;
+	}
 	switch(cmd)
 	{
 	case SW_HIDE: w->hide(); break;
@@ -1514,13 +1619,13 @@ BOOL IsWindowVisible(HWND hwnd)
 BOOL IsIconic(HWND hwnd)
 {
 	Win32Widget *w = FromHandle(hwnd);
-	return w && w->isWindow() && w->isMinimized();
+	return w && (w->isWindow() ? w->isMinimized() : w->data.childShow == SIZE_MINIMIZED);
 }
 
 BOOL IsZoomed(HWND hwnd)
 {
 	Win32Widget *w = FromHandle(hwnd);
-	return w && w->isWindow() && w->isMaximized();
+	return w && (w->isWindow() ? w->isMaximized() : w->data.childShow == SIZE_MAXIMIZED);
 }
 
 LONG_PTR GetWindowLongPtr(HWND hwnd, int index)
@@ -1533,7 +1638,27 @@ LONG_PTR GetWindowLongPtr(HWND hwnd, int index)
 	case GWLP_WNDPROC: return reinterpret_cast<LONG_PTR>(d->proc);
 	case GWLP_USERDATA: return d->userData;
 	case GWLP_ID: return static_cast<LONG_PTR>(d->id);
-	case GWL_STYLE: return static_cast<LONG_PTR>(d->style | (!d->widget->isHidden() ? WS_VISIBLE : 0));
+	case GWL_STYLE:
+	{
+		// WS_MAXIMIZE and WS_MINIMIZE say the window's state, as on Windows.
+		DWORD style = d->style | (!d->widget->isHidden() ? WS_VISIBLE : 0);
+		if(d->style & WS_CHILD)
+		{
+			style &= ~(WS_MAXIMIZE | WS_MINIMIZE);
+			if(d->childShow == SIZE_MAXIMIZED)
+				style |= WS_MAXIMIZE;
+			else if(d->childShow == SIZE_MINIMIZED)
+				style |= WS_MINIMIZE;
+		} else if(!d->widget->isHidden())
+		{
+			style &= ~(WS_MAXIMIZE | WS_MINIMIZE);
+			if(d->widget->isMinimized())
+				style |= WS_MINIMIZE;
+			else if(d->widget->isMaximized())
+				style |= WS_MAXIMIZE;
+		}
+		return static_cast<LONG_PTR>(style);
+	}
 	case GWL_EXSTYLE: return static_cast<LONG_PTR>(d->exStyle);
 	default:
 		if(index >= 0 && static_cast<std::size_t>(index) / sizeof(LONG_PTR) < d->extra.size())
@@ -1797,8 +1922,8 @@ BOOL GetWindowPlacement(HWND hwnd, WINDOWPLACEMENT *placement)
 	if(w == nullptr || placement == nullptr)
 		return FALSE;
 	placement->flags = 0;
-	placement->showCmd = w->isMinimized() ? SW_SHOWMINIMIZED : w->isMaximized() ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
-	const QRect r = w->isWindow() ? w->normalGeometry() : w->geometry().translated(-ClientOrigin(w->parentWidget()));
+	placement->showCmd = ::IsIconic(hwnd) ? SW_SHOWMINIMIZED : ::IsZoomed(hwnd) ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+	const QRect r = w->isWindow() ? w->normalGeometry() : w->data.childShow != SIZE_RESTORED ? w->data.restoreRect : ChildWindowRect(w);
 	placement->rcNormalPosition = RECT{r.left(), r.top(), r.left() + r.width(), r.top() + r.height()};
 	placement->ptMinPosition = POINT{-1, -1};
 	placement->ptMaxPosition = POINT{-1, -1};

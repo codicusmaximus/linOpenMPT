@@ -280,10 +280,48 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 180 undefined symbols, down from
   181.
 
+### Step 3f part 1: MDI, frames and document/view (done)
+
+- user32's multiple-document interface (`platform/qtwin/mdi.cpp`): the
+  `MDIClient` class, `DefFrameProc`, `DefMDIChildProc`, `CreateMDIWindow`
+  and every `WM_MDI*` message. Children activate on click (now with
+  `WM_MOUSEACTIVATE`), maximize into the client with minimize, restore and
+  close buttons on the frame's menu bar and "Frame - [Child]" as the title,
+  minimize to the bottom, tile and cascade, and get listed in the Window
+  menu. The client gets scroll bars while a child reaches outside, and
+  Ctrl+F4 and Ctrl+F6 work (`TranslateMDISysAccel`).
+- Child windows with a caption can now be moved and sized with the mouse,
+  and have working caption buttons (they were drawn only on top-level
+  windows before); `WS_MAXIMIZE` and `WS_MINIMIZE` in the style say the
+  window's state, as on Windows.
+- MFC's frames: `CFrameWnd` (LoadFrame from a resource id, the view of a
+  `CCreateContext`, control bar layout through `RepositionBars` and
+  `WM_SIZEPARENT`, the active view, titles, and command routing from the
+  view to its document, the frame and the application), `CMDIFrameWnd`
+  and `CMDIChildWnd`, and `CCmdUI` for menu items (`WM_INITMENUPOPUP`,
+  items without a handler disabled).
+- Document/view: `CView`, `CScrollView`, `CFormView`, `CDocument`,
+  `CDocTemplate`, `CMultiDocTemplate`, `CDocManager` and CWinApp's document
+  functions, with MFC's object lifetimes (views delete themselves with
+  their window, documents with their last view). `CSplitterWnd` for static
+  splitters, as upstream's `CChildFrame` uses it; the panes follow the
+  mouse while the bar is dragged, where MFC drags an outline.
+- Not yet: `CDocManager::DoPromptFileName` (MFC's own file dialog; upstream
+  uses its own `FileDialog`, which comes with the dialogs in step 4), and
+  the MDI client losing its sunken edge while a child is maximized.
+- Tests: `frame_test` drives the MDI messages, then builds an MFC
+  application with upstream's `IDR_MAINFRAME` and `IDR_MODULETYPE`
+  resources: documents with a two-pane splitter, a scroll view and a form
+  view (upstream's general tab), titles, command routing, menu updates,
+  and closing frames and documents. All tests pass at display scales 1,
+  1.5 and 2.
+- Linking upstream's UI files now leaves 159 undefined symbols, down from
+  180.
+
 ### Next in step 3
 
-1. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`,
-   `CToolBar`), then upstream's `CMainFrame` and `CTrackApp::InitInstance`
+1. Control bars (`CToolBar`, `CStatusBar`, `CDialogBar`, docking and saved
+   bar state), then upstream's `CMainFrame` and `CTrackApp::InitInstance`
    running for real.
 2. Playback through JACK from the main window.
 

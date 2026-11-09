@@ -489,6 +489,10 @@ int GetSystemMetrics(int index)
 	case SM_CXFULLSCREEN: return available.width();
 	case SM_CYFULLSCREEN: return available.height();
 	case SM_SWAPBUTTON: return 0;
+	case SM_CXMINTRACK: return 112;
+	case SM_CYMINTRACK: return GetSystemMetrics(SM_CYCAPTION) + 2 * GetSystemMetrics(SM_CYFRAME);
+	case SM_CXMINIMIZED: return 160;
+	case SM_CYMINIMIZED: return GetSystemMetrics(SM_CYCAPTION) + 2 * GetSystemMetrics(SM_CYFRAME);
 	case SM_CXMIN: return 112;
 	case SM_CYMIN: return 27;
 	case SM_CXSIZE:
