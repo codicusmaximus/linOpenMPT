@@ -595,6 +595,9 @@ LRESULT CDialog::HandleSetFont(WPARAM wp, LPARAM)
 
 BOOL CDialog::OnInitDialog()
 {
+	// The dynamic layout of the template (AFX_DIALOG_LAYOUT), if it has one.
+	if(m_lpszTemplateName != nullptr)
+		LoadDynamicLayoutResource(m_lpszTemplateName);
 	// List and combo box strings from the resources, then the data.
 	const BOOL init = m_lpDialogInit != nullptr ? ExecuteDlgInit(m_lpDialogInit) : ExecuteDlgInit(m_lpszTemplateName);
 	if(!init)
@@ -677,12 +680,6 @@ DWORD CDialog::GetDefID() const
 void CDialog::MapDialogRect(LPRECT rect) const
 {
 	::MapDialogRect(m_hWnd, rect);
-}
-
-CMFCDynamicLayout *CDialog::GetDynamicLayout()
-{
-	// Upstream's resizable dialogs lay themselves out (ResizableDialog).
-	return nullptr;
 }
 
 // ---- message boxes ----------------------------------------------------------------------------

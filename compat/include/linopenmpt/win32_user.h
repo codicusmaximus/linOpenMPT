@@ -783,6 +783,22 @@ BOOL LinOpenMPTEndModalLoopFor(const void *key, int result);
 void LinOpenMPTEndModalLoop(int result);
 int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 
+struct MINMAXINFO { POINT ptReserved; POINT ptMaxSize; POINT ptMaxPosition; POINT ptMinTrackSize; POINT ptMaxTrackSize; };
+typedef MINMAXINFO *LPMINMAXINFO;
+
+// ---- accelerator tables ------------------------------------------------------
+#define FVIRTKEY 0x01
+#define FNOINVERT 0x02
+#define FSHIFT 0x04
+#define FCONTROL 0x08
+#define FALT 0x10
+struct ACCEL { BYTE fVirt; WORD key; WORD cmd; };
+typedef ACCEL *LPACCEL;
+HACCEL CreateAcceleratorTable(LPACCEL accel, int count);
+BOOL DestroyAcceleratorTable(HACCEL accel);
+int CopyAcceleratorTable(HACCEL accel, LPACCEL entries, int count);
+HACCEL LoadAccelerators(HINSTANCE instance, LPCTSTR name);
+
 // ---- system parameters -------------------------------------------------------
 #define SPI_GETWORKAREA 0x0030
 #define SPI_GETNONCLIENTMETRICS 0x0029

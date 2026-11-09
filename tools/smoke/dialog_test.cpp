@@ -774,6 +774,122 @@ void MfcPropertySheets(HWND owner)
 	}
 }
 
+// Resizable dialogs: an upstream template with its AFX_DIALOG_LAYOUT, and a
+// minimum size from WM_GETMINMAXINFO, as upstream's ResizableDialog sets one.
+class LayoutDialog : public CDialog
+{
+public:
+	LayoutDialog() : CDialog(IDD_EDITHISTORY) {}
+	SIZE minSize{};
+	int minMaxQueries = 0;
+	afx_msg void OnGetMinMaxInfo(MINMAXINFO *mmi)
+	{
+		minMaxQueries++;
+		if(minSize.cx)
+			mmi->ptMinTrackSize = POINT{minSize.cx, minSize.cy};
+		CDialog::OnGetMinMaxInfo(mmi);
+	}
+	DECLARE_MESSAGE_MAP()
+};
+BEGIN_MESSAGE_MAP(LayoutDialog, CDialog)
+	ON_WM_GETMINMAXINFO()
+END_MESSAGE_MAP()
+
+RECT ItemRect(HWND dlg, int id)
+{
+	RECT rc{};
+	::GetWindowRect(::GetDlgItem(dlg, id), &rc);
+	::MapWindowPoints(nullptr, dlg, reinterpret_cast<POINT *>(&rc), 2);
+	return rc;
+}
+
+void MfcDynamicLayouts(HWND owner)
+{
+	LayoutDialog dlg;
+	Check(dlg.Create(IDD_EDITHISTORY, CWnd::FromHandle(owner)) != FALSE, "CDialog::Create with an AFX_DIALOG_LAYOUT template");
+	Check(dlg.IsDynamicLayoutEnabled() && dlg.GetDynamicLayout() != nullptr, "CDialog: OnInitDialog loads the template's dynamic layout");
+	const RECT ok = ItemRect(dlg.m_hWnd, IDOK), clear = ItemRect(dlg.m_hWnd, IDC_BTN_CLEAR), edit = ItemRect(dlg.m_hWnd, IDC_EDIT_HISTORY), total = ItemRect(dlg.m_hWnd, IDC_TOTAL_EDIT_TIME);
+	CRect window;
+	dlg.GetWindowRect(&window);
+	dlg.SetWindowPos(nullptr, 0, 0, window.Width() + 100, window.Height() + 60, SWP_NOMOVE | SWP_NOZORDER);
+	Pump();
+	const RECT ok2 = ItemRect(dlg.m_hWnd, IDOK), clear2 = ItemRect(dlg.m_hWnd, IDC_BTN_CLEAR), edit2 = ItemRect(dlg.m_hWnd, IDC_EDIT_HISTORY), total2 = ItemRect(dlg.m_hWnd, IDC_TOTAL_EDIT_TIME);
+	Check(ok2.left == ok.left + 100 && ok2.top == ok.top + 60 && ok2.right - ok2.left == ok.right - ok.left, "dynamic layout: OK moves with the corner (100, 100 / 0, 0)");
+	Check(clear2.left == clear.left && clear2.top == clear.top + 60, "dynamic layout: Clear moves down only (0, 100 / 0, 0)");
+	Check(edit2.left == edit.left && edit2.top == edit.top && edit2.right == edit.right + 100 && edit2.bottom == edit.bottom + 60, "dynamic layout: the history grows both ways (0, 0 / 100, 100)");
+	Check(total2.left == total.left && total2.top == total.top + 60 && total2.right == total.right + 100 && total2.bottom - total2.top == total.bottom - total.top, "dynamic layout: the total moves down and grows wider (0, 100 / 100, 0)");
+	SaveShot(dlg.m_hWnd, 9003);
+	dlg.SetWindowPos(nullptr, 0, 0, window.Width(), window.Height(), SWP_NOMOVE | SWP_NOZORDER);
+	Pump();
+	const RECT ok3 = ItemRect(dlg.m_hWnd, IDOK), edit3 = ItemRect(dlg.m_hWnd, IDC_EDIT_HISTORY);
+	Check(::EqualRect(&ok, &ok3) && ::EqualRect(&edit, &edit3), "dynamic layout: back to the template's size, back to the template's places");
+	dlg.DestroyWindow();
+	Check(!dlg.IsDynamicLayoutEnabled(), "dynamic layout: gone with the window");
+
+	// The minimum track size, applied when the window shows.
+	LayoutDialog sized;
+	sized.Create(IDD_EDITHISTORY, CWnd::FromHandle(owner));
+	sized.ShowWindow(SW_HIDE);
+	sized.GetWindowRect(&window);
+	sized.minSize = SIZE{window.Width(), window.Height()};
+	sized.ShowWindow(SW_SHOW);
+	Pump();
+	Check(sized.minMaxQueries > 0, "WM_GETMINMAXINFO reaches the window when it shows");
+	sized.SetWindowPos(nullptr, 0, 0, 50, 40, SWP_NOMOVE | SWP_NOZORDER);
+	Pump();
+	CRect small;
+	sized.GetWindowRect(&small);
+	Check(small.Width() == window.Width() && small.Height() == window.Height(), "the window keeps its minimum track size");
+	sized.DestroyWindow();
+}
+
+// Accelerator tables: virtual keys with modifiers, and characters.
+std::vector<WPARAM> g_accelCommands;
+LRESULT CALLBACK AccelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+	if(msg == WM_COMMAND)
+		g_accelCommands.push_back(wp);
+	return ::DefWindowProc(hwnd, msg, wp, lp);
+}
+
+void Accelerators()
+{
+	WNDCLASS wc{};
+	wc.lpfnWndProc = AccelProc;
+	wc.lpszClassName = L"AccelTest";
+	::RegisterClass(&wc);
+	HWND hwnd = ::CreateWindowEx(0, L"AccelTest", L"Accelerators", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 200, 100, nullptr, nullptr, nullptr, nullptr);
+	::SetFocus(hwnd);
+	Pump();
+	ACCEL entries[] = {
+		{FVIRTKEY, VK_F5, 500},
+		{FVIRTKEY | FCONTROL, 'S', 501},
+		{0, 'x', 502},
+	};
+	HACCEL table = ::CreateAcceleratorTable(entries, 3);
+	Check(table != nullptr && ::CopyAcceleratorTable(table, nullptr, 0) == 3, "CreateAcceleratorTable / CopyAcceleratorTable");
+	MSG f5{hwnd, WM_KEYDOWN, VK_F5, 0};
+	MSG s{hwnd, WM_KEYDOWN, 'S', 0};
+	MSG x{hwnd, WM_CHAR, 'x', 0};
+	Check(::TranslateAccelerator(hwnd, table, &f5) == 1 && g_accelCommands == std::vector<WPARAM>{MAKEWPARAM(500, 1)}, "TranslateAccelerator: F5 is WM_COMMAND 500 from an accelerator");
+	Check(::TranslateAccelerator(hwnd, table, &s) == 0, "TranslateAccelerator: S without Ctrl is not Ctrl+S");
+	Check(::TranslateAccelerator(hwnd, table, &x) == 1 && g_accelCommands.back() == MAKEWPARAM(502, 1), "TranslateAccelerator: a character accelerator");
+	QWidget *focus = QApplication::focusWidget();
+	if(focus != nullptr)
+	{
+		QKeyEvent press(QEvent::KeyPress, Qt::Key_Control, Qt::ControlModifier);
+		QApplication::sendEvent(focus, &press);
+	}
+	Check(focus != nullptr && ::TranslateAccelerator(hwnd, table, &s) == 1 && g_accelCommands.back() == MAKEWPARAM(501, 1), "TranslateAccelerator: Ctrl+S while Ctrl is down");
+	if(focus != nullptr)
+	{
+		QKeyEvent release(QEvent::KeyRelease, Qt::Key_Control, Qt::NoModifier);
+		QApplication::sendEvent(focus, &release);
+	}
+	Check(::DestroyAcceleratorTable(table) && ::TranslateAccelerator(hwnd, table, &f5) == 0, "DestroyAcceleratorTable");
+	::DestroyWindow(hwnd);
+}
+
 // Closes the next message box with its default button, once it is open.
 void AnswerNextMessageBox(QString *text)
 {
@@ -921,7 +1037,9 @@ void MfcDialogs()
 	}
 	Win32PropertySheets(owner);
 	MfcPropertySheets(owner);
+	MfcDynamicLayouts(owner);
 	::DestroyWindow(owner);
+	Accelerators();
 }
 } // namespace
 

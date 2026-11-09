@@ -256,13 +256,36 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 181 undefined symbols, down from
   208.
 
+### Step 3e: accelerators and resizable dialogs (done)
+
+- Dynamic layouts: `CMFCDynamicLayout` as MFC's afxlayout.cpp has it, with
+  `AFX_DIALOG_LAYOUT` resources loaded in `CDialog::OnInitDialog` and
+  controls moved or grown by their percentages on `WM_SIZE`. Upstream's
+  `ResizableDialog` (13 dialogs) reads the same resources itself; the other
+  dialogs with layouts use this.
+- `WM_GETMINMAXINFO`: top-level windows ask when they show, and the
+  minimum and maximum track sizes become limits the window manager keeps
+  while the user resizes.
+- Accelerator tables: `CreateAcceleratorTable`, `LoadAccelerators`
+  (`RT_ACCELERATOR`), `CopyAcceleratorTable` and `TranslateAccelerator`.
+  Upstream has no accelerator resources (its own input handler maps keys),
+  but MFC's frames translate through them, so the path works.
+- Fix found on the way: moving or resizing a hidden window now sends
+  `WM_MOVE` and `WM_SIZE` at once, as Windows does, where Qt held them back
+  until the window showed.
+- Tests: `dialog_test` resizes upstream's edit history dialog and checks
+  every control against its layout, checks the minimum size holds, and
+  runs accelerators with and without Ctrl. All tests pass at display
+  scales 1, 1.5 and 2.
+- Linking upstream's UI files now leaves 180 undefined symbols, down from
+  181.
+
 ### Next in step 3
 
-1. Accelerators and dynamic dialog layouts.
-2. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`,
+1. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`,
    `CToolBar`), then upstream's `CMainFrame` and `CTrackApp::InitInstance`
    running for real.
-3. Playback through JACK from the main window.
+2. Playback through JACK from the main window.
 
 ## Step 4: views and dialogs
 
