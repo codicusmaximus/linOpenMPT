@@ -528,17 +528,61 @@ using LPTCITEM = TCITEM *;
 #define TCN_KEYDOWN (TCN_FIRST - 0)
 #define TCN_SELCHANGE (TCN_FIRST - 1)
 #define TCN_SELCHANGING (TCN_FIRST - 2)
+#define TCN_FOCUSCHANGE (TCN_FIRST - 4)
 #define TCM_FIRST 0x1300
+#define TCM_GETIMAGELIST (TCM_FIRST + 2)
+#define TCM_SETIMAGELIST (TCM_FIRST + 3)
 #define TCM_GETITEMCOUNT (TCM_FIRST + 4)
 #define TCM_DELETEITEM (TCM_FIRST + 8)
 #define TCM_DELETEALLITEMS (TCM_FIRST + 9)
+#define TCM_GETITEMRECT (TCM_FIRST + 10)
 #define TCM_GETCURSEL (TCM_FIRST + 11)
 #define TCM_SETCURSEL (TCM_FIRST + 12)
+#define TCM_HITTEST (TCM_FIRST + 13)
+#define TCM_SETITEMEXTRA (TCM_FIRST + 14)
+#define TCM_ADJUSTRECT (TCM_FIRST + 40)
+#define TCM_SETITEMSIZE (TCM_FIRST + 41)
+#define TCM_REMOVEIMAGE (TCM_FIRST + 42)
+#define TCM_SETPADDING (TCM_FIRST + 43)
+#define TCM_GETROWCOUNT (TCM_FIRST + 44)
+#define TCM_GETTOOLTIPS (TCM_FIRST + 45)
+#define TCM_SETTOOLTIPS (TCM_FIRST + 46)
 #define TCM_GETCURFOCUS (TCM_FIRST + 47)
 #define TCM_SETCURFOCUS (TCM_FIRST + 48)
+#define TCM_SETMINTABWIDTH (TCM_FIRST + 49)
+#define TCM_DESELECTALL (TCM_FIRST + 50)
+#define TCM_HIGHLIGHTITEM (TCM_FIRST + 51)
+#define TCM_SETEXTENDEDSTYLE (TCM_FIRST + 52)
+#define TCM_GETEXTENDEDSTYLE (TCM_FIRST + 53)
 #define TCM_GETITEMW (TCM_FIRST + 60)
 #define TCM_SETITEMW (TCM_FIRST + 61)
 #define TCM_INSERTITEMW (TCM_FIRST + 62)
+#define TCM_GETITEM TCM_GETITEMW
+#define TCM_SETITEM TCM_SETITEMW
+#define TCM_INSERTITEM TCM_INSERTITEMW
+#define TCIS_BUTTONPRESSED 0x0001
+#define TCIS_HIGHLIGHTED 0x0002
+#define TCHT_NOWHERE 0x0001
+#define TCHT_ONITEMICON 0x0002
+#define TCHT_ONITEMLABEL 0x0004
+#define TCHT_ONITEM (TCHT_ONITEMICON | TCHT_ONITEMLABEL)
+struct TCHITTESTINFO { POINT pt; UINT flags; };
+using LPTCHITTESTINFO = TCHITTESTINFO *;
+using TC_HITTESTINFO = TCHITTESTINFO;
+#define WC_TABCONTROL L"SysTabControl32"
+#define ODT_TAB 101
+#pragma pack(push, 1)
+struct NMTCKEYDOWN { NMHDR hdr; WORD wVKey; UINT flags; };
+#pragma pack(pop)
+using TC_KEYDOWN = NMTCKEYDOWN;
+#define TabCtrl_GetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), TCM_GETITEMW, (WPARAM)(int)(i), (LPARAM)(TCITEM *)(item))
+#define TabCtrl_SetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), TCM_SETITEMW, (WPARAM)(int)(i), (LPARAM)(TCITEM *)(item))
+#define TabCtrl_DeleteItem(hwnd, i) (BOOL)SNDMSG((hwnd), TCM_DELETEITEM, (WPARAM)(int)(i), 0)
+#define TabCtrl_GetItemRect(hwnd, i, rc) (BOOL)SNDMSG((hwnd), TCM_GETITEMRECT, (WPARAM)(int)(i), (LPARAM)(RECT *)(rc))
+#define TabCtrl_AdjustRect(hwnd, larger, rc) (int)SNDMSG((hwnd), TCM_ADJUSTRECT, (WPARAM)(BOOL)(larger), (LPARAM)(RECT *)(rc))
+#define TabCtrl_HitTest(hwnd, info) (int)SNDMSG((hwnd), TCM_HITTEST, 0, (LPARAM)(TC_HITTESTINFO *)(info))
+#define TabCtrl_SetImageList(hwnd, list) (HIMAGELIST)SNDMSG((hwnd), TCM_SETIMAGELIST, 0, (LPARAM)(HIMAGELIST)(list))
+#define TabCtrl_GetRowCount(hwnd) (int)SNDMSG((hwnd), TCM_GETROWCOUNT, 0, 0)
 #define TabCtrl_InsertItem(hwnd, index, item) (int)SNDMSG((hwnd), TCM_INSERTITEMW, (WPARAM)(int)(index), (LPARAM)(const TCITEM *)(item))
 #define TabCtrl_GetCurFocus(hwnd) (int)SNDMSG((hwnd), TCM_GETCURFOCUS, 0, 0)
 #define TabCtrl_SetCurFocus(hwnd, i) SNDMSG((hwnd), TCM_SETCURFOCUS, (WPARAM)(i), 0)
@@ -725,6 +769,18 @@ BOOL ImageList_Remove(HIMAGELIST list, int index);
 #define ImageList_RemoveAll(list) ImageList_Remove(list, -1)
 BOOL ImageList_SetIconSize(HIMAGELIST list, int cx, int cy);
 BOOL ImageList_GetIconSize(HIMAGELIST list, int *cx, int *cy);
+int ImageList_ReplaceIcon(HIMAGELIST list, int index, HICON icon);
+#define ImageList_AddIcon(list, icon) ImageList_ReplaceIcon(list, -1, icon)
+BOOL ImageList_Replace(HIMAGELIST list, int index, HBITMAP image, HBITMAP mask);
+BOOL ImageList_SetImageCount(HIMAGELIST list, UINT count);
+COLORREF ImageList_SetBkColor(HIMAGELIST list, COLORREF color);
+COLORREF ImageList_GetBkColor(HIMAGELIST list);
+HICON ImageList_GetIcon(HIMAGELIST list, int index, UINT flags);
+#define ImageList_ExtractIcon(instance, list, index) ImageList_GetIcon(list, index, 0)
+BOOL ImageList_DrawEx(HIMAGELIST list, int index, HDC dc, int x, int y, int dx, int dy, COLORREF bk, COLORREF fg, UINT style);
+HIMAGELIST ImageList_Duplicate(HIMAGELIST list);
+HIMAGELIST ImageList_LoadImage(HINSTANCE instance, LPCTSTR name, int cx, int grow, COLORREF mask, UINT type, UINT flags);
+#define ImageList_LoadBitmap(instance, name, cx, grow, mask) ImageList_LoadImage(instance, name, cx, grow, mask, IMAGE_BITMAP, 0)
 
 void InitCommonControls();
 struct INITCOMMONCONTROLSEX { DWORD dwSize; DWORD dwICC; };

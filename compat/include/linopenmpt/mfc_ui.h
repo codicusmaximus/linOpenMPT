@@ -536,7 +536,11 @@ class CImageList : public CObject
 {
 public:
 	HIMAGELIST m_hImageList = nullptr;
-	virtual ~CImageList() = default;
+	CImageList() = default;
+	CImageList(const CImageList &) = delete;
+	CImageList &operator=(const CImageList &) = delete;
+	virtual ~CImageList();
+	static CImageList *FromHandle(HIMAGELIST list);
 	operator HIMAGELIST() const { return m_hImageList; }
 	HIMAGELIST GetSafeHandle() const { return this ? m_hImageList : nullptr; }
 	BOOL Create(int cx, int cy, UINT flags, int initial, int grow);

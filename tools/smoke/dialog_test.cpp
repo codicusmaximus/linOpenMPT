@@ -325,7 +325,7 @@ std::vector<TemplateItem> TemplateItems(const BYTE *data, bool &ex)
 
 bool IsStandard(const std::wstring &cls)
 {
-	static const std::set<std::wstring> standard{L"Button", L"Edit", L"Static", L"ListBox", L"ScrollBar", L"ComboBox", L"msctls_trackbar32", L"msctls_updown32", L"msctls_progress32"};
+	static const std::set<std::wstring> standard{L"Button", L"Edit", L"Static", L"ListBox", L"ScrollBar", L"ComboBox", L"msctls_trackbar32", L"msctls_updown32", L"msctls_progress32", L"SysTabControl32"};
 	for(const auto &s : standard)
 	{
 		if(QString::fromStdWString(cls).compare(QString::fromStdWString(s), Qt::CaseInsensitive) == 0)

@@ -90,3 +90,109 @@ int CProgressCtrl::SetStep(int step) { return static_cast<int>(::SendMessage(m_h
 int CProgressCtrl::StepIt() { return static_cast<int>(::SendMessage(m_hWnd, PBM_STEPIT, 0, 0)); }
 BOOL CProgressCtrl::SetMarquee(BOOL on, UINT interval) { return static_cast<BOOL>(::SendMessage(m_hWnd, PBM_SETMARQUEE, on, interval)); }
 int CProgressCtrl::SetState(int state) { return static_cast<int>(::SendMessage(m_hWnd, PBM_SETSTATE, state, 0)); }
+
+// ---- CImageList ------------------------------------------------------------------------------
+
+#include <map>
+#include <memory>
+
+CImageList::~CImageList()
+{
+	DeleteImageList();
+}
+
+CImageList *CImageList::FromHandle(HIMAGELIST list)
+{
+	if(list == nullptr)
+		return nullptr;
+	// Wrappers for lists owned elsewhere, as MFC's temporary map; they never
+	// destroy the list.
+	struct Temp : CImageList
+	{
+		~Temp() override { Detach(); }
+	};
+	static std::map<HIMAGELIST, std::unique_ptr<Temp>> temps;
+	auto &slot = temps[list];
+	if(!slot)
+	{
+		slot = std::make_unique<Temp>();
+		slot->Attach(list);
+	}
+	return slot.get();
+}
+
+BOOL CImageList::Create(int cx, int cy, UINT flags, int initial, int grow)
+{
+	return Attach(ImageList_Create(cx, cy, flags, initial, grow));
+}
+
+BOOL CImageList::Create(UINT bitmapID, int cx, int grow, COLORREF mask)
+{
+	return Attach(ImageList_LoadBitmap(AfxGetResourceHandle(), MAKEINTRESOURCE(bitmapID), cx, grow, mask));
+}
+
+BOOL CImageList::DeleteImageList()
+{
+	if(m_hImageList == nullptr)
+		return FALSE;
+	return ImageList_Destroy(Detach());
+}
+
+int CImageList::Add(CBitmap *bitmap, CBitmap *mask)
+{
+	return ImageList_Add(m_hImageList, bitmap != nullptr ? static_cast<HBITMAP>(bitmap->m_hObject) : nullptr, mask != nullptr ? static_cast<HBITMAP>(mask->m_hObject) : nullptr);
+}
+
+int CImageList::Add(CBitmap *bitmap, COLORREF mask)
+{
+	return ImageList_AddMasked(m_hImageList, bitmap != nullptr ? static_cast<HBITMAP>(bitmap->m_hObject) : nullptr, mask);
+}
+
+int CImageList::Add(HICON icon) { return ImageList_AddIcon(m_hImageList, icon); }
+BOOL CImageList::Remove(int image) { return ImageList_Remove(m_hImageList, image); }
+BOOL CImageList::Replace(int image, CBitmap *bitmap, CBitmap *mask)
+{
+	return ImageList_Replace(m_hImageList, image, bitmap != nullptr ? static_cast<HBITMAP>(bitmap->m_hObject) : nullptr, mask != nullptr ? static_cast<HBITMAP>(mask->m_hObject) : nullptr);
+}
+int CImageList::GetImageCount() const { return ImageList_GetImageCount(m_hImageList); }
+BOOL CImageList::Draw(CDC *dc, int image, POINT pt, UINT style) { return ImageList_Draw(m_hImageList, image, dc != nullptr ? dc->GetSafeHdc() : nullptr, pt.x, pt.y, style); }
+COLORREF CImageList::SetBkColor(COLORREF color) { return ImageList_SetBkColor(m_hImageList, color); }
+BOOL CImageList::SetImageCount(UINT count) { return ImageList_SetImageCount(m_hImageList, count); }
+HICON CImageList::ExtractIcon(int image) { return ImageList_GetIcon(m_hImageList, image, 0); }
+
+// ---- CTabCtrl --------------------------------------------------------------------------------
+
+BOOL CTabCtrl::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id)
+{
+	return CWnd::Create(WC_TABCONTROL, nullptr, style, rect, parent, id);
+}
+
+LONG CTabCtrl::InsertItem(int item, TCITEM *tcItem) { return static_cast<LONG>(::SendMessage(m_hWnd, TCM_INSERTITEM, item, reinterpret_cast<LPARAM>(tcItem))); }
+LONG CTabCtrl::InsertItem(UINT mask, int item, LPCTSTR text, int image, LPARAM lParam, DWORD state, DWORD stateMask)
+{
+	TCITEM tci{};
+	tci.mask = mask;
+	tci.pszText = const_cast<LPTSTR>(text);
+	tci.iImage = image;
+	tci.lParam = lParam;
+	tci.dwState = state;
+	tci.dwStateMask = stateMask;
+	return InsertItem(item, &tci);
+}
+LONG CTabCtrl::InsertItem(UINT mask, int item, LPCTSTR text, int image, LPARAM lParam) { return InsertItem(mask, item, text, image, lParam, 0, 0); }
+LONG CTabCtrl::InsertItem(int item, LPCTSTR text, int image) { return InsertItem(TCIF_TEXT | TCIF_IMAGE, item, text, image, 0); }
+BOOL CTabCtrl::InsertItem(int item, LPCTSTR text) { return InsertItem(TCIF_TEXT, item, text, 0, 0) >= 0; }
+BOOL CTabCtrl::DeleteItem(int item) { return static_cast<BOOL>(::SendMessage(m_hWnd, TCM_DELETEITEM, item, 0)); }
+BOOL CTabCtrl::DeleteAllItems() { return static_cast<BOOL>(::SendMessage(m_hWnd, TCM_DELETEALLITEMS, 0, 0)); }
+int CTabCtrl::GetItemCount() const { return static_cast<int>(::SendMessage(m_hWnd, TCM_GETITEMCOUNT, 0, 0)); }
+int CTabCtrl::GetCurSel() const { return static_cast<int>(::SendMessage(m_hWnd, TCM_GETCURSEL, 0, 0)); }
+int CTabCtrl::SetCurSel(int item) { return static_cast<int>(::SendMessage(m_hWnd, TCM_SETCURSEL, item, 0)); }
+int CTabCtrl::GetCurFocus() const { return static_cast<int>(::SendMessage(m_hWnd, TCM_GETCURFOCUS, 0, 0)); }
+BOOL CTabCtrl::GetItem(int item, TCITEM *tcItem) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TCM_GETITEM, item, reinterpret_cast<LPARAM>(tcItem))); }
+BOOL CTabCtrl::SetItem(int item, TCITEM *tcItem) { return static_cast<BOOL>(::SendMessage(m_hWnd, TCM_SETITEM, item, reinterpret_cast<LPARAM>(tcItem))); }
+BOOL CTabCtrl::GetItemRect(int item, LPRECT rect) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TCM_GETITEMRECT, item, reinterpret_cast<LPARAM>(rect))); }
+void CTabCtrl::AdjustRect(BOOL larger, LPRECT rect) { ::SendMessage(m_hWnd, TCM_ADJUSTRECT, larger, reinterpret_cast<LPARAM>(rect)); }
+CImageList *CTabCtrl::SetImageList(CImageList *list)
+{
+	return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, TCM_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->m_hImageList : nullptr))));
+}

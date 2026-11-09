@@ -10,6 +10,8 @@
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QApplication>
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -48,6 +50,7 @@ int g_vetoDelta = 0;      // UDN_DELTAPOS answers nonzero
 int g_changeDelta = 0;    // UDN_DELTAPOS changes iDelta to this
 LRESULT g_customDraw = CDRF_DODEFAULT;
 std::vector<DWORD> g_drawStages;
+extern int g_refuseChange;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -75,6 +78,8 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				g_drawStages.push_back(cd->dwDrawStage | (cd->dwDrawStage & CDDS_ITEM ? static_cast<DWORD>(cd->dwItemSpec) << 8 : 0));
 				return cd->dwDrawStage == CDDS_PREPAINT ? g_customDraw : CDRF_DODEFAULT;
 			}
+			if(hdr->code == TCN_SELCHANGING)
+				return g_refuseChange;
 			return 0;
 		}
 	default:
@@ -117,6 +122,17 @@ void Key(int key)
 	if(QWidget *again = QApplication::focusWidget())
 		QApplication::sendEvent(again, &release);
 	Pump();
+}
+
+// With LINOPENMPT_SHOTS=<dir>, a picture of the window, to look at.
+void SaveShot(HWND hwnd, const char *name)
+{
+	const QByteArray dir = qgetenv("LINOPENMPT_SHOTS");
+	Win32Widget *w = FromHandle(hwnd);
+	if(dir.isEmpty() || w == nullptr)
+		return;
+	Pump();
+	w->grab().save(QString::fromLocal8Bit(dir) + QStringLiteral("/%1.png").arg(QLatin1String(name)));
 }
 
 std::wstring Text(HWND hwnd)
@@ -235,6 +251,7 @@ void Trackbars(HWND parent)
 		"trackbar: NM_CUSTOMDRAW for the tics, channel and thumb");
 	g_customDraw = CDRF_DODEFAULT;
 
+	SaveShot(parent, "trackbar");
 	// Vertical: WM_VSCROLL, minimum at the top.
 	HWND vt = ::CreateWindowEx(0, TRACKBAR_CLASS, nullptr, WS_CHILD | WS_VISIBLE | TBS_VERT, 220, 10, 30, 150, parent, reinterpret_cast<HMENU>(101), nullptr, nullptr);
 	::SendMessage(vt, TBM_SETRANGE, TRUE, MAKELPARAM(0, 10));
@@ -401,6 +418,169 @@ void Progress(HWND parent)
 	::DestroyWindow(pb);
 }
 
+
+void ImageLists()
+{
+	HIMAGELIST list = ImageList_Create(4, 4, ILC_COLOR32 | ILC_MASK, 2, 2);
+	Check(list != nullptr, "image list: created");
+	// A strip of two 4x4 images, magenta as the mask colour.
+	BITMAPINFO bi{};
+	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth = 8;
+	bi.bmiHeader.biHeight = -4;
+	bi.bmiHeader.biPlanes = 1;
+	bi.bmiHeader.biBitCount = 32;
+	void *bits = nullptr;
+	HDC screen = ::GetDC(nullptr);
+	HBITMAP strip = ::CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+	auto *px = static_cast<uint32_t *>(bits);
+	for(int i = 0; i < 32; i++)
+		px[i] = (i % 8) < 4 ? 0x0000FF : 0xFF00FF; // blue, then magenta
+	px[8 + 5] = 0x00FF00; // a green pixel in the second image
+	Check(ImageList_AddMasked(list, strip, RGB(255, 0, 255)) == 0, "image list: AddMasked returns the first index");
+	Check(ImageList_GetImageCount(list) == 2, "image list: a strip adds one image per width");
+	int cx = 0, cy = 0;
+	Check(ImageList_GetIconSize(list, &cx, &cy) && cx == 4 && cy == 4, "image list: icon size");
+	// Drawn over red: the mask colour is transparent.
+	HDC mem = ::CreateCompatibleDC(screen);
+	HBITMAP target = ::CreateCompatibleBitmap(screen, 8, 4);
+	HGDIOBJ old = ::SelectObject(mem, target);
+	RECT all{0, 0, 8, 4};
+	HBRUSH red = ::CreateSolidBrush(RGB(255, 0, 0));
+	::FillRect(mem, &all, red);
+	ImageList_Draw(list, 0, mem, 0, 0, ILD_NORMAL);
+	ImageList_Draw(list, 1, mem, 4, 0, ILD_TRANSPARENT);
+	Check(::GetPixel(mem, 1, 1) == RGB(0, 0, 255), "image list: draws the image");
+	Check(::GetPixel(mem, 4, 0) == RGB(255, 0, 0), "image list: the mask colour is transparent");
+	Check(::GetPixel(mem, 5, 1) == RGB(0, 255, 0), "image list: the second image of the strip");
+	::SelectObject(mem, old);
+	::DeleteObject(red);
+	::DeleteObject(target);
+	::DeleteDC(mem);
+	::ReleaseDC(nullptr, screen);
+	Check(ImageList_Remove(list, 0) && ImageList_GetImageCount(list) == 1, "image list: Remove");
+	ImageList_SetIconSize(list, 8, 8);
+	Check(ImageList_GetImageCount(list) == 0, "image list: SetIconSize empties it");
+	::DeleteObject(strip);
+	CImageList wrapper;
+	Check(wrapper.Create(16, 16, ILC_COLOR32 | ILC_MASK, 1, 1) && wrapper.GetImageCount() == 0, "CImageList: Create");
+	Check(wrapper.SetImageCount(3) && wrapper.GetImageCount() == 3, "CImageList: SetImageCount");
+	ImageList_Destroy(list);
+}
+
+int g_selChanging = 0, g_selChange = 0, g_refuseChange = 0;
+
+void Tabs(HWND parent)
+{
+	HWND tab = ::CreateWindowEx(0, WC_TABCONTROL, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 130, 300, 120, parent, reinterpret_cast<HMENU>(400), nullptr, nullptr);
+	Check(tab != nullptr, "tab: created");
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == -1, "tab: nothing selected when empty");
+	TCITEM item{};
+	item.mask = TCIF_TEXT | TCIF_PARAM;
+	item.pszText = const_cast<LPTSTR>(L"General");
+	item.lParam = 11;
+	Check(::SendMessage(tab, TCM_INSERTITEM, 0, reinterpret_cast<LPARAM>(&item)) == 0, "tab: TCM_INSERTITEM returns the index");
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 0, "tab: the first item is selected");
+	item.pszText = const_cast<LPTSTR>(L"Patterns");
+	item.lParam = 22;
+	::SendMessage(tab, TCM_INSERTITEM, 1, reinterpret_cast<LPARAM>(&item));
+	item.pszText = const_cast<LPTSTR>(L"Samples");
+	item.lParam = 33;
+	Check(::SendMessage(tab, TCM_INSERTITEM, 99, reinterpret_cast<LPARAM>(&item)) == 2, "tab: an index past the end appends");
+	Check(::SendMessage(tab, TCM_GETITEMCOUNT, 0, 0) == 3, "tab: TCM_GETITEMCOUNT");
+	wchar_t text[32] = {};
+	TCITEM get{};
+	get.mask = TCIF_TEXT | TCIF_PARAM;
+	get.pszText = text;
+	get.cchTextMax = 32;
+	Check(::SendMessage(tab, TCM_GETITEM, 1, reinterpret_cast<LPARAM>(&get)) && std::wstring(text) == L"Patterns" && get.lParam == 22, "tab: TCM_GETITEM");
+
+	// Rectangles and hit testing.
+	RECT r0{}, r1{};
+	::SendMessage(tab, TCM_GETITEMRECT, 0, reinterpret_cast<LPARAM>(&r0));
+	::SendMessage(tab, TCM_GETITEMRECT, 1, reinterpret_cast<LPARAM>(&r1));
+	Check(r0.right <= r1.left && r0.top == r1.top && r1.right - r1.left >= 54, "tab: items side by side, at least the minimum width");
+	TCHITTESTINFO hit{};
+	hit.pt = POINT{(r1.left + r1.right) / 2, (r1.top + r1.bottom) / 2};
+	Check(::SendMessage(tab, TCM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)) == 1 && (hit.flags & TCHT_ONITEM), "tab: TCM_HITTEST");
+	RECT display{0, 0, 300, 120};
+	::SendMessage(tab, TCM_ADJUSTRECT, FALSE, reinterpret_cast<LPARAM>(&display));
+	Check(display.left == 4 && display.right == 296 && display.bottom == 116 && display.top == 4 + (r0.bottom - r0.top), "tab: TCM_ADJUSTRECT takes off the tabs and the border");
+	::SendMessage(tab, TCM_ADJUSTRECT, TRUE, reinterpret_cast<LPARAM>(&display));
+	Check(display.left == 0 && display.top == 0 && display.right == 300 && display.bottom == 120, "tab: TCM_ADJUSTRECT back");
+
+	// A click: TCN_SELCHANGING, then TCN_SELCHANGE; the parent can refuse.
+	g_notifies.clear();
+	Mouse(tab, QEvent::MouseButtonPress, hit.pt.x, hit.pt.y);
+	Mouse(tab, QEvent::MouseButtonRelease, hit.pt.x, hit.pt.y);
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 1, "tab: a click selects");
+	Check(g_notifies.size() >= 3 && g_notifies[0] == TCN_SELCHANGING && g_notifies[1] == TCN_SELCHANGE && g_notifies[2] == NM_CLICK, "tab: TCN_SELCHANGING, TCN_SELCHANGE, NM_CLICK");
+	g_refuseChange = 1;
+	::SendMessage(tab, TCM_GETITEMRECT, 2, reinterpret_cast<LPARAM>(&r1));
+	Mouse(tab, QEvent::MouseButtonPress, (r1.left + r1.right) / 2, (r1.top + r1.bottom) / 2);
+	Mouse(tab, QEvent::MouseButtonRelease, (r1.left + r1.right) / 2, (r1.top + r1.bottom) / 2);
+	g_refuseChange = 0;
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 1, "tab: a nonzero TCN_SELCHANGING answer refuses");
+
+	// Keys.
+	::SetFocus(tab);
+	Pump();
+	g_notifies.clear();
+	Key(Qt::Key_Right);
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 2, "tab: Right selects the next tab");
+	Check(!g_notifies.empty() && g_notifies[0] == TCN_KEYDOWN, "tab: TCN_KEYDOWN first");
+
+	// TCM_SETCURSEL does not notify.
+	g_notifies.clear();
+	Check(::SendMessage(tab, TCM_SETCURSEL, 0, 0) == 2 && ::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 0, "tab: TCM_SETCURSEL returns the old selection");
+	Check(g_notifies.empty(), "tab: TCM_SETCURSEL does not notify");
+	Check(::SendMessage(tab, TCM_SETCURSEL, 7, 0) == -1, "tab: TCM_SETCURSEL out of range fails");
+
+	// Deleting.
+	::SendMessage(tab, TCM_SETCURSEL, 2, 0);
+	::SendMessage(tab, TCM_DELETEITEM, 0, 0);
+	Check(::SendMessage(tab, TCM_GETCURSEL, 0, 0) == 1 && ::SendMessage(tab, TCM_GETITEMCOUNT, 0, 0) == 2, "tab: deleting before the selection moves it");
+
+	// Many tabs on one row scroll; with TCS_MULTILINE they wrap.
+	for(int i = 0; i < 10; i++)
+	{
+		item.pszText = const_cast<LPTSTR>(L"Another tab");
+		::SendMessage(tab, TCM_INSERTITEM, 99, reinterpret_cast<LPARAM>(&item));
+	}
+	Check(::SendMessage(tab, TCM_GETROWCOUNT, 0, 0) == 1, "tab: one row by default");
+	::SendMessage(tab, TCM_SETCURSEL, 11, 0);
+	RECT last{};
+	::SendMessage(tab, TCM_GETITEMRECT, 11, reinterpret_cast<LPARAM>(&last));
+	Check(last.right <= 300, "tab: TCM_SETCURSEL scrolls the tab into view");
+	SaveShot(parent, "tabs_scrolled");
+	::DestroyWindow(tab);
+	HWND multi = ::CreateWindowEx(0, WC_TABCONTROL, nullptr, WS_CHILD | WS_VISIBLE | TCS_MULTILINE, 10, 130, 300, 120, parent, reinterpret_cast<HMENU>(401), nullptr, nullptr);
+	for(int i = 0; i < 8; i++)
+	{
+		item.pszText = const_cast<LPTSTR>(L"Another tab");
+		::SendMessage(multi, TCM_INSERTITEM, 99, reinterpret_cast<LPARAM>(&item));
+	}
+	Check(::SendMessage(multi, TCM_GETROWCOUNT, 0, 0) > 1, "tab: TCS_MULTILINE wraps");
+	::SendMessage(multi, TCM_SETCURSEL, 2, 0);
+	SaveShot(parent, "tabs_multiline");
+	RECT first{}, lastInRow{};
+	::SendMessage(multi, TCM_GETITEMRECT, 0, reinterpret_cast<LPARAM>(&first));
+	Check(first.left == 2, "tab: rows start at the left");
+	(void)lastInRow;
+
+	CTabCtrl wrapper;
+	wrapper.Attach(multi);
+	wrapper.DeleteAllItems();
+	Check(wrapper.GetItemCount() == 0 && wrapper.GetCurSel() == -1, "CTabCtrl: DeleteAllItems");
+	wrapper.InsertItem(0, L"One");
+	wrapper.InsertItem(TCIF_TEXT | TCIF_PARAM, 1, L"Two", 0, 42);
+	TCITEM w{};
+	w.mask = TCIF_PARAM;
+	Check(wrapper.GetItem(1, &w) && w.lParam == 42, "CTabCtrl: InsertItem with data");
+	wrapper.Detach();
+	::DestroyWindow(multi);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -419,6 +599,8 @@ int main(int argc, char **argv)
 	Trackbars(parent);
 	UpDowns(parent);
 	Progress(parent);
+	ImageLists();
+	Tabs(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
