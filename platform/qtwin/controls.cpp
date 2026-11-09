@@ -1050,6 +1050,8 @@ void RegisterListViewClass();
 void RegisterTreeViewClass();
 void RegisterToolTipClass();
 void RegisterToolbarClass();
+void RegisterComboBoxExClass();
+void RegisterSysLinkClass();
 
 void RegisterSystemClasses()
 {
@@ -1066,6 +1068,8 @@ void RegisterSystemClasses()
 	RegisterTreeViewClass();
 	RegisterToolTipClass();
 	RegisterToolbarClass();
+	RegisterComboBoxExClass();
+	RegisterSysLinkClass();
 }
 
 } // namespace linopenmpt::qtwin

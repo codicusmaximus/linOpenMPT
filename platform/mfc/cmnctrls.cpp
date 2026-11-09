@@ -687,3 +687,30 @@ void CToolBarCtrl::AutoSize() { SendMessage(TB_AUTOSIZE); }
 int CToolBarCtrl::HitTest(LPPOINT pt) const { return static_cast<int>(::SendMessage(m_hWnd, TB_HITTEST, 0, reinterpret_cast<LPARAM>(pt))); }
 int CToolBarCtrl::GetHotItem() const { return static_cast<int>(::SendMessage(m_hWnd, TB_GETHOTITEM, 0, 0)); }
 CToolTipCtrl *CToolBarCtrl::GetToolTips() const { return reinterpret_cast<CToolTipCtrl *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, TB_GETTOOLTIPS, 0, 0)))); }
+
+// CComboBoxEx
+
+BOOL CComboBoxEx::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id)
+{
+	return CWnd::Create(WC_COMBOBOXEX, nullptr, style, rect, parent, id);
+}
+
+BOOL CComboBoxEx::CreateEx(DWORD exStyle, DWORD style, const RECT &rect, CWnd *parent, UINT id)
+{
+	return CWnd::CreateEx(exStyle, WC_COMBOBOXEX, nullptr, style, rect, parent, id);
+}
+
+DWORD CComboBoxEx::GetExtendedStyle() const { return static_cast<DWORD>(::SendMessage(m_hWnd, CBEM_GETEXTENDEDSTYLE, 0, 0)); }
+DWORD CComboBoxEx::SetExtendedStyle(DWORD mask, DWORD style) { return static_cast<DWORD>(SendMessage(CBEM_SETEXTENDEDSTYLE, mask, style)); }
+BOOL CComboBoxEx::HasEditChanged() { return static_cast<BOOL>(SendMessage(CBEM_HASEDITCHANGED, 0, 0)); }
+int CComboBoxEx::InsertItem(const COMBOBOXEXITEM *item) { return static_cast<int>(SendMessage(CBEM_INSERTITEM, 0, reinterpret_cast<LPARAM>(item))); }
+int CComboBoxEx::DeleteItem(int index) { return static_cast<int>(SendMessage(CBEM_DELETEITEM, static_cast<WPARAM>(index), 0)); }
+BOOL CComboBoxEx::GetItem(COMBOBOXEXITEM *item) { return static_cast<BOOL>(SendMessage(CBEM_GETITEM, 0, reinterpret_cast<LPARAM>(item))); }
+BOOL CComboBoxEx::SetItem(const COMBOBOXEXITEM *item) { return static_cast<BOOL>(SendMessage(CBEM_SETITEM, 0, reinterpret_cast<LPARAM>(item))); }
+CImageList *CComboBoxEx::SetImageList(CImageList *list)
+{
+	return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(SendMessage(CBEM_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr))));
+}
+CImageList *CComboBoxEx::GetImageList() const { return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, CBEM_GETIMAGELIST, 0, 0))); }
+CEdit *CComboBoxEx::GetEditCtrl() const { return reinterpret_cast<CEdit *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, CBEM_GETEDITCONTROL, 0, 0)))); }
+CComboBox *CComboBoxEx::GetComboBoxCtrl() const { return reinterpret_cast<CComboBox *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, CBEM_GETCOMBOCONTROL, 0, 0)))); }

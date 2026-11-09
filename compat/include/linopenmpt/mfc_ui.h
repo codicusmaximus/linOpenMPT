@@ -1036,6 +1036,10 @@ public:
 class CComboBoxEx : public CComboBox
 {
 public:
+	BOOL Create(DWORD style, const RECT &rect, CWnd *parent, UINT id);
+	BOOL CreateEx(DWORD exStyle, DWORD style, const RECT &rect, CWnd *parent, UINT id);
+	DWORD GetExtendedStyle() const;
+	BOOL HasEditChanged();
 	int InsertItem(const COMBOBOXEXITEM *item);
 	int DeleteItem(int index);
 	BOOL GetItem(COMBOBOXEXITEM *item);

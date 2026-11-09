@@ -14,8 +14,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cwchar>
 #include <cstdlib>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace linopenmpt::qtwin;
@@ -60,6 +62,9 @@ std::vector<HTREEITEM> g_selectedAtClick; // the selection when NM_CLICK arrives
 HWND g_tree = nullptr;
 std::vector<UINT> g_tipEvents; // TTN_SHOW, TTN_POP
 std::vector<WPARAM> g_commands;  // WM_COMMAND from toolbars
+std::vector<HWND> g_commandFrom;
+std::vector<int> g_cbeDeleted;   // CBEN_DELETEITEM
+std::vector<std::pair<UINT, std::wstring>> g_linkClicks; // NM_CLICK / NM_RETURN from SysLink: code, url
 std::vector<NMTOOLBAR> g_dropDowns;
 std::vector<std::wstring> g_toolbarTips;
 int g_tvVeto = 0;
@@ -74,12 +79,31 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		return 0;
 	case WM_COMMAND:
 		if(reinterpret_cast<HWND>(lp) != nullptr)
+		{
 			g_commands.push_back(wp);
+			g_commandFrom.push_back(reinterpret_cast<HWND>(lp));
+		}
 		return 0;
 	case WM_NOTIFY:
 		{
 			const auto *hdr = reinterpret_cast<const NMHDR *>(lp);
 			g_notifies.push_back(hdr->code);
+			if(hdr->code == CBEN_GETDISPINFO)
+			{
+				auto *nm = reinterpret_cast<NMCOMBOBOXEX *>(lp);
+				if(nm->ceItem.mask & CBEIF_TEXT)
+					std::swprintf(nm->ceItem.pszText, nm->ceItem.cchTextMax, L"callback %d", static_cast<int>(nm->ceItem.iItem));
+				if(nm->ceItem.mask & CBEIF_IMAGE)
+					nm->ceItem.iImage = 3;
+				return 0;
+			}
+			if((hdr->code == NM_CLICK || hdr->code == NM_RETURN) && hdr->idFrom == 830)
+			{
+				const auto *nm = reinterpret_cast<const NMLINK *>(lp);
+				g_linkClicks.emplace_back(hdr->code, std::wstring(nm->item.szUrl) + L"#" + nm->item.szID);
+			}
+			if(hdr->code == CBEN_DELETEITEM)
+				g_cbeDeleted.push_back(static_cast<int>(reinterpret_cast<NMCOMBOBOXEX *>(lp)->ceItem.lParam));
 			if(hdr->code == TBN_DROPDOWN)
 			{
 				g_dropDowns.push_back(*reinterpret_cast<const NMTOOLBAR *>(lp));
@@ -1366,6 +1390,182 @@ void Toolbars(HWND parent)
 	::DestroyWindow(top);
 }
 
+void ComboBoxExes(HWND parent)
+{
+	HWND ex = ::CreateWindowEx(0, WC_COMBOBOXEX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, 10, 10, 200, 150, parent, reinterpret_cast<HMENU>(820), nullptr, nullptr);
+	Check(ex != nullptr, "comboboxex: created");
+	CComboBoxEx box;
+	box.Attach(ex);
+	HWND combo = reinterpret_cast<HWND>(::SendMessage(ex, CBEM_GETCOMBOCONTROL, 0, 0));
+	wchar_t className[32] = {};
+	::GetClassName(combo, className, 32);
+	Check(combo != nullptr && std::wstring(className) == L"ComboBox" && ::GetParent(combo) == ex, "comboboxex: hosts a ComboBox");
+	Check((::GetWindowLongPtr(combo, GWL_STYLE) & (CBS_OWNERDRAWFIXED | 3)) == (CBS_OWNERDRAWFIXED | CBS_DROPDOWNLIST), "comboboxex: the child is owner drawn, of our type");
+	Check(box.GetEditCtrl() == nullptr, "comboboxex: no edit for CBS_DROPDOWNLIST");
+	RECT er{}, cr{};
+	::GetWindowRect(ex, &er);
+	::GetWindowRect(combo, &cr);
+	Check(er.bottom - er.top == cr.bottom - cr.top && er.bottom - er.top < 40, "comboboxex: as tall as the closed combo box");
+
+	HIMAGELIST icons = MakeIcons(4);
+	Check(box.SetImageList(CImageList::FromHandle(icons)) == nullptr && box.GetImageList()->GetSafeHandle() == icons, "comboboxex: CBEM_SETIMAGELIST");
+	Check(::SendMessage(combo, CB_GETITEMHEIGHT, 0, 0) >= 18, "comboboxex: items fit the images");
+	const wchar_t *names[] = {L"Sine", L"Square", L"Saw"};
+	for(int i = 0; i < 3; i++)
+	{
+		COMBOBOXEXITEM item{};
+		item.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_LPARAM | CBEIF_INDENT;
+		item.iItem = i;
+		item.pszText = const_cast<LPWSTR>(names[i]);
+		item.iImage = i;
+		item.iSelectedImage = i;
+		item.iIndent = i == 2 ? 1 : 0;
+		item.lParam = 100 + i;
+		Check(box.InsertItem(&item) == i, "comboboxex: CBEM_INSERTITEM");
+	}
+	COMBOBOXEXITEM cb{};
+	cb.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_LPARAM;
+	cb.iItem = -1; // append
+	cb.pszText = LPSTR_TEXTCALLBACK;
+	cb.iImage = I_IMAGECALLBACK;
+	cb.lParam = 103;
+	Check(box.InsertItem(&cb) == 3, "comboboxex: -1 appends");
+	Check(box.GetCount() == 4, "comboboxex: CB_GETCOUNT");
+	Check(box.GetItemData(1) == 101, "comboboxex: item data is the lParam");
+	CString text;
+	box.GetLBText(1, text);
+	Check(text == L"Square", "comboboxex: CB_GETLBTEXT");
+	wchar_t buffer[32] = {};
+	COMBOBOXEXITEM get{};
+	get.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_INDENT;
+	get.iItem = 2;
+	get.pszText = buffer;
+	get.cchTextMax = 32;
+	Check(box.GetItem(&get) && std::wstring(buffer) == L"Saw" && get.iImage == 2 && get.iIndent == 1, "comboboxex: CBEM_GETITEM");
+	get.iItem = 3;
+	Check(box.GetItem(&get) && get.pszText == LPSTR_TEXTCALLBACK && get.iImage == I_IMAGECALLBACK, "comboboxex: callback items stay callbacks");
+
+	// Selection and the forwarded notifications.
+	Check(box.SetCurSel(3) == 3 && box.GetCurSel() == 3, "comboboxex: CB_SETCURSEL");
+	g_commands.clear();
+	g_commandFrom.clear();
+	::SetFocus(ex);
+	Pump();
+	Check(::GetFocus() == combo, "comboboxex: the focus goes to the combo box");
+	box.SetCurSel(0);
+	Key(Qt::Key_Down);
+	Check(box.GetCurSel() == 1, "comboboxex: keys move the selection");
+	bool selchange = false;
+	for(std::size_t i = 0; i < g_commands.size(); i++)
+	{
+		if(HIWORD(g_commands[i]) == CBN_SELCHANGE)
+			selchange = LOWORD(g_commands[i]) == 820 && g_commandFrom[i] == ex;
+	}
+	Check(selchange, "comboboxex: CBN_SELCHANGE comes from the ComboBoxEx");
+	SaveShot(parent, "comboboxex");
+	::SendMessage(combo, CB_SHOWDROPDOWN, TRUE, 0);
+	Pump();
+	SaveShot(parent, "comboboxex-dropped");
+	::SendMessage(combo, CB_SHOWDROPDOWN, FALSE, 0);
+	Pump();
+
+	COMBOBOXEXITEM set{};
+	set.mask = CBEIF_TEXT;
+	set.iItem = 1;
+	set.pszText = const_cast<LPWSTR>(L"Pulse");
+	Check(box.SetItem(&set), "comboboxex: CBEM_SETITEM");
+	box.GetLBText(1, text);
+	Check(text == L"Pulse" && box.GetCurSel() == 1 && box.GetItemData(1) == 101, "comboboxex: CBEM_SETITEM keeps the selection and data");
+
+	g_cbeDeleted.clear();
+	Check(box.DeleteItem(0) == 3 && box.GetItemData(0) == 101, "comboboxex: CBEM_DELETEITEM");
+	box.ResetContent();
+	Check(box.GetCount() == 0 && g_cbeDeleted.size() == 4 && g_cbeDeleted[0] == 100, "comboboxex: CBEN_DELETEITEM for each item");
+	box.Detach();
+	::DestroyWindow(ex);
+
+	// CBS_DROPDOWN has an edit control.
+	HWND drop = ::CreateWindowEx(0, WC_COMBOBOXEX, nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWN, 10, 10, 200, 150, parent, reinterpret_cast<HMENU>(821), nullptr, nullptr);
+	HWND edit = reinterpret_cast<HWND>(::SendMessage(drop, CBEM_GETEDITCONTROL, 0, 0));
+	::GetClassName(edit, className, 32);
+	Check(edit != nullptr && std::wstring(className) == L"Edit", "comboboxex: CBEM_GETEDITCONTROL");
+	::DestroyWindow(drop);
+	ImageList_Destroy(icons);
+}
+
+void SysLinks(HWND parent)
+{
+	HWND link = ::CreateWindowEx(0, WC_LINK, L"Visit <a href=\"https://openmpt.org/\" id=\"site\">OpenMPT</a> or <A>this one</A>; <a>unclosed", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 10, 360, 40, parent, reinterpret_cast<HMENU>(830), nullptr, nullptr);
+	Check(link != nullptr, "syslink: created");
+	SIZE ideal{};
+	const LRESULT height = ::SendMessage(link, LM_GETIDEALSIZE, 360, reinterpret_cast<LPARAM>(&ideal));
+	Check(height > 5 && height < 30 && ideal.cy == height && ideal.cx > 50 && ideal.cx < 360, "syslink: one line at full width");
+	const LRESULT narrow = ::SendMessage(link, LM_GETIDEALSIZE, 60, 0);
+	Check(narrow >= 3 * height, "syslink: words wrap");
+	LITEM item{};
+	item.mask = LIF_ITEMINDEX | LIF_URL | LIF_ITEMID | LIF_STATE;
+	item.iLink = 0;
+	item.stateMask = LIS_ENABLED;
+	Check(::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)) && std::wstring(item.szUrl) == L"https://openmpt.org/" && std::wstring(item.szID) == L"site" && (item.state & LIS_ENABLED), "syslink: LM_GETITEM");
+	item.iLink = 2;
+	Check(!::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)), "syslink: an unclosed <a> is text");
+
+	// Find the first link by hit testing along the line, then click it.
+	int first = -1, second = -1;
+	for(int x = 0; x < 360; x++)
+	{
+		LHITTESTINFO hit{};
+		hit.pt = POINT{x, static_cast<LONG>(height / 2)};
+		if(::SendMessage(link, LM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)))
+		{
+			if(hit.item.iLink == 0 && first < 0)
+				first = x;
+			if(hit.item.iLink == 1 && second < 0)
+				second = x;
+		}
+	}
+	Check(first > 10 && second > first, "syslink: LM_HITTEST finds both links");
+	g_linkClicks.clear();
+	Mouse(link, QEvent::MouseButtonPress, first + 3, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, first + 3, static_cast<int>(height / 2));
+	Check(g_linkClicks.size() == 1 && g_linkClicks[0].first == static_cast<UINT>(NM_CLICK) && g_linkClicks[0].second == L"https://openmpt.org/#site", "syslink: a click sends NM_CLICK with the link");
+	Check(::GetFocus() == link, "syslink: clicking a link focuses the control");
+	Mouse(link, QEvent::MouseButtonPress, 2, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, 2, static_cast<int>(height / 2));
+	Check(g_linkClicks.size() == 1, "syslink: a click on text does nothing");
+
+	// The keyboard: Tab moves to the next link, Space and Enter activate it.
+	Check((::SendMessage(link, WM_GETDLGCODE, 0, 0) & DLGC_WANTTAB) == 0, "syslink: WM_GETDLGCODE");
+	Key(Qt::Key_Tab);
+	g_linkClicks.clear();
+	Key(Qt::Key_Space);
+	Key(Qt::Key_Return);
+	Check(g_linkClicks.size() == 2 && g_linkClicks[0].first == static_cast<UINT>(NM_CLICK) && g_linkClicks[0].second == L"#" && g_linkClicks[1].first == static_cast<UINT>(NM_RETURN), "syslink: Tab, then Space and Enter");
+	SaveShot(parent, "syslink");
+
+	// Disabled links are text.
+	LITEM off{};
+	off.mask = LIF_ITEMINDEX | LIF_STATE;
+	off.iLink = 0;
+	off.stateMask = LIS_ENABLED;
+	off.state = 0;
+	::SendMessage(link, LM_SETITEM, 0, reinterpret_cast<LPARAM>(&off));
+	g_linkClicks.clear();
+	Mouse(link, QEvent::MouseButtonPress, first + 3, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, first + 3, static_cast<int>(height / 2));
+	Check(g_linkClicks.empty(), "syslink: LM_SETITEM disables a link");
+
+	// New text, as UpdateCheck sets it, with a line break.
+	::SetWindowText(link, L"More information about this build:\n<a href=\"https://example.org/build\">https://example.org/build</a>");
+	item = LITEM{};
+	item.mask = LIF_ITEMINDEX | LIF_URL;
+	item.iLink = 0;
+	Check(::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)) && std::wstring(item.szUrl) == L"https://example.org/build", "syslink: WM_SETTEXT reparses");
+	Check(::SendMessage(link, LM_GETIDEALSIZE, 360, 0) == 2 * height, "syslink: '\\n' breaks the line");
+	SaveShot(parent, "syslink-settext");
+	::DestroyWindow(link);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1390,6 +1590,8 @@ int main(int argc, char **argv)
 	TreeViews(parent);
 	ToolTips(parent);
 	Toolbars(parent);
+	ComboBoxExes(parent);
+	SysLinks(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
