@@ -594,6 +594,20 @@ HWND CreateDialogInternal(HINSTANCE instance, LPCDLGTEMPLATE dlgTemplate, HWND p
 	}
 	if(!::IsWindow(dlg))
 		return nullptr;
+	// The focus WM_INITDIALOG chose (or the one above) is where the dialog
+	// starts when it shows, as on Windows: remember it for activation.
+	if(Win32Widget *w = FromHandle(dlg); w != nullptr && !child)
+	{
+		// The focus widget may be inside a control (an edit's line edit).
+		QWidget *f = w->focusWidget();
+		while(f != nullptr && f != w && dynamic_cast<Win32Widget *>(f) == nullptr)
+			f = f->parentWidget();
+		if(auto *focus = dynamic_cast<Win32Widget *>(f); focus != nullptr && focus != w)
+		{
+			if(DialogInfo *again = Info(dlg))
+				again->savedFocus = focus->hwnd();
+		}
+	}
 	if((t.style & WS_VISIBLE) && !modal)
 		::ShowWindow(dlg, SW_SHOWNORMAL);
 	return dlg;
@@ -611,6 +625,8 @@ void DialogFocusChanged(HWND focus)
 		FocusChanged(RootDialog(dlg), focus);
 }
 
+bool PropertySheetDialogMessage(HWND dlg, MSG &msg);
+
 bool HandleDialogMessage(const MSG &msg)
 {
 	// Messages in DialogBox()'s loop go through IsDialogMessage(), as there.
@@ -620,6 +636,9 @@ bool HandleDialogMessage(const MSG &msg)
 	if(msg.hwnd != dlg && !::IsChild(dlg, msg.hwnd))
 		return false;
 	MSG m = msg;
+	// A modal property sheet also takes Ctrl+Tab for its pages, as comctl32's own loop does.
+	if(PropertySheetDialogMessage(dlg, m))
+		return true;
 	return ::IsDialogMessage(dlg, &m) != FALSE;
 }
 
@@ -655,6 +674,10 @@ INT_PTR DialogBoxIndirectParam(HINSTANCE instance, LPCDLGTEMPLATE dlgTemplate, H
 	if(info != nullptr && !info->ended)
 	{
 		::ShowWindow(dlg, SW_SHOWNORMAL);
+		// Disabling the owner made Qt forget the dialog's focus: put it back
+		// where WM_INITDIALOG left it.
+		if((info = Info(dlg)) != nullptr && info->savedFocus != nullptr && ::IsChild(dlg, info->savedFocus))
+			::SetFocus(info->savedFocus);
 		g_modal.push_back(dlg);
 		LinOpenMPTRunModalLoopFor(dlg, ModalIdle);
 		g_modal.erase(std::find(g_modal.begin(), g_modal.end(), dlg));
@@ -707,6 +730,9 @@ LRESULT DefDlgProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp)
 		const INT_PTR handled = proc(dlg, msg, wp, lp);
 		if(!::IsWindow(dlg))
 			return 0;
+		// FALSE from WM_INITDIALOG means the procedure set the focus itself.
+		if(msg == WM_INITDIALOG)
+			return handled;
 		if(handled)
 		{
 			// These return the procedure's result itself; everything else

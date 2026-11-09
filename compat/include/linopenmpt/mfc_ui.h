@@ -1602,37 +1602,79 @@ class CDialogEx : public CDialog
 public:
 	using CDialog::CDialog;
 };
+class CPropertySheet;
 class CPropertyPage : public CDialog
 {
 	LINOPENMPT_MFC_DYNAMIC(CPropertyPage)
 public:
-	CPropertyPage() = default;
-	explicit CPropertyPage(UINT id, UINT caption = 0);
-	virtual BOOL OnSetActive() { return 0; }
-	virtual BOOL OnKillActive() { return 0; }
-	virtual BOOL OnApply() { return 0; }
+	CPropertyPage();
+	explicit CPropertyPage(UINT id, UINT caption = 0, DWORD size = sizeof(PROPSHEETPAGE));
+	explicit CPropertyPage(LPCTSTR templateName, UINT caption = 0, DWORD size = sizeof(PROPSHEETPAGE));
+	void Construct(UINT id, UINT caption = 0);
+	void Construct(LPCTSTR templateName, UINT caption = 0);
+	virtual BOOL OnSetActive();
+	virtual BOOL OnKillActive();
+	virtual BOOL OnApply();
+	virtual void OnReset();
+	virtual BOOL OnQueryCancel();
+	void OnOK() override;
+	void OnCancel() override;
+	void CancelToClose();
 	void SetModified(BOOL changed = TRUE);
+	LRESULT QuerySiblings(WPARAM wp, LPARAM lp);
+	BOOL PreTranslateMessage(MSG *msg) override;
+	CPropertySheet *GetParentSheet();
+	PROPSHEETPAGE m_psp{};
+	PROPSHEETPAGE &GetPSP() { return m_psp; }
+	const PROPSHEETPAGE &GetPSP() const { return m_psp; }
+protected:
+	BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result) override;
+	CString m_strCaption;
+	BOOL m_bFirstSetActive = TRUE;
 };
 class CPropertySheet : public CWnd
 {
+	LINOPENMPT_MFC_DYNAMIC(CPropertySheet)
 public:
-	CPropertySheet() = default;
+	CPropertySheet();
 	explicit CPropertySheet(UINT captionID, CWnd *parent = nullptr, UINT selectPage = 0);
 	explicit CPropertySheet(LPCTSTR caption, CWnd *parent = nullptr, UINT selectPage = 0);
-	virtual INT_PTR DoModal() { return IDCANCEL; }
-	virtual BOOL OnInitDialog() { return TRUE; }
+	~CPropertySheet() override;
+	void Construct(UINT captionID, CWnd *parent = nullptr, UINT selectPage = 0);
+	void Construct(LPCTSTR caption, CWnd *parent = nullptr, UINT selectPage = 0);
+	virtual INT_PTR DoModal();
+	virtual BOOL Create(CWnd *parent = nullptr, DWORD style = static_cast<DWORD>(-1), DWORD exStyle = 0);
+	virtual BOOL OnInitDialog();
+	BOOL PreTranslateMessage(MSG *msg) override;
+	BOOL ContinueModal() override;
 	void AddPage(CPropertyPage *page);
 	void RemovePage(CPropertyPage *page);
 	void RemovePage(int page);
 	int GetPageCount() const;
 	CPropertyPage *GetPage(int page) const;
+	int GetPageIndex(CPropertyPage *page);
 	CPropertyPage *GetActivePage() const;
 	int GetActiveIndex() const;
 	BOOL SetActivePage(int page);
 	BOOL SetActivePage(CPropertyPage *page);
 	void SetTitle(LPCTSTR text, UINT style = 0);
+	CTabCtrl *GetTabControl() const;
+	BOOL PressButton(int button);
 	void EndDialog(int result);
-	struct { DWORD dwFlags = 0; } m_psh;
+	void MapDialogRect(LPRECT rect) const;
+	PROPSHEETHEADER m_psh{};
+protected:
+	BOOL OnCommand(WPARAM wp, LPARAM lp) override;
+	afx_msg LRESULT HandleInitDialog(WPARAM, LPARAM);
+	afx_msg void OnClose();
+	afx_msg void OnSysCommand(UINT id, LPARAM lParam);
+	void BuildPropPageArray();
+	std::vector<CPropertyPage *> m_pages;
+	std::vector<BYTE> m_pageArray; // the PROPSHEETPAGEs PropertySheet() gets
+	CString m_strCaption;
+	CWnd *m_pParentWnd = nullptr;
+	BOOL m_bModeless = FALSE;
+	DECLARE_MESSAGE_MAP()
 };
 // ---- common dialogs --------------------------------------------------------
 #define OFN_READONLY 0x00000001
@@ -2103,6 +2145,7 @@ LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CWnd, CCmdTarget)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CControlBar, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CDialog, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CPropertyPage, CDialog)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CPropertySheet, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CFrameWnd, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIFrameWnd, CFrameWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIChildWnd, CFrameWnd)
