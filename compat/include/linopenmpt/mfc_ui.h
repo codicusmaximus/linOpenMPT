@@ -608,6 +608,7 @@ public:
 #define WF_STAYACTIVE 0x0020
 #define WF_NOPOPMSG 0x0040
 #define WF_MODALDISABLE 0x0080
+#define WF_TRACKINGTOOLTIPS 0x0400
 #define MLF_NOIDLEMSG 0x0001
 #define MLF_NOKICKIDLE 0x0002
 #define MLF_SHOWONIDLE 0x0004
@@ -705,7 +706,11 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
 	virtual BOOL DestroyWindow();
 	virtual void PostNcDestroy() { }
-	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const { return 0; }
+	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const;
+	// MFC's tooltips for windows with EnableToolTips: called from
+	// PreTranslateMessage with the mouse and key messages.
+	void FilterToolTipMessage(MSG *msg);
+	static void CancelToolTips(BOOL keys = FALSE);
 	virtual BOOL OnGesturePan(CPoint from, CPoint to) { return FALSE; }
 	virtual BOOL OnGestureZoom(CPoint center, long delta) { return FALSE; }
 	virtual BOOL OnGestureRotate(CPoint center, double radians) { return FALSE; }

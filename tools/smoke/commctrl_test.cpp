@@ -6,6 +6,7 @@
 
 #include "QtWin.h"
 
+#include <QtCore/QElapsedTimer>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QApplication>
@@ -57,6 +58,7 @@ bool g_editAccept = true;
 std::vector<NMTREEVIEW> g_tvEvents; // TVN_SELCHANGED, TVN_ITEMEXPANDED, TVN_DELETEITEM, TVN_BEGINDRAG
 std::vector<HTREEITEM> g_selectedAtClick; // the selection when NM_CLICK arrives
 HWND g_tree = nullptr;
+std::vector<UINT> g_tipEvents; // TTN_SHOW, TTN_POP
 int g_tvVeto = 0;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -107,6 +109,15 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				g_tvEvents.push_back(*reinterpret_cast<const NMTREEVIEW *>(lp));
 			if(hdr->code == NM_CLICK && hdr->hwndFrom == g_tree)
 				g_selectedAtClick.push_back(TreeView_GetSelection(g_tree));
+			if(hdr->code == TTN_SHOW || hdr->code == TTN_POP)
+				g_tipEvents.push_back(hdr->code);
+			if(hdr->code == TTN_GETDISPINFO)
+			{
+				auto *di = reinterpret_cast<NMTTDISPINFO *>(lp);
+				wcscpy(di->szText, L"From the parent");
+				di->lpszText = di->szText;
+				return 0;
+			}
 			if(hdr->code == TVN_GETDISPINFO)
 			{
 				auto *di = reinterpret_cast<NMTVDISPINFO *>(lp);
@@ -1019,6 +1030,161 @@ void TreeViews(HWND parent)
 	::DestroyWindow(tv);
 }
 
+void Wait(int ms)
+{
+	QElapsedTimer t;
+	t.start();
+	while(t.elapsed() < ms)
+		QApplication::processEvents(QEventLoop::AllEvents, 5);
+}
+
+bool Visible(HWND hwnd)
+{
+	return (::GetWindowLongPtr(hwnd, GWL_STYLE) & WS_VISIBLE) != 0;
+}
+
+// MFC's EnableToolTips: the window answers TTN_NEEDTEXT for its children.
+class TipWindow : public CWnd
+{
+public:
+	int asked = 0;
+	UINT askedFor = 0;
+	BOOL OnNeedText(UINT, NMHDR *nmhdr, LRESULT *)
+	{
+		auto *ttt = reinterpret_cast<TOOLTIPTEXT *>(nmhdr);
+		asked++;
+		if(ttt->uFlags & TTF_IDISHWND)
+			askedFor = static_cast<UINT>(::GetDlgCtrlID(reinterpret_cast<HWND>(nmhdr->idFrom)));
+		wcscpy(ttt->szText, L"Play the song");
+		return TRUE;
+	}
+	DECLARE_MESSAGE_MAP()
+};
+
+BEGIN_MESSAGE_MAP(TipWindow, CWnd)
+	ON_NOTIFY_EX(TTN_NEEDTEXT, 0, &TipWindow::OnNeedText)
+END_MESSAGE_MAP()
+
+void ToolTips(HWND parent)
+{
+	HWND button = ::CreateWindowEx(0, L"Button", L"Play", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 80, 24, parent, reinterpret_cast<HMENU>(700), nullptr, nullptr);
+	HWND tip = ::CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, nullptr, WS_POPUP | TTS_ALWAYSTIP, 0, 0, 0, 0, parent, nullptr, nullptr, nullptr);
+	Check(tip != nullptr && !(::GetWindowLongPtr(tip, GWL_STYLE) & WS_CHILD), "tooltip: created, a popup");
+	TOOLINFO ti{};
+	ti.cbSize = sizeof(ti);
+	ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+	ti.hwnd = parent;
+	ti.uId = reinterpret_cast<UINT_PTR>(button);
+	ti.lpszText = const_cast<LPTSTR>(L"Starts playback");
+	Check(::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&ti)) != 0, "tooltip: TTM_ADDTOOL");
+	RECT area{120, 20, 200, 60};
+	TOOLINFO rectTool{};
+	rectTool.cbSize = sizeof(rectTool);
+	rectTool.uFlags = TTF_SUBCLASS;
+	rectTool.hwnd = parent;
+	rectTool.uId = 5;
+	rectTool.rect = area;
+	rectTool.lpszText = LPSTR_TEXTCALLBACK;
+	::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&rectTool));
+	Check(::SendMessage(tip, TTM_GETTOOLCOUNT, 0, 0) == 2, "tooltip: TTM_GETTOOLCOUNT");
+	wchar_t text[80] = {};
+	TOOLINFO get{};
+	get.cbSize = sizeof(get);
+	get.hwnd = parent;
+	get.uId = 5;
+	get.lpszText = text;
+	::SendMessage(tip, TTM_GETTEXT, 80, reinterpret_cast<LPARAM>(&get));
+	Check(std::wstring(text) == L"From the parent", "tooltip: LPSTR_TEXTCALLBACK asks TTN_GETDISPINFO");
+	TTHITTESTINFO hit{};
+	hit.hwnd = parent;
+	hit.pt = POINT{150, 30};
+	hit.ti.cbSize = sizeof(hit.ti);
+	Check(::SendMessage(tip, TTM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)) && hit.ti.uId == 5, "tooltip: TTM_HITTEST");
+	::SendMessage(tip, TTM_SETDELAYTIME, TTDT_INITIAL, MAKELPARAM(20, 0));
+	Check(::SendMessage(tip, TTM_GETDELAYTIME, TTDT_INITIAL, 0) == 20, "tooltip: TTM_SETDELAYTIME");
+
+	// The mouse rests on the button (subclassed, so no relaying needed).
+	POINT screen{30, 10};
+	::ClientToScreen(button, &screen);
+	::SetCursorPos(screen.x, screen.y);
+	g_tipEvents.clear();
+	Mouse(button, QEvent::MouseMove, 10, 10);
+	Check(!Visible(tip), "tooltip: waits before showing");
+	Wait(150);
+	Check(Visible(tip), "tooltip: shows after the initial delay");
+	Check(!g_tipEvents.empty() && g_tipEvents.front() == TTN_SHOW, "tooltip: TTN_SHOW");
+	RECT tr{}, br{};
+	::GetWindowRect(tip, &tr);
+	::GetWindowRect(button, &br);
+	Check(tr.top >= screen.y && tr.right - tr.left > 40, "tooltip: below the cursor, sized to the text");
+	TOOLINFO current{};
+	current.cbSize = sizeof(current);
+	Check(::SendMessage(tip, TTM_GETCURRENTTOOL, 0, reinterpret_cast<LPARAM>(&current)) && current.uId == reinterpret_cast<UINT_PTR>(button), "tooltip: TTM_GETCURRENTTOOL");
+	SaveShot(tip, "tooltip");
+	// A click puts it away.
+	Mouse(button, QEvent::MouseButtonPress, 10, 10);
+	Mouse(button, QEvent::MouseButtonRelease, 10, 10);
+	Check(!Visible(tip) && g_tipEvents.back() == TTN_POP, "tooltip: a click pops it, with TTN_POP");
+
+	// Tracking tooltips go where they are told.
+	TOOLINFO track{};
+	track.cbSize = sizeof(track);
+	track.uFlags = TTF_TRACK | TTF_ABSOLUTE;
+	track.hwnd = parent;
+	track.uId = 9;
+	track.lpszText = const_cast<LPTSTR>(L"Line one\nLine two is longer");
+	::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&track));
+	::SendMessage(tip, TTM_SETMAXTIPWIDTH, 0, 300);
+	::SendMessage(tip, TTM_TRACKPOSITION, 0, MAKELPARAM(100, 120));
+	::SendMessage(tip, TTM_TRACKACTIVATE, TRUE, reinterpret_cast<LPARAM>(&track));
+	::GetWindowRect(tip, &tr);
+	Check(Visible(tip) && tr.left == 100 && tr.top == 120, "tooltip: TTM_TRACKACTIVATE at TTM_TRACKPOSITION");
+	const LRESULT oneLine = ::SendMessage(tip, TTM_GETBUBBLESIZE, 0, reinterpret_cast<LPARAM>(&rectTool));
+	Check(tr.bottom - tr.top > HIWORD(oneLine), "tooltip: line breaks make two lines");
+	::SendMessage(tip, TTM_TRACKACTIVATE, FALSE, reinterpret_cast<LPARAM>(&track));
+	Check(!Visible(tip), "tooltip: tracking off hides it");
+	::SendMessage(tip, TTM_DELTOOL, 0, reinterpret_cast<LPARAM>(&track));
+	Check(::SendMessage(tip, TTM_GETTOOLCOUNT, 0, 0) == 2, "tooltip: TTM_DELTOOL");
+	::DestroyWindow(tip);
+	Check(reinterpret_cast<WNDPROC>(::GetWindowLongPtr(button, GWLP_WNDPROC)) != nullptr, "tooltip: the subclass goes away with it");
+	::DestroyWindow(button);
+
+	// MFC: EnableToolTips, OnToolHitTest's default for child windows and TTN_NEEDTEXT.
+	TipWindow wnd;
+	const LPCTSTR cls = AfxRegisterWndClass(0, ::LoadCursor(nullptr, IDC_ARROW), reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1));
+	wnd.CreateEx(0, cls, _T("tips"), WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 300, 200, nullptr, nullptr);
+	HWND child = ::CreateWindowEx(0, L"Button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 80, 24, wnd.m_hWnd, reinterpret_cast<HMENU>(1234), nullptr, nullptr);
+	TOOLINFO probe{};
+	probe.cbSize = TTTOOLINFO_V1_SIZE;
+	Check(wnd.OnToolHitTest(CPoint(30, 30), &probe) == 1234 && probe.uId == reinterpret_cast<UINT_PTR>(child) && (probe.uFlags & TTF_IDISHWND) && probe.lpszText == LPSTR_TEXTCALLBACK, "CWnd::OnToolHitTest: child windows by default");
+	Check(wnd.OnToolHitTest(CPoint(250, 150), nullptr) == -1, "CWnd::OnToolHitTest: -1 elsewhere");
+	wnd.EnableToolTips(TRUE);
+	if(Win32Widget *w = FromHandle(wnd.m_hWnd))
+		w->activateWindow();
+	Pump();
+	screen = POINT{30, 10};
+	::ClientToScreen(child, &screen);
+	::SetCursorPos(screen.x, screen.y);
+	MSG move{};
+	move.hwnd = child;
+	move.message = WM_MOUSEMOVE;
+	move.lParam = MAKELPARAM(10, 10);
+	move.pt = screen;
+	CWnd::WalkPreTranslateTree(wnd.m_hWnd, &move);
+	HWND mfcTip = ::FindWindow(TOOLTIPS_CLASS, nullptr);
+	Check(mfcTip != nullptr && ::SendMessage(mfcTip, TTM_GETTOOLCOUNT, 0, 0) == 1, "EnableToolTips: a thread tooltip with the hit tool");
+	Wait(::GetDoubleClickTime() + 150);
+	Check(wnd.asked >= 1 && wnd.askedFor == 1234, "EnableToolTips: TTN_NEEDTEXT reaches the window, for the control");
+	Check(mfcTip != nullptr && Visible(mfcTip), "EnableToolTips: the tip shows");
+	MSG key{};
+	key.hwnd = child;
+	key.message = WM_KEYDOWN;
+	key.wParam = VK_SPACE;
+	CWnd::WalkPreTranslateTree(wnd.m_hWnd, &key);
+	Check(mfcTip != nullptr && !Visible(mfcTip), "EnableToolTips: a key puts the tip away");
+	wnd.DestroyWindow();
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1041,6 +1207,7 @@ int main(int argc, char **argv)
 	Tabs(parent);
 	ListViews(parent);
 	TreeViews(parent);
+	ToolTips(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
