@@ -64,3 +64,13 @@ if(TARGET linopenmpt_resources)
   add_test(NAME nonclient_test COMMAND nonclient_test)
   set_tests_properties(nonclient_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# The dialog manager and the standard controls, with upstream's dialog
+# templates, offscreen.
+if(TARGET linopenmpt_resources)
+  add_executable(dialog_test dialog_test.cpp)
+  target_link_libraries(dialog_test PRIVATE linopenmpt_mfc linopenmpt_resources)
+  target_include_directories(dialog_test PRIVATE ${MPT_UPSTREAM_DIR}/mptrack)
+  add_test(NAME dialog_test COMMAND dialog_test)
+  set_tests_properties(dialog_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

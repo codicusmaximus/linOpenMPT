@@ -776,6 +776,10 @@ int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count));
 // Runs a nested loop until LinOpenMPTEndModalLoop() (modal dialogs and
 // menus), with the same pre-translation and idle processing.
 int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count));
+// The same, for a loop that LinOpenMPTEndModalLoopFor(key) ends (a modal
+// dialog's); FALSE if no loop runs for key.
+int LinOpenMPTRunModalLoopFor(const void *key, BOOL (*idle)(LONG count));
+BOOL LinOpenMPTEndModalLoopFor(const void *key, int result);
 void LinOpenMPTEndModalLoop(int result);
 int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 
@@ -866,3 +870,51 @@ UINT DragQueryFile(HDROP drop, UINT index, LPTSTR file, UINT size);
 BOOL DragQueryPoint(HDROP drop, LPPOINT point);
 void DragFinish(HDROP drop);
 void DragAcceptFiles(HWND hwnd, BOOL accept);
+
+#include "linopenmpt/win32_controls.h"
+
+// ---- message boxes ----------------------------------------------------------
+#define MB_OK 0x0000
+#define MB_OKCANCEL 0x0001
+#define MB_YESNOCANCEL 0x0003
+#define MB_YESNO 0x0004
+#define MB_ICONERROR 0x0010
+#define MB_ICONQUESTION 0x0020
+#define MB_ICONWARNING 0x0030
+#define MB_ICONINFORMATION 0x0040
+#define MB_ABORTRETRYIGNORE 0x0002
+#define MB_RETRYCANCEL 0x0005
+#define MB_CANCELTRYCONTINUE 0x0006
+#define MB_ICONHAND MB_ICONERROR
+#define MB_ICONSTOP MB_ICONERROR
+#define MB_ICONEXCLAMATION MB_ICONWARNING
+#define MB_ICONASTERISK MB_ICONINFORMATION
+#define MB_DEFBUTTON1 0x0000
+#define MB_DEFBUTTON2 0x0100
+#define MB_DEFBUTTON3 0x0200
+#define MB_APPLMODAL 0x0000
+#define MB_SYSTEMMODAL 0x1000
+#define MB_TASKMODAL 0x2000
+#define MB_SETFOREGROUND 0x00010000
+#define MB_TOPMOST 0x00040000
+#define BST_UNCHECKED 0x0000
+#define BST_CHECKED 0x0001
+#define BST_INDETERMINATE 0x0002
+#define BST_PUSHED 0x0004
+#define BST_FOCUS 0x0008
+#define IDOK 1
+#define IDCANCEL 2
+#define IDABORT 3
+#define IDRETRY 4
+#define IDIGNORE 5
+#define IDYES 6
+#define IDNO 7
+#define IDCLOSE 8
+#define IDHELP 9
+#define IDTRYAGAIN 10
+#define IDCONTINUE 11
+int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type);
+BOOL MessageBeep(UINT type);
+#define MB_ICONMASK 0x00F0
+#define MB_DEFMASK 0x0F00
+#define MB_TYPEMASK 0x000F

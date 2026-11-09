@@ -54,10 +54,23 @@ const WindowClass *FindClass(LPCTSTR name)
 	if(name == nullptr)
 		return nullptr;
 	auto it = Classes().find(Lower(name));
+	if(it == Classes().end())
+	{
+		// The system classes exist from the start on Windows.
+		static bool systemClasses = false;
+		if(!systemClasses)
+		{
+			systemClasses = true;
+			RegisterSystemClasses();
+			it = Classes().find(Lower(name));
+		}
+	}
 	return it != Classes().end() ? it->second.get() : nullptr;
 }
 
 PreTranslateHook g_preTranslate = nullptr;
+// Whether the key down being delivered went through TranslateMessage().
+bool g_keyTranslated = false;
 
 // Posted messages, oldest first.
 std::deque<MSG> g_queue;
@@ -127,7 +140,8 @@ LPARAM PointParam(const QPoint &p)
 }
 
 HWND g_capture = nullptr;
-HWND g_focus = nullptr;
+HWND g_focus = nullptr; // the last window that had the focus
+bool g_hasFocus = false; // and whether it still has it
 
 // Window hooks, most recently installed first, as Windows calls them.
 struct Hook
@@ -185,6 +199,8 @@ void PumpInputMessage(const MSG &msg)
 		return;
 	}
 	if(g_preTranslate && g_preTranslate(&m))
+		return;
+	if(HandleDialogMessage(m))
 		return;
 	::TranslateMessage(&m);
 	::DispatchMessage(&m);
@@ -258,7 +274,7 @@ void Win32Widget::paintEvent(QPaintEvent *e)
 		erasePending = false;
 	}
 	QPainter painter(this);
-	painter.setCompositionMode(QPainter::CompositionMode_Source);
+	painter.setCompositionMode(data.transparent ? QPainter::CompositionMode_SourceOver : QPainter::CompositionMode_Source);
 	const QRect r = e->rect();
 	const qreal dpr = surface.devicePixelRatio();
 	painter.drawImage(r, surface, QRectF(r.x() * dpr, r.y() * dpr, r.width() * dpr, r.height() * dpr));
@@ -405,13 +421,29 @@ LPARAM KeyParam(const QKeyEvent *e, const KeyInfo &key, bool up)
 
 void Win32Widget::keyPressEvent(QKeyEvent *e)
 {
+	SyncModifierState(e->modifiers());
+	// An edit's Qt widget ignored a key the edit gave back to it: done.
+	if(g_reinjecting)
+	{
+		e->accept();
+		return;
+	}
 	const KeyInfo key = KeyFromQt(e);
 	const UINT vk = key.vk;
 	const bool alt = (e->modifiers() & Qt::AltModifier) != 0;
+	const HWND self = hwnd();
 	if(vk != 0)
 	{
 		SetKeyState(vk, true, key.scanCode, key.extended);
-		PumpInputMessage(MakeMsg(hwnd(), alt || vk == VK_F10 ? WM_SYSKEYDOWN : WM_KEYDOWN, vk, KeyParam(e, key, false)));
+		g_keyTranslated = false;
+		PumpInputMessage(MakeMsg(self, alt || vk == VK_F10 ? WM_SYSKEYDOWN : WM_KEYDOWN, vk, KeyParam(e, key, false)));
+		// Keys that an accelerator or the dialog manager consumed are never
+		// passed to TranslateMessage(), so they produce no WM_CHAR.
+		if(!g_keyTranslated || FromHandle(self) == nullptr || data.destroying)
+		{
+			e->accept();
+			return;
+		}
 	}
 	// Qt has already translated the key to text; send it as WM_CHAR, which
 	// is what TranslateMessage() would post.
@@ -433,6 +465,13 @@ void Win32Widget::keyPressEvent(QKeyEvent *e)
 
 void Win32Widget::keyReleaseEvent(QKeyEvent *e)
 {
+	SyncModifierState(e->modifiers());
+	// An edit's Qt widget ignored a key the edit gave back to it: done.
+	if(g_reinjecting)
+	{
+		e->accept();
+		return;
+	}
 	if(e->isAutoRepeat())
 		return;
 	const KeyInfo key = KeyFromQt(e);
@@ -445,24 +484,70 @@ void Win32Widget::keyReleaseEvent(QKeyEvent *e)
 	e->accept();
 }
 
-void Win32Widget::focusInEvent(QFocusEvent *)
+void Win32Widget::focusInEvent(QFocusEvent *e)
 {
-	// Qt has already moved the focus, so a CBT hook can watch but not veto.
-	HWND old = FromHandle(g_focus) ? g_focus : nullptr;
-	if(old == hwnd())
-		old = nullptr;
-	g_focus = hwnd();
-	CallHooks(WH_CBT, HCBT_SETFOCUS, reinterpret_cast<WPARAM>(hwnd()), reinterpret_cast<LPARAM>(old));
-	::SendMessage(hwnd(), WM_SETFOCUS, reinterpret_cast<WPARAM>(old), 0);
+	// A popup (a combo box's list) takes Qt's keyboard focus, but on Windows
+	// the focus stays where it was.
+	if(e->reason() != Qt::PopupFocusReason)
+		HandleFocusIn();
 }
 
-void Win32Widget::focusOutEvent(QFocusEvent *)
+void Win32Widget::focusOutEvent(QFocusEvent *e)
 {
+	if(e->reason() != Qt::PopupFocusReason)
+		HandleFocusOut();
+}
+
+void Win32Widget::HandleFocusIn()
+{
+	// Qt has already moved the focus, so a CBT hook can watch but not veto.
+	const HWND self = hwnd();
+	if(g_focus == self && g_hasFocus)
+		return;
+	const HWND old = (g_focus != self && FromHandle(g_focus)) ? g_focus : nullptr;
+	g_focus = self;
+	g_hasFocus = true;
+	CallHooks(WH_CBT, HCBT_SETFOCUS, reinterpret_cast<WPARAM>(self), reinterpret_cast<LPARAM>(old));
+	::SendMessage(self, WM_SETFOCUS, reinterpret_cast<WPARAM>(old), 0);
+	if(FromHandle(self))
+		DialogFocusChanged(self);
+}
+
+void Win32Widget::HandleFocusOut()
+{
+	if(g_focus != hwnd() || !g_hasFocus)
+		return;
 	QWidget *next = QApplication::focusWidget();
-	auto *nextWin = dynamic_cast<Win32Widget *>(next);
+	const HWND nextWin = WindowOf(next);
 	if(next == nullptr)
 		ResetKeyState(); // keys released elsewhere never reach us
-	::SendMessage(hwnd(), WM_KILLFOCUS, reinterpret_cast<WPARAM>(nextWin ? nextWin->hwnd() : nullptr), 0);
+	if(nextWin == hwnd())
+		return;
+	g_hasFocus = false;
+	::SendMessage(hwnd(), WM_KILLFOCUS, reinterpret_cast<WPARAM>(nextWin), 0);
+}
+
+void SetTransparent(Win32Widget *w)
+{
+	if(w->data.transparent)
+		return;
+	w->data.transparent = true;
+	w->setAttribute(Qt::WA_OpaquePaintEvent, false);
+	w->surfacePainter.reset();
+	w->surface = QImage();
+	EnsureSurface(w);
+	w->update();
+}
+
+HWND WindowOf(QWidget *widget)
+{
+	// Controls built on Qt widgets (edits) hold the focus in a child widget.
+	for(QWidget *w = widget; w != nullptr; w = w->parentWidget())
+	{
+		if(auto *win = dynamic_cast<Win32Widget *>(w); win && FromHandle(win->hwnd()))
+			return win->hwnd();
+	}
+	return nullptr;
 }
 
 void Win32Widget::resizeEvent(QResizeEvent *)
@@ -612,6 +697,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		widget->setWindowTitle(ToQString(d.text.c_str()));
 	if(style & WS_DISABLED)
 		widget->setEnabled(false);
+	else if(!child && parentWidget != nullptr && !parentWidget->isEnabled())
+		widget->setEnabled(true); // owned by a disabled window, as modal dialogs are
 	if(style & WS_TABSTOP)
 		widget->setFocusPolicy(Qt::StrongFocus);
 
@@ -624,6 +711,13 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 	}
 	const QPoint parentOrigin = child ? ClientOrigin(parentWidget) : QPoint();
 	widget->setGeometry(x + parentOrigin.x(), y + parentOrigin.y(), std::max(w, 0), std::max(h, 0));
+	// Children without WS_VISIBLE stay hidden when their parent shows, and
+	// new children go to the bottom of the Z order, as on Windows.
+	if(child)
+	{
+		widget->hide();
+		widget->lower();
+	}
 	InitScrollBars(widget);
 
 	CREATESTRUCT cs{};
@@ -675,7 +769,7 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		const QPoint p = widget->pos() + ClientOrigin(widget) - parentOrigin;
 		::SendMessage(hwnd, WM_MOVE, 0, PointParam(p));
 	}
-	if(child && parentWidget)
+	if(child && parentWidget && !(exStyle & WS_EX_NOPARENTNOTIFY))
 		::SendMessage(parent, WM_PARENTNOTIFY, MAKEWPARAM(WM_CREATE, d.id), reinterpret_cast<LPARAM>(hwnd));
 	if(style & WS_VISIBLE)
 		widget->show();
@@ -803,9 +897,15 @@ LRESULT DispatchMessage(const MSG *msg)
 	return ::SendMessage(msg->hwnd, msg->message, msg->wParam, msg->lParam);
 }
 
-BOOL TranslateMessage(const MSG *)
+BOOL TranslateMessage(const MSG *msg)
 {
-	// WM_CHAR is generated from Qt's own key translation (see keyPressEvent).
+	// WM_CHAR is generated from Qt's own key translation (see keyPressEvent),
+	// for key presses that reach this.
+	if(msg != nullptr && (msg->message == WM_KEYDOWN || msg->message == WM_SYSKEYDOWN))
+	{
+		g_keyTranslated = true;
+		return TRUE;
+	}
 	return FALSE;
 }
 
@@ -980,6 +1080,14 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		return 0;
 	case WM_NCHITTEST:
 		return DefNcHitTest(w, QPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+	case WM_CTLCOLORMSGBOX:
+	case WM_CTLCOLOREDIT:
+	case WM_CTLCOLORLISTBOX:
+	case WM_CTLCOLORBTN:
+	case WM_CTLCOLORDLG:
+	case WM_CTLCOLORSCROLLBAR:
+	case WM_CTLCOLORSTATIC:
+		return DefCtlColor(reinterpret_cast<HDC>(wp), msg);
 	case WM_NCCALCSIZE:
 		DefNcCalcSize(w, reinterpret_cast<RECT *>(lp));
 		return 0;
@@ -1058,7 +1166,8 @@ BOOL IsChild(HWND parent, HWND hwnd)
 {
 	Win32Widget *p = FromHandle(parent);
 	Win32Widget *w = FromHandle(hwnd);
-	if(p == nullptr || w == nullptr || w == p)
+	// Only WS_CHILD windows are children; owned windows are not.
+	if(p == nullptr || w == nullptr || w == p || w->isWindow())
 		return FALSE;
 	for(QWidget *x = w->parentWidget(); x != nullptr; x = x->parentWidget())
 	{
@@ -1089,12 +1198,16 @@ HWND GetAncestor(HWND hwnd, UINT flags)
 
 namespace
 {
+// Children in Z order, topmost first. As on Windows, new children go to the
+// bottom, so this is also creation order (and the dialog tab order) unless
+// SetWindowPos reorders them. Qt lists children bottom first.
 std::vector<Win32Widget *> ChildWindows(QWidget *parent)
 {
 	std::vector<Win32Widget *> result;
-	for(QObject *o : parent->children())
+	const QObjectList &children = parent->children();
+	for(auto it = children.rbegin(); it != children.rend(); ++it)
 	{
-		if(auto *c = dynamic_cast<Win32Widget *>(o); c && FromHandle(c->hwnd()) && !c->isWindow())
+		if(auto *c = dynamic_cast<Win32Widget *>(*it); c && FromHandle(c->hwnd()) && !c->isWindow())
 			result.push_back(c);
 	}
 	return result;
@@ -1116,8 +1229,6 @@ HWND GetWindow(HWND hwnd, UINT cmd)
 	QWidget *parent = w->parentWidget();
 	if(parent == nullptr || w->isWindow())
 		return nullptr;
-	// Child order is creation order, which is the dialog tab order on
-	// Windows too (Qt keeps children in insertion order).
 	auto siblings = ChildWindows(parent);
 	auto it = std::find(siblings.begin(), siblings.end(), w);
 	switch(cmd)
@@ -1286,6 +1397,25 @@ BOOL SetWindowText(HWND hwnd, LPCTSTR text)
 
 // ---- state ----------------------------------------------------------------------------
 
+namespace linopenmpt::qtwin
+{
+
+void KeepOwnedWindowsEnabled(QWidget *w)
+{
+	// Qt disables a widget's child windows with it; Windows does not disable
+	// the windows a window owns (a modal dialog disables its owner).
+	for(QWidget *c : w->findChildren<QWidget *>())
+	{
+		if(!c->isWindow() || c->testAttribute(Qt::WA_ForceDisabled))
+			continue;
+		if(auto *cw = dynamic_cast<Win32Widget *>(c); cw != nullptr && (cw->data.style & WS_DISABLED))
+			continue;
+		c->setEnabled(true);
+	}
+}
+
+} // namespace linopenmpt::qtwin
+
 BOOL EnableWindow(HWND hwnd, BOOL enable)
 {
 	Win32Widget *w = FromHandle(hwnd);
@@ -1299,6 +1429,8 @@ BOOL EnableWindow(HWND hwnd, BOOL enable)
 	else
 		w->data.style |= WS_DISABLED;
 	w->setEnabled(enable != FALSE);
+	if(!enable)
+		KeepOwnedWindowsEnabled(w);
 	::SendMessage(hwnd, WM_ENABLE, enable, 0);
 	return wasDisabled;
 }
@@ -1314,7 +1446,7 @@ BOOL ShowWindow(HWND hwnd, int cmd)
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr)
 		return FALSE;
-	const BOOL wasVisible = w->isVisible();
+	const BOOL wasVisible = !w->isHidden();
 	switch(cmd)
 	{
 	case SW_HIDE: w->hide(); break;
@@ -1362,7 +1494,7 @@ LONG_PTR GetWindowLongPtr(HWND hwnd, int index)
 	case GWLP_WNDPROC: return reinterpret_cast<LONG_PTR>(d->proc);
 	case GWLP_USERDATA: return d->userData;
 	case GWLP_ID: return static_cast<LONG_PTR>(d->id);
-	case GWL_STYLE: return static_cast<LONG_PTR>(d->style | (d->widget->isVisible() ? WS_VISIBLE : 0));
+	case GWL_STYLE: return static_cast<LONG_PTR>(d->style | (!d->widget->isHidden() ? WS_VISIBLE : 0));
 	case GWL_EXSTYLE: return static_cast<LONG_PTR>(d->exStyle);
 	default:
 		if(index >= 0 && static_cast<std::size_t>(index) / sizeof(LONG_PTR) < d->extra.size())
@@ -1388,9 +1520,9 @@ LONG_PTR SetWindowLongPtr(HWND hwnd, int index, LONG_PTR value)
 		d->style = static_cast<DWORD>(value) & ~WS_VISIBLE;
 		ScrollStylesChanged(d->widget, oldStyle);
 		d->widget->setEnabled(!(value & WS_DISABLED));
-		if((value & WS_VISIBLE) != 0 && !d->widget->isVisible())
+		if((value & WS_VISIBLE) != 0 && d->widget->isHidden())
 			d->widget->show();
-		else if((value & WS_VISIBLE) == 0 && d->widget->isVisible())
+		else if((value & WS_VISIBLE) == 0 && !d->widget->isHidden())
 			d->widget->hide();
 		break;
 	}
@@ -1483,6 +1615,18 @@ BOOL MoveWindow(HWND hwnd, int x, int y, int w, int h, BOOL repaint)
 	Win32Widget *wd = FromHandle(hwnd);
 	if(wd == nullptr)
 		return FALSE;
+	{
+		// The window can adjust its new position and size (combo boxes keep
+		// their height, for one).
+		WINDOWPOS pos{hwnd, nullptr, x, y, w, h, static_cast<UINT>(SWP_NOZORDER | SWP_NOACTIVATE | (repaint ? 0 : SWP_NOREDRAW))};
+		::SendMessage(hwnd, WM_WINDOWPOSCHANGING, 0, reinterpret_cast<LPARAM>(&pos));
+		if(FromHandle(hwnd) == nullptr)
+			return FALSE;
+		x = pos.x;
+		y = pos.y;
+		w = pos.cx;
+		h = pos.cy;
+	}
 	if(wd->isWindow())
 	{
 		// Window coordinates include the frame on Windows.
@@ -1807,8 +1951,9 @@ int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll, const RECT *cl
 
 HWND GetFocus()
 {
-	auto *w = dynamic_cast<Win32Widget *>(QApplication::focusWidget());
-	return w ? w->hwnd() : nullptr;
+	if(QApplication::activePopupWidget() != nullptr && WindowOf(QApplication::activePopupWidget()) != nullptr)
+		return g_hasFocus && FromHandle(g_focus) ? g_focus : nullptr;
+	return WindowOf(QApplication::focusWidget());
 }
 
 HWND SetFocus(HWND hwnd)
@@ -1818,6 +1963,11 @@ HWND SetFocus(HWND hwnd)
 	{
 		if(w->focusPolicy() == Qt::NoFocus)
 			w->setFocusPolicy(Qt::ClickFocus);
+		// The focus can only be in the active window: SetFocus activates
+		// the window's top-level window, as on Windows.
+		QWidget *top = w->window();
+		if(top->isVisible() && !top->isActiveWindow() && QApplication::activePopupWidget() == nullptr)
+			top->activateWindow();
 		w->setFocus(Qt::OtherFocusReason);
 	} else if(hwnd == nullptr)
 	{
@@ -1997,7 +2147,12 @@ namespace
 {
 using IdleProc = BOOL (*)(LONG);
 std::vector<IdleProc> g_idleStack;
-std::vector<QEventLoop *> g_modalLoops;
+struct ModalLoop
+{
+	QEventLoop *loop;
+	const void *key;
+};
+std::vector<ModalLoop> g_modalLoops;
 bool g_inIdle = false;
 
 // Idle processing runs whenever Qt's event loop is about to wait, which is
@@ -2043,20 +2198,57 @@ int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count))
 	return result;
 }
 
-int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count))
+int LinOpenMPTRunModalLoopFor(const void *key, BOOL (*idle)(LONG count))
 {
 	ConnectIdle();
 	QEventLoop loop;
-	g_modalLoops.push_back(&loop);
+	g_modalLoops.push_back({&loop, key});
 	g_idleStack.push_back(idle);
 	const int result = loop.exec(QEventLoop::DialogExec);
 	g_idleStack.pop_back();
-	g_modalLoops.erase(std::find(g_modalLoops.begin(), g_modalLoops.end(), &loop));
+	g_modalLoops.erase(std::find_if(g_modalLoops.begin(), g_modalLoops.end(), [&loop](const ModalLoop &m) { return m.loop == &loop; }));
 	return result;
+}
+
+BOOL LinOpenMPTEndModalLoopFor(const void *key, int result)
+{
+	// An outer loop ends once the loops inside it have, as on Windows.
+	for(auto it = g_modalLoops.rbegin(); it != g_modalLoops.rend(); ++it)
+	{
+		if(it->key == key)
+		{
+			it->loop->exit(result);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+namespace linopenmpt::qtwin
+{
+
+// Loops that are not ours (QMessageBox, QFileDialog) run no idle processing,
+// as Windows' own modal loops run none of the application's.
+ForeignModalLoop::ForeignModalLoop()
+{
+	ConnectIdle();
+	g_idleStack.push_back(nullptr);
+}
+
+ForeignModalLoop::~ForeignModalLoop()
+{
+	g_idleStack.pop_back();
+}
+
+} // namespace linopenmpt::qtwin
+
+int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count))
+{
+	return LinOpenMPTRunModalLoopFor(nullptr, idle);
 }
 
 void LinOpenMPTEndModalLoop(int result)
 {
 	if(!g_modalLoops.empty())
-		g_modalLoops.back()->exit(result);
+		g_modalLoops.back().loop->exit(result);
 }

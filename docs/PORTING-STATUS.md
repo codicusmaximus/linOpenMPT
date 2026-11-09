@@ -167,14 +167,39 @@ Known gaps to handle in later steps:
   frames, control bars and document/view, GDI+ (used for PNGs), the
   clipboard, dialogs and a few shell and COM calls.
 
+### Step 3c: dialogs and the standard controls (done)
+
+- Win32 dialogs from upstream's templates: `CreateDialog(Indirect)Param`,
+  `DialogBox(Indirect)Param`, dialog units and fonts, the `DS_*` styles,
+  `IsDialogMessage` (Tab and arrow navigation, mnemonics, default and cancel
+  buttons, `DM_GETDEFID`/`DM_SETDEFID`, `WM_GETDLGCODE`) and `EndDialog`.
+  All 79 templates in `mptrack.rc` create, with all 863 of their standard
+  controls.
+- The standard controls as Win32 window procedures, drawn with the Qt style:
+  buttons (push, check, radio, group box, owner draw), statics, edits
+  (single and multi-line, on Qt's text widgets), list boxes (sorted, multiple
+  selection, owner draw) and combo boxes (simple, drop-down and drop-down
+  list, with the list in a popup). Messages, notifications, `WM_CTLCOLOR*`
+  and the owner-draw messages follow Windows.
+- System colours come from the Qt palette.
+- MFC's dialog classes: `CDialog` (modal and modeless, `RunModalLoop`,
+  `WM_KICKIDLE`, `PreTranslateMessage`), `CDataExchange` with the `DDX_*` and
+  `DDV_*` functions, the control wrappers (`CButton`, `CEdit`, `CListBox`,
+  `CComboBox`, `CStatic`, `CScrollBar`), `CCheckListBox`, `RT_DLGINIT` data,
+  and `MessageBox`/`AfxMessageBox` on the desktop's message box.
+- Tests: `dialog_test` passes at display scales 1, 1.5 and 2, with the
+  earlier tests.
+- Linking upstream's UI files now leaves 318 undefined symbols, down from
+  399. Dialogs and the standard controls are no longer among them.
+
 ### Next in step 3
 
-1. Dialogs from the resources (`DoModal`, `IsDialogMessage`, dynamic
-   layouts) and accelerators.
-2. Common controls on Qt widgets.
-3. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
+1. Property sheets and the common controls on Qt widgets (trackbar, spin,
+   progress, tab, list and tree views, toolbar, `ComboBoxEx`, SysLink),
+   then accelerators and dynamic dialog layouts.
+2. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
    upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
-4. Playback through JACK from the main window.
+3. Playback through JACK from the main window.
 
 ## Step 4: views and dialogs
 

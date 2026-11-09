@@ -114,6 +114,9 @@ public:
 };
 class CMemoryException : public CException { };
 class CFileException : public CException { };
+// Thrown by DDX/DDV when validation fails (the user was already told).
+class CUserException : public CException { };
+class CNotSupportedException : public CException { };
 
 // MFC CTime: seconds since the epoch, local-time formatting.
 class CTime
@@ -147,3 +150,5 @@ public:
 };
 
 [[noreturn]] inline void AfxThrowMemoryException() { throw new CMemoryException(); }
+[[noreturn]] inline void AfxThrowUserException() { throw new CUserException(); }
+[[noreturn]] inline void AfxThrowNotSupportedException() { throw new CNotSupportedException(); }

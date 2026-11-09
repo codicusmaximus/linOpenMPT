@@ -222,8 +222,10 @@ using namespace linopenmpt::qtwin;
 
 // ---- scroll bars -----------------------------------------------------------------
 
-int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL)
+int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL redraw)
 {
+	if(bar == SB_CTL)
+		return static_cast<int>(::SendMessage(hwnd, SBM_SETSCROLLINFO, redraw, reinterpret_cast<LPARAM>(info)));
 	Win32Widget *w = FromHandle(hwnd);
 	ScrollState *s = State(hwnd, bar);
 	if(w == nullptr || s == nullptr || info == nullptr)
@@ -251,6 +253,8 @@ int SetScrollInfo(HWND hwnd, int bar, LPCSCROLLINFO info, BOOL)
 
 BOOL GetScrollInfo(HWND hwnd, int bar, LPSCROLLINFO info)
 {
+	if(bar == SB_CTL)
+		return static_cast<BOOL>(::SendMessage(hwnd, SBM_GETSCROLLINFO, 0, reinterpret_cast<LPARAM>(info)));
 	ScrollState *s = State(hwnd, bar);
 	if(s == nullptr || info == nullptr)
 		return FALSE;
@@ -270,12 +274,16 @@ BOOL GetScrollInfo(HWND hwnd, int bar, LPSCROLLINFO info)
 
 int GetScrollPos(HWND hwnd, int bar)
 {
+	if(bar == SB_CTL)
+		return static_cast<int>(::SendMessage(hwnd, SBM_GETPOS, 0, 0));
 	ScrollState *s = State(hwnd, bar);
 	return s ? s->pos : 0;
 }
 
 int SetScrollPos(HWND hwnd, int bar, int pos, BOOL redraw)
 {
+	if(bar == SB_CTL)
+		return static_cast<int>(::SendMessage(hwnd, SBM_SETPOS, pos, redraw));
 	ScrollState *s = State(hwnd, bar);
 	if(s == nullptr)
 		return 0;
@@ -287,12 +295,19 @@ int SetScrollPos(HWND hwnd, int bar, int pos, BOOL redraw)
 
 BOOL SetScrollRange(HWND hwnd, int bar, int minPos, int maxPos, BOOL redraw)
 {
+	if(bar == SB_CTL)
+		return ::SendMessage(hwnd, redraw ? SBM_SETRANGEREDRAW : SBM_SETRANGE, minPos, maxPos) >= 0 && ::IsWindow(hwnd);
 	SCROLLINFO info{sizeof(SCROLLINFO), SIF_RANGE, minPos, maxPos, 0, 0, 0};
 	return SetScrollInfo(hwnd, bar, &info, redraw) >= 0 && State(hwnd, bar) != nullptr;
 }
 
 BOOL GetScrollRange(HWND hwnd, int bar, LPINT minPos, LPINT maxPos)
 {
+	if(bar == SB_CTL)
+	{
+		::SendMessage(hwnd, SBM_GETRANGE, reinterpret_cast<WPARAM>(minPos), reinterpret_cast<LPARAM>(maxPos));
+		return TRUE;
+	}
 	ScrollState *s = State(hwnd, bar);
 	if(s == nullptr)
 		return FALSE;
@@ -317,6 +332,8 @@ BOOL ShowScrollBar(HWND hwnd, int bar, BOOL show)
 
 BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows)
 {
+	if(bar == SB_CTL)
+		return static_cast<BOOL>(::SendMessage(hwnd, SBM_ENABLE_ARROWS, arrows, 0));
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr)
 		return FALSE;
@@ -574,68 +591,6 @@ BOOL AdjustWindowRectEx(LPRECT rect, DWORD style, BOOL menu, DWORD exStyle)
 BOOL AdjustWindowRect(LPRECT rect, DWORD style, BOOL menu)
 {
 	return AdjustWindowRectEx(rect, style, menu, 0);
-}
-
-// ---- dialog navigation ----------------------------------------------------------------
-
-namespace
-{
-std::vector<HWND> TabOrder(HWND dialog)
-{
-	std::vector<HWND> items;
-	for(HWND c = ::GetWindow(dialog, GW_CHILD); c != nullptr; c = ::GetWindow(c, GW_HWNDNEXT))
-		items.push_back(c);
-	return items;
-}
-
-bool Usable(HWND hwnd)
-{
-	return ::IsWindowVisible(hwnd) && ::IsWindowEnabled(hwnd);
-}
-} // namespace
-
-HWND GetNextDlgTabItem(HWND dialog, HWND control, BOOL previous)
-{
-	const std::vector<HWND> items = TabOrder(dialog);
-	if(items.empty())
-		return nullptr;
-	const auto n = static_cast<std::ptrdiff_t>(items.size());
-	std::ptrdiff_t start = std::find(items.begin(), items.end(), control) - items.begin();
-	if(start >= n)
-		start = previous ? 0 : n - 1;
-	for(std::ptrdiff_t step = 1; step <= n; step++)
-	{
-		const std::ptrdiff_t i = ((start + (previous ? -step : step)) % n + n) % n;
-		const HWND c = items[static_cast<std::size_t>(i)];
-		if((::GetWindowLongPtr(c, GWL_STYLE) & WS_TABSTOP) && Usable(c))
-			return c;
-	}
-	return control;
-}
-
-HWND GetNextDlgGroupItem(HWND dialog, HWND control, BOOL previous)
-{
-	// A group runs from a WS_GROUP control up to the next one.
-	const std::vector<HWND> items = TabOrder(dialog);
-	auto it = std::find(items.begin(), items.end(), control);
-	if(it == items.end())
-		return nullptr;
-	auto groupStart = it;
-	while(groupStart != items.begin() && !(::GetWindowLongPtr(*groupStart, GWL_STYLE) & WS_GROUP))
-		--groupStart;
-	auto groupEnd = it + 1;
-	while(groupEnd != items.end() && !(::GetWindowLongPtr(*groupEnd, GWL_STYLE) & WS_GROUP))
-		++groupEnd;
-	const auto n = groupEnd - groupStart;
-	const auto pos = it - groupStart;
-	for(std::ptrdiff_t step = 1; step <= n; step++)
-	{
-		const auto i = ((pos + (previous ? -step : step)) % n + n) % n;
-		const HWND c = *(groupStart + i);
-		if(Usable(c))
-			return c;
-	}
-	return control;
 }
 
 void NotifyWinEvent(DWORD, HWND, LONG, LONG)

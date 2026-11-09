@@ -294,6 +294,60 @@ GdiObject *Stock(int index)
 	return o;
 }
 
+// System colours from the application's palette, so that GDI drawing
+// matches the Qt widgets and follows the desktop's colour scheme.
+DWORD PaletteSysColor(int index)
+{
+	if(qobject_cast<QGuiApplication *>(QCoreApplication::instance()) == nullptr)
+		return 0xFFFFFFFF;
+	const QPalette pal = QGuiApplication::palette();
+	auto c = [&](QPalette::ColorRole role, QPalette::ColorGroup group = QPalette::Active)
+	{
+		const QColor q = pal.color(group, role);
+		return static_cast<DWORD>(RGB(q.red(), q.green(), q.blue()));
+	};
+	switch(index)
+	{
+	case COLOR_SCROLLBAR: return c(QPalette::Button);
+	case COLOR_BACKGROUND: return c(QPalette::Dark);
+	case COLOR_ACTIVECAPTION: return c(QPalette::Highlight);
+	case COLOR_INACTIVECAPTION: return c(QPalette::Mid);
+	case COLOR_MENU: return c(QPalette::Window);
+	case COLOR_WINDOW: return c(QPalette::Base);
+	case COLOR_WINDOWFRAME: return c(QPalette::Shadow);
+	case COLOR_MENUTEXT: return c(QPalette::WindowText);
+	case COLOR_WINDOWTEXT: return c(QPalette::Text);
+	case COLOR_CAPTIONTEXT: return c(QPalette::HighlightedText);
+	case COLOR_ACTIVEBORDER: return c(QPalette::Window);
+	case COLOR_INACTIVEBORDER: return c(QPalette::Window);
+	case COLOR_APPWORKSPACE: return c(QPalette::Mid);
+	case COLOR_HIGHLIGHT: return c(QPalette::Highlight);
+	case COLOR_HIGHLIGHTTEXT: return c(QPalette::HighlightedText);
+	case COLOR_BTNFACE: return c(QPalette::Window);
+	case COLOR_BTNSHADOW: return c(QPalette::Dark);
+	case COLOR_GRAYTEXT: return c(QPalette::Text, QPalette::Disabled);
+	case COLOR_BTNTEXT: return c(QPalette::ButtonText);
+	case COLOR_INACTIVECAPTIONTEXT: return c(QPalette::WindowText);
+	case COLOR_BTNHIGHLIGHT: return c(QPalette::Light);
+	case COLOR_3DDKSHADOW: return c(QPalette::Shadow);
+	case COLOR_3DLIGHT: return c(QPalette::Midlight);
+	case COLOR_INFOTEXT: return c(QPalette::ToolTipText);
+	case COLOR_INFOBK: return c(QPalette::ToolTipBase);
+	case COLOR_HOTLIGHT: return c(QPalette::Link);
+	case COLOR_GRADIENTACTIVECAPTION: return c(QPalette::Highlight);
+	case COLOR_GRADIENTINACTIVECAPTION: return c(QPalette::Mid);
+	case COLOR_MENUHILIGHT: return c(QPalette::Highlight);
+	case COLOR_MENUBAR: return c(QPalette::Window);
+	default: return 0xFFFFFFFF;
+	}
+}
+
+const bool g_sysColorsFromPalette = []()
+{
+	LinOpenMPTSetSysColorProvider(PaletteSysColor);
+	return true;
+}();
+
 Brush *SysColorBrush(int index)
 {
 	static std::map<int, Brush *> brushes;
@@ -301,9 +355,10 @@ Brush *SysColorBrush(int index)
 	if(b == nullptr)
 	{
 		b = Register(new Brush);
-		b->color = ::GetSysColor(index);
 		b->stock = true;
 	}
+	// System colour brushes change with the colour scheme, as on Windows.
+	b->color = ::GetSysColor(index);
 	return b;
 }
 
@@ -949,6 +1004,30 @@ Bitmap *NewBitmap(int width, int height)
 
 } // namespace
 
+QPainter *DCPainter(HDC hdc)
+{
+	DC *dc = ToDC(hdc);
+	return dc != nullptr ? Painter(*dc) : nullptr;
+}
+
+QFont DCFont(HDC hdc)
+{
+	DC *dc = ToDC(hdc);
+	return dc != nullptr && dc->s.font != nullptr ? dc->s.font->font : DefaultFont();
+}
+
+QFont FontOf(HFONT font)
+{
+	Font *f = ToFont(font);
+	return f != nullptr ? f->font : DefaultFont();
+}
+
+COLORREF DCTextColor(HDC hdc)
+{
+	DC *dc = ToDC(hdc);
+	return dc != nullptr ? dc->s.textColor : 0;
+}
+
 QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines)
 {
 	return DibImage(bits, bmi, lines).copy();
@@ -975,9 +1054,10 @@ bool EnsureSurface(Win32Widget *w)
 		return false;
 	const bool hadPainter = w->surfacePainter != nullptr;
 	w->surfacePainter.reset();
-	QImage image(pixels.expandedTo(QSize(1, 1)), QImage::Format_RGB32);
+	// Transparent windows (group boxes) show their parent where they draw nothing.
+	QImage image(pixels.expandedTo(QSize(1, 1)), w->data.transparent ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32);
 	image.setDevicePixelRatio(dpr);
-	image.fill(ToQColor(::GetSysColor(COLOR_BTNFACE)));
+	image.fill(w->data.transparent ? QColor(Qt::transparent) : ToQColor(::GetSysColor(COLOR_BTNFACE)));
 	if(!w->surface.isNull())
 	{
 		QPainter p(&image);
@@ -2199,6 +2279,26 @@ BOOL DrawFrameControl(HDC hdc, LPRECT rect, UINT type, UINT state)
 			style->drawPrimitive(QStyle::PE_IndicatorRadioButton, &option, p);
 		else
 			style->drawPrimitive(QStyle::PE_IndicatorCheckBox, &option, p);
+	} else if(type == DFC_SCROLL && (state & (DFCS_SCROLLSIZEGRIP | DFCS_SCROLLSIZEGRIPRIGHT)))
+	{
+		QStyleOptionSizeGrip grip;
+		grip.rect = option.rect;
+		grip.state = option.state;
+		grip.palette = option.palette;
+		grip.corner = (state & DFCS_SCROLLSIZEGRIPRIGHT) ? Qt::BottomLeftCorner : Qt::BottomRightCorner;
+		style->drawControl(QStyle::CE_SizeGrip, &grip, p);
+	} else if(type == DFC_SCROLL)
+	{
+		style->drawPrimitive(QStyle::PE_PanelButtonCommand, &option, p);
+		QStyle::PrimitiveElement arrow = QStyle::PE_IndicatorArrowDown;
+		switch(state & 0x1F)
+		{
+		case DFCS_SCROLLUP: arrow = QStyle::PE_IndicatorArrowUp; break;
+		case DFCS_SCROLLLEFT: arrow = QStyle::PE_IndicatorArrowLeft; break;
+		case DFCS_SCROLLRIGHT: arrow = QStyle::PE_IndicatorArrowRight; break;
+		default: break;
+		}
+		style->drawPrimitive(arrow, &option, p);
 	} else
 	{
 		style->drawPrimitive(QStyle::PE_PanelButtonCommand, &option, p);
@@ -2290,7 +2390,32 @@ int DrawTextImpl(HDC hdc, QString text, LPRECT rect, UINT format)
 		const int width = (format & DT_WORDBREAK) ? std::max(r.width(), 1) : INT_MAX / 4;
 		const QRect b = fm.boundingRect(QRect(r.left(), r.top(), width, INT_MAX / 4), (flags & ~(Qt::AlignHorizontal_Mask | Qt::AlignVertical_Mask)) | Qt::AlignLeft | Qt::AlignTop, text);
 		const int height = text.isEmpty() ? fm.height() : b.height();
-		rect->right = rect->left + (text.isEmpty() ? 0 : b.width());
+		int textWidth = b.width();
+		if(!(format & (DT_WORDBREAK | DT_EXPANDTABS)))
+		{
+			// As on Windows, a line measures what GetTextExtentPoint32 says,
+			// whatever the font's ink extends to.
+			textWidth = 0;
+			const QStringList lines = singleLine ? QStringList{QString(text).replace(QLatin1Char('\n'), QLatin1Char(' '))} : text.split(QLatin1Char('\n'));
+			for(QString line : lines)
+			{
+				if(!(format & DT_NOPREFIX))
+				{
+					QString shown;
+					for(qsizetype i = 0; i < line.size(); i++)
+					{
+						if(line[i] == QLatin1Char('&') && i + 1 < line.size())
+							i++;
+						else if(line[i] == QLatin1Char('&'))
+							continue;
+						shown += line[i];
+					}
+					line = shown;
+				}
+				textWidth = std::max(textWidth, fm.horizontalAdvance(line));
+			}
+		}
+		rect->right = rect->left + (text.isEmpty() ? 0 : textWidth);
 		rect->bottom = rect->top + height;
 		return height;
 	}

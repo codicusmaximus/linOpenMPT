@@ -130,6 +130,8 @@ BOOL GlobalMemoryStatusEx(MEMORYSTATUSEX *status);
 #define COLOR_3DDKSHADOW 21
 #define COLOR_3DLIGHT 22
 DWORD GetSysColor(int index);
+// Where GetSysColor() gets its colours from (the Qt palette, in the UI).
+void LinOpenMPTSetSysColorProvider(DWORD (*provider)(int index));
 
 // Known folders. Maps to XDG directories on Linux.
 #define CSIDL_PERSONAL 0x0005

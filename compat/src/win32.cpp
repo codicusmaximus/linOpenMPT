@@ -51,8 +51,25 @@ BOOL GlobalMemoryStatusEx(MEMORYSTATUSEX *status)
 	return TRUE;
 }
 
+namespace
+{
+DWORD (*g_sysColorProvider)(int index) = nullptr;
+}
+
+void LinOpenMPTSetSysColorProvider(DWORD (*provider)(int index))
+{
+	g_sysColorProvider = provider;
+}
+
 DWORD GetSysColor(int index)
 {
+	// The UI layer answers from the desktop's colours (CLR_INVALID: it can't).
+	if(g_sysColorProvider)
+	{
+		const DWORD color = g_sysColorProvider(index);
+		if(color != 0xFFFFFFFF)
+			return color;
+	}
 	switch(index)
 	{
 	case COLOR_WINDOW: return RGB(255, 255, 255);

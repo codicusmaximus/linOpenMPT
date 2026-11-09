@@ -282,14 +282,6 @@ void CWnd::SetDlgItemInt(int id, UINT value, BOOL isSigned)
 	::SetDlgItemText(m_hWnd, id, text.c_str());
 }
 
-BOOL CWnd::UpdateData(BOOL saveAndValidate)
-{
-	CDataExchange dx;
-	dx.m_bSaveAndValidate = saveAndValidate;
-	DoDataExchange(&dx);
-	return TRUE;
-}
-
 // ---- scroll bars ------------------------------------------------------------------------------------
 
 int CWnd::SetScrollPos(int bar, int pos, BOOL redraw) { return ::SetScrollPos(m_hWnd, bar, pos, redraw); }

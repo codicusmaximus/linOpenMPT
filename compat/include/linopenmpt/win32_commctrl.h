@@ -565,6 +565,15 @@ using NM_UPDOWN = NMUPDOWN;
 #define UDN_DELTAPOS (UDN_FIRST - 1)
 
 // ---- trackbar (slider) -------------------------------------------------------
+#define TBM_GETPOS 0x0400
+#define TBM_GETRANGEMIN 0x0401
+#define TBM_GETRANGEMAX 0x0402
+#define TBM_GETTIC 0x0403
+#define TBM_SETTIC 0x0404
+#define TBM_SETPOS 0x0405
+#define TBM_SETRANGE 0x0406
+#define TBM_SETRANGEMIN 0x0407
+#define TBM_SETRANGEMAX 0x0408
 #define TBS_AUTOTICKS 0x0001
 #define TBS_VERT 0x0002
 #define TBS_HORZ 0x0000
