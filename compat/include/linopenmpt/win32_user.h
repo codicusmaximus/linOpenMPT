@@ -776,6 +776,10 @@ int LinOpenMPTRunMessageLoop(BOOL (*idle)(LONG count));
 // Runs a nested loop until LinOpenMPTEndModalLoop() (modal dialogs and
 // menus), with the same pre-translation and idle processing.
 int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count));
+// The same, for a loop that LinOpenMPTEndModalLoopFor(key) ends (a modal
+// dialog's); FALSE if no loop runs for key.
+int LinOpenMPTRunModalLoopFor(const void *key, BOOL (*idle)(LONG count));
+BOOL LinOpenMPTEndModalLoopFor(const void *key, int result);
 void LinOpenMPTEndModalLoop(int result);
 int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 
@@ -866,3 +870,5 @@ UINT DragQueryFile(HDROP drop, UINT index, LPTSTR file, UINT size);
 BOOL DragQueryPoint(HDROP drop, LPPOINT point);
 void DragFinish(HDROP drop);
 void DragAcceptFiles(HWND hwnd, BOOL accept);
+
+#include "linopenmpt/win32_controls.h"

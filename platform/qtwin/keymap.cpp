@@ -391,6 +391,24 @@ KeyInfo KeyFromQt(const QKeyEvent *e)
 	return info;
 }
 
+void SyncModifierState(Qt::KeyboardModifiers modifiers)
+{
+	// A modifier pressed or released while another application had the
+	// keyboard (or in synthesized events) is only seen in the modifiers.
+	const struct { UINT vk; Qt::KeyboardModifier mod; UINT scan; } keys[] = {
+		{VK_SHIFT, Qt::ShiftModifier, 0x2A},
+		{VK_CONTROL, Qt::ControlModifier, 0x1D},
+		{VK_MENU, Qt::AltModifier, 0x38},
+	};
+	for(const auto &k : keys)
+	{
+		const bool down = (g_keyState[k.vk] & 0x80) != 0;
+		const bool want = (modifiers & k.mod) != 0;
+		if(down != want)
+			SetKeyState(k.vk, want, k.scan, false);
+	}
+}
+
 void SetKeyState(UINT vk, bool down, UINT scanCode, bool extended)
 {
 	vk &= 0xFF;

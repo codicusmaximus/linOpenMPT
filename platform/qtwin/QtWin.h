@@ -48,6 +48,12 @@ struct WindowClass
 
 class Win32Widget;
 
+// What a built-in control (button, edit, list box, ...) keeps per window.
+struct ControlState
+{
+	virtual ~ControlState() = default;
+};
+
 // A window scroll bar (WS_HSCROLL / WS_VSCROLL), as SetScrollInfo sees it.
 struct ScrollState
 {
@@ -87,6 +93,8 @@ struct WindowData
 	bool ncDirty = true;
 	QSize clientSize; // as last reported in WM_SIZE
 	QMenuBar *menuBar = nullptr; // top-level windows with a menu (SetMenu)
+	bool transparent = false; // see SetTransparent()
+	std::unique_ptr<ControlState> control; // built-in controls
 };
 
 class Win32Widget : public QWidget
@@ -111,8 +119,18 @@ public:
 	std::unique_ptr<QPainter> surfacePainter;
 	int surfacePainterRefs = 0;
 
+	// WM_SETFOCUS and WM_KILLFOCUS, also for a Qt widget inside the window
+	// that holds the focus for it (edit controls).
+	void HandleFocusIn();
+	void HandleFocusOut();
+	// Key events of a Qt widget inside the window, delivered as the
+	// window's own WM_KEYDOWN / WM_CHAR / WM_KEYUP.
+	void DeliverKey(QKeyEvent *e) { if(e->type() == QEvent::KeyPress) keyPressEvent(e); else keyReleaseEvent(e); }
+
 protected:
 	bool event(QEvent *e) override;
+	// Tab is a key like any other; dialogs move the focus (IsDialogMessage).
+	bool focusNextPrevChild(bool) override { return false; }
 	void paintEvent(QPaintEvent *e) override;
 	void mousePressEvent(QMouseEvent *e) override;
 	void mouseReleaseEvent(QMouseEvent *e) override;
@@ -136,6 +154,8 @@ protected:
 // windows.
 Win32Widget *FromHandle(HWND hwnd);
 WindowData *Data(HWND hwnd);
+// The window a widget belongs to: itself, or the window around it.
+HWND WindowOf(QWidget *widget);
 
 // Messages from Qt input: pre-translated, then dispatched, like a message
 // loop iteration.
@@ -156,6 +176,8 @@ struct KeyInfo
 };
 KeyInfo KeyFromQt(const QKeyEvent *e);
 void SetKeyState(UINT vk, bool down, UINT scanCode = 0, bool extended = false);
+// Brings Shift, Ctrl and Alt in line with a Qt event's modifiers.
+void SyncModifierState(Qt::KeyboardModifiers modifiers);
 // Forgets held keys, e.g. when the application loses focus.
 void ResetKeyState();
 WPARAM MouseKeyFlags(Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers);
@@ -199,6 +221,33 @@ void AttachMenuBar(Win32Widget *w, HMENU menu);
 // Opens the menu bar item whose mnemonic is key (Alt+key); false if none.
 bool OpenMenuByKey(Win32Widget *w, WCHAR key);
 
+// Built-in controls (controls.cpp, edit.cpp, listbox.cpp, combobox.cpp):
+// registers the system window classes ("Button", "Edit", ...).
+void RegisterSystemClasses();
+// DefWindowProc's WM_CTLCOLOR* answer: system colours.
+LRESULT DefCtlColor(HDC dc, UINT msg);
+// The state of a built-in control, if hwnd is one of type T.
+template <typename T>
+T *Control(HWND hwnd)
+{
+	WindowData *d = Data(hwnd);
+	return d != nullptr ? dynamic_cast<T *>(d->control.get()) : nullptr;
+}
+// True while an edit hands a key event back to its Qt widget (edit.cpp).
+extern bool g_reinjecting;
+// What a combo box's list tells it besides LBN_* (listbox.cpp, combobox.cpp).
+constexpr UINT ComboChosen = 0xFFFF; // an item was clicked
+constexpr UINT ComboCancel = 0xFFFE; // closed by clicking elsewhere
+// WM_COMMAND notifications to a control's parent.
+void NotifyParent(HWND ctl, UINT code);
+// The brush (and DC colours) a control's parent chooses with WM_CTLCOLOR*.
+HBRUSH ControlBrush(HWND ctl, HDC dc, UINT msg);
+
+// Dialogs (dialog.cpp): the dialog manager's part of a message loop (for
+// DialogBox), and the default button following the focus.
+bool HandleDialogMessage(const MSG &msg);
+void DialogFocusChanged(HWND focus);
+
 // Icons and cursors (HICON, HCURSOR) point to one of these.
 struct IconData
 {
@@ -211,6 +260,16 @@ struct IconData
 HCURSOR SystemCursor(Qt::CursorShape shape);
 // A device-independent bitmap as a top-down image (copied).
 QImage DecodeDib(const void *bits, const BITMAPINFO *bmi, int lines = -1);
+// The painter that draws for a DC, set up with its clip and origin (for
+// QStyle drawing); nullptr if the DC cannot be drawn on. Also the DC's
+// font and text colour, and an HFONT's font.
+QPainter *DCPainter(HDC dc);
+QFont DCFont(HDC dc);
+COLORREF DCTextColor(HDC dc);
+QFont FontOf(HFONT font);
+// Makes a window's surface transparent where it draws nothing, so its
+// parent shows through (group boxes, which Windows does not erase inside).
+void SetTransparent(Win32Widget *w);
 // A copy of a bitmap's pixels.
 QImage BitmapImage(HBITMAP bitmap);
 // Icons and cursors from a module's resources (resource.cpp).
