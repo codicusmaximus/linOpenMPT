@@ -54,6 +54,10 @@ extern int g_refuseChange;
 std::vector<NMLISTVIEW> g_lvChanges;
 std::wstring g_editedText;
 bool g_editAccept = true;
+std::vector<NMTREEVIEW> g_tvEvents; // TVN_SELCHANGED, TVN_ITEMEXPANDED, TVN_DELETEITEM, TVN_BEGINDRAG
+std::vector<HTREEITEM> g_selectedAtClick; // the selection when NM_CLICK arrives
+HWND g_tree = nullptr;
+int g_tvVeto = 0;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -96,6 +100,27 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 					di->item.pszText[di->item.cchTextMax - 1] = 0;
 				}
 				return 0;
+			}
+			if(hdr->code == TVN_SELCHANGING || hdr->code == TVN_ITEMEXPANDING)
+				return g_tvVeto;
+			if(hdr->code == TVN_SELCHANGED || hdr->code == TVN_ITEMEXPANDED || hdr->code == TVN_DELETEITEM || hdr->code == TVN_BEGINDRAG || hdr->code == TVN_BEGINRDRAG)
+				g_tvEvents.push_back(*reinterpret_cast<const NMTREEVIEW *>(lp));
+			if(hdr->code == NM_CLICK && hdr->hwndFrom == g_tree)
+				g_selectedAtClick.push_back(TreeView_GetSelection(g_tree));
+			if(hdr->code == TVN_GETDISPINFO)
+			{
+				auto *di = reinterpret_cast<NMTVDISPINFO *>(lp);
+				if(di->item.mask & TVIF_TEXT)
+					wcsncpy(di->item.pszText, (L"callback " + std::to_wstring(di->item.lParam)).c_str(), di->item.cchTextMax - 1);
+				if(di->item.mask & TVIF_CHILDREN)
+					di->item.cChildren = 1;
+				return 0;
+			}
+			if(hdr->code == TVN_ENDLABELEDIT)
+			{
+				const auto *di = reinterpret_cast<const NMTVDISPINFO *>(lp);
+				g_editedText = di->item.pszText != nullptr ? di->item.pszText : L"(cancelled)";
+				return g_editAccept ? TRUE : FALSE;
 			}
 			if(hdr->code == LVN_ENDLABELEDIT)
 			{
@@ -144,6 +169,19 @@ void Key(int key)
 	QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
 	if(QWidget *again = QApplication::focusWidget())
 		QApplication::sendEvent(again, &release);
+	Pump();
+}
+
+void Type(char ch)
+{
+	QWidget *target = QApplication::focusWidget();
+	if(target == nullptr)
+		return;
+	const QString text(QChar::fromLatin1(ch));
+	QKeyEvent press(QEvent::KeyPress, Qt::Key_A + (QChar::fromLatin1(ch).toUpper().unicode() - 'A'), Qt::NoModifier, text);
+	QApplication::sendEvent(target, &press);
+	QKeyEvent release(QEvent::KeyRelease, press.key(), Qt::NoModifier, text);
+	QApplication::sendEvent(target, &release);
 	Pump();
 }
 
@@ -810,6 +848,177 @@ void ListViews(HWND parent)
 	sorted.DestroyWindow();
 }
 
+size_t CountEvents(UINT code)
+{
+	return static_cast<size_t>(std::count_if(g_tvEvents.begin(), g_tvEvents.end(), [code](const NMTREEVIEW &nm) { return nm.hdr.code == code; }));
+}
+
+void TreeViews(HWND parent)
+{
+	HWND tv = ::CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_SHOWSELALWAYS | TVS_EDITLABELS, 10, 10, 360, 200, parent, reinterpret_cast<HMENU>(600), nullptr, nullptr);
+	Check(tv != nullptr, "tree view: created");
+	g_tree = tv;
+	CTreeCtrl tree;
+	tree.Attach(tv);
+	HTREEITEM songs = tree.InsertItem(L"Songs");
+	HTREEITEM song = tree.InsertItem(TVIF_TEXT | TVIF_PARAM | TVIF_STATE, L"demo.it", 0, 0, TVIS_BOLD, TVIS_BOLD, 7, songs, TVI_LAST);
+	HTREEITEM patterns = tree.InsertItem(L"Patterns", song);
+	HTREEITEM samples = tree.InsertItem(L"Samples", song);
+	for(const wchar_t *name : {L"Pattern 2", L"Pattern 0", L"Pattern 1"})
+		tree.InsertItem(name, patterns, TVI_SORT);
+	HTREEITEM library = tree.InsertItem(L"Instrument Library");
+	Check(tree.GetCount() == 8, "tree view: TVM_GETCOUNT");
+	Check(tree.GetRootItem() == songs && tree.GetNextSiblingItem(songs) == library && tree.GetPrevSiblingItem(library) == songs, "tree view: siblings");
+	Check(tree.GetParentItem(song) == songs && tree.GetParentItem(songs) == nullptr && tree.GetChildItem(song) == patterns, "tree view: parent and child");
+	HTREEITEM p0 = tree.GetChildItem(patterns);
+	Check(tree.GetItemText(p0) == CString(L"Pattern 0") && tree.GetItemText(tree.GetNextSiblingItem(p0)) == CString(L"Pattern 1"), "tree view: TVI_SORT inserts in order");
+	Check(tree.GetItemData(song) == 7 && (tree.GetItemState(song, TVIS_BOLD) & TVIS_BOLD), "tree view: data and state");
+	Check(tree.ItemHasChildren(song) && !tree.ItemHasChildren(samples), "tree view: ItemHasChildren");
+
+	// Only the top level shows until something expands.
+	Check(tree.GetFirstVisibleItem() == songs && tree.GetNextVisibleItem(songs) == library, "tree view: collapsed items hide their children");
+	RECT r{};
+	Check(!tree.GetItemRect(song, &r, FALSE), "tree view: no rectangle for a hidden item");
+
+	// TVM_EXPAND notifies the first time only.
+	g_tvEvents.clear();
+	tree.Expand(songs, TVE_EXPAND);
+	Check(CountEvents(TVN_ITEMEXPANDED) == 1 && (tree.GetItemState(songs, TVIS_EXPANDED | TVIS_EXPANDEDONCE) == (TVIS_EXPANDED | TVIS_EXPANDEDONCE)), "tree view: TVM_EXPAND, notified, once");
+	tree.Expand(songs, TVE_COLLAPSE);
+	tree.Expand(songs, TVE_EXPAND);
+	Check(CountEvents(TVN_ITEMEXPANDED) == 1, "tree view: TVM_EXPAND later is quiet");
+	Check(tree.GetNextVisibleItem(songs) == song, "tree view: expanded children show");
+	g_tvVeto = 1;
+	Check(!tree.Expand(song, TVE_EXPAND) && !(tree.GetItemState(song, TVIS_EXPANDED) & TVIS_EXPANDED), "tree view: TVN_ITEMEXPANDING can refuse");
+	g_tvVeto = 0;
+
+	// EnsureVisible expands the parents.
+	tree.EnsureVisible(p0);
+	Check((tree.GetItemState(patterns, TVIS_EXPANDED) & TVIS_EXPANDED) && tree.GetItemRect(p0, &r, TRUE), "tree view: TVM_ENSUREVISIBLE expands the parents");
+	RECT rs{}, rp{};
+	tree.GetItemRect(song, &rs, TRUE);
+	tree.GetItemRect(patterns, &rp, TRUE);
+	Check(rp.left - rs.left == static_cast<LONG>(tree.GetIndent()) && rp.top == rs.bottom, "tree view: a child is one indent in, one row down");
+
+	// Selection: TVN_SELCHANGING can refuse; TVN_SELCHANGED says old and new.
+	g_tvEvents.clear();
+	Check(tree.SelectItem(song) && tree.GetSelectedItem() == song, "tree view: SelectItem");
+	Check(CountEvents(TVN_SELCHANGED) == 1 && g_tvEvents.back().itemNew.hItem == song && g_tvEvents.back().itemOld.hItem == nullptr && g_tvEvents.back().action == TVC_UNKNOWN, "tree view: TVN_SELCHANGED");
+	Check(tree.GetItemState(song, TVIS_SELECTED) & TVIS_SELECTED, "tree view: TVIS_SELECTED");
+	g_tvVeto = 1;
+	Check(!tree.SelectItem(samples) && tree.GetSelectedItem() == song, "tree view: TVN_SELCHANGING can refuse");
+	g_tvVeto = 0;
+
+	// A click: NM_CLICK comes before the selection changes.
+	::SetFocus(tv);
+	Pump();
+	g_selectedAtClick.clear();
+	g_tvEvents.clear();
+	tree.GetItemRect(samples, &r, TRUE);
+	Mouse(tv, QEvent::MouseButtonPress, r.left + 4, (r.top + r.bottom) / 2);
+	Mouse(tv, QEvent::MouseButtonRelease, r.left + 4, (r.top + r.bottom) / 2);
+	Check(tree.GetSelectedItem() == samples, "tree view: a click selects");
+	Check(g_selectedAtClick.size() == 1 && g_selectedAtClick[0] == song, "tree view: NM_CLICK before the selection moves");
+	Check(!g_tvEvents.empty() && g_tvEvents.back().action == TVC_BYMOUSE, "tree view: TVC_BYMOUSE");
+
+	// A click on the button toggles, with notifications.
+	g_tvEvents.clear();
+	tree.GetItemRect(patterns, &r, FALSE);
+	RECT label{};
+	tree.GetItemRect(patterns, &label, TRUE);
+	const int buttonX = label.left - static_cast<int>(tree.GetIndent()) / 2;
+	Mouse(tv, QEvent::MouseButtonPress, buttonX, (r.top + r.bottom) / 2);
+	Mouse(tv, QEvent::MouseButtonRelease, buttonX, (r.top + r.bottom) / 2);
+	Check(!(tree.GetItemState(patterns, TVIS_EXPANDED) & TVIS_EXPANDED) && CountEvents(TVN_ITEMEXPANDED) == 1, "tree view: the button collapses");
+	TVHITTESTINFO hit{};
+	hit.pt = POINT{buttonX, (r.top + r.bottom) / 2};
+	Check(tree.HitTest(&hit) == patterns && (hit.flags & TVHT_ONITEMBUTTON), "tree view: TVHT_ONITEMBUTTON");
+	hit.pt = POINT{label.left + 2, (r.top + r.bottom) / 2};
+	Check(tree.HitTest(&hit) == patterns && (hit.flags & TVHT_ONITEMLABEL), "tree view: TVHT_ONITEMLABEL");
+
+	// Keys.
+	tree.SelectItem(song);
+	::SetFocus(tv);
+	Pump();
+	Key(Qt::Key_Down);
+	Check(tree.GetSelectedItem() == patterns, "tree view: Down");
+	Key(Qt::Key_Right);
+	Check(tree.GetItemState(patterns, TVIS_EXPANDED) & TVIS_EXPANDED, "tree view: Right expands");
+	Key(Qt::Key_Right);
+	Check(tree.GetSelectedItem() == p0, "tree view: Right again goes to the first child");
+	Key(Qt::Key_Left);
+	Check(tree.GetSelectedItem() == patterns, "tree view: Left goes to the parent");
+	Key(Qt::Key_Left);
+	Check(!(tree.GetItemState(patterns, TVIS_EXPANDED) & TVIS_EXPANDED), "tree view: Left collapses");
+	Key(Qt::Key_End);
+	Check(tree.GetSelectedItem() == library, "tree view: End");
+	Key(Qt::Key_Home);
+	Check(tree.GetSelectedItem() == songs, "tree view: Home");
+	Type('i');
+	Check(tree.GetSelectedItem() == library, "tree view: typing searches");
+
+	// A selection inside a branch that collapses moves up to it.
+	tree.SelectItem(p0);
+	tree.Expand(song, TVE_COLLAPSE);
+	Check(tree.GetSelectedItem() == song, "tree view: collapsing takes the selection up");
+
+	// Callbacks.
+	HTREEITEM cb = tree.InsertItem(TVIF_TEXT | TVIF_PARAM | TVIF_CHILDREN, LPSTR_TEXTCALLBACK, 0, 0, 0, 0, 42, library, TVI_LAST);
+	TVITEM item{};
+	item.mask = TVIF_CHILDREN | TVIF_HANDLE;
+	item.hItem = cb;
+	item.cChildren = I_CHILDRENCALLBACK;
+	tree.SetItem(&item);
+	Check(tree.GetItemText(cb) == CString(L"callback 42"), "tree view: LPSTR_TEXTCALLBACK asks TVN_GETDISPINFO");
+	tree.Expand(library, TVE_EXPAND);
+	SaveShot(parent, "treeview");
+
+	// Label editing.
+	tree.SelectItem(samples);
+	CEdit *edit = tree.EditLabel(samples);
+	Pump();
+	Check(edit != nullptr && tree.GetEditControl() != nullptr, "tree view: EditLabel opens an edit");
+	if(edit != nullptr)
+	{
+		::SetWindowText(edit->m_hWnd, L"Sounds");
+		::SetFocus(edit->m_hWnd);
+		Pump();
+		Key(Qt::Key_Return);
+	}
+	Check(g_editedText == L"Sounds" && tree.GetItemText(samples) == CString(L"Sounds"), "tree view: TVN_ENDLABELEDIT, accepted");
+
+	// Dragging.
+	g_tvEvents.clear();
+	tree.EnsureVisible(songs);
+	tree.GetItemRect(songs, &r, TRUE);
+	const int y = (r.top + r.bottom) / 2;
+	Mouse(tv, QEvent::MouseButtonPress, r.left + 4, y);
+	Mouse(tv, QEvent::MouseMove, r.left + 30, y + 30);
+	Mouse(tv, QEvent::MouseButtonRelease, r.left + 30, y + 30);
+	Check(CountEvents(TVN_BEGINDRAG) == 1 && g_tvEvents.back().itemNew.hItem == songs, "tree view: TVN_BEGINDRAG");
+
+	// Sorting with a callback.
+	tree.SetItemData(song, 2);
+	HTREEITEM other = tree.InsertItem(TVIF_TEXT | TVIF_PARAM, L"another.xm", 0, 0, 0, 0, 1, songs, TVI_LAST);
+	TVSORTCB sort{songs, CompareText, 0};
+	TreeView_SortChildrenCB(tv, &sort, FALSE);
+	Check(tree.GetChildItem(songs) == other, "tree view: TVM_SORTCHILDRENCB");
+
+	// Deleting: children first, each with TVN_DELETEITEM; the selection moves.
+	tree.SelectItem(song);
+	g_tvEvents.clear();
+	tree.DeleteItem(song);
+	const auto lastDelete = std::find_if(g_tvEvents.rbegin(), g_tvEvents.rend(), [](const NMTREEVIEW &nm) { return nm.hdr.code == TVN_DELETEITEM; });
+	Check(CountEvents(TVN_DELETEITEM) == 6 && lastDelete != g_tvEvents.rend() && lastDelete->itemOld.hItem == song, "tree view: TVN_DELETEITEM for each, the item last");
+	Check(tree.GetSelectedItem() == songs, "tree view: the selection moves to the parent when no sibling follows");
+	Check(tree.GetCount() == 4, "tree view: the subtree is gone");
+	tree.DeleteAllItems();
+	Check(tree.GetCount() == 0 && tree.GetSelectedItem() == nullptr, "tree view: DeleteAllItems");
+	tree.Detach();
+	g_tree = nullptr;
+	::DestroyWindow(tv);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -831,6 +1040,7 @@ int main(int argc, char **argv)
 	ImageLists();
 	Tabs(parent);
 	ListViews(parent);
+	TreeViews(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

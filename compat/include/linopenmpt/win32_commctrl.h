@@ -622,6 +622,128 @@ struct TVHITTESTINFO { POINT pt; UINT flags; HTREEITEM hItem; };
 #define TVN_BEGINLABELEDIT TVN_BEGINLABELEDITW
 #define TVN_ENDLABELEDIT TVN_ENDLABELEDITW
 #define TVN_GETINFOTIP TVN_GETINFOTIPW
+#define TVN_SINGLEEXPAND (TVN_FIRST - 15)
+#define TVN_ITEMCHANGINGW (TVN_FIRST - 17)
+#define TVN_ITEMCHANGEDW (TVN_FIRST - 19)
+#define TVN_ITEMCHANGING TVN_ITEMCHANGINGW
+#define TVN_ITEMCHANGED TVN_ITEMCHANGEDW
+#define TVN_SETDISPINFOW (TVN_FIRST - 53)
+#define TVN_SETDISPINFO TVN_SETDISPINFOW
+#define TVNRET_DEFAULT 0
+#define TVNRET_SKIPOLD 1
+#define TVNRET_SKIPNEW 2
+#define WC_TREEVIEW L"SysTreeView32"
+#define TVM_SETTOOLTIPS (TVM_FIRST + 24)
+#define TVM_GETTOOLTIPS (TVM_FIRST + 25)
+#define TVM_SETINSERTMARK (TVM_FIRST + 26)
+#define TVM_SETITEMHEIGHT (TVM_FIRST + 27)
+#define TVM_GETITEMHEIGHT (TVM_FIRST + 28)
+#define TVM_SETBKCOLOR (TVM_FIRST + 29)
+#define TVM_SETTEXTCOLOR (TVM_FIRST + 30)
+#define TVM_GETBKCOLOR (TVM_FIRST + 31)
+#define TVM_GETTEXTCOLOR (TVM_FIRST + 32)
+#define TVM_SETSCROLLTIME (TVM_FIRST + 33)
+#define TVM_GETSCROLLTIME (TVM_FIRST + 34)
+#define TVM_SETINSERTMARKCOLOR (TVM_FIRST + 37)
+#define TVM_GETINSERTMARKCOLOR (TVM_FIRST + 38)
+#define TVM_GETITEMSTATE (TVM_FIRST + 39)
+#define TVM_SETLINECOLOR (TVM_FIRST + 40)
+#define TVM_GETLINECOLOR (TVM_FIRST + 41)
+#define TVM_GETEXTENDEDSTYLE (TVM_FIRST + 45)
+#define TVM_GETISEARCHSTRING (TVM_FIRST + 64)
+#define TVIF_INTEGRAL 0x0080
+#define TVIF_STATEEX 0x0100
+#define TVIF_EXPANDEDIMAGE 0x0200
+#define TVIS_USERMASK 0xF000
+#define TVE_EXPANDPARTIAL 0x4000
+#define TVE_COLLAPSERESET 0x8000
+#define TVE_ACTIONMASK 0x0003
+#define TVHT_ABOVE 0x0100
+#define TVHT_BELOW 0x0200
+#define TVHT_TORIGHT 0x0400
+#define TVHT_TOLEFT 0x0800
+#define I_CHILDRENCALLBACK (-1)
+#define I_CHILDRENAUTO (-2)
+#define TVS_EX_MULTISELECT 0x0002
+#define TVS_EX_AUTOHSCROLL 0x0020
+#define TVS_EX_FADEINOUTEXPANDOS 0x0040
+#define TVS_EX_DIMMEDCHECKBOXES 0x0200
+using LPTVHITTESTINFO = TVHITTESTINFO *;
+using TV_HITTESTINFO = TVHITTESTINFO;
+using TV_INSERTSTRUCT = TVINSERTSTRUCT;
+using LPTVITEMEX = TVITEMEX *;
+using TV_DISPINFO = NMTVDISPINFO;
+using PFNTVCOMPARE = int (CALLBACK *)(LPARAM, LPARAM, LPARAM);
+struct TVSORTCB { HTREEITEM hParent; PFNTVCOMPARE lpfnCompare; LPARAM lParam; };
+using LPTVSORTCB = TVSORTCB *;
+struct NMTVGETINFOTIP { NMHDR hdr; LPWSTR pszText; int cchTextMax; HTREEITEM hItem; LPARAM lParam; };
+using LPNMTVGETINFOTIP = NMTVGETINFOTIP *;
+#define TreeView_InsertItem(hwnd, is) (HTREEITEM)SNDMSG((hwnd), TVM_INSERTITEM, 0, (LPARAM)(LPTVINSERTSTRUCT)(is))
+#define TreeView_DeleteItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_DELETEITEM, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_DeleteAllItems(hwnd) (BOOL)SNDMSG((hwnd), TVM_DELETEITEM, 0, (LPARAM)TVI_ROOT)
+#define TreeView_Expand(hwnd, item, code) (BOOL)SNDMSG((hwnd), TVM_EXPAND, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+inline BOOL TreeView_GetItemRect(HWND hwnd, HTREEITEM item, RECT *rc, BOOL textOnly)
+{
+	*reinterpret_cast<HTREEITEM *>(rc) = item;
+	return static_cast<BOOL>(SNDMSG(hwnd, TVM_GETITEMRECT, static_cast<WPARAM>(textOnly), reinterpret_cast<LPARAM>(rc)));
+}
+#define TreeView_GetCount(hwnd) (UINT)SNDMSG((hwnd), TVM_GETCOUNT, 0, 0)
+#define TreeView_GetIndent(hwnd) (UINT)SNDMSG((hwnd), TVM_GETINDENT, 0, 0)
+#define TreeView_SetIndent(hwnd, indent) (BOOL)SNDMSG((hwnd), TVM_SETINDENT, (WPARAM)(indent), 0)
+#define TreeView_GetImageList(hwnd, type) (HIMAGELIST)SNDMSG((hwnd), TVM_GETIMAGELIST, (WPARAM)(type), 0)
+#define TreeView_SetImageList(hwnd, list, type) (HIMAGELIST)SNDMSG((hwnd), TVM_SETIMAGELIST, (WPARAM)(type), (LPARAM)(HIMAGELIST)(list))
+#define TreeView_GetNextItem(hwnd, item, code) (HTREEITEM)SNDMSG((hwnd), TVM_GETNEXTITEM, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+#define TreeView_GetChild(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_CHILD)
+#define TreeView_GetNextSibling(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_NEXT)
+#define TreeView_GetPrevSibling(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PREVIOUS)
+#define TreeView_GetParent(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PARENT)
+#define TreeView_GetFirstVisible(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_FIRSTVISIBLE)
+#define TreeView_GetNextVisible(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_NEXTVISIBLE)
+#define TreeView_GetPrevVisible(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PREVIOUSVISIBLE)
+#define TreeView_GetSelection(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_CARET)
+#define TreeView_GetDropHilight(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_DROPHILITE)
+#define TreeView_GetRoot(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_ROOT)
+#define TreeView_GetLastVisible(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_LASTVISIBLE)
+#define TreeView_Select(hwnd, item, code) (BOOL)SNDMSG((hwnd), TVM_SELECTITEM, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+#define TreeView_SelectItem(hwnd, item) TreeView_Select(hwnd, item, TVGN_CARET)
+#define TreeView_SelectDropTarget(hwnd, item) TreeView_Select(hwnd, item, TVGN_DROPHILITE)
+#define TreeView_SelectSetFirstVisible(hwnd, item) TreeView_Select(hwnd, item, TVGN_FIRSTVISIBLE)
+#define TreeView_GetItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_GETITEM, 0, (LPARAM)(TVITEM *)(item))
+#define TreeView_SetItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_SETITEM, 0, (LPARAM)(const TVITEM *)(item))
+#define TreeView_EditLabel(hwnd, item) (HWND)SNDMSG((hwnd), TVM_EDITLABEL, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_GetEditControl(hwnd) (HWND)SNDMSG((hwnd), TVM_GETEDITCONTROL, 0, 0)
+#define TreeView_GetVisibleCount(hwnd) (UINT)SNDMSG((hwnd), TVM_GETVISIBLECOUNT, 0, 0)
+#define TreeView_HitTest(hwnd, info) (HTREEITEM)SNDMSG((hwnd), TVM_HITTEST, 0, (LPARAM)(LPTVHITTESTINFO)(info))
+#define TreeView_CreateDragImage(hwnd, item) (HIMAGELIST)SNDMSG((hwnd), TVM_CREATEDRAGIMAGE, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_SortChildren(hwnd, item, recurse) (BOOL)SNDMSG((hwnd), TVM_SORTCHILDREN, (WPARAM)(recurse), (LPARAM)(HTREEITEM)(item))
+#define TreeView_EnsureVisible(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_ENSUREVISIBLE, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_SortChildrenCB(hwnd, sort, recurse) (BOOL)SNDMSG((hwnd), TVM_SORTCHILDRENCB, (WPARAM)(recurse), (LPARAM)(LPTVSORTCB)(sort))
+#define TreeView_EndEditLabelNow(hwnd, cancel) (BOOL)SNDMSG((hwnd), TVM_ENDEDITLABELNOW, (WPARAM)(cancel), 0)
+#define TreeView_SetItemHeight(hwnd, cy) (int)SNDMSG((hwnd), TVM_SETITEMHEIGHT, (WPARAM)(cy), 0)
+#define TreeView_GetItemHeight(hwnd) (int)SNDMSG((hwnd), TVM_GETITEMHEIGHT, 0, 0)
+#define TreeView_SetBkColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETBKCOLOR, 0, (LPARAM)(c))
+#define TreeView_GetBkColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETBKCOLOR, 0, 0)
+#define TreeView_SetTextColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETTEXTCOLOR, 0, (LPARAM)(c))
+#define TreeView_GetTextColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETTEXTCOLOR, 0, 0)
+#define TreeView_SetLineColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETLINECOLOR, 0, (LPARAM)(c))
+#define TreeView_GetLineColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETLINECOLOR, 0, 0)
+#define TreeView_SetInsertMark(hwnd, item, after) (BOOL)SNDMSG((hwnd), TVM_SETINSERTMARK, (WPARAM)(after), (LPARAM)(item))
+#define TreeView_GetItemState(hwnd, item, mask) (UINT)SNDMSG((hwnd), TVM_GETITEMSTATE, (WPARAM)(item), (LPARAM)(mask))
+inline BOOL TreeView_SetItemState(HWND hwnd, HTREEITEM item, UINT state, UINT mask)
+{
+	TVITEM tvi{};
+	tvi.mask = TVIF_STATE;
+	tvi.hItem = item;
+	tvi.state = state;
+	tvi.stateMask = mask;
+	return static_cast<BOOL>(SNDMSG(hwnd, TVM_SETITEM, 0, reinterpret_cast<LPARAM>(&tvi)));
+}
+#define TreeView_SetCheckState(hwnd, item, check) TreeView_SetItemState(hwnd, item, INDEXTOSTATEIMAGEMASK((check) ? 2 : 1), TVIS_STATEIMAGEMASK)
+#define TreeView_GetCheckState(hwnd, item) ((((UINT)(SNDMSG((hwnd), TVM_GETITEMSTATE, (WPARAM)(item), TVIS_STATEIMAGEMASK))) >> 12) - 1)
+#define TreeView_SetExtendedStyle(hwnd, style, mask) (DWORD)SNDMSG((hwnd), TVM_SETEXTENDEDSTYLE, (WPARAM)(mask), (LPARAM)(style))
+#define TreeView_GetExtendedStyle(hwnd) (DWORD)SNDMSG((hwnd), TVM_GETEXTENDEDSTYLE, 0, 0)
+#define TreeView_GetToolTips(hwnd) (HWND)SNDMSG((hwnd), TVM_GETTOOLTIPS, 0, 0)
+#define TreeView_SetToolTips(hwnd, tt) (HWND)SNDMSG((hwnd), TVM_SETTOOLTIPS, (WPARAM)(tt), 0)
 
 // ---- toolbar ---------------------------------------------------------------
 #define TBSTYLE_TOOLTIPS 0x0100

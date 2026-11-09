@@ -1047,6 +1047,7 @@ void RegisterCommonControlClasses();
 void RegisterTabControlClass();
 void RegisterHeaderClass();
 void RegisterListViewClass();
+void RegisterTreeViewClass();
 
 void RegisterSystemClasses()
 {
@@ -1060,6 +1061,7 @@ void RegisterSystemClasses()
 	RegisterTabControlClass();
 	RegisterHeaderClass();
 	RegisterListViewClass();
+	RegisterTreeViewClass();
 }
 
 } // namespace linopenmpt::qtwin

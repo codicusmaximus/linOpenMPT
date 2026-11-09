@@ -497,3 +497,143 @@ CImageList *CHeaderCtrl::SetImageList(CImageList *list)
 	return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, HDM_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr))));
 }
 BOOL CHeaderCtrl::Layout(HDLAYOUT *layout) { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_LAYOUT, 0, reinterpret_cast<LPARAM>(layout))); }
+
+// ---- CTreeCtrl -------------------------------------------------------------------------------
+
+BOOL CTreeCtrl::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id) { return CWnd::Create(WC_TREEVIEW, nullptr, style, rect, parent, id); }
+HTREEITEM CTreeCtrl::InsertItem(LPTVINSERTSTRUCT insert) { return TreeView_InsertItem(m_hWnd, insert); }
+
+HTREEITEM CTreeCtrl::InsertItem(UINT mask, LPCTSTR text, int image, int selectedImage, UINT state, UINT stateMask, LPARAM lParam, HTREEITEM parent, HTREEITEM after)
+{
+	TVINSERTSTRUCT is{};
+	is.hParent = parent;
+	is.hInsertAfter = after;
+	is.item.mask = mask;
+	is.item.pszText = const_cast<LPTSTR>(text);
+	is.item.iImage = image;
+	is.item.iSelectedImage = selectedImage;
+	is.item.state = state;
+	is.item.stateMask = stateMask;
+	is.item.lParam = lParam;
+	return InsertItem(&is);
+}
+
+HTREEITEM CTreeCtrl::InsertItem(LPCTSTR text, HTREEITEM parent, HTREEITEM after) { return InsertItem(TVIF_TEXT, text, 0, 0, 0, 0, 0, parent, after); }
+HTREEITEM CTreeCtrl::InsertItem(LPCTSTR text, int image, int selectedImage, HTREEITEM parent, HTREEITEM after) { return InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE, text, image, selectedImage, 0, 0, 0, parent, after); }
+BOOL CTreeCtrl::DeleteItem(HTREEITEM item) { return TreeView_DeleteItem(m_hWnd, item); }
+BOOL CTreeCtrl::DeleteAllItems() { return TreeView_DeleteAllItems(m_hWnd); }
+BOOL CTreeCtrl::Expand(HTREEITEM item, UINT code) { return TreeView_Expand(m_hWnd, item, code); }
+HTREEITEM CTreeCtrl::GetNextItem(HTREEITEM item, UINT code) const { return TreeView_GetNextItem(m_hWnd, item, code); }
+HTREEITEM CTreeCtrl::GetChildItem(HTREEITEM item) const { return TreeView_GetChild(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetNextSiblingItem(HTREEITEM item) const { return TreeView_GetNextSibling(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetPrevSiblingItem(HTREEITEM item) const { return TreeView_GetPrevSibling(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetParentItem(HTREEITEM item) const { return TreeView_GetParent(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetFirstVisibleItem() const { return TreeView_GetFirstVisible(m_hWnd); }
+HTREEITEM CTreeCtrl::GetNextVisibleItem(HTREEITEM item) const { return TreeView_GetNextVisible(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetPrevVisibleItem(HTREEITEM item) const { return TreeView_GetPrevVisible(m_hWnd, item); }
+HTREEITEM CTreeCtrl::GetSelectedItem() const { return TreeView_GetSelection(m_hWnd); }
+HTREEITEM CTreeCtrl::GetDropHilightItem() const { return TreeView_GetDropHilight(m_hWnd); }
+HTREEITEM CTreeCtrl::GetRootItem() const { return TreeView_GetRoot(m_hWnd); }
+
+BOOL CTreeCtrl::ItemHasChildren(HTREEITEM item) const
+{
+	TVITEM tvi{};
+	tvi.mask = TVIF_CHILDREN | TVIF_HANDLE;
+	tvi.hItem = item;
+	if(!GetItem(&tvi))
+		return FALSE;
+	return tvi.cChildren != 0;
+}
+
+BOOL CTreeCtrl::GetItem(TVITEM *item) const { return TreeView_GetItem(m_hWnd, item); }
+BOOL CTreeCtrl::SetItem(TVITEM *item) { return TreeView_SetItem(m_hWnd, item); }
+
+BOOL CTreeCtrl::SetItem(HTREEITEM item, UINT mask, LPCTSTR text, int image, int selectedImage, UINT state, UINT stateMask, LPARAM lParam)
+{
+	TVITEM tvi{};
+	tvi.hItem = item;
+	tvi.mask = mask | TVIF_HANDLE;
+	tvi.pszText = const_cast<LPTSTR>(text);
+	tvi.iImage = image;
+	tvi.iSelectedImage = selectedImage;
+	tvi.state = state;
+	tvi.stateMask = stateMask;
+	tvi.lParam = lParam;
+	return SetItem(&tvi);
+}
+
+CString CTreeCtrl::GetItemText(HTREEITEM item) const
+{
+	std::vector<TCHAR> buffer(256);
+	for(;;)
+	{
+		TVITEM tvi{};
+		tvi.hItem = item;
+		tvi.mask = TVIF_TEXT | TVIF_HANDLE;
+		tvi.pszText = buffer.data();
+		tvi.cchTextMax = static_cast<int>(buffer.size());
+		if(!GetItem(&tvi))
+			return CString();
+		if(std::char_traits<TCHAR>::length(buffer.data()) + 1 < buffer.size())
+			return CString(buffer.data());
+		buffer.resize(buffer.size() * 2);
+	}
+}
+
+BOOL CTreeCtrl::SetItemText(HTREEITEM item, LPCTSTR text) { return SetItem(item, TVIF_TEXT, text, 0, 0, 0, 0, 0); }
+
+BOOL CTreeCtrl::GetItemImage(HTREEITEM item, int &image, int &selectedImage) const
+{
+	TVITEM tvi{};
+	tvi.hItem = item;
+	tvi.mask = TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_HANDLE;
+	const BOOL ok = GetItem(&tvi);
+	image = tvi.iImage;
+	selectedImage = tvi.iSelectedImage;
+	return ok;
+}
+
+BOOL CTreeCtrl::SetItemImage(HTREEITEM item, int image, int selectedImage) { return SetItem(item, TVIF_IMAGE | TVIF_SELECTEDIMAGE, nullptr, image, selectedImage, 0, 0, 0); }
+UINT CTreeCtrl::GetItemState(HTREEITEM item, UINT mask) const { return TreeView_GetItemState(m_hWnd, item, mask); }
+BOOL CTreeCtrl::SetItemState(HTREEITEM item, UINT state, UINT mask) { return SetItem(item, TVIF_STATE, nullptr, 0, 0, state, mask, 0); }
+
+DWORD_PTR CTreeCtrl::GetItemData(HTREEITEM item) const
+{
+	TVITEM tvi{};
+	tvi.hItem = item;
+	tvi.mask = TVIF_PARAM | TVIF_HANDLE;
+	GetItem(&tvi);
+	return static_cast<DWORD_PTR>(tvi.lParam);
+}
+
+BOOL CTreeCtrl::SetItemData(HTREEITEM item, DWORD_PTR data) { return SetItem(item, TVIF_PARAM, nullptr, 0, 0, 0, 0, static_cast<LPARAM>(data)); }
+BOOL CTreeCtrl::GetItemRect(HTREEITEM item, LPRECT rect, BOOL textOnly) const { return TreeView_GetItemRect(m_hWnd, item, rect, textOnly); }
+BOOL CTreeCtrl::Select(HTREEITEM item, UINT code) { return TreeView_Select(m_hWnd, item, code); }
+BOOL CTreeCtrl::SelectItem(HTREEITEM item) { return TreeView_SelectItem(m_hWnd, item); }
+BOOL CTreeCtrl::SelectDropTarget(HTREEITEM item) { return TreeView_SelectDropTarget(m_hWnd, item); }
+BOOL CTreeCtrl::SelectSetFirstVisible(HTREEITEM item) { return TreeView_SelectSetFirstVisible(m_hWnd, item); }
+BOOL CTreeCtrl::EnsureVisible(HTREEITEM item) { return TreeView_EnsureVisible(m_hWnd, item); }
+
+HTREEITEM CTreeCtrl::HitTest(CPoint pt, UINT *flags) const
+{
+	TVHITTESTINFO info{};
+	info.pt = pt;
+	const HTREEITEM item = TreeView_HitTest(m_hWnd, &info);
+	if(flags != nullptr)
+		*flags = info.flags;
+	return item;
+}
+
+HTREEITEM CTreeCtrl::HitTest(TVHITTESTINFO *info) const { return TreeView_HitTest(m_hWnd, info); }
+CImageList *CTreeCtrl::SetImageList(CImageList *list, int type) { return CImageList::FromHandle(TreeView_SetImageList(m_hWnd, list != nullptr ? list->GetSafeHandle() : nullptr, type)); }
+CImageList *CTreeCtrl::GetImageList(UINT type) const { return CImageList::FromHandle(TreeView_GetImageList(m_hWnd, type)); }
+UINT CTreeCtrl::GetIndent() const { return TreeView_GetIndent(m_hWnd); }
+void CTreeCtrl::SetIndent(UINT indent) { TreeView_SetIndent(m_hWnd, indent); }
+UINT CTreeCtrl::GetCount() const { return TreeView_GetCount(m_hWnd); }
+UINT CTreeCtrl::GetVisibleCount() const { return TreeView_GetVisibleCount(m_hWnd); }
+CEdit *CTreeCtrl::EditLabel(HTREEITEM item) { return reinterpret_cast<CEdit *>(CWnd::FromHandle(TreeView_EditLabel(m_hWnd, item))); }
+BOOL CTreeCtrl::EndEditLabelNow(BOOL cancel) { return TreeView_EndEditLabelNow(m_hWnd, cancel); }
+CEdit *CTreeCtrl::GetEditControl() const { return reinterpret_cast<CEdit *>(CWnd::FromHandle(TreeView_GetEditControl(m_hWnd))); }
+BOOL CTreeCtrl::SortChildren(HTREEITEM item) { return TreeView_SortChildren(m_hWnd, item, 0); }
+DWORD CTreeCtrl::SetExtendedStyle(DWORD mask, DWORD style) { return TreeView_SetExtendedStyle(m_hWnd, style, mask); }
+CToolTipCtrl *CTreeCtrl::GetToolTips() const { return reinterpret_cast<CToolTipCtrl *>(CWnd::FromHandle(TreeView_GetToolTips(m_hWnd))); }
