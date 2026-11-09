@@ -98,6 +98,7 @@ struct LVITEM
 #define LVS_AUTOARRANGE 0x0100
 #define LVS_EDITLABELS 0x0200
 #define LVS_OWNERDATA 0x1000
+#define LVS_OWNERDRAWFIXED 0x0400
 #define LVS_NOSCROLL 0x2000
 #define LVS_NOCOLUMNHEADER 0x4000
 #define LVS_NOSORTHEADER 0x8000
@@ -223,6 +224,242 @@ using PLVGROUP = LVGROUP *;
 #define LVM_SETITEM LVM_SETITEMW
 #define LVM_GETITEM LVM_GETITEMW
 
+// The rest of the list view messages and values.
+#define WC_LISTVIEW L"SysListView32"
+#define ODT_LISTVIEW 102
+#define LVM_GETBKCOLOR (LVM_FIRST + 0)
+#define LVM_SETBKCOLOR (LVM_FIRST + 1)
+#define LVM_GETIMAGELIST (LVM_FIRST + 2)
+#define LVM_GETCALLBACKMASK (LVM_FIRST + 10)
+#define LVM_SETCALLBACKMASK (LVM_FIRST + 11)
+#define LVM_GETITEMRECT (LVM_FIRST + 14)
+#define LVM_SETITEMPOSITION (LVM_FIRST + 15)
+#define LVM_GETITEMPOSITION (LVM_FIRST + 16)
+#define LVM_HITTEST (LVM_FIRST + 18)
+#define LVM_SCROLL (LVM_FIRST + 20)
+#define LVM_REDRAWITEMS (LVM_FIRST + 21)
+#define LVM_ARRANGE (LVM_FIRST + 22)
+#define LVM_GETEDITCONTROL (LVM_FIRST + 24)
+#define LVM_DELETECOLUMN (LVM_FIRST + 28)
+#define LVM_GETCOLUMNWIDTH (LVM_FIRST + 29)
+#define LVM_GETHEADER (LVM_FIRST + 31)
+#define LVM_GETVIEWRECT (LVM_FIRST + 34)
+#define LVM_GETTEXTCOLOR (LVM_FIRST + 35)
+#define LVM_SETTEXTCOLOR (LVM_FIRST + 36)
+#define LVM_GETTEXTBKCOLOR (LVM_FIRST + 37)
+#define LVM_SETTEXTBKCOLOR (LVM_FIRST + 38)
+#define LVM_GETTOPINDEX (LVM_FIRST + 39)
+#define LVM_GETCOUNTPERPAGE (LVM_FIRST + 40)
+#define LVM_GETORIGIN (LVM_FIRST + 41)
+#define LVM_UPDATE (LVM_FIRST + 42)
+#define LVM_SETITEMCOUNT (LVM_FIRST + 47)
+#define LVM_SORTITEMS (LVM_FIRST + 48)
+#define LVM_GETSELECTEDCOUNT (LVM_FIRST + 50)
+#define LVM_GETITEMSPACING (LVM_FIRST + 51)
+#define LVM_GETSUBITEMRECT (LVM_FIRST + 56)
+#define LVM_SUBITEMHITTEST (LVM_FIRST + 57)
+#define LVM_SETCOLUMNORDERARRAY (LVM_FIRST + 58)
+#define LVM_GETCOLUMNORDERARRAY (LVM_FIRST + 59)
+#define LVM_SETHOTITEM (LVM_FIRST + 60)
+#define LVM_GETHOTITEM (LVM_FIRST + 61)
+#define LVM_APPROXIMATEVIEWRECT (LVM_FIRST + 64)
+#define LVM_GETSELECTIONMARK (LVM_FIRST + 66)
+#define LVM_SETSELECTIONMARK (LVM_FIRST + 67)
+#define LVM_SETTOOLTIPS (LVM_FIRST + 74)
+#define LVM_GETTOOLTIPS (LVM_FIRST + 78)
+#define LVM_SORTITEMSEX (LVM_FIRST + 81)
+#define LVM_FINDITEMW (LVM_FIRST + 83)
+#define LVM_GETSTRINGWIDTHW (LVM_FIRST + 87)
+#define LVM_GETCOLUMNW (LVM_FIRST + 95)
+#define LVM_SETCOLUMNW (LVM_FIRST + 96)
+#define LVM_INSERTCOLUMNW (LVM_FIRST + 97)
+#define LVM_GETITEMTEXTW (LVM_FIRST + 115)
+#define LVM_EDITLABELW (LVM_FIRST + 118)
+#define LVM_SETVIEW (LVM_FIRST + 142)
+#define LVM_GETVIEW (LVM_FIRST + 143)
+#define LVM_GETGROUPCOUNT (LVM_FIRST + 152)
+#define LVM_GETGROUPINFOBYINDEX (LVM_FIRST + 153)
+#define LVM_ISITEMVISIBLE (LVM_FIRST + 182)
+#define LVM_FINDITEM LVM_FINDITEMW
+#define LVM_GETSTRINGWIDTH LVM_GETSTRINGWIDTHW
+#define LVM_GETCOLUMN LVM_GETCOLUMNW
+#define LVM_SETCOLUMN LVM_SETCOLUMNW
+#define LVM_INSERTCOLUMN LVM_INSERTCOLUMNW
+#define LVM_GETITEMTEXT LVM_GETITEMTEXTW
+#define LVM_SETITEMTEXT LVM_SETITEMTEXTW
+#define LVM_EDITLABEL LVM_EDITLABELW
+#define LV_VIEW_ICON 0x0000
+#define LV_VIEW_DETAILS 0x0001
+#define LV_VIEW_SMALLICON 0x0002
+#define LV_VIEW_LIST 0x0003
+#define LVS_EX_SUBITEMIMAGES 0x00000002
+#define LVS_EX_TWOCLICKACTIVATE 0x00000080
+#define LVS_EX_UNDERLINEHOT 0x00000800
+#define LVS_EX_BORDERSELECT 0x00008000
+#define LVS_EX_HIDELABELS 0x00020000
+#define LVS_EX_SIMPLESELECT 0x00100000
+#define LVS_EX_JUSTIFYCOLUMNS 0x00200000
+#define LVS_EX_TRANSPARENTBKGND 0x00400000
+#define LVS_EX_HEADERINALLVIEWS 0x02000000
+#define LVS_EX_AUTOCHECKSELECT 0x08000000
+#define LVS_EX_AUTOSIZECOLUMNS 0x10000000
+#define LVCFMT_JUSTIFYMASK 0x0003
+#define LVCFMT_IMAGE 0x0800
+#define LVCFMT_FIXED_WIDTH 0x0100
+#define LVCF_IMAGE 0x0010
+#define LVCF_ORDER 0x0020
+#define LVCF_MINWIDTH 0x0040
+#define LVNI_CUT 0x0004
+#define LVNI_DROPHILITED 0x0008
+#define LVNI_TOLEFT 0x0400
+#define LVNI_TORIGHT 0x0800
+#define LVHT_ABOVE 0x0008
+#define LVHT_BELOW 0x0010
+#define LVHT_TORIGHT 0x0020
+#define LVHT_TOLEFT 0x0040
+#define LVHT_EX_GROUP_HEADER 0x10000000
+#define LVSICF_NOINVALIDATEALL 0x00000001
+#define LVSICF_NOSCROLL 0x00000002
+#define LVKF_ALT 0x0001
+#define LVKF_CONTROL 0x0002
+#define LVKF_SHIFT 0x0004
+#define LVFI_PARAM 0x0001
+#define LVFI_STRING 0x0002
+#define LVFI_SUBSTRING 0x0004
+#define LVFI_PARTIAL 0x0008
+#define LVFI_WRAP 0x0020
+#define LVFI_NEARESTXY 0x0040
+struct LVFINDINFO { UINT flags; LPCTSTR psz; LPARAM lParam; POINT pt; UINT vkDirection; };
+using LPFINDINFO = LVFINDINFO *;
+using PFNLVCOMPARE = int (*)(LPARAM, LPARAM, LPARAM);
+#define LVN_ODCACHEHINT (LVN_FIRST - 13)
+#define LVN_ODSTATECHANGED (LVN_FIRST - 15)
+#define LVN_HOTTRACK (LVN_FIRST - 21)
+#define LVN_ODFINDITEMW (LVN_FIRST - 79)
+#define LVN_SETDISPINFOW (LVN_FIRST - 78)
+#define LVN_ODFINDITEM LVN_ODFINDITEMW
+#define LVN_SETDISPINFO LVN_SETDISPINFOW
+struct NMLVCACHEHINT { NMHDR hdr; int iFrom; int iTo; };
+struct NMLVODSTATECHANGE { NMHDR hdr; int iFrom; int iTo; UINT uNewState; UINT uOldState; };
+struct NMLVFINDITEM { NMHDR hdr; int iStart; LVFINDINFO lvfi; };
+#define LVCDI_ITEM 0x00000000
+#define LVCDI_GROUP 0x00000001
+#define LVCDI_ITEMSLIST 0x00000002
+#define LVGF_ITEMS 0x00004000
+#define ListView_GetItemCount(hwnd) (int)SNDMSG((hwnd), LVM_GETITEMCOUNT, 0, 0)
+#define ListView_GetNextItem(hwnd, i, flags) (int)SNDMSG((hwnd), LVM_GETNEXTITEM, (WPARAM)(int)(i), MAKELPARAM((flags), 0))
+#define ListView_SetItemState(hwnd, i, data, mask) \
+	{ LVITEM _lvi{}; _lvi.stateMask = (mask); _lvi.state = (data); SNDMSG((hwnd), LVM_SETITEMSTATE, (WPARAM)(i), (LPARAM)&_lvi); }
+#define ListView_GetItemState(hwnd, i, mask) (UINT)SNDMSG((hwnd), LVM_GETITEMSTATE, (WPARAM)(i), (LPARAM)(mask))
+#define ListView_SetCheckState(hwnd, i, check) ListView_SetItemState(hwnd, i, INDEXTOSTATEIMAGEMASK((check) ? 2 : 1), LVIS_STATEIMAGEMASK)
+#define ListView_GetCheckState(hwnd, i) ((((UINT)(SNDMSG((hwnd), LVM_GETITEMSTATE, (WPARAM)(i), LVIS_STATEIMAGEMASK))) >> 12) - 1)
+#define ListView_GetHeader(hwnd) (HWND)SNDMSG((hwnd), LVM_GETHEADER, 0, 0)
+#define ListView_EnsureVisible(hwnd, i, partial) (BOOL)SNDMSG((hwnd), LVM_ENSUREVISIBLE, (WPARAM)(int)(i), MAKELPARAM((partial), 0))
+#define ListView_DeleteAllItems(hwnd) (BOOL)SNDMSG((hwnd), LVM_DELETEALLITEMS, 0, 0)
+#define ListView_SetItemCountEx(hwnd, count, flags) SNDMSG((hwnd), LVM_SETITEMCOUNT, (WPARAM)(count), (LPARAM)(flags))
+#define ListView_GetSubItemRect(hwnd, i, sub, code, prc) (BOOL)SNDMSG((hwnd), LVM_GETSUBITEMRECT, (WPARAM)(int)(i), ((prc) ? ((((LPRECT)(prc))->top = (sub)), (((LPRECT)(prc))->left = (code)), (LPARAM)(prc)) : (LPARAM)(LPRECT)NULL))
+
+// ---- header control ----------------------------------------------------------
+#define WC_HEADER L"SysHeader32"
+#define ODT_HEADER 100
+#define HDS_HORZ 0x0000
+#define HDS_BUTTONS 0x0002
+#define HDS_HOTTRACK 0x0004
+#define HDS_HIDDEN 0x0008
+#define HDS_DRAGDROP 0x0040
+#define HDS_FULLDRAG 0x0080
+#define HDS_FILTERBAR 0x0100
+#define HDS_FLAT 0x0200
+#define HDS_CHECKBOXES 0x0400
+#define HDS_NOSIZING 0x0800
+#define HDI_WIDTH 0x0001
+#define HDI_HEIGHT HDI_WIDTH
+#define HDI_TEXT 0x0002
+#define HDI_FORMAT 0x0004
+#define HDI_LPARAM 0x0008
+#define HDI_BITMAP 0x0010
+#define HDI_IMAGE 0x0020
+#define HDI_DI_SETITEM 0x0040
+#define HDI_ORDER 0x0080
+#define HDI_FILTER 0x0100
+#define HDI_STATE 0x0200
+#define HDF_LEFT 0x0000
+#define HDF_RIGHT 0x0001
+#define HDF_CENTER 0x0002
+#define HDF_JUSTIFYMASK 0x0003
+#define HDF_RTLREADING 0x0004
+#define HDF_CHECKBOX 0x0040
+#define HDF_CHECKED 0x0080
+#define HDF_FIXEDWIDTH 0x0100
+#define HDF_SORTDOWN 0x0200
+#define HDF_SORTUP 0x0400
+#define HDF_IMAGE 0x0800
+#define HDF_BITMAP_ON_RIGHT 0x1000
+#define HDF_BITMAP 0x2000
+#define HDF_STRING 0x4000
+#define HDF_OWNERDRAW 0x8000
+struct HDITEM { UINT mask; int cxy; LPTSTR pszText; HBITMAP hbm; int cchTextMax; int fmt; LPARAM lParam; int iImage; int iOrder; UINT type; void *pvFilter; UINT state; };
+using HDITEMW = HDITEM;
+using LPHDITEM = HDITEM *;
+using HD_ITEM = HDITEM;
+struct HDLAYOUT { RECT *prc; WINDOWPOS *pwpos; };
+using LPHDLAYOUT = HDLAYOUT *;
+struct HDHITTESTINFO { POINT pt; UINT flags; int iItem; };
+using LPHDHITTESTINFO = HDHITTESTINFO *;
+#define HHT_NOWHERE 0x0001
+#define HHT_ONHEADER 0x0002
+#define HHT_ONDIVIDER 0x0004
+#define HHT_ONDIVOPEN 0x0008
+#define HHT_ABOVE 0x0100
+#define HHT_BELOW 0x0200
+#define HHT_TORIGHT 0x0400
+#define HHT_TOLEFT 0x0800
+#define HDM_FIRST 0x1200
+#define HDM_GETITEMCOUNT (HDM_FIRST + 0)
+#define HDM_DELETEITEM (HDM_FIRST + 2)
+#define HDM_LAYOUT (HDM_FIRST + 5)
+#define HDM_HITTEST (HDM_FIRST + 6)
+#define HDM_GETITEMRECT (HDM_FIRST + 7)
+#define HDM_SETIMAGELIST (HDM_FIRST + 8)
+#define HDM_GETIMAGELIST (HDM_FIRST + 9)
+#define HDM_INSERTITEMW (HDM_FIRST + 10)
+#define HDM_GETITEMW (HDM_FIRST + 11)
+#define HDM_SETITEMW (HDM_FIRST + 12)
+#define HDM_ORDERTOINDEX (HDM_FIRST + 15)
+#define HDM_GETORDERARRAY (HDM_FIRST + 17)
+#define HDM_SETORDERARRAY (HDM_FIRST + 18)
+#define HDM_SETHOTDIVIDER (HDM_FIRST + 19)
+#define HDM_INSERTITEM HDM_INSERTITEMW
+#define HDM_GETITEM HDM_GETITEMW
+#define HDM_SETITEM HDM_SETITEMW
+#define HDN_FIRST (0U - 300U)
+#define HDN_BEGINDRAG (HDN_FIRST - 10)
+#define HDN_ENDDRAG (HDN_FIRST - 11)
+#define HDN_ITEMSTATEICONCLICK (HDN_FIRST - 16)
+#define HDN_ITEMCHANGINGW (HDN_FIRST - 20)
+#define HDN_ITEMCHANGEDW (HDN_FIRST - 21)
+#define HDN_ITEMCLICKW (HDN_FIRST - 22)
+#define HDN_ITEMDBLCLICKW (HDN_FIRST - 23)
+#define HDN_DIVIDERDBLCLICKW (HDN_FIRST - 25)
+#define HDN_BEGINTRACKW (HDN_FIRST - 26)
+#define HDN_ENDTRACKW (HDN_FIRST - 27)
+#define HDN_TRACKW (HDN_FIRST - 28)
+#define HDN_GETDISPINFOW (HDN_FIRST - 29)
+#define HDN_ITEMCHANGING HDN_ITEMCHANGINGW
+#define HDN_ITEMCHANGED HDN_ITEMCHANGEDW
+#define HDN_ITEMCLICK HDN_ITEMCLICKW
+#define HDN_ITEMDBLCLICK HDN_ITEMDBLCLICKW
+#define HDN_DIVIDERDBLCLICK HDN_DIVIDERDBLCLICKW
+#define HDN_BEGINTRACK HDN_BEGINTRACKW
+#define HDN_ENDTRACK HDN_ENDTRACKW
+#define HDN_TRACK HDN_TRACKW
+struct NMHEADER { NMHDR hdr; int iItem; int iButton; HDITEM *pitem; };
+using LPNMHEADER = NMHEADER *;
+using HD_NOTIFY = NMHEADER;
+#define Header_GetItemCount(hwnd) (int)SNDMSG((hwnd), HDM_GETITEMCOUNT, 0, 0)
+#define Header_GetItemRect(hwnd, i, rc) (BOOL)SNDMSG((hwnd), HDM_GETITEMRECT, (WPARAM)(i), (LPARAM)(rc))
+#define Header_Layout(hwnd, layout) (BOOL)SNDMSG((hwnd), HDM_LAYOUT, 0, (LPARAM)(HDLAYOUT *)(layout))
+
 #define ListView_EnableGroupView(hwnd, enable) (int)SNDMSG((hwnd), LVM_ENABLEGROUPVIEW, (WPARAM)(enable), 0)
 #define ListView_InsertGroup(hwnd, index, group) SNDMSG((hwnd), LVM_INSERTGROUP, (WPARAM)(index), (LPARAM)(group))
 #define ListView_SetGroupInfo(hwnd, id, group) SNDMSG((hwnd), LVM_SETGROUPINFO, (WPARAM)(id), (LPARAM)(group))
@@ -230,6 +467,19 @@ using PLVGROUP = LVGROUP *;
 #define ListView_RemoveGroup(hwnd, id) SNDMSG((hwnd), LVM_REMOVEGROUP, (WPARAM)(id), 0)
 #define ListView_RemoveAllGroups(hwnd) SNDMSG((hwnd), LVM_REMOVEALLGROUPS, 0, 0)
 #define ListView_HasGroup(hwnd, id) SNDMSG((hwnd), LVM_HASGROUP, (WPARAM)(id), 0)
+#define ListView_InsertColumn(hwnd, i, col) (int)SNDMSG((hwnd), LVM_INSERTCOLUMN, (WPARAM)(int)(i), (LPARAM)(const LVCOLUMN *)(col))
+#define ListView_InsertItem(hwnd, item) (int)SNDMSG((hwnd), LVM_INSERTITEM, 0, (LPARAM)(const LVITEM *)(item))
+#define ListView_GetTopIndex(hwnd) (int)SNDMSG((hwnd), LVM_GETTOPINDEX, 0, 0)
+#define ListView_GetCountPerPage(hwnd) (int)SNDMSG((hwnd), LVM_GETCOUNTPERPAGE, 0, 0)
+inline void ListView_GetItemText(HWND hwnd, int item, int subItem, LPWSTR text, int max)
+{
+	LVITEM lvi{};
+	lvi.iSubItem = subItem;
+	lvi.cchTextMax = max;
+	lvi.pszText = text;
+	SNDMSG(hwnd, LVM_GETITEMTEXT, static_cast<WPARAM>(item), reinterpret_cast<LPARAM>(&lvi));
+}
+#define Header_GetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), HDM_GETITEM, (WPARAM)(int)(i), (LPARAM)(HDITEM *)(item))
 #define ListView_IsGroupViewEnabled(hwnd) (BOOL)SNDMSG((hwnd), LVM_ISGROUPVIEWENABLED, 0, 0)
 inline void ListView_SetGroupState(HWND hwnd, int groupID, UINT mask, UINT state)
 {

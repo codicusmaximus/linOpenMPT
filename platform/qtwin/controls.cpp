@@ -1045,6 +1045,8 @@ void RegisterListBoxClasses();
 void RegisterComboBoxClass();
 void RegisterCommonControlClasses();
 void RegisterTabControlClass();
+void RegisterHeaderClass();
+void RegisterListViewClass();
 
 void RegisterSystemClasses()
 {
@@ -1056,6 +1058,8 @@ void RegisterSystemClasses()
 	RegisterComboBoxClass();
 	RegisterCommonControlClasses();
 	RegisterTabControlClass();
+	RegisterHeaderClass();
+	RegisterListViewClass();
 }
 
 } // namespace linopenmpt::qtwin

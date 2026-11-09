@@ -51,6 +51,9 @@ int g_changeDelta = 0;    // UDN_DELTAPOS changes iDelta to this
 LRESULT g_customDraw = CDRF_DODEFAULT;
 std::vector<DWORD> g_drawStages;
 extern int g_refuseChange;
+std::vector<NMLISTVIEW> g_lvChanges;
+std::wstring g_editedText;
+bool g_editAccept = true;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -80,6 +83,26 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			}
 			if(hdr->code == TCN_SELCHANGING)
 				return g_refuseChange;
+			if(hdr->code == LVN_ITEMCHANGED)
+				g_lvChanges.push_back(*reinterpret_cast<const NMLISTVIEW *>(lp));
+			if(hdr->code == LVN_GETDISPINFO)
+			{
+				// Owner data: the text is the item and subitem numbers.
+				auto *di = reinterpret_cast<NMLVDISPINFO *>(lp);
+				if((di->item.mask & LVIF_TEXT) && di->item.pszText != nullptr)
+				{
+					const std::wstring text = L"row " + std::to_wstring(di->item.iItem) + L"." + std::to_wstring(di->item.iSubItem);
+					wcsncpy(di->item.pszText, text.c_str(), di->item.cchTextMax - 1);
+					di->item.pszText[di->item.cchTextMax - 1] = 0;
+				}
+				return 0;
+			}
+			if(hdr->code == LVN_ENDLABELEDIT)
+			{
+				const auto *di = reinterpret_cast<const NMLVDISPINFO *>(lp);
+				g_editedText = di->item.pszText != nullptr ? di->item.pszText : L"(cancelled)";
+				return g_editAccept ? TRUE : FALSE;
+			}
 			return 0;
 		}
 	default:
@@ -581,6 +604,212 @@ void Tabs(HWND parent)
 	::DestroyWindow(multi);
 }
 
+
+int CALLBACK CompareText(LPARAM a, LPARAM b, LPARAM descending)
+{
+	const int result = static_cast<int>(a) - static_cast<int>(b);
+	return descending ? -result : result;
+}
+
+class SortedList : public CMFCListCtrl
+{
+public:
+	int OnCompareItems(LPARAM a, LPARAM b, int) override { return static_cast<int>(a) - static_cast<int>(b); }
+	COLORREF OnGetCellBkColor(int row, int) override { return row == 1 ? RGB(255, 220, 220) : GetBkColor(); }
+};
+
+void ListViews(HWND parent)
+{
+	HWND lv = ::CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SHOWSELALWAYS | LVS_EDITLABELS, 10, 10, 360, 200, parent, reinterpret_cast<HMENU>(500), nullptr, nullptr);
+	Check(lv != nullptr, "list view: created");
+	HWND header = ListView_GetHeader(lv);
+	Check(header != nullptr && ::GetParent(header) == lv, "list view: a header child in report view");
+	CListCtrl list;
+	list.Attach(lv);
+	Check(list.InsertColumn(0, L"Name", LVCFMT_LEFT, 120) == 0 && list.InsertColumn(1, L"Size", LVCFMT_RIGHT, 80) == 1 && list.InsertColumn(2, L"Type", LVCFMT_LEFT, 90) == 2, "list view: InsertColumn");
+	Check(Header_GetItemCount(header) == 3 && list.GetColumnWidth(1) == 80, "list view: columns become header items");
+	const wchar_t *names[] = {L"kick.wav", L"snare.wav", L"hihat.wav", L"bass.wav"};
+	const int sizes[] = {40, 10, 30, 20};
+	for(int i = 0; i < 4; i++)
+	{
+		const int index = list.InsertItem(LVIF_TEXT | LVIF_PARAM, i, names[i], 0, 0, 0, sizes[i]);
+		list.SetItemText(index, 1, std::to_wstring(sizes[i]).c_str());
+		list.SetItemText(index, 2, L"Sample");
+	}
+	Check(list.GetItemCount() == 4, "list view: InsertItem");
+	Check(list.GetItemText(1, 0) == CString(L"snare.wav") && list.GetItemText(1, 1) == CString(L"10"), "list view: GetItemText, item and subitem");
+	Check(list.GetItemData(2) == 30, "list view: GetItemData");
+
+	// Rows go down from below the header.
+	RECT h{}, r0{}, r1{};
+	::GetWindowRect(header, &h);
+	list.GetItemRect(0, &r0, LVIR_BOUNDS);
+	list.GetItemRect(1, &r1, LVIR_BOUNDS);
+	Check(r0.top == h.bottom - h.top && r1.top == r0.bottom && r0.right - r0.left == 290, "list view: rows below the header, as wide as the columns");
+	CRect cell;
+	list.GetSubItemRect(1, 1, LVIR_LABEL, cell);
+	Check(cell.left == 120 && cell.right == 200 && cell.top == r1.top, "list view: GetSubItemRect");
+
+	// A click selects, with LVN_ITEMCHANGING and LVN_ITEMCHANGED.
+	g_lvChanges.clear();
+	g_notifies.clear();
+	::SetFocus(lv);
+	Pump();
+	Mouse(lv, QEvent::MouseButtonPress, 30, (r1.top + r1.bottom) / 2);
+	Mouse(lv, QEvent::MouseButtonRelease, 30, (r1.top + r1.bottom) / 2);
+	Check(list.GetSelectedCount() == 1 && list.GetItemState(1, LVIS_SELECTED | LVIS_FOCUSED) == (LVIS_SELECTED | LVIS_FOCUSED), "list view: a click selects and focuses");
+	Check(std::find(g_notifies.begin(), g_notifies.end(), static_cast<UINT>(LVN_ITEMCHANGING)) != g_notifies.end() && std::find(g_notifies.begin(), g_notifies.end(), static_cast<UINT>(NM_CLICK)) != g_notifies.end(), "list view: LVN_ITEMCHANGING and NM_CLICK");
+	const bool selectedNotified = std::any_of(g_lvChanges.begin(), g_lvChanges.end(), [](const NMLISTVIEW &nm) { return nm.iItem == 1 && (nm.uNewState & LVIS_SELECTED) && !(nm.uOldState & LVIS_SELECTED); });
+	Check(selectedNotified, "list view: LVN_ITEMCHANGED for the new selection");
+	Check(list.GetSelectionMark() == 1, "list view: the click sets the selection mark");
+	POSITION pos = list.GetFirstSelectedItemPosition();
+	Check(pos != nullptr && list.GetNextSelectedItem(pos) == 1 && pos == nullptr, "list view: GetFirstSelectedItemPosition walk");
+
+	// Keys move the focus and the selection.
+	Key(Qt::Key_Down);
+	Check(list.GetItemState(2, LVIS_SELECTED) && !list.GetItemState(1, LVIS_SELECTED), "list view: Down moves the selection");
+	Key(Qt::Key_End);
+	Check(list.GetItemState(3, LVIS_SELECTED | LVIS_FOCUSED) == (LVIS_SELECTED | LVIS_FOCUSED), "list view: End");
+	Key(Qt::Key_Home);
+	Check(list.GetItemState(0, LVIS_SELECTED) && list.GetSelectedCount() == 1, "list view: Home");
+
+	// Multiple selection, and LVM_GETNEXTITEM.
+	list.SetItemState(-1, LVIS_SELECTED, LVIS_SELECTED);
+	Check(list.GetSelectedCount() == 4, "list view: item -1 sets the state of all");
+	Check(list.GetNextItem(1, LVNI_SELECTED) == 2 && list.GetNextItem(3, LVNI_SELECTED) == -1, "list view: LVM_GETNEXTITEM");
+	list.SetItemState(-1, 0, LVIS_SELECTED);
+	Check(list.GetSelectedCount() == 0, "list view: clear the selection");
+
+	// Hit testing.
+	LVHITTESTINFO hit{};
+	hit.pt = POINT{150, (r1.top + r1.bottom) / 2};
+	Check(list.SubItemHitTest(&hit) == 1 && hit.iItem == 1 && hit.iSubItem == 1, "list view: LVM_SUBITEMHITTEST");
+	UINT flags = 0;
+	Check(list.HitTest(CPoint(30, 190), &flags) == -1 && (flags & LVHT_NOWHERE), "list view: LVM_HITTEST below the items");
+
+	// Sorting by lParam.
+	list.SortItems(CompareText, 0);
+	Check(list.GetItemText(0, 0) == CString(L"snare.wav") && list.GetItemText(3, 0) == CString(L"kick.wav"), "list view: LVM_SORTITEMS");
+	list.SortItems(CompareText, 1);
+	Check(list.GetItemText(0, 0) == CString(L"kick.wav"), "list view: LVM_SORTITEMS descending");
+
+	// Check boxes.
+	list.SetExtendedStyle(list.GetExtendedStyle() | LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+	Check(!list.GetCheck(0), "list view: LVS_EX_CHECKBOXES starts unchecked");
+	list.SetCheck(2, TRUE);
+	Check(list.GetCheck(2) && !list.GetCheck(1), "list view: SetCheck");
+	::SetFocus(lv);
+	list.SetItemState(1, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+	Key(Qt::Key_Space);
+	Check(list.GetCheck(1), "list view: Space toggles the check box");
+	SaveShot(parent, "listview_report");
+
+	// Label editing: the edit takes the text, Enter ends it, and the parent accepts.
+	CEdit *edit = list.EditLabel(0);
+	Pump();
+	Check(edit != nullptr && list.GetEditControl() != nullptr, "list view: EditLabel opens an edit");
+	if(edit != nullptr)
+	{
+		::SetWindowText(edit->m_hWnd, L"crash.wav");
+		::SetFocus(edit->m_hWnd);
+		Pump();
+		Key(Qt::Key_Return);
+	}
+	Check(g_editedText == L"crash.wav" && list.GetItemText(0, 0) == CString(L"crash.wav"), "list view: LVN_ENDLABELEDIT, accepted");
+	Check(list.GetEditControl() == nullptr, "list view: the edit goes away");
+	g_editAccept = false;
+	edit = list.EditLabel(0);
+	Pump();
+	if(edit != nullptr)
+	{
+		::SetWindowText(edit->m_hWnd, L"ride.wav");
+		::SetFocus(edit->m_hWnd);
+		Pump();
+		Key(Qt::Key_Return);
+	}
+	g_editAccept = true;
+	Check(list.GetItemText(0, 0) == CString(L"crash.wav"), "list view: a FALSE answer keeps the old text");
+
+	// Delete.
+	list.DeleteItem(0);
+	Check(list.GetItemCount() == 3, "list view: DeleteItem");
+	list.DeleteAllItems();
+	Check(list.GetItemCount() == 0, "list view: DeleteAllItems");
+
+	// Groups.
+	ListView_EnableGroupView(lv, TRUE);
+	Check(ListView_IsGroupViewEnabled(lv), "list view: group view on");
+	LVGROUP group{};
+	group.cbSize = sizeof(group);
+	group.mask = LVGF_HEADER | LVGF_GROUPID;
+	group.pszHeader = const_cast<LPWSTR>(L"Drums");
+	group.iGroupId = 1;
+	ListView_InsertGroup(lv, -1, &group);
+	group.pszHeader = const_cast<LPWSTR>(L"Synths");
+	group.iGroupId = 2;
+	ListView_InsertGroup(lv, -1, &group);
+	for(int i = 0; i < 4; i++)
+	{
+		LVITEM item{};
+		item.mask = LVIF_TEXT | LVIF_GROUPID;
+		item.iItem = i;
+		item.pszText = const_cast<LPWSTR>(names[i]);
+		item.iGroupId = i < 2 ? 2 : 1;
+		ListView_InsertItem(lv, &item);
+	}
+	RECT g0{}, g3{};
+	list.GetItemRect(0, &g0, LVIR_BOUNDS);
+	list.GetItemRect(3, &g3, LVIR_BOUNDS);
+	Check(g3.top < g0.top, "list view: groups in group order (Drums before Synths)");
+	SaveShot(parent, "listview_groups");
+	ListView_RemoveAllGroups(lv);
+	ListView_EnableGroupView(lv, FALSE);
+	list.Detach();
+	::DestroyWindow(lv);
+
+	// Owner data: the parent supplies the text.
+	HWND od = ::CreateWindowEx(0, WC_LISTVIEW, nullptr, WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_OWNERDATA, 10, 10, 360, 200, parent, reinterpret_cast<HMENU>(501), nullptr, nullptr);
+	LVCOLUMN rowColumn{};
+	rowColumn.mask = LVCF_TEXT | LVCF_WIDTH;
+	rowColumn.cx = 150;
+	rowColumn.pszText = const_cast<LPWSTR>(L"Row");
+	ListView_InsertColumn(od, 0, &rowColumn);
+	ListView_SetItemCountEx(od, 100000, 0);
+	Check(ListView_GetItemCount(od) == 100000, "owner data: LVM_SETITEMCOUNT");
+	wchar_t text[64] = {};
+	ListView_GetItemText(od, 76543, 0, text, 64);
+	Check(std::wstring(text) == L"row 76543.0", "owner data: LVN_GETDISPINFO supplies the text");
+	ListView_EnsureVisible(od, 99999, FALSE);
+	Check(ListView_GetTopIndex(od) + ListView_GetCountPerPage(od) >= 99999, "owner data: LVM_ENSUREVISIBLE scrolls to the end");
+	SaveShot(parent, "listview_ownerdata");
+	::DestroyWindow(od);
+
+	// CMFCListCtrl: per-cell colours and sorting by a column click.
+	SortedList sorted;
+	sorted.Create(WS_CHILD | WS_VISIBLE | LVS_REPORT, CRect(10, 10, 370, 210), CWnd::FromHandle(parent), 502);
+	sorted.InsertColumn(0, L"Name", LVCFMT_LEFT, 150);
+	for(int i = 0; i < 4; i++)
+		sorted.InsertItem(LVIF_TEXT | LVIF_PARAM, i, names[i], 0, 0, 0, sizes[i]);
+	g_drawStages.clear();
+	::UpdateWindow(sorted.m_hWnd);
+	Pump();
+	HWND sortedHeader = ListView_GetHeader(sorted.m_hWnd);
+	RECT col{};
+	Header_GetItemRect(sortedHeader, 0, &col);
+	Mouse(sortedHeader, QEvent::MouseButtonPress, 40, (col.top + col.bottom) / 2);
+	Mouse(sortedHeader, QEvent::MouseButtonRelease, 40, (col.top + col.bottom) / 2);
+	Check(sorted.GetSortColumn() == 0 && sorted.IsAscending() && sorted.GetItemText(0, 0) == CString(L"snare.wav"), "CMFCListCtrl: a header click sorts ascending");
+	HDITEM hdi{};
+	hdi.mask = HDI_FORMAT;
+	Header_GetItem(sortedHeader, 0, &hdi);
+	Check(hdi.fmt & HDF_SORTUP, "CMFCListCtrl: the header shows the sort arrow");
+	Mouse(sortedHeader, QEvent::MouseButtonPress, 40, (col.top + col.bottom) / 2);
+	Mouse(sortedHeader, QEvent::MouseButtonRelease, 40, (col.top + col.bottom) / 2);
+	Check(!sorted.IsAscending() && sorted.GetItemText(0, 0) == CString(L"kick.wav"), "CMFCListCtrl: a second click sorts descending");
+	SaveShot(parent, "listview_mfc");
+	sorted.DestroyWindow();
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -601,6 +830,7 @@ int main(int argc, char **argv)
 	Progress(parent);
 	ImageLists();
 	Tabs(parent);
+	ListViews(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

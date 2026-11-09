@@ -196,3 +196,304 @@ CImageList *CTabCtrl::SetImageList(CImageList *list)
 {
 	return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, TCM_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->m_hImageList : nullptr))));
 }
+
+// ---- CListCtrl -------------------------------------------------------------------------------
+
+BOOL CListCtrl::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id)
+{
+	return CWnd::Create(WC_LISTVIEW, nullptr, style, rect, parent, id);
+}
+
+void CListCtrl::SetItemCount(int count) { ::SendMessage(m_hWnd, LVM_SETITEMCOUNT, count, 0); }
+BOOL CListCtrl::SetItemCountEx(int count, DWORD flags) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETITEMCOUNT, count, flags)); }
+
+int CListCtrl::InsertColumn(int col, LPCTSTR heading, int format, int width, int subItem)
+{
+	LVCOLUMN column{};
+	column.mask = LVCF_TEXT | LVCF_FMT;
+	column.pszText = const_cast<LPTSTR>(heading);
+	column.fmt = format;
+	if(width != -1)
+	{
+		column.mask |= LVCF_WIDTH;
+		column.cx = width;
+	}
+	if(subItem != -1)
+	{
+		column.mask |= LVCF_SUBITEM;
+		column.iSubItem = subItem;
+	}
+	return static_cast<int>(::SendMessage(m_hWnd, LVM_INSERTCOLUMN, col, reinterpret_cast<LPARAM>(&column)));
+}
+
+BOOL CListCtrl::DeleteColumn(int col) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_DELETECOLUMN, col, 0)); }
+int CListCtrl::GetColumnWidth(int col) const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETCOLUMNWIDTH, col, 0)); }
+BOOL CListCtrl::SetColumnWidth(int col, int width) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETCOLUMNWIDTH, col, MAKELPARAM(width, 0))); }
+BOOL CListCtrl::GetColumn(int col, LVCOLUMN *column) const { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_GETCOLUMN, col, reinterpret_cast<LPARAM>(column))); }
+BOOL CListCtrl::SetColumn(int col, const LVCOLUMN *column) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETCOLUMN, col, reinterpret_cast<LPARAM>(column))); }
+int CListCtrl::GetItemCount() const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETITEMCOUNT, 0, 0)); }
+
+int CListCtrl::InsertItem(const LVITEM *item) { return static_cast<int>(::SendMessage(m_hWnd, LVM_INSERTITEM, 0, reinterpret_cast<LPARAM>(item))); }
+int CListCtrl::InsertItem(int item, LPCTSTR text) { return InsertItem(LVIF_TEXT, item, text, 0, 0, 0, 0); }
+int CListCtrl::InsertItem(int item, LPCTSTR text, int image) { return InsertItem(LVIF_TEXT | LVIF_IMAGE, item, text, 0, 0, image, 0); }
+int CListCtrl::InsertItem(UINT mask, int item, LPCTSTR text, UINT state, UINT stateMask, int image, LPARAM lParam)
+{
+	LVITEM lvi{};
+	lvi.mask = mask;
+	lvi.iItem = item;
+	lvi.pszText = const_cast<LPTSTR>(text);
+	lvi.state = state;
+	lvi.stateMask = stateMask;
+	lvi.iImage = image;
+	lvi.lParam = lParam;
+	return InsertItem(&lvi);
+}
+
+BOOL CListCtrl::SetItem(const LVITEM *item) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETITEM, 0, reinterpret_cast<LPARAM>(item))); }
+BOOL CListCtrl::GetItem(LVITEM *item) const { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_GETITEM, 0, reinterpret_cast<LPARAM>(item))); }
+BOOL CListCtrl::DeleteItem(int item) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_DELETEITEM, item, 0)); }
+BOOL CListCtrl::DeleteAllItems() { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_DELETEALLITEMS, 0, 0)); }
+
+BOOL CListCtrl::SetItemText(int item, int subItem, LPCTSTR text)
+{
+	LVITEM lvi{};
+	lvi.iSubItem = subItem;
+	lvi.pszText = const_cast<LPTSTR>(text);
+	return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETITEMTEXT, item, reinterpret_cast<LPARAM>(&lvi)));
+}
+
+CString CListCtrl::GetItemText(int item, int subItem) const
+{
+	// Grow the buffer until the text fits, like MFC does.
+	std::vector<TCHAR> buffer(256);
+	for(;;)
+	{
+		LVITEM lvi{};
+		lvi.iSubItem = subItem;
+		lvi.pszText = buffer.data();
+		lvi.cchTextMax = static_cast<int>(buffer.size());
+		const auto length = static_cast<size_t>(::SendMessage(m_hWnd, LVM_GETITEMTEXT, item, reinterpret_cast<LPARAM>(&lvi)));
+		if(length + 1 < buffer.size())
+			return CString(buffer.data());
+		buffer.resize(buffer.size() * 2);
+	}
+}
+
+BOOL CListCtrl::SetItemData(int item, DWORD_PTR data)
+{
+	LVITEM lvi{};
+	lvi.mask = LVIF_PARAM;
+	lvi.iItem = item;
+	lvi.lParam = static_cast<LPARAM>(data);
+	return SetItem(&lvi);
+}
+
+DWORD_PTR CListCtrl::GetItemData(int item) const
+{
+	LVITEM lvi{};
+	lvi.mask = LVIF_PARAM;
+	lvi.iItem = item;
+	GetItem(&lvi);
+	return static_cast<DWORD_PTR>(lvi.lParam);
+}
+
+BOOL CListCtrl::SetItemState(int item, UINT state, UINT mask)
+{
+	LVITEM lvi{};
+	lvi.state = state;
+	lvi.stateMask = mask;
+	return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETITEMSTATE, item, reinterpret_cast<LPARAM>(&lvi)));
+}
+
+UINT CListCtrl::GetItemState(int item, UINT mask) const { return static_cast<UINT>(::SendMessage(m_hWnd, LVM_GETITEMSTATE, item, mask)); }
+BOOL CListCtrl::SetCheck(int item, BOOL check) { return SetItemState(item, INDEXTOSTATEIMAGEMASK(check ? 2 : 1), LVIS_STATEIMAGEMASK); }
+BOOL CListCtrl::GetCheck(int item) const { return ((GetItemState(item, LVIS_STATEIMAGEMASK) >> 12) - 1) > 0; }
+UINT CListCtrl::GetSelectedCount() const { return static_cast<UINT>(::SendMessage(m_hWnd, LVM_GETSELECTEDCOUNT, 0, 0)); }
+int CListCtrl::GetSelectionMark() const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETSELECTIONMARK, 0, 0)); }
+int CListCtrl::SetSelectionMark(int item) { return static_cast<int>(::SendMessage(m_hWnd, LVM_SETSELECTIONMARK, 0, item)); }
+int CListCtrl::GetNextItem(int item, int flags) const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETNEXTITEM, item, MAKELPARAM(flags, 0))); }
+
+// MFC encodes the position as index + 1, so that nullptr ends the walk.
+POSITION CListCtrl::GetFirstSelectedItemPosition() const
+{
+	return reinterpret_cast<POSITION>(static_cast<INT_PTR>(GetNextItem(-1, LVNI_SELECTED) + 1));
+}
+
+int CListCtrl::GetNextSelectedItem(POSITION &pos) const
+{
+	const int item = static_cast<int>(reinterpret_cast<INT_PTR>(pos)) - 1;
+	pos = reinterpret_cast<POSITION>(static_cast<INT_PTR>(GetNextItem(item, LVNI_SELECTED) + 1));
+	return item;
+}
+
+BOOL CListCtrl::EnsureVisible(int item, BOOL partialOK) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_ENSUREVISIBLE, item, partialOK)); }
+DWORD CListCtrl::GetExtendedStyle() const { return static_cast<DWORD>(::SendMessage(m_hWnd, LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0)); }
+DWORD CListCtrl::SetExtendedStyle(DWORD style) { return static_cast<DWORD>(::SendMessage(m_hWnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, style)); }
+
+CImageList *CListCtrl::SetImageList(CImageList *list, int type)
+{
+	const auto old = reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, LVM_SETIMAGELIST, type, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr)));
+	return CImageList::FromHandle(old);
+}
+
+int CListCtrl::GetTopIndex() const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETTOPINDEX, 0, 0)); }
+int CListCtrl::GetCountPerPage() const { return static_cast<int>(::SendMessage(m_hWnd, LVM_GETCOUNTPERPAGE, 0, 0)); }
+
+BOOL CListCtrl::GetItemRect(int item, LPRECT rect, UINT code) const
+{
+	rect->left = static_cast<LONG>(code);
+	return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_GETITEMRECT, item, reinterpret_cast<LPARAM>(rect)));
+}
+
+int CListCtrl::HitTest(CPoint pt, UINT *flags) const
+{
+	LVHITTESTINFO info{};
+	info.pt = pt;
+	const int item = static_cast<int>(::SendMessage(m_hWnd, LVM_HITTEST, 0, reinterpret_cast<LPARAM>(&info)));
+	if(flags != nullptr)
+		*flags = info.flags;
+	return item;
+}
+
+LRESULT CListCtrl::EnableGroupView(BOOL enable) { return ::SendMessage(m_hWnd, LVM_ENABLEGROUPVIEW, enable, 0); }
+int CListCtrl::InsertGroup(int index, LVGROUP *group) { return static_cast<int>(::SendMessage(m_hWnd, LVM_INSERTGROUP, index, reinterpret_cast<LPARAM>(group))); }
+void CListCtrl::RemoveAllGroups() { ::SendMessage(m_hWnd, LVM_REMOVEALLGROUPS, 0, 0); }
+
+BOOL CListCtrl::SortItems(int (*compare)(LPARAM, LPARAM, LPARAM), DWORD_PTR data)
+{
+	return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SORTITEMS, static_cast<WPARAM>(data), reinterpret_cast<LPARAM>(compare)));
+}
+
+CEdit *CListCtrl::EditLabel(int item) { return reinterpret_cast<CEdit *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, LVM_EDITLABEL, item, 0)))); }
+CEdit *CListCtrl::GetEditControl() const { return reinterpret_cast<CEdit *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, LVM_GETEDITCONTROL, 0, 0)))); }
+CHeaderCtrl *CListCtrl::GetHeaderCtrl() const { return reinterpret_cast<CHeaderCtrl *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, LVM_GETHEADER, 0, 0)))); }
+BOOL CListCtrl::RedrawItems(int first, int last) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_REDRAWITEMS, first, last)); }
+BOOL CListCtrl::Update(int item) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_UPDATE, item, 0)); }
+
+BOOL CListCtrl::GetSubItemRect(int item, int subItem, int area, CRect &rect)
+{
+	RECT r{area, subItem, 0, 0};
+	const BOOL ok = static_cast<BOOL>(::SendMessage(m_hWnd, LVM_GETSUBITEMRECT, item, reinterpret_cast<LPARAM>(&r)));
+	rect = r;
+	return ok;
+}
+
+int CListCtrl::SubItemHitTest(LVHITTESTINFO *info) { return static_cast<int>(::SendMessage(m_hWnd, LVM_SUBITEMHITTEST, 0, reinterpret_cast<LPARAM>(info))); }
+COLORREF CListCtrl::GetBkColor() const { return static_cast<COLORREF>(::SendMessage(m_hWnd, LVM_GETBKCOLOR, 0, 0)); }
+BOOL CListCtrl::SetBkColor(COLORREF color) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETBKCOLOR, 0, static_cast<LPARAM>(color))); }
+COLORREF CListCtrl::GetTextColor() const { return static_cast<COLORREF>(::SendMessage(m_hWnd, LVM_GETTEXTCOLOR, 0, 0)); }
+BOOL CListCtrl::SetTextColor(COLORREF color) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETTEXTCOLOR, 0, static_cast<LPARAM>(color))); }
+COLORREF CListCtrl::GetTextBkColor() const { return static_cast<COLORREF>(::SendMessage(m_hWnd, LVM_GETTEXTBKCOLOR, 0, 0)); }
+BOOL CListCtrl::SetTextBkColor(COLORREF color) { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_SETTEXTBKCOLOR, 0, static_cast<LPARAM>(color))); }
+BOOL CListCtrl::GetViewRect(LPRECT rect) const { return static_cast<BOOL>(::SendMessage(m_hWnd, LVM_GETVIEWRECT, 0, reinterpret_cast<LPARAM>(rect))); }
+
+CSize CListCtrl::ApproximateViewRect(CSize size, int count) const
+{
+	const auto r = static_cast<DWORD>(::SendMessage(m_hWnd, LVM_APPROXIMATEVIEWRECT, count, MAKELPARAM(size.cx, size.cy)));
+	return CSize(LOWORD(r), HIWORD(r));
+}
+
+// ---- CMFCListCtrl ----------------------------------------------------------------------------
+// Per-cell colours through custom draw, and sorting by a click on a column header.
+
+BEGIN_MESSAGE_MAP(CMFCListCtrl, CListCtrl)
+	ON_NOTIFY_REFLECT(NM_CUSTOMDRAW, &CMFCListCtrl::OnCustomDraw)
+	ON_NOTIFY_EX(HDN_ITEMCLICK, 0, &CMFCListCtrl::OnHeaderItemClick)
+END_MESSAGE_MAP()
+
+int CMFCListCtrl::OnCompareItems(LPARAM, LPARAM, int) { return 0; }
+COLORREF CMFCListCtrl::OnGetCellTextColor(int, int) { return GetTextColor(); }
+COLORREF CMFCListCtrl::OnGetCellBkColor(int, int) { return GetBkColor(); }
+void CMFCListCtrl::EnableMarkSortedColumn(BOOL mark, BOOL redraw)
+{
+	m_bMarkSortedColumn = mark;
+	if(redraw && m_hWnd != nullptr)
+		Invalidate();
+}
+
+int CALLBACK CMFCListCtrl::CompareProc(LPARAM item1, LPARAM item2, LPARAM self)
+{
+	auto *list = reinterpret_cast<CMFCListCtrl *>(self);
+	const int result = list->OnCompareItems(item1, item2, list->m_iSortedColumn);
+	return list->m_bAscending ? result : -result;
+}
+
+void CMFCListCtrl::Sort(int column, BOOL ascending, BOOL)
+{
+	m_iSortedColumn = column;
+	m_bAscending = ascending;
+	// Show the sort arrow on the header, as CMFCHeaderCtrl does.
+	if(auto *header = GetHeaderCtrl())
+	{
+		const int count = header->GetItemCount();
+		for(int i = 0; i < count; i++)
+		{
+			HDITEM item{};
+			item.mask = HDI_FORMAT;
+			header->GetItem(i, &item);
+			item.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+			if(i == column)
+				item.fmt |= ascending ? HDF_SORTUP : HDF_SORTDOWN;
+			header->SetItem(i, &item);
+		}
+	}
+	SortItems(&CMFCListCtrl::CompareProc, reinterpret_cast<DWORD_PTR>(this));
+}
+
+// The header is the list's own child, so this works whatever the parent is.
+// FALSE lets the list go on to send LVN_COLUMNCLICK.
+BOOL CMFCListCtrl::OnHeaderItemClick(UINT, NMHDR *nmhdr, LRESULT *)
+{
+	const int column = reinterpret_cast<NMHEADER *>(nmhdr)->iItem;
+	Sort(column, column == m_iSortedColumn ? !m_bAscending : TRUE);
+	return FALSE;
+}
+
+void CMFCListCtrl::OnCustomDraw(NMHDR *nmhdr, LRESULT *result)
+{
+	auto *cd = reinterpret_cast<NMLVCUSTOMDRAW *>(nmhdr);
+	switch(cd->nmcd.dwDrawStage)
+	{
+	case CDDS_PREPAINT:
+		*result = CDRF_NOTIFYITEMDRAW;
+		break;
+	case CDDS_ITEMPREPAINT:
+		*result = CDRF_NOTIFYSUBITEMDRAW;
+		break;
+	case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
+		{
+			const int row = static_cast<int>(cd->nmcd.dwItemSpec);
+			cd->clrText = OnGetCellTextColor(row, cd->iSubItem);
+			cd->clrTextBk = OnGetCellBkColor(row, cd->iSubItem);
+			*result = CDRF_DODEFAULT;
+		}
+		break;
+	default:
+		*result = CDRF_DODEFAULT;
+		break;
+	}
+}
+
+// ---- CHeaderCtrl -----------------------------------------------------------------------------
+
+BOOL CHeaderCtrl::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id) { return CWnd::Create(WC_HEADER, nullptr, style, rect, parent, id); }
+int CHeaderCtrl::GetItemCount() const { return static_cast<int>(::SendMessage(m_hWnd, HDM_GETITEMCOUNT, 0, 0)); }
+BOOL CHeaderCtrl::GetItemRect(int index, LPRECT rect) const { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_GETITEMRECT, index, reinterpret_cast<LPARAM>(rect))); }
+BOOL CHeaderCtrl::GetItem(int index, HDITEM *item) const { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_GETITEM, index, reinterpret_cast<LPARAM>(item))); }
+BOOL CHeaderCtrl::SetItem(int index, HDITEM *item) { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_SETITEM, index, reinterpret_cast<LPARAM>(item))); }
+int CHeaderCtrl::InsertItem(int index, HDITEM *item) { return static_cast<int>(::SendMessage(m_hWnd, HDM_INSERTITEM, index, reinterpret_cast<LPARAM>(item))); }
+BOOL CHeaderCtrl::DeleteItem(int index) { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_DELETEITEM, index, 0)); }
+BOOL CHeaderCtrl::GetOrderArray(LPINT array, int count) const
+{
+	if(count < 0)
+		count = GetItemCount();
+	return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_GETORDERARRAY, count, reinterpret_cast<LPARAM>(array)));
+}
+BOOL CHeaderCtrl::SetOrderArray(int count, LPINT array) { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_SETORDERARRAY, count, reinterpret_cast<LPARAM>(array))); }
+int CHeaderCtrl::OrderToIndex(int order) const { return static_cast<int>(::SendMessage(m_hWnd, HDM_ORDERTOINDEX, order, 0)); }
+int CHeaderCtrl::HitTest(LPHDHITTESTINFO info) { return static_cast<int>(::SendMessage(m_hWnd, HDM_HITTEST, 0, reinterpret_cast<LPARAM>(info))); }
+CImageList *CHeaderCtrl::SetImageList(CImageList *list)
+{
+	return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(::SendMessage(m_hWnd, HDM_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr))));
+}
+BOOL CHeaderCtrl::Layout(HDLAYOUT *layout) { return static_cast<BOOL>(::SendMessage(m_hWnd, HDM_LAYOUT, 0, reinterpret_cast<LPARAM>(layout))); }
