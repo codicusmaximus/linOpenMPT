@@ -11,9 +11,14 @@
 #include <QtGui/QKeyEvent>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPushButton>
 
 #include <cstdio>
+#include <cstdlib>
+#include <algorithm>
 #include <cstring>
+#include <functional>
 #include <set>
 #include <string>
 #include <vector>
@@ -428,12 +433,266 @@ BOOL ModelessHook(MSG *msg)
 	return g_modeless != nullptr && ::IsDialogMessage(g_modeless, msg);
 }
 
+
+// ---- MFC dialogs -------------------------------------------------------------------------
+
+enum : WORD
+{
+	IdChecks = 120,
+};
+
+LPCDLGTEMPLATE MfcTemplate()
+{
+	static TemplateBuilder t = []()
+	{
+		TemplateBuilder b(DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU, 200, 170, L"MFC");
+		b.Item(ClsEdit, L"", IdName, ES_AUTOHSCROLL | WS_TABSTOP | WS_BORDER, 4, 4, 100, 12);
+		b.Item(ClsButton, L"&Loop", IdCheck, BS_AUTOCHECKBOX | WS_TABSTOP, 4, 20, 60, 10);
+		b.Item(ClsButton, L"&First", IdRadio1, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 34, 50, 10);
+		b.Item(ClsButton, L"&Second", IdRadio2, BS_AUTORADIOBUTTON, 60, 34, 50, 10);
+		b.Item(ClsComboBox, L"", IdDropList, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP | WS_GROUP, 4, 48, 80, 80);
+		b.Item(ClsListBox, L"", IdChecks, LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | LBS_NOTIFY | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 4, 66, 120, 60);
+		b.Item(ClsEdit, L"", IdNumber, WS_TABSTOP | WS_BORDER, 130, 4, 40, 12);
+		b.Item(ClsButton, L"OK", IDOK, BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP, 90, 150, 50, 14);
+		b.Item(ClsButton, L"Cancel", IDCANCEL, BS_PUSHBUTTON | WS_TABSTOP, 144, 150, 50, 14);
+		return b;
+	}();
+	return t.Get();
+}
+
+class TestDialog : public CDialog
+{
+public:
+	explicit TestDialog(CWnd *parent = nullptr)
+	{
+		InitModalIndirect(MfcTemplate(), parent);
+	}
+
+	CEdit m_name;
+	CComboBox m_combo;
+	CCheckListBox m_checks;
+	int m_number = 7;
+	int m_check = 1;
+	int m_radio = 1;
+	CString m_text = L"Hello";
+	bool initCalled = false;
+	bool okCalled = false;
+	bool endInInit = false;
+	int selChanges = 0;
+	int checkChanges = 0;
+	std::function<void(TestDialog &)> during;
+
+	void DoDataExchange(CDataExchange *dx) override
+	{
+		CDialog::DoDataExchange(dx);
+		DDX_Control(dx, IdName, m_name);
+		DDX_Control(dx, IdDropList, m_combo);
+		DDX_Control(dx, IdChecks, m_checks);
+		DDX_Text(dx, IdName, m_text);
+		DDX_Text(dx, IdNumber, m_number);
+		DDV_MinMaxInt(dx, m_number, 0, 100);
+		DDX_Check(dx, IdCheck, m_check);
+		DDX_Radio(dx, IdRadio1, m_radio);
+	}
+
+	BOOL OnInitDialog() override
+	{
+		CDialog::OnInitDialog();
+		initCalled = true;
+		for(const wchar_t *s : {L"Sine", L"Square", L"Saw"})
+			m_combo.AddString(s);
+		m_combo.SetCurSel(0);
+		for(const wchar_t *s : {L"Loop", L"Sustain", L"Ping-pong"})
+			m_checks.SetItemData(m_checks.AddString(s), 100);
+		m_checks.SetCheck(1, BST_CHECKED);
+		m_checks.SetItemHeight(0, 0);
+		if(endInInit)
+			EndDialog(42);
+		if(during)
+			QTimer::singleShot(0, [this]() { Pump(); during(*this); });
+		return TRUE;
+	}
+
+	void OnOK() override
+	{
+		okCalled = true;
+		CDialog::OnOK();
+	}
+
+	afx_msg void OnComboChange() { selChanges++; }
+	afx_msg void OnCheckChange() { checkChanges++; }
+
+	DECLARE_MESSAGE_MAP()
+};
+
+BEGIN_MESSAGE_MAP(TestDialog, CDialog)
+	ON_CBN_SELCHANGE(IdDropList, &TestDialog::OnComboChange)
+	ON_CLBN_CHKCHANGE(IdChecks, &TestDialog::OnCheckChange)
+END_MESSAGE_MAP()
+
+// Closes the next message box with its default button, once it is open.
+void AnswerNextMessageBox(QString *text)
+{
+	QTimer::singleShot(0, [text]()
+	{
+		Pump();
+		auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+		if(box == nullptr)
+			return;
+		if(text != nullptr)
+			*text = box->text();
+		box->done(0);
+	});
+}
+
+void MfcDialogs()
+{
+	// MFC's message routing (PreTranslateMessage) belongs to the application.
+	CWinApp theApp(L"Dialog Test");
+	// An owner, disabled while the dialog runs (but not the dialog itself).
+	WNDCLASS wc{};
+	wc.lpfnWndProc = ::DefWindowProc;
+	wc.lpszClassName = L"DialogTestOwner";
+	::RegisterClass(&wc);
+	HWND owner = ::CreateWindowEx(0, L"DialogTestOwner", L"Owner", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 400, 300, nullptr, nullptr, nullptr, nullptr);
+
+	{
+		TestDialog dlg(CWnd::FromHandle(owner));
+		bool ownerDisabled = false, dialogEnabled = false, visible = false, checkSet = false, radioSet = false, textSet = false, comboFilled = false, checkListOk = false;
+		bool keyCheck = false, checkHeight = false;
+		dlg.during = [&](TestDialog &d)
+		{
+			ownerDisabled = !::IsWindowEnabled(owner);
+			dialogEnabled = d.IsWindowEnabled() != FALSE;
+			visible = d.IsWindowVisible() != FALSE;
+			checkSet = d.IsDlgButtonChecked(IdCheck) == BST_CHECKED;
+			radioSet = d.IsDlgButtonChecked(IdRadio2) == BST_CHECKED && d.IsDlgButtonChecked(IdRadio1) == BST_UNCHECKED;
+			CString text;
+			d.GetDlgItemText(IdName, text);
+			textSet = text == L"Hello" && d.GetDlgItemInt(IdNumber) == 7;
+			comboFilled = d.m_combo.GetCount() == 3 && d.m_combo.GetCurSel() == 0 && d.selChanges == 0;
+			checkListOk = d.m_checks.GetCount() == 3 && d.m_checks.GetCheck(1) == BST_CHECKED && d.m_checks.GetCheck(0) == BST_UNCHECKED && d.m_checks.GetItemData(0) == 100;
+			checkHeight = d.m_checks.GetItemHeight(0) >= 13;
+			// The user: picks another wave form, ticks a box, types a number.
+			d.m_combo.SetFocus();
+			Pump();
+			Key(Qt::Key_Down);
+			d.m_checks.SetFocus();
+			Pump();
+			d.m_checks.SetCurSel(0);
+			Key(Qt::Key_Space);
+			keyCheck = d.m_checks.GetCheck(0) == BST_CHECKED && d.checkChanges == 1;
+			d.SetDlgItemText(IdNumber, L"12");
+			d.CheckDlgButton(IdCheck, BST_UNCHECKED);
+			d.GetDlgItem(IdName)->SetFocus();
+			Pump();
+			Key(Qt::Key_Return);
+		};
+		const INT_PTR result = dlg.DoModal();
+		Check(result == IDOK, "DoModal returns IDOK after Enter");
+		Check(dlg.initCalled, "OnInitDialog");
+		Check(visible, "the dialog shows once its loop is idle");
+		Check(ownerDisabled, "the owner is disabled while the dialog runs");
+		Check(dialogEnabled, "... but the dialog it owns is not");
+		Check(::IsWindowEnabled(owner) != FALSE, "the owner is enabled again afterwards");
+		Check(checkSet && radioSet && textSet, "UpdateData(FALSE) puts the members into the controls");
+		Check(comboFilled, "DDX_Control subclasses the controls, and they work through the classes");
+		Check(dlg.selChanges == 1, "ON_CBN_SELCHANGE reaches the dialog's message map");
+		Check(checkListOk, "CCheckListBox keeps checks and item data apart");
+		Check(checkHeight, "CCheckListBox items are at least as tall as their check boxes");
+		Check(keyCheck, "Space ticks a CCheckListBox item and sends CLBN_CHKCHANGE");
+		Check(dlg.okCalled && dlg.m_number == 12 && dlg.m_check == 0 && dlg.m_radio == 1, "OnOK: UpdateData(TRUE) reads the controls back");
+		Check(dlg.m_hWnd == nullptr, "the dialog window is gone after DoModal");
+	}
+
+	{
+		// Bad input: a message box, the focus on the field, the dialog stays.
+		TestDialog dlg(CWnd::FromHandle(owner));
+		QString message;
+		bool stayed = false, focused = false;
+		dlg.during = [&](TestDialog &d)
+		{
+			d.SetDlgItemText(IdNumber, L"250");
+			d.GetDlgItem(IdName)->SetFocus();
+			Pump();
+			AnswerNextMessageBox(&message);
+			Key(Qt::Key_Return);
+			stayed = ::IsWindow(d.m_hWnd) && d.IsWindowVisible();
+			focused = ::GetFocus() == ::GetDlgItem(d.m_hWnd, IdNumber);
+			Key(Qt::Key_Escape);
+		};
+		const INT_PTR result = dlg.DoModal();
+		Check(!message.isEmpty() && message.contains(QStringLiteral("100")), "DDV_MinMaxInt tells the user in a message box");
+		Check(stayed && focused, "... and the dialog stays open with the focus on the field");
+		Check(result == IDCANCEL && dlg.m_check == 1, "Escape cancels without reading the rest of the controls");
+	}
+
+	{
+		TestDialog dlg;
+		dlg.endInInit = true;
+		Check(dlg.DoModal() == 42, "EndDialog in OnInitDialog ends DoModal at once");
+	}
+
+	{
+		// A modeless dialog from an upstream template, with its RT_DLGINIT
+		// strings (controls of classes still to come are left out).
+		const HINSTANCE instance = AfxGetResourceHandle();
+		int found = 0;
+		for(int id = 1; id < 0x8000 && found == 0; id++)
+		{
+			if(::FindResource(instance, MAKEINTRESOURCE(id), RT_DLGINIT) != nullptr && ::FindResource(instance, MAKEINTRESOURCE(id), RT_DIALOG) != nullptr)
+				found = id;
+		}
+		Check(found != 0, "an upstream template with RT_DLGINIT");
+		if(found != 0)
+		{
+			HRSRC res = ::FindResource(instance, MAKEINTRESOURCE(found), RT_DIALOG);
+			const auto *bytes = static_cast<const BYTE *>(::LockResource(::LoadResource(instance, res)));
+			const DWORD size = ::SizeofResource(instance, res);
+			std::vector<DWORD> copy((size + 3) / 4);
+			std::memcpy(copy.data(), bytes, size);
+			const bool ex = reinterpret_cast<const WORD *>(bytes)[1] == 0xFFFF;
+			auto *style = reinterpret_cast<DWORD *>(reinterpret_cast<BYTE *>(copy.data()) + (ex ? 12 : 0));
+			*style |= DS_NOFAILCREATE;
+			auto *init = static_cast<BYTE *>(::LockResource(::LoadResource(instance, ::FindResource(instance, MAKEINTRESOURCE(found), RT_DLGINIT))));
+			const int combo = init[0] | (init[1] << 8);
+			CDialog dlg;
+			const BOOL created = dlg.CreateIndirect(reinterpret_cast<LPCDLGTEMPLATE>(copy.data()), CWnd::FromHandle(owner), init);
+			Check(created && ::SendDlgItemMessage(dlg.m_hWnd, combo, CB_GETCOUNT, 0, 0) > 0, "CDialog::CreateIndirect fills combo boxes from RT_DLGINIT");
+			dlg.DestroyWindow();
+		}
+	}
+
+	{
+		// MessageBox: buttons and return values.
+		AnswerNextMessageBox(nullptr);
+		Check(::MessageBox(owner, L"Save?", L"Test", MB_YESNOCANCEL | MB_ICONQUESTION) == IDCANCEL, "MessageBox: closing a Yes/No/Cancel box is Cancel");
+		QTimer::singleShot(0, []()
+		{
+			Pump();
+			if(auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+				box->defaultButton()->click();
+		});
+		Check(::MessageBox(owner, L"Sure?", L"Test", MB_YESNO | MB_DEFBUTTON2) == IDNO, "MessageBox: MB_DEFBUTTON2 is No");
+	}
+	::DestroyWindow(owner);
+}
 } // namespace
 
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
 	LinOpenMPTRegisterMptrackResources();
+	// A modal loop that never ends fails the test instead of hanging it.
+	QTimer watchdog;
+	watchdog.setSingleShot(true);
+	QObject::connect(&watchdog, &QTimer::timeout, []()
+	{
+		std::printf("FAIL the test hung in a modal loop\n");
+		std::fflush(stdout);
+		std::_Exit(2);
+	});
+	watchdog.start(30000);
 	const HINSTANCE instance = AfxGetResourceHandle();
 
 	// ---- a modeless dialog, driven by messages ----
@@ -669,6 +928,7 @@ int main(int argc, char **argv)
 	Check(Got(IdCheck, BN_CLICKED), "Alt+mnemonic clicks the check box");
 
 	UpstreamTemplates();
+	MfcDialogs();
 
 	std::printf("%s: %d failure(s)\n", g_failures ? "FAILED" : "passed", g_failures);
 	return g_failures ? 1 : 0;

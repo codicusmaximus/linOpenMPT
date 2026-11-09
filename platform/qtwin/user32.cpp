@@ -697,6 +697,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 		widget->setWindowTitle(ToQString(d.text.c_str()));
 	if(style & WS_DISABLED)
 		widget->setEnabled(false);
+	else if(!child && parentWidget != nullptr && !parentWidget->isEnabled())
+		widget->setEnabled(true); // owned by a disabled window, as modal dialogs are
 	if(style & WS_TABSTOP)
 		widget->setFocusPolicy(Qt::StrongFocus);
 
@@ -1395,6 +1397,25 @@ BOOL SetWindowText(HWND hwnd, LPCTSTR text)
 
 // ---- state ----------------------------------------------------------------------------
 
+namespace linopenmpt::qtwin
+{
+
+void KeepOwnedWindowsEnabled(QWidget *w)
+{
+	// Qt disables a widget's child windows with it; Windows does not disable
+	// the windows a window owns (a modal dialog disables its owner).
+	for(QWidget *c : w->findChildren<QWidget *>())
+	{
+		if(!c->isWindow() || c->testAttribute(Qt::WA_ForceDisabled))
+			continue;
+		if(auto *cw = dynamic_cast<Win32Widget *>(c); cw != nullptr && (cw->data.style & WS_DISABLED))
+			continue;
+		c->setEnabled(true);
+	}
+}
+
+} // namespace linopenmpt::qtwin
+
 BOOL EnableWindow(HWND hwnd, BOOL enable)
 {
 	Win32Widget *w = FromHandle(hwnd);
@@ -1408,6 +1429,8 @@ BOOL EnableWindow(HWND hwnd, BOOL enable)
 	else
 		w->data.style |= WS_DISABLED;
 	w->setEnabled(enable != FALSE);
+	if(!enable)
+		KeepOwnedWindowsEnabled(w);
 	::SendMessage(hwnd, WM_ENABLE, enable, 0);
 	return wasDisabled;
 }
@@ -1940,6 +1963,11 @@ HWND SetFocus(HWND hwnd)
 	{
 		if(w->focusPolicy() == Qt::NoFocus)
 			w->setFocusPolicy(Qt::ClickFocus);
+		// The focus can only be in the active window: SetFocus activates
+		// the window's top-level window, as on Windows.
+		QWidget *top = w->window();
+		if(top->isVisible() && !top->isActiveWindow() && QApplication::activePopupWidget() == nullptr)
+			top->activateWindow();
 		w->setFocus(Qt::OtherFocusReason);
 	} else if(hwnd == nullptr)
 	{
@@ -2195,6 +2223,24 @@ BOOL LinOpenMPTEndModalLoopFor(const void *key, int result)
 	}
 	return FALSE;
 }
+
+namespace linopenmpt::qtwin
+{
+
+// Loops that are not ours (QMessageBox, QFileDialog) run no idle processing,
+// as Windows' own modal loops run none of the application's.
+ForeignModalLoop::ForeignModalLoop()
+{
+	ConnectIdle();
+	g_idleStack.push_back(nullptr);
+}
+
+ForeignModalLoop::~ForeignModalLoop()
+{
+	g_idleStack.pop_back();
+}
+
+} // namespace linopenmpt::qtwin
 
 int LinOpenMPTRunModalLoop(BOOL (*idle)(LONG count))
 {

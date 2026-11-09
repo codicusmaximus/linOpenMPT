@@ -99,11 +99,33 @@ void AfxSetResourceHandle(HINSTANCE instance)
 
 // ---- message loop ------------------------------------------------------------------------
 
+namespace linopenmpt::mfc
+{
+
+namespace
+{
+int g_preTranslateDepth = 0;
+}
+
+void PushPreTranslate()
+{
+	if(g_preTranslateDepth++ == 0)
+		LinOpenMPTSetPreTranslateHook(PreTranslateHook);
+}
+
+void PopPreTranslate()
+{
+	if(--g_preTranslateDepth == 0)
+		LinOpenMPTSetPreTranslateHook(nullptr);
+}
+
+} // namespace linopenmpt::mfc
+
 int CWinThread::Run()
 {
-	LinOpenMPTSetPreTranslateHook(PreTranslateHook);
+	linopenmpt::mfc::PushPreTranslate();
 	const int code = LinOpenMPTRunMessageLoop(IdleHook);
-	LinOpenMPTSetPreTranslateHook(nullptr);
+	linopenmpt::mfc::PopPreTranslate();
 	m_msgCur.message = WM_QUIT;
 	m_msgCur.wParam = static_cast<WPARAM>(code);
 	return ExitInstance();

@@ -31,47 +31,6 @@
 #define HOTKEYF_CONTROL 0x02
 #define HOTKEYF_ALT 0x04
 #define HOTKEYF_EXT 0x08
-#define MB_OK 0x0000
-#define MB_OKCANCEL 0x0001
-#define MB_YESNOCANCEL 0x0003
-#define MB_YESNO 0x0004
-#define MB_ICONERROR 0x0010
-#define MB_ICONQUESTION 0x0020
-#define MB_ICONWARNING 0x0030
-#define MB_ICONINFORMATION 0x0040
-#define MB_ABORTRETRYIGNORE 0x0002
-#define MB_RETRYCANCEL 0x0005
-#define MB_CANCELTRYCONTINUE 0x0006
-#define MB_ICONHAND MB_ICONERROR
-#define MB_ICONSTOP MB_ICONERROR
-#define MB_ICONEXCLAMATION MB_ICONWARNING
-#define MB_ICONASTERISK MB_ICONINFORMATION
-#define MB_DEFBUTTON1 0x0000
-#define MB_DEFBUTTON2 0x0100
-#define MB_DEFBUTTON3 0x0200
-#define MB_APPLMODAL 0x0000
-#define MB_SYSTEMMODAL 0x1000
-#define MB_TASKMODAL 0x2000
-#define MB_SETFOREGROUND 0x00010000
-#define MB_TOPMOST 0x00040000
-#define BST_UNCHECKED 0x0000
-#define BST_CHECKED 0x0001
-#define BST_INDETERMINATE 0x0002
-#define BST_PUSHED 0x0004
-#define BST_FOCUS 0x0008
-#define IDOK 1
-#define IDCANCEL 2
-#define IDABORT 3
-#define IDRETRY 4
-#define IDIGNORE 5
-#define IDYES 6
-#define IDNO 7
-#define IDCLOSE 8
-#define IDHELP 9
-#define IDTRYAGAIN 10
-#define IDCONTINUE 11
-int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type);
-BOOL MessageBeep(UINT type);
 
 
 // MFC's opaque list iterator.
@@ -340,10 +299,21 @@ public:
 	virtual ~CCmdUI() = default;
 };
 
+// Dialog data exchange (UpdateData, DoDataExchange, DDX_ and DDV_).
 class CDataExchange
 {
 public:
+	CDataExchange() = default;
+	CDataExchange(CWnd *dlgWnd, BOOL saveAndValidate) : m_bSaveAndValidate(saveAndValidate), m_pDlgWnd(dlgWnd) { }
 	BOOL m_bSaveAndValidate = FALSE;
+	CWnd *m_pDlgWnd = nullptr;
+	// The control being exchanged, where Fail() puts the focus.
+	UINT m_idLastControl = 0;
+	BOOL m_bEditLastControl = FALSE;
+	HWND PrepareCtrl(int id);
+	HWND PrepareEditCtrl(int id);
+	// Validation failed: focus the control and throw a CUserException.
+	[[noreturn]] void Fail();
 };
 
 // ---- GDI -----------------------------------------------------------------
@@ -625,6 +595,19 @@ public:
 	BOOL TrackPopupMenuEx(UINT flags, int x, int y, CWnd *wnd, LPTPMPARAMS params);
 };
 
+// CWnd::m_nFlags and RunModalLoop() flags, as in MFC.
+#define WF_TOOLTIPS 0x0001
+#define WF_TEMPHIDE 0x0002
+#define WF_STAYDISABLED 0x0004
+#define WF_MODALLOOP 0x0008
+#define WF_CONTINUEMODAL 0x0010
+#define WF_STAYACTIVE 0x0020
+#define WF_NOPOPMSG 0x0040
+#define WF_MODALDISABLE 0x0080
+#define MLF_NOIDLEMSG 0x0001
+#define MLF_NOKICKIDLE 0x0002
+#define MLF_SHOWONIDLE 0x0004
+
 class CWnd : public CCmdTarget
 {
 	LINOPENMPT_MFC_DYNAMIC(CWnd)
@@ -632,6 +615,8 @@ public:
 	HWND m_hWnd = nullptr;
 	// The window procedure MFC subclassed, called for default processing.
 	WNDPROC m_pfnSuper = nullptr;
+	UINT m_nFlags = 0;
+	int m_nModalResult = 0;
 	CWnd() = default;
 	// Destroys the window if it still exists, as MFC does.
 	virtual ~CWnd();
@@ -785,6 +770,19 @@ public:
 	void EnableDynamicLayout(BOOL enable = TRUE);
 	BOOL IsDynamicLayoutEnabled() const;
 	BOOL UpdateData(BOOL saveAndValidate = TRUE);
+	// Modal loops (dialogs, and any window run modally), as in MFC.
+	virtual int RunModalLoop(DWORD flags = 0);
+	virtual BOOL ContinueModal();
+	virtual void EndModalLoop(int result);
+	// The dialog manager for this window's keyboard input.
+	BOOL IsDialogMessage(LPMSG msg);
+	BOOL PreTranslateInput(LPMSG msg);
+	// Dialog creation from a template (CDialog, CDialogBar, CFormView).
+	BOOL CreateDlg(LPCTSTR templateName, CWnd *parent);
+	BOOL CreateDlgIndirect(LPCDLGTEMPLATE dlgTemplate, CWnd *parent, HINSTANCE instance = nullptr);
+	// The RT_DLGINIT resource: list and combo box strings from the template.
+	BOOL ExecuteDlgInit(LPCTSTR templateName);
+	BOOL ExecuteDlgInit(LPVOID resource);
 	CWnd *ChildWindowFromPoint(POINT point) const;
 	static CWnd *WindowFromPoint(POINT point);
 	BOOL ShowOwnedPopups(BOOL show = TRUE);
@@ -931,6 +929,7 @@ public:
 	HBITMAP SetBitmap(HBITMAP bitmap);
 	HBITMAP GetBitmap() const;
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis) { }
+	BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result) override;
 };
 class CButton : public CWnd
 {
@@ -943,8 +942,11 @@ public:
 	UINT GetButtonStyle() const;
 	void SetButtonStyle(UINT style, BOOL redraw = TRUE);
 	HICON SetIcon(HICON icon);
+	HICON GetIcon() const;
 	HBITMAP SetBitmap(HBITMAP bitmap);
+	HBITMAP GetBitmap() const;
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis) { }
+	BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result) override;
 };
 class CEdit : public CWnd
 {
@@ -984,6 +986,9 @@ public:
 	BOOL Create(DWORD style, const RECT &rect, CWnd *parent, UINT id);
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis) { }
 	virtual void MeasureItem(LPMEASUREITEMSTRUCT mis) { }
+	virtual int CompareItem(LPCOMPAREITEMSTRUCT cis) { return 0; }
+	virtual void DeleteItem(LPDELETEITEMSTRUCT dis) { }
+	BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result) override;
 	BOOL GetComboBoxInfo(PCOMBOBOXINFO info) const;
 	int InitStorage(int items, UINT bytes);
 	void Clear();
@@ -1038,6 +1043,11 @@ public:
 	BOOL Create(DWORD style, const RECT &rect, CWnd *parent, UINT id);
 	virtual void DrawItem(LPDRAWITEMSTRUCT dis) { }
 	virtual void MeasureItem(LPMEASUREITEMSTRUCT mis) { }
+	virtual int CompareItem(LPCOMPAREITEMSTRUCT cis) { return 0; }
+	virtual void DeleteItem(LPDELETEITEMSTRUCT dis) { }
+	virtual int VKeyToItem(UINT key, UINT index) { return -1; }
+	virtual int CharToItem(UINT ch, UINT index) { return -1; }
+	BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result) override;
 	int GetCount() const;
 	int GetCurSel() const;
 	int SetCurSel(int sel);
@@ -1068,12 +1078,33 @@ public:
 	int SelItemRange(BOOL select, int first, int last);
 	UINT ItemFromPoint(CPoint pt, BOOL &outside) const;
 };
+// A list box with a check box on each item (owner-drawn, as in MFC); the
+// parent gets CLBN_CHKCHANGE when the user changes one.
 class CCheckListBox : public CListBox
 {
 public:
 	void SetCheckStyle(UINT style);
+	UINT GetCheckStyle() const { return m_nStyle; }
 	void SetCheck(int index, int check);
 	int GetCheck(int index);
+	void Enable(int index, BOOL enabled = TRUE);
+	BOOL IsEnabled(int index);
+	void DrawItem(LPDRAWITEMSTRUCT dis) override;
+	void MeasureItem(LPMEASUREITEMSTRUCT mis) override;
+	LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp) override;
+	void PreSubclassWindow() override;
+protected:
+	struct CheckState
+	{
+		int check = 0;
+		bool enabled = true;
+	};
+	int CheckBoxSize() const;
+	int MinItemHeight() const;
+	void ToggleCheck(int index);
+	void InvalidateCheck(int index);
+	UINT m_nStyle = BS_CHECKBOX;
+	std::vector<CheckState> m_checks;
 };
 class CScrollBar : public CWnd
 {
@@ -1502,12 +1533,19 @@ public:
 	CDialog() = default;
 	explicit CDialog(UINT id, CWnd *parent = nullptr) : m_lpszTemplateName(MAKEINTRESOURCE(id)), m_nIDHelp(id), m_pParentWnd(parent) { }
 	explicit CDialog(LPCTSTR templateName, CWnd *parent = nullptr) : m_lpszTemplateName(templateName), m_pParentWnd(parent) { }
-	virtual INT_PTR DoModal() { return 0; }
-	virtual BOOL OnInitDialog() { return 0; }
-	virtual void OnOK() { }
-	virtual void OnCancel() { }
-	BOOL Create(UINT id, CWnd *parent = nullptr);
+	// Modeless dialogs.
+	virtual BOOL Create(LPCTSTR templateName, CWnd *parent = nullptr);
+	virtual BOOL Create(UINT id, CWnd *parent = nullptr);
+	virtual BOOL CreateIndirect(LPCDLGTEMPLATE dlgTemplate, CWnd *parent = nullptr, void *dialogInit = nullptr);
+	// Modal dialogs.
+	BOOL InitModalIndirect(LPCDLGTEMPLATE dlgTemplate, CWnd *parent = nullptr, void *dialogInit = nullptr);
+	virtual INT_PTR DoModal();
 	void EndDialog(int result);
+	virtual BOOL OnInitDialog();
+	virtual void OnSetFont(CFont *font) { }
+	virtual void OnOK();
+	virtual void OnCancel();
+	BOOL PreTranslateMessage(MSG *msg) override;
 	void GotoDlgCtrl(CWnd *ctrl);
 	void NextDlgCtrl() const;
 	void PrevDlgCtrl() const;
@@ -1516,10 +1554,20 @@ public:
 	void MapDialogRect(LPRECT rect) const;
 	CMFCDynamicLayout *GetDynamicLayout();
 	virtual void ResizeDynamicLayout() { }
-protected:
 	LPCTSTR m_lpszTemplateName = nullptr;
 	UINT m_nIDHelp = 0;
 	CWnd *m_pParentWnd = nullptr;
+protected:
+	virtual void PreInitDialog() { }
+	afx_msg LRESULT HandleInitDialog(WPARAM, LPARAM);
+	afx_msg LRESULT HandleSetFont(WPARAM, LPARAM);
+	// The owner of a modal dialog, disabled while it runs.
+	HWND PreModal();
+	void PostModal();
+	LPCDLGTEMPLATE m_lpDialogTemplate = nullptr;
+	void *m_lpDialogInit = nullptr;
+	HWND m_hWndTop = nullptr;
+	DECLARE_MESSAGE_MAP()
 };
 class CDialogEx : public CDialog
 {

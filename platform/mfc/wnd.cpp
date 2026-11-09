@@ -53,6 +53,8 @@ LRESULT CALLBACK CbtFilterHook(int code, WPARAM wp, LPARAM lp)
 	return CallNextHookEx(state.cbtHook, code, wp, lp);
 }
 
+} // namespace
+
 void HookWindowCreate(CWnd *wnd)
 {
 	ThreadState &state = State();
@@ -76,6 +78,9 @@ bool UnhookWindowCreate()
 	}
 	return true;
 }
+
+namespace
+{
 
 CPoint PointFromLParam(LPARAM lp)
 {
@@ -402,7 +407,10 @@ BOOL CWnd::OnCommand(WPARAM wp, LPARAM lp)
 		code = CN_COMMAND;
 	} else
 	{
-		// Control notifications: the control may handle them itself.
+		// Control notifications: ignored during UpdateData(), as in MFC,
+		// and the control may handle them itself.
+		if(State().lockoutNotifyWindow == m_hWnd)
+			return TRUE;
 		if(ReflectLastMsg(control))
 			return TRUE;
 		if(id == 0)
@@ -417,6 +425,8 @@ BOOL CWnd::OnNotify(WPARAM, LPARAM lp, LRESULT *result)
 	if(nmhdr == nullptr)
 		return FALSE;
 	const HWND control = nmhdr->hwndFrom;
+	if(State().lockoutNotifyWindow == m_hWnd)
+		return TRUE;
 	if(control != nullptr && ReflectLastMsg(control, result))
 		return TRUE;
 	const UINT id = control ? static_cast<UINT>(::GetDlgCtrlID(control)) : static_cast<UINT>(nmhdr->idFrom);

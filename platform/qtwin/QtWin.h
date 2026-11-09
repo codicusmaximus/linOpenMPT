@@ -243,6 +243,18 @@ void NotifyParent(HWND ctl, UINT code);
 // The brush (and DC colours) a control's parent chooses with WM_CTLCOLOR*.
 HBRUSH ControlBrush(HWND ctl, HDC dc, UINT msg);
 
+// Re-enables the owned windows Qt disabled along with w.
+void KeepOwnedWindowsEnabled(QWidget *w);
+
+// While one of these lives, a Qt modal loop runs: no idle processing.
+struct ForeignModalLoop
+{
+	ForeignModalLoop();
+	~ForeignModalLoop();
+	ForeignModalLoop(const ForeignModalLoop &) = delete;
+	ForeignModalLoop &operator=(const ForeignModalLoop &) = delete;
+};
+
 // Dialogs (dialog.cpp): the dialog manager's part of a message loop (for
 // DialogBox), and the default button following the focus.
 bool HandleDialogMessage(const MSG &msg);
