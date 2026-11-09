@@ -374,8 +374,11 @@ LRESULT CWnd::WindowProc(UINT msg, WPARAM wp, LPARAM lp)
 	return result;
 }
 
-BOOL CWnd::PreTranslateMessage(MSG *)
+BOOL CWnd::PreTranslateMessage(MSG *msg)
 {
+	// MFC's tooltips: some messages pop them up, some put them away.
+	if(msg != nullptr && (m_nFlags & (WF_TOOLTIPS | WF_TRACKINGTOOLTIPS)))
+		FilterToolTipMessage(msg);
 	return FALSE;
 }
 

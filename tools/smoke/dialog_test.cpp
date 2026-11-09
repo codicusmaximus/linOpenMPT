@@ -325,7 +325,7 @@ std::vector<TemplateItem> TemplateItems(const BYTE *data, bool &ex)
 
 bool IsStandard(const std::wstring &cls)
 {
-	static const std::set<std::wstring> standard{L"Button", L"Edit", L"Static", L"ListBox", L"ScrollBar", L"ComboBox", L"msctls_trackbar32", L"msctls_updown32", L"msctls_progress32", L"SysTabControl32", L"SysListView32", L"SysHeader32", L"SysTreeView32"};
+	static const std::set<std::wstring> standard{L"Button", L"Edit", L"Static", L"ListBox", L"ScrollBar", L"ComboBox", L"msctls_trackbar32", L"msctls_updown32", L"msctls_progress32", L"SysTabControl32", L"SysListView32", L"SysHeader32", L"SysTreeView32", L"ToolbarWindow32", L"ComboBoxEx32", L"SysLink"};
 	for(const auto &s : standard)
 	{
 		if(QString::fromStdWString(cls).compare(QString::fromStdWString(s), Qt::CaseInsensitive) == 0)
@@ -530,6 +530,250 @@ BEGIN_MESSAGE_MAP(TestDialog, CDialog)
 	ON_CLBN_CHKCHANGE(IdChecks, &TestDialog::OnCheckChange)
 END_MESSAGE_MAP()
 
+
+// ---- property sheets --------------------------------------------------------------
+
+std::vector<std::pair<int, UINT>> g_pageEvents; // page number, PSN_* code (and lParam for PSN_APPLY in the top bit)
+bool g_refuseKill = false;
+
+INT_PTR CALLBACK PageProc(HWND hwnd, UINT msg, WPARAM, LPARAM lp)
+{
+	if(msg == WM_INITDIALOG)
+	{
+		const auto *psp = reinterpret_cast<const PROPSHEETPAGE *>(lp);
+		::SetWindowLongPtr(hwnd, DWLP_USER, psp->lParam);
+		return TRUE;
+	}
+	if(msg == WM_NOTIFY)
+	{
+		const auto *nm = reinterpret_cast<const PSHNOTIFY *>(lp);
+		const int page = static_cast<int>(::GetWindowLongPtr(hwnd, DWLP_USER));
+		g_pageEvents.emplace_back(page, nm->hdr.code == PSN_APPLY && nm->lParam ? (nm->hdr.code | 0x80000000u) : nm->hdr.code);
+		if(nm->hdr.code == PSN_KILLACTIVE)
+			::SetWindowLongPtr(hwnd, DWLP_MSGRESULT, g_refuseKill ? TRUE : FALSE);
+		else
+			::SetWindowLongPtr(hwnd, DWLP_MSGRESULT, 0);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+bool Saw(int page, UINT code)
+{
+	return std::find(g_pageEvents.begin(), g_pageEvents.end(), std::make_pair(page, code)) != g_pageEvents.end();
+}
+
+HWND ActiveSheet()
+{
+	QWidget *w = QApplication::activeWindow();
+	auto *win = dynamic_cast<Win32Widget *>(w);
+	return win != nullptr ? win->hwnd() : nullptr;
+}
+
+void Win32PropertySheets(HWND owner)
+{
+	TemplateBuilder first(WS_CHILD | WS_CAPTION | DS_SETFONT, 160, 80, L"First");
+	first.Item(ClsEdit, L"", IdName, WS_TABSTOP | WS_BORDER, 8, 8, 100, 12);
+	first.Item(ClsButton, L"Check", IdCheck, BS_AUTOCHECKBOX | WS_TABSTOP, 8, 26, 100, 10);
+	TemplateBuilder second(WS_CHILD | WS_CAPTION | DS_SETFONT, 200, 120, L"Second page");
+	second.Item(ClsStatic, L"Bigger", IdLabel, SS_LEFT, 8, 8, 100, 10);
+	PROPSHEETPAGE pages[2]{};
+	for(int i = 0; i < 2; i++)
+	{
+		pages[i].dwSize = sizeof(PROPSHEETPAGE);
+		pages[i].dwFlags = PSP_DLGINDIRECT;
+		pages[i].pResource = i == 0 ? first.Get() : second.Get();
+		pages[i].pfnDlgProc = PageProc;
+		pages[i].lParam = i + 1;
+	}
+	PROPSHEETHEADER psh{};
+	psh.dwSize = sizeof(psh);
+	psh.dwFlags = PSH_PROPSHEETPAGE | PSH_NOCONTEXTHELP;
+	psh.hwndParent = owner;
+	psh.pszCaption = L"Sheet";
+	psh.nPages = 2;
+	psh.ppsp = pages;
+
+	// OK after Apply: both pages apply, the sheet returns 1.
+	g_pageEvents.clear();
+	QTimer::singleShot(0, []()
+	{
+		Pump();
+		const HWND sheet = ActiveSheet();
+		const HWND tab = PropSheet_GetTabControl(sheet);
+		Check(tab != nullptr && TabCtrl_GetItemCount(tab) == 2, "PropertySheet: a tab per page");
+		wchar_t text[32] = {};
+		TCITEM item{};
+		item.mask = TCIF_TEXT;
+		item.pszText = text;
+		item.cchTextMax = 32;
+		TabCtrl_GetItem(tab, 1, &item);
+		Check(std::wstring(text) == L"Second page", "PropertySheet: tabs are the pages' captions");
+		const HWND page1 = PropSheet_GetCurrentPageHwnd(sheet);
+		Check(page1 != nullptr && ::IsWindowVisible(page1) && ::GetParent(page1) == sheet && Saw(1, PSN_SETACTIVE), "PropertySheet: the first page is made and active");
+		Check(PropSheet_IndexToHwnd(sheet, 1) == nullptr, "PropertySheet: other pages are made when shown");
+		Check((::GetWindowLongPtr(page1, GWL_STYLE) & (WS_CHILD | WS_CAPTION | DS_CONTROL)) == (WS_CHILD | DS_CONTROL), "PropertySheet: pages are child dialogs");
+		Check(Text(sheet) == L"Sheet", "PropertySheet: the caption");
+		Check(::GetFocus() == ::GetDlgItem(page1, IdName), "PropertySheet: the focus starts on the page");
+		// The tab's display area holds the largest page; buttons below it.
+		RECT tabRc{}, display{}, ok{}, page2Rc{};
+		::GetWindowRect(tab, &tabRc);
+		display = tabRc;
+		TabCtrl_AdjustRect(tab, FALSE, &display);
+		::GetWindowRect(::GetDlgItem(sheet, IDOK), &ok);
+		RECT big{0, 0, 200, 120};
+		::MapDialogRect(sheet, &big);
+		Check(display.right - display.left >= big.right - 1 && display.bottom - display.top >= big.bottom - 1, "PropertySheet: room for the largest page");
+		Check(ok.top >= tabRc.bottom && ok.right <= tabRc.right + 1, "PropertySheet: buttons under the tabs, at the right");
+		Check(!::IsWindowEnabled(::GetDlgItem(sheet, IDC_APPLY_BUTTON)) && !::IsWindowVisible(::GetDlgItem(sheet, IDHELP)), "PropertySheet: Apply disabled, no Help");
+
+		// Changing pages: the old one is asked, the new one made.
+		g_refuseKill = true;
+		Check(!PropSheet_SetCurSel(sheet, nullptr, 1) && PropSheet_GetCurrentPageHwnd(sheet) == page1, "PropertySheet: PSN_KILLACTIVE can refuse");
+		g_refuseKill = false;
+		g_pageEvents.clear();
+		Check(PropSheet_SetCurSel(sheet, nullptr, 1) != 0, "PropertySheet: PSM_SETCURSEL");
+		const HWND page2 = PropSheet_GetCurrentPageHwnd(sheet);
+		Check(page2 != nullptr && page2 != page1 && !::IsWindowVisible(page1) && ::IsWindowVisible(page2), "PropertySheet: the new page shows, the old one hides");
+		Check(g_pageEvents.size() == 2 && g_pageEvents[0] == std::make_pair(1, static_cast<UINT>(PSN_KILLACTIVE)) && g_pageEvents[1] == std::make_pair(2, static_cast<UINT>(PSN_SETACTIVE)), "PropertySheet: PSN_KILLACTIVE, then PSN_SETACTIVE");
+		::GetWindowRect(page2, &page2Rc);
+		Check(page2Rc.left == display.left && page2Rc.top == display.top, "PropertySheet: pages sit in the display area");
+		Check(TabCtrl_GetCurSel(tab) == 1, "PropertySheet: the tab follows");
+		SaveShot(sheet, 9001);
+
+		// Ctrl+Tab goes round.
+		::SetFocus(::GetDlgItem(sheet, IDOK));
+		Pump();
+		Key(Qt::Key_Tab, Qt::ControlModifier);
+		Check(PropSheet_GetCurrentPageHwnd(sheet) == page1, "PropertySheet: Ctrl+Tab, the next page");
+
+		// Apply: enabled by PSM_CHANGED, applies every page made so far.
+		PropSheet_Changed(sheet, page1);
+		Check(::IsWindowEnabled(::GetDlgItem(sheet, IDC_APPLY_BUTTON)) != FALSE, "PropertySheet: PSM_CHANGED enables Apply");
+		g_pageEvents.clear();
+		::SendMessage(sheet, WM_COMMAND, MAKEWPARAM(IDC_APPLY_BUTTON, BN_CLICKED), reinterpret_cast<LPARAM>(::GetDlgItem(sheet, IDC_APPLY_BUTTON)));
+		Check(Saw(1, PSN_APPLY) && Saw(2, PSN_APPLY) && !::IsWindowEnabled(::GetDlgItem(sheet, IDC_APPLY_BUTTON)), "PropertySheet: Apply applies all pages and disables itself");
+		Check(PropSheet_GetCurrentPageHwnd(sheet) == page1, "PropertySheet: Apply keeps the sheet open");
+		g_pageEvents.clear();
+		::SetFocus(::GetDlgItem(page1, IdName));
+		Pump();
+		Key(Qt::Key_Return);
+	});
+	const INT_PTR result = ::PropertySheet(&psh);
+	Check(result == 1, "PropertySheet: OK returns 1");
+	Check(Saw(1, PSN_KILLACTIVE) && Saw(1, PSN_APPLY | 0x80000000u) && Saw(2, PSN_APPLY | 0x80000000u), "PropertySheet: Enter is OK, which applies with lParam TRUE");
+
+	// Escape: PSN_QUERYCANCEL, PSN_RESET, nothing saved.
+	g_pageEvents.clear();
+	QTimer::singleShot(0, []()
+	{
+		Pump();
+		Key(Qt::Key_Escape);
+	});
+	Check(::PropertySheet(&psh) == 0 && Saw(1, PSN_QUERYCANCEL) && Saw(1, PSN_RESET) && !Saw(1, PSN_APPLY), "PropertySheet: Escape cancels and returns 0");
+
+	// Modeless: the sheet stays until the application destroys it.
+	psh.dwFlags |= PSH_MODELESS;
+	const auto modeless = reinterpret_cast<HWND>(::PropertySheet(&psh));
+	Check(modeless != nullptr && ::IsWindowVisible(modeless), "PropertySheet: PSH_MODELESS returns the visible sheet");
+	PropSheet_PressButton(modeless, PSBTN_CANCEL);
+	Pump();
+	Check(::IsWindow(modeless) && PropSheet_GetCurrentPageHwnd(modeless) == nullptr, "PropertySheet: modeless sheets end with no current page");
+	::DestroyWindow(modeless);
+}
+
+class TestPage : public CPropertyPage
+{
+public:
+	explicit TestPage(UINT id) : CPropertyPage(id) { }
+	int inits = 0, setActives = 0, killActives = 0, oks = 0, cancels = 0;
+	BOOL OnInitDialog() override
+	{
+		CPropertyPage::OnInitDialog();
+		inits++;
+		return TRUE;
+	}
+	BOOL OnSetActive() override
+	{
+		setActives++;
+		return CPropertyPage::OnSetActive();
+	}
+	BOOL OnKillActive() override
+	{
+		killActives++;
+		return CPropertyPage::OnKillActive();
+	}
+	void OnOK() override
+	{
+		oks++;
+		CPropertyPage::OnOK();
+	}
+	void OnCancel() override
+	{
+		cancels++;
+		CPropertyPage::OnCancel();
+	}
+};
+
+class TestSheet : public CPropertySheet
+{
+public:
+	using CPropertySheet::CPropertySheet;
+	bool initCalled = false;
+	std::function<void(TestSheet &)> during;
+	BOOL OnInitDialog() override
+	{
+		initCalled = true;
+		ModifyStyleEx(0, WS_EX_CONTEXTHELP);
+		const BOOL result = CPropertySheet::OnInitDialog();
+		if(during)
+			QTimer::singleShot(0, [this]() { Pump(); during(*this); });
+		return result;
+	}
+};
+
+void MfcPropertySheets(HWND owner)
+{
+	TestPage general(IDD_OPTIONS_GENERAL), mixer(IDD_OPTIONS_MIXER);
+	{
+		TestSheet sheet(_T("OpenMPT Setup"), CWnd::FromHandle(owner), 0);
+		sheet.AddPage(&general);
+		sheet.AddPage(&mixer);
+		Check(sheet.GetPageCount() == 2 && sheet.GetActiveIndex() == 0, "CPropertySheet: pages before DoModal");
+		sheet.during = [&](TestSheet &s)
+		{
+			Check(s.GetActivePage() == &general && general.inits == 1 && general.setActives == 1, "CPropertySheet: the first page is a CPropertyPage, initialised and active");
+			Check(dynamic_cast<CPropertySheet *>(general.GetParent()) == &s && s.GetDlgItem(IDOK) != nullptr, "CPropertyPage: the parent is the sheet (as Mpdlgs.cpp uses it)");
+			Check(mixer.m_hWnd == nullptr, "CPropertySheet: other pages wait");
+			Check(::IsWindowEnabled(owner) == FALSE, "CPropertySheet: the owner is disabled");
+			general.SetModified(TRUE);
+			Check(s.GetDlgItem(ID_APPLY_NOW) != nullptr && s.GetDlgItem(ID_APPLY_NOW)->IsWindowEnabled(), "CPropertyPage::SetModified enables Apply");
+			s.SetActivePage(1);
+			Check(s.GetActivePage() == &mixer && mixer.inits == 1 && general.killActives == 1 && s.GetActiveIndex() == 1, "CPropertySheet::SetActivePage");
+			SaveShot(s.m_hWnd, 9002);
+			s.SetActivePage(&general);
+			Check(general.setActives == 2, "CPropertySheet: back to the first page");
+			s.PressButton(PSBTN_OK);
+		};
+		const INT_PTR result = sheet.DoModal();
+		Check(sheet.initCalled, "CPropertySheet::OnInitDialog override");
+		Check(result == IDOK, "CPropertySheet::DoModal returns IDOK");
+		Check(general.oks == 1 && mixer.oks == 1 && general.cancels == 0, "CPropertyPage::OnOK on every page");
+		Check(sheet.m_hWnd == nullptr && general.m_hWnd == nullptr && ::IsWindowEnabled(owner), "CPropertySheet: gone, the owner enabled again");
+	}
+	{
+		TestPage find(IDD_EDIT_FIND), replace(IDD_EDIT_REPLACE);
+		TestSheet sheet(_T("Find/Replace"));
+		sheet.AddPage(&find);
+		sheet.AddPage(&replace);
+		sheet.during = [](TestSheet &)
+		{
+			Key(Qt::Key_Escape);
+		};
+		Check(sheet.DoModal() == IDCANCEL && find.cancels == 1 && find.oks == 0, "CPropertySheet: Escape is IDCANCEL, pages get OnCancel");
+	}
+}
+
 // Closes the next message box with its default button, once it is open.
 void AnswerNextMessageBox(QString *text)
 {
@@ -675,6 +919,8 @@ void MfcDialogs()
 		});
 		Check(::MessageBox(owner, L"Sure?", L"Test", MB_YESNO | MB_DEFBUTTON2) == IDNO, "MessageBox: MB_DEFBUTTON2 is No");
 	}
+	Win32PropertySheets(owner);
+	MfcPropertySheets(owner);
 	::DestroyWindow(owner);
 }
 } // namespace

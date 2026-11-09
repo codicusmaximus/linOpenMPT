@@ -45,6 +45,12 @@ BOOL ModalIdle(LONG count)
 	CWnd *wnd = m.wnd;
 	if(wnd->m_hWnd == nullptr || !::IsWindow(wnd->m_hWnd))
 		return FALSE;
+	// ContinueModal() may say no without EndModalLoop() (property sheets).
+	if(!wnd->ContinueModal())
+	{
+		wnd->EndModalLoop(wnd->m_nModalResult);
+		return FALSE;
+	}
 	// The dialog shows when the queue first goes idle, as in MFC.
 	if(m.showOnIdle)
 	{

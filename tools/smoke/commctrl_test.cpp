@@ -6,6 +6,7 @@
 
 #include "QtWin.h"
 
+#include <QtCore/QElapsedTimer>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QApplication>
@@ -13,8 +14,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cwchar>
 #include <cstdlib>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace linopenmpt::qtwin;
@@ -57,6 +60,13 @@ bool g_editAccept = true;
 std::vector<NMTREEVIEW> g_tvEvents; // TVN_SELCHANGED, TVN_ITEMEXPANDED, TVN_DELETEITEM, TVN_BEGINDRAG
 std::vector<HTREEITEM> g_selectedAtClick; // the selection when NM_CLICK arrives
 HWND g_tree = nullptr;
+std::vector<UINT> g_tipEvents; // TTN_SHOW, TTN_POP
+std::vector<WPARAM> g_commands;  // WM_COMMAND from toolbars
+std::vector<HWND> g_commandFrom;
+std::vector<int> g_cbeDeleted;   // CBEN_DELETEITEM
+std::vector<std::pair<UINT, std::wstring>> g_linkClicks; // NM_CLICK / NM_RETURN from SysLink: code, url
+std::vector<NMTOOLBAR> g_dropDowns;
+std::vector<std::wstring> g_toolbarTips;
 int g_tvVeto = 0;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -67,10 +77,38 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_VSCROLL:
 		g_scrolls.push_back(Scroll{msg, LOWORD(wp), static_cast<short>(HIWORD(wp)), reinterpret_cast<HWND>(lp)});
 		return 0;
+	case WM_COMMAND:
+		if(reinterpret_cast<HWND>(lp) != nullptr)
+		{
+			g_commands.push_back(wp);
+			g_commandFrom.push_back(reinterpret_cast<HWND>(lp));
+		}
+		return 0;
 	case WM_NOTIFY:
 		{
 			const auto *hdr = reinterpret_cast<const NMHDR *>(lp);
 			g_notifies.push_back(hdr->code);
+			if(hdr->code == CBEN_GETDISPINFO)
+			{
+				auto *nm = reinterpret_cast<NMCOMBOBOXEX *>(lp);
+				if(nm->ceItem.mask & CBEIF_TEXT)
+					std::swprintf(nm->ceItem.pszText, nm->ceItem.cchTextMax, L"callback %d", static_cast<int>(nm->ceItem.iItem));
+				if(nm->ceItem.mask & CBEIF_IMAGE)
+					nm->ceItem.iImage = 3;
+				return 0;
+			}
+			if((hdr->code == NM_CLICK || hdr->code == NM_RETURN) && hdr->idFrom == 830)
+			{
+				const auto *nm = reinterpret_cast<const NMLINK *>(lp);
+				g_linkClicks.emplace_back(hdr->code, std::wstring(nm->item.szUrl) + L"#" + nm->item.szID);
+			}
+			if(hdr->code == CBEN_DELETEITEM)
+				g_cbeDeleted.push_back(static_cast<int>(reinterpret_cast<NMCOMBOBOXEX *>(lp)->ceItem.lParam));
+			if(hdr->code == TBN_DROPDOWN)
+			{
+				g_dropDowns.push_back(*reinterpret_cast<const NMTOOLBAR *>(lp));
+				return TBDDRET_DEFAULT;
+			}
 			if(hdr->code == UDN_DELTAPOS)
 			{
 				auto *nm = reinterpret_cast<NMUPDOWN *>(lp);
@@ -107,6 +145,22 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				g_tvEvents.push_back(*reinterpret_cast<const NMTREEVIEW *>(lp));
 			if(hdr->code == NM_CLICK && hdr->hwndFrom == g_tree)
 				g_selectedAtClick.push_back(TreeView_GetSelection(g_tree));
+			if(hdr->code == TTN_SHOW || hdr->code == TTN_POP)
+				g_tipEvents.push_back(hdr->code);
+			if(hdr->code == TTN_GETDISPINFO)
+			{
+				auto *di = reinterpret_cast<NMTTDISPINFO *>(lp);
+				if(hdr->idFrom >= 800 && hdr->idFrom < 900)
+				{
+					g_toolbarTips.push_back(L"command " + std::to_wstring(hdr->idFrom));
+					wcscpy(di->szText, g_toolbarTips.back().c_str());
+					di->lpszText = di->szText;
+					return 0;
+				}
+				wcscpy(di->szText, L"From the parent");
+				di->lpszText = di->szText;
+				return 0;
+			}
 			if(hdr->code == TVN_GETDISPINFO)
 			{
 				auto *di = reinterpret_cast<NMTVDISPINFO *>(lp);
@@ -1019,6 +1073,499 @@ void TreeViews(HWND parent)
 	::DestroyWindow(tv);
 }
 
+void Wait(int ms)
+{
+	QElapsedTimer t;
+	t.start();
+	while(t.elapsed() < ms)
+		QApplication::processEvents(QEventLoop::AllEvents, 5);
+}
+
+bool Visible(HWND hwnd)
+{
+	return (::GetWindowLongPtr(hwnd, GWL_STYLE) & WS_VISIBLE) != 0;
+}
+
+// MFC's EnableToolTips: the window answers TTN_NEEDTEXT for its children.
+class TipWindow : public CWnd
+{
+public:
+	int asked = 0;
+	UINT askedFor = 0;
+	BOOL OnNeedText(UINT, NMHDR *nmhdr, LRESULT *)
+	{
+		auto *ttt = reinterpret_cast<TOOLTIPTEXT *>(nmhdr);
+		asked++;
+		if(ttt->uFlags & TTF_IDISHWND)
+			askedFor = static_cast<UINT>(::GetDlgCtrlID(reinterpret_cast<HWND>(nmhdr->idFrom)));
+		wcscpy(ttt->szText, L"Play the song");
+		return TRUE;
+	}
+	DECLARE_MESSAGE_MAP()
+};
+
+BEGIN_MESSAGE_MAP(TipWindow, CWnd)
+	ON_NOTIFY_EX(TTN_NEEDTEXT, 0, &TipWindow::OnNeedText)
+END_MESSAGE_MAP()
+
+void ToolTips(HWND parent)
+{
+	HWND button = ::CreateWindowEx(0, L"Button", L"Play", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 80, 24, parent, reinterpret_cast<HMENU>(700), nullptr, nullptr);
+	HWND tip = ::CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, nullptr, WS_POPUP | TTS_ALWAYSTIP, 0, 0, 0, 0, parent, nullptr, nullptr, nullptr);
+	Check(tip != nullptr && !(::GetWindowLongPtr(tip, GWL_STYLE) & WS_CHILD), "tooltip: created, a popup");
+	TOOLINFO ti{};
+	ti.cbSize = sizeof(ti);
+	ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+	ti.hwnd = parent;
+	ti.uId = reinterpret_cast<UINT_PTR>(button);
+	ti.lpszText = const_cast<LPTSTR>(L"Starts playback");
+	Check(::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&ti)) != 0, "tooltip: TTM_ADDTOOL");
+	RECT area{120, 20, 200, 60};
+	TOOLINFO rectTool{};
+	rectTool.cbSize = sizeof(rectTool);
+	rectTool.uFlags = TTF_SUBCLASS;
+	rectTool.hwnd = parent;
+	rectTool.uId = 5;
+	rectTool.rect = area;
+	rectTool.lpszText = LPSTR_TEXTCALLBACK;
+	::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&rectTool));
+	Check(::SendMessage(tip, TTM_GETTOOLCOUNT, 0, 0) == 2, "tooltip: TTM_GETTOOLCOUNT");
+	wchar_t text[80] = {};
+	TOOLINFO get{};
+	get.cbSize = sizeof(get);
+	get.hwnd = parent;
+	get.uId = 5;
+	get.lpszText = text;
+	::SendMessage(tip, TTM_GETTEXT, 80, reinterpret_cast<LPARAM>(&get));
+	Check(std::wstring(text) == L"From the parent", "tooltip: LPSTR_TEXTCALLBACK asks TTN_GETDISPINFO");
+	TTHITTESTINFO hit{};
+	hit.hwnd = parent;
+	hit.pt = POINT{150, 30};
+	hit.ti.cbSize = sizeof(hit.ti);
+	Check(::SendMessage(tip, TTM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)) && hit.ti.uId == 5, "tooltip: TTM_HITTEST");
+	::SendMessage(tip, TTM_SETDELAYTIME, TTDT_INITIAL, MAKELPARAM(20, 0));
+	Check(::SendMessage(tip, TTM_GETDELAYTIME, TTDT_INITIAL, 0) == 20, "tooltip: TTM_SETDELAYTIME");
+
+	// The mouse rests on the button (subclassed, so no relaying needed).
+	POINT screen{30, 10};
+	::ClientToScreen(button, &screen);
+	::SetCursorPos(screen.x, screen.y);
+	g_tipEvents.clear();
+	Mouse(button, QEvent::MouseMove, 10, 10);
+	Check(!Visible(tip), "tooltip: waits before showing");
+	Wait(150);
+	Check(Visible(tip), "tooltip: shows after the initial delay");
+	Check(!g_tipEvents.empty() && g_tipEvents.front() == TTN_SHOW, "tooltip: TTN_SHOW");
+	RECT tr{}, br{};
+	::GetWindowRect(tip, &tr);
+	::GetWindowRect(button, &br);
+	Check(tr.top >= screen.y && tr.right - tr.left > 40, "tooltip: below the cursor, sized to the text");
+	TOOLINFO current{};
+	current.cbSize = sizeof(current);
+	Check(::SendMessage(tip, TTM_GETCURRENTTOOL, 0, reinterpret_cast<LPARAM>(&current)) && current.uId == reinterpret_cast<UINT_PTR>(button), "tooltip: TTM_GETCURRENTTOOL");
+	SaveShot(tip, "tooltip");
+	// A click puts it away.
+	Mouse(button, QEvent::MouseButtonPress, 10, 10);
+	Mouse(button, QEvent::MouseButtonRelease, 10, 10);
+	Check(!Visible(tip) && g_tipEvents.back() == TTN_POP, "tooltip: a click pops it, with TTN_POP");
+
+	// Tracking tooltips go where they are told.
+	TOOLINFO track{};
+	track.cbSize = sizeof(track);
+	track.uFlags = TTF_TRACK | TTF_ABSOLUTE;
+	track.hwnd = parent;
+	track.uId = 9;
+	track.lpszText = const_cast<LPTSTR>(L"Line one\nLine two is longer");
+	::SendMessage(tip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&track));
+	::SendMessage(tip, TTM_SETMAXTIPWIDTH, 0, 300);
+	::SendMessage(tip, TTM_TRACKPOSITION, 0, MAKELPARAM(100, 120));
+	::SendMessage(tip, TTM_TRACKACTIVATE, TRUE, reinterpret_cast<LPARAM>(&track));
+	::GetWindowRect(tip, &tr);
+	Check(Visible(tip) && tr.left == 100 && tr.top == 120, "tooltip: TTM_TRACKACTIVATE at TTM_TRACKPOSITION");
+	const LRESULT oneLine = ::SendMessage(tip, TTM_GETBUBBLESIZE, 0, reinterpret_cast<LPARAM>(&rectTool));
+	Check(tr.bottom - tr.top > HIWORD(oneLine), "tooltip: line breaks make two lines");
+	::SendMessage(tip, TTM_TRACKACTIVATE, FALSE, reinterpret_cast<LPARAM>(&track));
+	Check(!Visible(tip), "tooltip: tracking off hides it");
+	::SendMessage(tip, TTM_DELTOOL, 0, reinterpret_cast<LPARAM>(&track));
+	Check(::SendMessage(tip, TTM_GETTOOLCOUNT, 0, 0) == 2, "tooltip: TTM_DELTOOL");
+	::DestroyWindow(tip);
+	Check(reinterpret_cast<WNDPROC>(::GetWindowLongPtr(button, GWLP_WNDPROC)) != nullptr, "tooltip: the subclass goes away with it");
+	::DestroyWindow(button);
+
+	// MFC: EnableToolTips, OnToolHitTest's default for child windows and TTN_NEEDTEXT.
+	TipWindow wnd;
+	const LPCTSTR cls = AfxRegisterWndClass(0, ::LoadCursor(nullptr, IDC_ARROW), reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1));
+	wnd.CreateEx(0, cls, _T("tips"), WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 300, 200, nullptr, nullptr);
+	HWND child = ::CreateWindowEx(0, L"Button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 80, 24, wnd.m_hWnd, reinterpret_cast<HMENU>(1234), nullptr, nullptr);
+	TOOLINFO probe{};
+	probe.cbSize = TTTOOLINFO_V1_SIZE;
+	Check(wnd.OnToolHitTest(CPoint(30, 30), &probe) == 1234 && probe.uId == reinterpret_cast<UINT_PTR>(child) && (probe.uFlags & TTF_IDISHWND) && probe.lpszText == LPSTR_TEXTCALLBACK, "CWnd::OnToolHitTest: child windows by default");
+	Check(wnd.OnToolHitTest(CPoint(250, 150), nullptr) == -1, "CWnd::OnToolHitTest: -1 elsewhere");
+	wnd.EnableToolTips(TRUE);
+	if(Win32Widget *w = FromHandle(wnd.m_hWnd))
+		w->activateWindow();
+	Pump();
+	screen = POINT{30, 10};
+	::ClientToScreen(child, &screen);
+	::SetCursorPos(screen.x, screen.y);
+	MSG move{};
+	move.hwnd = child;
+	move.message = WM_MOUSEMOVE;
+	move.lParam = MAKELPARAM(10, 10);
+	move.pt = screen;
+	CWnd::WalkPreTranslateTree(wnd.m_hWnd, &move);
+	HWND mfcTip = ::FindWindow(TOOLTIPS_CLASS, nullptr);
+	Check(mfcTip != nullptr && ::SendMessage(mfcTip, TTM_GETTOOLCOUNT, 0, 0) == 1, "EnableToolTips: a thread tooltip with the hit tool");
+	Wait(::GetDoubleClickTime() + 150);
+	Check(wnd.asked >= 1 && wnd.askedFor == 1234, "EnableToolTips: TTN_NEEDTEXT reaches the window, for the control");
+	Check(mfcTip != nullptr && Visible(mfcTip), "EnableToolTips: the tip shows");
+	MSG key{};
+	key.hwnd = child;
+	key.message = WM_KEYDOWN;
+	key.wParam = VK_SPACE;
+	CWnd::WalkPreTranslateTree(wnd.m_hWnd, &key);
+	Check(mfcTip != nullptr && !Visible(mfcTip), "EnableToolTips: a key puts the tip away");
+	wnd.DestroyWindow();
+}
+
+HIMAGELIST MakeIcons(int count)
+{
+	HIMAGELIST list = ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, count, 1);
+	BITMAPINFO bi{};
+	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth = 16 * count;
+	bi.bmiHeader.biHeight = -16;
+	bi.bmiHeader.biPlanes = 1;
+	bi.bmiHeader.biBitCount = 32;
+	void *bits = nullptr;
+	HDC screen = ::GetDC(nullptr);
+	HBITMAP strip = ::CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+	auto *px = static_cast<uint32_t *>(bits);
+	const uint32_t colours[] = {0x2060C0, 0x30A030, 0xC03030, 0xC0A020};
+	for(int y = 0; y < 16; y++)
+	{
+		for(int x = 0; x < 16 * count; x++)
+		{
+			const int lx = x % 16;
+			const bool inside = lx >= 3 && lx < 13 && y >= 3 && y < 13;
+			px[y * 16 * count + x] = inside ? colours[(x / 16) % 4] : 0xFF00FF;
+		}
+	}
+	ImageList_AddMasked(list, strip, RGB(255, 0, 255));
+	::DeleteObject(strip);
+	::ReleaseDC(nullptr, screen);
+	return list;
+}
+
+void Toolbars(HWND parent)
+{
+	HWND tb = ::CreateWindowEx(0, TOOLBARCLASSNAME, nullptr, WS_CHILD | WS_VISIBLE | CCS_NORESIZE | CCS_NOPARENTALIGN | CCS_NODIVIDER | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS, 10, 10, 300, 30, parent, reinterpret_cast<HMENU>(800), nullptr, nullptr);
+	Check(tb != nullptr, "toolbar: created");
+	CToolBarCtrl bar;
+	bar.Attach(tb);
+	bar.SetButtonStructSize(sizeof(TBBUTTON));
+	HIMAGELIST icons = MakeIcons(4);
+	CImageList *images = CImageList::FromHandle(icons);
+	bar.SetImageList(images);
+	bar.SetBitmapSize(CSize(16, 16));
+	bar.SetButtonSize(CSize(26, 24));
+	TBBUTTON buttons[] = {
+		{0, 801, TBSTATE_ENABLED, BTNS_BUTTON, {}, 0, 0},
+		{1, 802, TBSTATE_ENABLED, BTNS_CHECK, {}, 0, 0},
+		{0, 0, TBSTATE_ENABLED, BTNS_SEP, {}, 0, 0},
+		{2, 803, TBSTATE_ENABLED, BTNS_CHECK | BTNS_GROUP, {}, 0, 0},
+		{3, 804, TBSTATE_ENABLED | TBSTATE_CHECKED, BTNS_CHECK | BTNS_GROUP, {}, 0, 0},
+		{0, 805, TBSTATE_ENABLED, BTNS_DROPDOWN, {}, 0, 0},
+		{1, 806, 0, BTNS_BUTTON, {}, 0, 0},
+	};
+	bar.SetExtendedStyle(TBSTYLE_EX_DRAWDDARROWS);
+	Check(bar.AddButtons(7, buttons) && bar.GetButtonCount() == 7, "toolbar: AddButtons");
+	Check(bar.CommandToIndex(803) == 3 && bar.CommandToIndex(999) == -1, "toolbar: CommandToIndex");
+	CSize size = bar.GetButtonSize();
+	Check(size.cx == 26 && size.cy == 24, "toolbar: TB_SETBUTTONSIZE");
+	RECT r0{}, r1{}, rs{}, rd{};
+	bar.GetItemRect(0, &r0);
+	bar.GetItemRect(1, &r1);
+	bar.GetItemRect(2, &rs);
+	bar.GetItemRect(5, &rd);
+	Check(r0.left == 0 && r0.right == 26 && r1.left == 26 && r0.top == 0 && r0.bottom == 24, "toolbar: buttons side by side from the left");
+	Check(rs.right - rs.left == 8, "toolbar: separators are 8 wide");
+	Check(rd.right - rd.left == 26 + 14, "toolbar: TBSTYLE_EX_DRAWDDARROWS adds the arrow");
+
+	// A click: NM_CLICK, then WM_COMMAND from the toolbar.
+	g_commands.clear();
+	g_notifies.clear();
+	Mouse(tb, QEvent::MouseButtonPress, 10, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, 10, 10);
+	Check(g_commands.size() == 1 && LOWORD(g_commands[0]) == 801 && HIWORD(g_commands[0]) == BN_CLICKED, "toolbar: a click sends WM_COMMAND");
+	Check(std::find(g_notifies.begin(), g_notifies.end(), static_cast<UINT>(NM_CLICK)) != g_notifies.end(), "toolbar: NM_CLICK");
+	// Pressing, then letting go elsewhere, does nothing.
+	g_commands.clear();
+	Mouse(tb, QEvent::MouseButtonPress, 10, 10);
+	Mouse(tb, QEvent::MouseMove, 200, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, 200, 10);
+	Check(g_commands.empty(), "toolbar: let go elsewhere, no command");
+
+	// Check buttons toggle; group buttons are radio buttons.
+	Mouse(tb, QEvent::MouseButtonPress, r1.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, r1.left + 5, 10);
+	Check(bar.IsButtonChecked(802), "toolbar: BTNS_CHECK toggles on");
+	Mouse(tb, QEvent::MouseButtonPress, r1.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, r1.left + 5, 10);
+	Check(!bar.IsButtonChecked(802), "toolbar: and off");
+	RECT rg{};
+	bar.GetItemRect(3, &rg);
+	Mouse(tb, QEvent::MouseButtonPress, rg.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rg.left + 5, 10);
+	Check(bar.IsButtonChecked(803) && !bar.IsButtonChecked(804), "toolbar: a group button unchecks the others");
+	bar.CheckButton(804, TRUE);
+	Check(!bar.IsButtonChecked(803) && bar.IsButtonChecked(804), "toolbar: TB_CHECKBUTTON in a group too");
+
+	// Disabled buttons do nothing.
+	RECT rx{};
+	bar.GetItemRect(6, &rx);
+	g_commands.clear();
+	Mouse(tb, QEvent::MouseButtonPress, rx.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rx.left + 5, 10);
+	Check(g_commands.empty() && !bar.IsButtonEnabled(806), "toolbar: disabled buttons do nothing");
+	bar.EnableButton(806, TRUE);
+	Check(bar.IsButtonEnabled(806), "toolbar: EnableButton");
+
+	// The drop-down arrow: TBN_DROPDOWN, no WM_COMMAND.
+	g_commands.clear();
+	g_dropDowns.clear();
+	Mouse(tb, QEvent::MouseButtonPress, rd.right - 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rd.right - 5, 10);
+	Check(g_dropDowns.size() == 1 && g_dropDowns[0].iItem == 805 && g_dropDowns[0].rcButton.left == rd.left && g_commands.empty(), "toolbar: the arrow sends TBN_DROPDOWN");
+	Mouse(tb, QEvent::MouseButtonPress, rd.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rd.left + 5, 10);
+	Check(g_commands.size() == 1 && LOWORD(g_commands[0]) == 805, "toolbar: the button part is a plain click");
+
+	// Hit testing, hiding and states.
+	POINT pt{rs.left + 2, 5};
+	Check(bar.HitTest(&pt) < 0, "toolbar: TB_HITTEST, negative on a separator");
+	pt = POINT{r1.left + 2, 5};
+	Check(bar.HitTest(&pt) == 1, "toolbar: TB_HITTEST on a button");
+	bar.HideButton(801, TRUE);
+	bar.GetItemRect(1, &r1);
+	Check(r1.left == 0, "toolbar: a hidden button takes no room");
+	bar.HideButton(801, FALSE);
+	Check(bar.GetState(803) == TBSTATE_ENABLED, "toolbar: TB_GETSTATE");
+
+	// Tooltips: the toolbar asks its parent, by command.
+	CToolTipCtrl *tips = bar.GetToolTips();
+	Check(tips != nullptr && tips->GetToolCount() == 6, "toolbar: TBSTYLE_TOOLTIPS, a tool per button");
+	if(tips != nullptr)
+	{
+		wchar_t text[80] = {};
+		TOOLINFO ti{};
+		ti.cbSize = sizeof(ti);
+		ti.hwnd = tb;
+		ti.uId = 802;
+		ti.lpszText = text;
+		::SendMessage(tips->m_hWnd, TTM_GETTEXT, 80, reinterpret_cast<LPARAM>(&ti));
+		Check(std::wstring(text) == L"command 802", "toolbar: tooltip text from the parent's TTN_NEEDTEXT");
+	}
+
+	// Hot tracking for flat toolbars.
+	Mouse(tb, QEvent::MouseMove, 10, 10);
+	Check(bar.GetHotItem() == 0, "toolbar: TBSTYLE_FLAT tracks the hot button");
+	SaveShot(parent, "toolbar");
+	bar.Detach();
+	::DestroyWindow(tb);
+	ImageList_Destroy(icons);
+
+	// Text buttons, CCS_TOP placement and TB_AUTOSIZE.
+	HWND top = ::CreateWindowEx(0, TOOLBARCLASSNAME, nullptr, WS_CHILD | WS_VISIBLE | TBSTYLE_LIST, 0, 0, 0, 0, parent, reinterpret_cast<HMENU>(801), nullptr, nullptr);
+	TBBUTTON textButton{I_IMAGENONE, 810, TBSTATE_ENABLED, BTNS_AUTOSIZE, {}, 0, reinterpret_cast<INT_PTR>(L"Play")};
+	::SendMessage(top, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
+	::SendMessage(top, TB_ADDBUTTONS, 1, reinterpret_cast<LPARAM>(&textButton));
+	::SendMessage(top, TB_AUTOSIZE, 0, 0);
+	RECT tr{}, pr{};
+	::GetWindowRect(top, &tr);
+	::GetClientRect(parent, &pr);
+	Check(tr.right - tr.left == pr.right && tr.bottom - tr.top >= 20, "toolbar: TB_AUTOSIZE spans the parent");
+	wchar_t text[16] = {};
+	Check(::SendMessage(top, TB_GETBUTTONTEXT, 810, reinterpret_cast<LPARAM>(text)) == 4 && std::wstring(text) == L"Play", "toolbar: button text");
+	::DestroyWindow(top);
+}
+
+void ComboBoxExes(HWND parent)
+{
+	HWND ex = ::CreateWindowEx(0, WC_COMBOBOXEX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, 10, 10, 200, 150, parent, reinterpret_cast<HMENU>(820), nullptr, nullptr);
+	Check(ex != nullptr, "comboboxex: created");
+	CComboBoxEx box;
+	box.Attach(ex);
+	HWND combo = reinterpret_cast<HWND>(::SendMessage(ex, CBEM_GETCOMBOCONTROL, 0, 0));
+	wchar_t className[32] = {};
+	::GetClassName(combo, className, 32);
+	Check(combo != nullptr && std::wstring(className) == L"ComboBox" && ::GetParent(combo) == ex, "comboboxex: hosts a ComboBox");
+	Check((::GetWindowLongPtr(combo, GWL_STYLE) & (CBS_OWNERDRAWFIXED | 3)) == (CBS_OWNERDRAWFIXED | CBS_DROPDOWNLIST), "comboboxex: the child is owner drawn, of our type");
+	Check(box.GetEditCtrl() == nullptr, "comboboxex: no edit for CBS_DROPDOWNLIST");
+	RECT er{}, cr{};
+	::GetWindowRect(ex, &er);
+	::GetWindowRect(combo, &cr);
+	Check(er.bottom - er.top == cr.bottom - cr.top && er.bottom - er.top < 40, "comboboxex: as tall as the closed combo box");
+
+	HIMAGELIST icons = MakeIcons(4);
+	Check(box.SetImageList(CImageList::FromHandle(icons)) == nullptr && box.GetImageList()->GetSafeHandle() == icons, "comboboxex: CBEM_SETIMAGELIST");
+	Check(::SendMessage(combo, CB_GETITEMHEIGHT, 0, 0) >= 18, "comboboxex: items fit the images");
+	const wchar_t *names[] = {L"Sine", L"Square", L"Saw"};
+	for(int i = 0; i < 3; i++)
+	{
+		COMBOBOXEXITEM item{};
+		item.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_LPARAM | CBEIF_INDENT;
+		item.iItem = i;
+		item.pszText = const_cast<LPWSTR>(names[i]);
+		item.iImage = i;
+		item.iSelectedImage = i;
+		item.iIndent = i == 2 ? 1 : 0;
+		item.lParam = 100 + i;
+		Check(box.InsertItem(&item) == i, "comboboxex: CBEM_INSERTITEM");
+	}
+	COMBOBOXEXITEM cb{};
+	cb.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_LPARAM;
+	cb.iItem = -1; // append
+	cb.pszText = LPSTR_TEXTCALLBACK;
+	cb.iImage = I_IMAGECALLBACK;
+	cb.lParam = 103;
+	Check(box.InsertItem(&cb) == 3, "comboboxex: -1 appends");
+	Check(box.GetCount() == 4, "comboboxex: CB_GETCOUNT");
+	Check(box.GetItemData(1) == 101, "comboboxex: item data is the lParam");
+	CString text;
+	box.GetLBText(1, text);
+	Check(text == L"Square", "comboboxex: CB_GETLBTEXT");
+	wchar_t buffer[32] = {};
+	COMBOBOXEXITEM get{};
+	get.mask = CBEIF_TEXT | CBEIF_IMAGE | CBEIF_INDENT;
+	get.iItem = 2;
+	get.pszText = buffer;
+	get.cchTextMax = 32;
+	Check(box.GetItem(&get) && std::wstring(buffer) == L"Saw" && get.iImage == 2 && get.iIndent == 1, "comboboxex: CBEM_GETITEM");
+	get.iItem = 3;
+	Check(box.GetItem(&get) && get.pszText == LPSTR_TEXTCALLBACK && get.iImage == I_IMAGECALLBACK, "comboboxex: callback items stay callbacks");
+
+	// Selection and the forwarded notifications.
+	Check(box.SetCurSel(3) == 3 && box.GetCurSel() == 3, "comboboxex: CB_SETCURSEL");
+	g_commands.clear();
+	g_commandFrom.clear();
+	::SetFocus(ex);
+	Pump();
+	Check(::GetFocus() == combo, "comboboxex: the focus goes to the combo box");
+	box.SetCurSel(0);
+	Key(Qt::Key_Down);
+	Check(box.GetCurSel() == 1, "comboboxex: keys move the selection");
+	bool selchange = false;
+	for(std::size_t i = 0; i < g_commands.size(); i++)
+	{
+		if(HIWORD(g_commands[i]) == CBN_SELCHANGE)
+			selchange = LOWORD(g_commands[i]) == 820 && g_commandFrom[i] == ex;
+	}
+	Check(selchange, "comboboxex: CBN_SELCHANGE comes from the ComboBoxEx");
+	SaveShot(parent, "comboboxex");
+	::SendMessage(combo, CB_SHOWDROPDOWN, TRUE, 0);
+	Pump();
+	SaveShot(parent, "comboboxex-dropped");
+	::SendMessage(combo, CB_SHOWDROPDOWN, FALSE, 0);
+	Pump();
+
+	COMBOBOXEXITEM set{};
+	set.mask = CBEIF_TEXT;
+	set.iItem = 1;
+	set.pszText = const_cast<LPWSTR>(L"Pulse");
+	Check(box.SetItem(&set), "comboboxex: CBEM_SETITEM");
+	box.GetLBText(1, text);
+	Check(text == L"Pulse" && box.GetCurSel() == 1 && box.GetItemData(1) == 101, "comboboxex: CBEM_SETITEM keeps the selection and data");
+
+	g_cbeDeleted.clear();
+	Check(box.DeleteItem(0) == 3 && box.GetItemData(0) == 101, "comboboxex: CBEM_DELETEITEM");
+	box.ResetContent();
+	Check(box.GetCount() == 0 && g_cbeDeleted.size() == 4 && g_cbeDeleted[0] == 100, "comboboxex: CBEN_DELETEITEM for each item");
+	box.Detach();
+	::DestroyWindow(ex);
+
+	// CBS_DROPDOWN has an edit control.
+	HWND drop = ::CreateWindowEx(0, WC_COMBOBOXEX, nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWN, 10, 10, 200, 150, parent, reinterpret_cast<HMENU>(821), nullptr, nullptr);
+	HWND edit = reinterpret_cast<HWND>(::SendMessage(drop, CBEM_GETEDITCONTROL, 0, 0));
+	::GetClassName(edit, className, 32);
+	Check(edit != nullptr && std::wstring(className) == L"Edit", "comboboxex: CBEM_GETEDITCONTROL");
+	::DestroyWindow(drop);
+	ImageList_Destroy(icons);
+}
+
+void SysLinks(HWND parent)
+{
+	HWND link = ::CreateWindowEx(0, WC_LINK, L"Visit <a href=\"https://openmpt.org/\" id=\"site\">OpenMPT</a> or <A>this one</A>; <a>unclosed", WS_CHILD | WS_VISIBLE | WS_TABSTOP, 10, 10, 360, 40, parent, reinterpret_cast<HMENU>(830), nullptr, nullptr);
+	Check(link != nullptr, "syslink: created");
+	SIZE ideal{};
+	const LRESULT height = ::SendMessage(link, LM_GETIDEALSIZE, 360, reinterpret_cast<LPARAM>(&ideal));
+	Check(height > 5 && height < 30 && ideal.cy == height && ideal.cx > 50 && ideal.cx < 360, "syslink: one line at full width");
+	const LRESULT narrow = ::SendMessage(link, LM_GETIDEALSIZE, 60, 0);
+	Check(narrow >= 3 * height, "syslink: words wrap");
+	LITEM item{};
+	item.mask = LIF_ITEMINDEX | LIF_URL | LIF_ITEMID | LIF_STATE;
+	item.iLink = 0;
+	item.stateMask = LIS_ENABLED;
+	Check(::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)) && std::wstring(item.szUrl) == L"https://openmpt.org/" && std::wstring(item.szID) == L"site" && (item.state & LIS_ENABLED), "syslink: LM_GETITEM");
+	item.iLink = 2;
+	Check(!::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)), "syslink: an unclosed <a> is text");
+
+	// Find the first link by hit testing along the line, then click it.
+	int first = -1, second = -1;
+	for(int x = 0; x < 360; x++)
+	{
+		LHITTESTINFO hit{};
+		hit.pt = POINT{x, static_cast<LONG>(height / 2)};
+		if(::SendMessage(link, LM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)))
+		{
+			if(hit.item.iLink == 0 && first < 0)
+				first = x;
+			if(hit.item.iLink == 1 && second < 0)
+				second = x;
+		}
+	}
+	Check(first > 10 && second > first, "syslink: LM_HITTEST finds both links");
+	g_linkClicks.clear();
+	Mouse(link, QEvent::MouseButtonPress, first + 3, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, first + 3, static_cast<int>(height / 2));
+	Check(g_linkClicks.size() == 1 && g_linkClicks[0].first == static_cast<UINT>(NM_CLICK) && g_linkClicks[0].second == L"https://openmpt.org/#site", "syslink: a click sends NM_CLICK with the link");
+	Check(::GetFocus() == link, "syslink: clicking a link focuses the control");
+	Mouse(link, QEvent::MouseButtonPress, 2, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, 2, static_cast<int>(height / 2));
+	Check(g_linkClicks.size() == 1, "syslink: a click on text does nothing");
+
+	// The keyboard: Tab moves to the next link, Space and Enter activate it.
+	Check((::SendMessage(link, WM_GETDLGCODE, 0, 0) & DLGC_WANTTAB) == 0, "syslink: WM_GETDLGCODE");
+	Key(Qt::Key_Tab);
+	g_linkClicks.clear();
+	Key(Qt::Key_Space);
+	Key(Qt::Key_Return);
+	Check(g_linkClicks.size() == 2 && g_linkClicks[0].first == static_cast<UINT>(NM_CLICK) && g_linkClicks[0].second == L"#" && g_linkClicks[1].first == static_cast<UINT>(NM_RETURN), "syslink: Tab, then Space and Enter");
+	SaveShot(parent, "syslink");
+
+	// Disabled links are text.
+	LITEM off{};
+	off.mask = LIF_ITEMINDEX | LIF_STATE;
+	off.iLink = 0;
+	off.stateMask = LIS_ENABLED;
+	off.state = 0;
+	::SendMessage(link, LM_SETITEM, 0, reinterpret_cast<LPARAM>(&off));
+	g_linkClicks.clear();
+	Mouse(link, QEvent::MouseButtonPress, first + 3, static_cast<int>(height / 2));
+	Mouse(link, QEvent::MouseButtonRelease, first + 3, static_cast<int>(height / 2));
+	Check(g_linkClicks.empty(), "syslink: LM_SETITEM disables a link");
+
+	// New text, as UpdateCheck sets it, with a line break.
+	::SetWindowText(link, L"More information about this build:\n<a href=\"https://example.org/build\">https://example.org/build</a>");
+	item = LITEM{};
+	item.mask = LIF_ITEMINDEX | LIF_URL;
+	item.iLink = 0;
+	Check(::SendMessage(link, LM_GETITEM, 0, reinterpret_cast<LPARAM>(&item)) && std::wstring(item.szUrl) == L"https://example.org/build", "syslink: WM_SETTEXT reparses");
+	Check(::SendMessage(link, LM_GETIDEALSIZE, 360, 0) == 2 * height, "syslink: '\\n' breaks the line");
+	SaveShot(parent, "syslink-settext");
+	::DestroyWindow(link);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1041,6 +1588,10 @@ int main(int argc, char **argv)
 	Tabs(parent);
 	ListViews(parent);
 	TreeViews(parent);
+	ToolTips(parent);
+	Toolbars(parent);
+	ComboBoxExes(parent);
+	SysLinks(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;

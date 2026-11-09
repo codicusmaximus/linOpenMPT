@@ -678,6 +678,9 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 			flags |= Qt::Tool;
 		if(exStyle & WS_EX_TOPMOST)
 			flags |= Qt::WindowStaysOnTopHint;
+		// Tooltips never take the focus or show in the task bar.
+		if(Lower(cls->name) == Lower(TOOLTIPS_CLASS))
+			flags = Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint;
 	}
 	auto *widget = new Win32Widget(parentWidget, flags);
 	WindowData &d = widget->data;

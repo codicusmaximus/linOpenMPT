@@ -608,6 +608,7 @@ public:
 #define WF_STAYACTIVE 0x0020
 #define WF_NOPOPMSG 0x0040
 #define WF_MODALDISABLE 0x0080
+#define WF_TRACKINGTOOLTIPS 0x0400
 #define MLF_NOIDLEMSG 0x0001
 #define MLF_NOKICKIDLE 0x0002
 #define MLF_SHOWONIDLE 0x0004
@@ -705,7 +706,11 @@ public:
 	virtual BOOL PreCreateWindow(CREATESTRUCT &cs);
 	virtual BOOL DestroyWindow();
 	virtual void PostNcDestroy() { }
-	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const { return 0; }
+	virtual INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const;
+	// MFC's tooltips for windows with EnableToolTips: called from
+	// PreTranslateMessage with the mouse and key messages.
+	void FilterToolTipMessage(MSG *msg);
+	static void CancelToolTips(BOOL keys = FALSE);
 	virtual BOOL OnGesturePan(CPoint from, CPoint to) { return FALSE; }
 	virtual BOOL OnGestureZoom(CPoint center, long delta) { return FALSE; }
 	virtual BOOL OnGestureRotate(CPoint center, double radians) { return FALSE; }
@@ -1031,6 +1036,10 @@ public:
 class CComboBoxEx : public CComboBox
 {
 public:
+	BOOL Create(DWORD style, const RECT &rect, CWnd *parent, UINT id);
+	BOOL CreateEx(DWORD exStyle, DWORD style, const RECT &rect, CWnd *parent, UINT id);
+	DWORD GetExtendedStyle() const;
+	BOOL HasEditChanged();
 	int InsertItem(const COMBOBOXEXITEM *item);
 	int DeleteItem(int index);
 	BOOL GetItem(COMBOBOXEXITEM *item);
@@ -1444,14 +1453,6 @@ public:
 #define CBRS_TOP (CBRS_ALIGN_TOP | CBRS_BORDER_BOTTOM)
 #define CBRS_RIGHT (CBRS_ALIGN_RIGHT | CBRS_BORDER_LEFT)
 #define CBRS_BOTTOM (CBRS_ALIGN_BOTTOM | CBRS_BORDER_TOP)
-#define CCS_TOP 0x00000001L
-#define CCS_NOMOVEY 0x00000002L
-#define CCS_BOTTOM 0x00000003L
-#define CCS_NORESIZE 0x00000004L
-#define CCS_NOPARENTALIGN 0x00000008L
-#define CCS_ADJUSTABLE 0x00000020L
-#define CCS_NODIVIDER 0x00000040L
-#define CCS_VERT 0x00000080L
 // CalcDynamicLayout modes.
 #define LM_STRETCH 0x0001
 #define LM_HORZ 0x0002
@@ -1601,37 +1602,79 @@ class CDialogEx : public CDialog
 public:
 	using CDialog::CDialog;
 };
+class CPropertySheet;
 class CPropertyPage : public CDialog
 {
 	LINOPENMPT_MFC_DYNAMIC(CPropertyPage)
 public:
-	CPropertyPage() = default;
-	explicit CPropertyPage(UINT id, UINT caption = 0);
-	virtual BOOL OnSetActive() { return 0; }
-	virtual BOOL OnKillActive() { return 0; }
-	virtual BOOL OnApply() { return 0; }
+	CPropertyPage();
+	explicit CPropertyPage(UINT id, UINT caption = 0, DWORD size = sizeof(PROPSHEETPAGE));
+	explicit CPropertyPage(LPCTSTR templateName, UINT caption = 0, DWORD size = sizeof(PROPSHEETPAGE));
+	void Construct(UINT id, UINT caption = 0);
+	void Construct(LPCTSTR templateName, UINT caption = 0);
+	virtual BOOL OnSetActive();
+	virtual BOOL OnKillActive();
+	virtual BOOL OnApply();
+	virtual void OnReset();
+	virtual BOOL OnQueryCancel();
+	void OnOK() override;
+	void OnCancel() override;
+	void CancelToClose();
 	void SetModified(BOOL changed = TRUE);
+	LRESULT QuerySiblings(WPARAM wp, LPARAM lp);
+	BOOL PreTranslateMessage(MSG *msg) override;
+	CPropertySheet *GetParentSheet();
+	PROPSHEETPAGE m_psp{};
+	PROPSHEETPAGE &GetPSP() { return m_psp; }
+	const PROPSHEETPAGE &GetPSP() const { return m_psp; }
+protected:
+	BOOL OnNotify(WPARAM wp, LPARAM lp, LRESULT *result) override;
+	CString m_strCaption;
+	BOOL m_bFirstSetActive = TRUE;
 };
 class CPropertySheet : public CWnd
 {
+	LINOPENMPT_MFC_DYNAMIC(CPropertySheet)
 public:
-	CPropertySheet() = default;
+	CPropertySheet();
 	explicit CPropertySheet(UINT captionID, CWnd *parent = nullptr, UINT selectPage = 0);
 	explicit CPropertySheet(LPCTSTR caption, CWnd *parent = nullptr, UINT selectPage = 0);
-	virtual INT_PTR DoModal() { return IDCANCEL; }
-	virtual BOOL OnInitDialog() { return TRUE; }
+	~CPropertySheet() override;
+	void Construct(UINT captionID, CWnd *parent = nullptr, UINT selectPage = 0);
+	void Construct(LPCTSTR caption, CWnd *parent = nullptr, UINT selectPage = 0);
+	virtual INT_PTR DoModal();
+	virtual BOOL Create(CWnd *parent = nullptr, DWORD style = static_cast<DWORD>(-1), DWORD exStyle = 0);
+	virtual BOOL OnInitDialog();
+	BOOL PreTranslateMessage(MSG *msg) override;
+	BOOL ContinueModal() override;
 	void AddPage(CPropertyPage *page);
 	void RemovePage(CPropertyPage *page);
 	void RemovePage(int page);
 	int GetPageCount() const;
 	CPropertyPage *GetPage(int page) const;
+	int GetPageIndex(CPropertyPage *page);
 	CPropertyPage *GetActivePage() const;
 	int GetActiveIndex() const;
 	BOOL SetActivePage(int page);
 	BOOL SetActivePage(CPropertyPage *page);
 	void SetTitle(LPCTSTR text, UINT style = 0);
+	CTabCtrl *GetTabControl() const;
+	BOOL PressButton(int button);
 	void EndDialog(int result);
-	struct { DWORD dwFlags = 0; } m_psh;
+	void MapDialogRect(LPRECT rect) const;
+	PROPSHEETHEADER m_psh{};
+protected:
+	BOOL OnCommand(WPARAM wp, LPARAM lp) override;
+	afx_msg LRESULT HandleInitDialog(WPARAM, LPARAM);
+	afx_msg void OnClose();
+	afx_msg void OnSysCommand(UINT id, LPARAM lParam);
+	void BuildPropPageArray();
+	std::vector<CPropertyPage *> m_pages;
+	std::vector<BYTE> m_pageArray; // the PROPSHEETPAGEs PropertySheet() gets
+	CString m_strCaption;
+	CWnd *m_pParentWnd = nullptr;
+	BOOL m_bModeless = FALSE;
+	DECLARE_MESSAGE_MAP()
 };
 // ---- common dialogs --------------------------------------------------------
 #define OFN_READONLY 0x00000001
@@ -2102,6 +2145,7 @@ LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CWnd, CCmdTarget)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CControlBar, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CDialog, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CPropertyPage, CDialog)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CPropertySheet, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CFrameWnd, CWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIFrameWnd, CFrameWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIChildWnd, CFrameWnd)
