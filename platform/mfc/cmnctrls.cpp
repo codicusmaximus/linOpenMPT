@@ -637,3 +637,53 @@ CEdit *CTreeCtrl::GetEditControl() const { return reinterpret_cast<CEdit *>(CWnd
 BOOL CTreeCtrl::SortChildren(HTREEITEM item) { return TreeView_SortChildren(m_hWnd, item, 0); }
 DWORD CTreeCtrl::SetExtendedStyle(DWORD mask, DWORD style) { return TreeView_SetExtendedStyle(m_hWnd, style, mask); }
 CToolTipCtrl *CTreeCtrl::GetToolTips() const { return reinterpret_cast<CToolTipCtrl *>(CWnd::FromHandle(TreeView_GetToolTips(m_hWnd))); }
+
+// ---- CToolBarCtrl ----------------------------------------------------------------------------
+
+BOOL CToolBarCtrl::Create(DWORD style, const RECT &rect, CWnd *parent, UINT id)
+{
+	if(!CWnd::Create(TOOLBARCLASSNAME, nullptr, style, rect, parent, id))
+		return FALSE;
+	SetButtonStructSize(sizeof(TBBUTTON));
+	return TRUE;
+}
+
+void CToolBarCtrl::SetButtonStructSize(int size) { SendMessage(TB_BUTTONSTRUCTSIZE, size); }
+BOOL CToolBarCtrl::AddButtons(int count, LPCTBBUTTON buttons) { return static_cast<BOOL>(SendMessage(TB_ADDBUTTONS, count, reinterpret_cast<LPARAM>(buttons))); }
+BOOL CToolBarCtrl::InsertButton(int index, LPCTBBUTTON button) { return static_cast<BOOL>(SendMessage(TB_INSERTBUTTON, index, reinterpret_cast<LPARAM>(button))); }
+BOOL CToolBarCtrl::DeleteButton(int index) { return static_cast<BOOL>(SendMessage(TB_DELETEBUTTON, index)); }
+int CToolBarCtrl::GetButtonCount() const { return static_cast<int>(::SendMessage(m_hWnd, TB_BUTTONCOUNT, 0, 0)); }
+BOOL CToolBarCtrl::GetButton(int index, LPTBBUTTON button) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TB_GETBUTTON, index, reinterpret_cast<LPARAM>(button))); }
+int CToolBarCtrl::CommandToIndex(UINT id) const { return static_cast<int>(::SendMessage(m_hWnd, TB_COMMANDTOINDEX, id, 0)); }
+BOOL CToolBarCtrl::GetButtonInfo(int id, TBBUTTONINFO *info) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TB_GETBUTTONINFO, id, reinterpret_cast<LPARAM>(info)) != -1); }
+BOOL CToolBarCtrl::SetButtonInfo(int id, TBBUTTONINFO *info) { return static_cast<BOOL>(SendMessage(TB_SETBUTTONINFO, id, reinterpret_cast<LPARAM>(info))); }
+BOOL CToolBarCtrl::CheckButton(int id, BOOL check) { return static_cast<BOOL>(SendMessage(TB_CHECKBUTTON, id, MAKELPARAM(check, 0))); }
+BOOL CToolBarCtrl::EnableButton(int id, BOOL enable) { return static_cast<BOOL>(SendMessage(TB_ENABLEBUTTON, id, MAKELPARAM(enable, 0))); }
+BOOL CToolBarCtrl::PressButton(int id, BOOL press) { return static_cast<BOOL>(SendMessage(TB_PRESSBUTTON, id, MAKELPARAM(press, 0))); }
+BOOL CToolBarCtrl::HideButton(int id, BOOL hide) { return static_cast<BOOL>(SendMessage(TB_HIDEBUTTON, id, MAKELPARAM(hide, 0))); }
+BOOL CToolBarCtrl::IsButtonChecked(int id) const { return ::SendMessage(m_hWnd, TB_ISBUTTONCHECKED, id, 0) > 0; }
+BOOL CToolBarCtrl::IsButtonEnabled(int id) const { return ::SendMessage(m_hWnd, TB_ISBUTTONENABLED, id, 0) > 0; }
+BOOL CToolBarCtrl::IsButtonPressed(int id) const { return ::SendMessage(m_hWnd, TB_ISBUTTONPRESSED, id, 0) > 0; }
+BOOL CToolBarCtrl::SetState(int id, UINT state) { return static_cast<BOOL>(SendMessage(TB_SETSTATE, id, MAKELPARAM(state, 0))); }
+int CToolBarCtrl::GetState(int id) const { return static_cast<int>(::SendMessage(m_hWnd, TB_GETSTATE, id, 0)); }
+BOOL CToolBarCtrl::GetItemRect(int index, LPRECT rect) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TB_GETITEMRECT, index, reinterpret_cast<LPARAM>(rect))); }
+BOOL CToolBarCtrl::GetRect(int id, LPRECT rect) const { return static_cast<BOOL>(::SendMessage(m_hWnd, TB_GETRECT, id, reinterpret_cast<LPARAM>(rect))); }
+BOOL CToolBarCtrl::SetBitmapSize(CSize size) { return static_cast<BOOL>(SendMessage(TB_SETBITMAPSIZE, 0, MAKELPARAM(size.cx, size.cy))); }
+BOOL CToolBarCtrl::SetButtonSize(CSize size) { return static_cast<BOOL>(SendMessage(TB_SETBUTTONSIZE, 0, MAKELPARAM(size.cx, size.cy))); }
+
+CSize CToolBarCtrl::GetButtonSize() const
+{
+	const auto r = static_cast<DWORD>(::SendMessage(m_hWnd, TB_GETBUTTONSIZE, 0, 0));
+	return CSize(LOWORD(r), HIWORD(r));
+}
+
+BOOL CToolBarCtrl::SetIndent(int indent) { return static_cast<BOOL>(SendMessage(TB_SETINDENT, indent)); }
+DWORD CToolBarCtrl::GetExtendedStyle() const { return static_cast<DWORD>(::SendMessage(m_hWnd, TB_GETEXTENDEDSTYLE, 0, 0)); }
+DWORD CToolBarCtrl::SetExtendedStyle(DWORD style) { return static_cast<DWORD>(SendMessage(TB_SETEXTENDEDSTYLE, 0, style)); }
+CImageList *CToolBarCtrl::SetImageList(CImageList *list) { return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(SendMessage(TB_SETIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr)))); }
+CImageList *CToolBarCtrl::SetDisabledImageList(CImageList *list) { return CImageList::FromHandle(reinterpret_cast<HIMAGELIST>(SendMessage(TB_SETDISABLEDIMAGELIST, 0, reinterpret_cast<LPARAM>(list != nullptr ? list->GetSafeHandle() : nullptr)))); }
+BOOL CToolBarCtrl::ChangeBitmap(int id, int bitmap) { return static_cast<BOOL>(SendMessage(TB_CHANGEBITMAP, id, MAKELPARAM(bitmap, 0))); }
+void CToolBarCtrl::AutoSize() { SendMessage(TB_AUTOSIZE); }
+int CToolBarCtrl::HitTest(LPPOINT pt) const { return static_cast<int>(::SendMessage(m_hWnd, TB_HITTEST, 0, reinterpret_cast<LPARAM>(pt))); }
+int CToolBarCtrl::GetHotItem() const { return static_cast<int>(::SendMessage(m_hWnd, TB_GETHOTITEM, 0, 0)); }
+CToolTipCtrl *CToolBarCtrl::GetToolTips() const { return reinterpret_cast<CToolTipCtrl *>(CWnd::FromHandle(reinterpret_cast<HWND>(::SendMessage(m_hWnd, TB_GETTOOLTIPS, 0, 0)))); }

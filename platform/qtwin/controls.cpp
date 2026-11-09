@@ -1049,6 +1049,7 @@ void RegisterHeaderClass();
 void RegisterListViewClass();
 void RegisterTreeViewClass();
 void RegisterToolTipClass();
+void RegisterToolbarClass();
 
 void RegisterSystemClasses()
 {
@@ -1064,6 +1065,7 @@ void RegisterSystemClasses()
 	RegisterListViewClass();
 	RegisterTreeViewClass();
 	RegisterToolTipClass();
+	RegisterToolbarClass();
 }
 
 } // namespace linopenmpt::qtwin

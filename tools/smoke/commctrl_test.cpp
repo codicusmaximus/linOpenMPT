@@ -59,6 +59,9 @@ std::vector<NMTREEVIEW> g_tvEvents; // TVN_SELCHANGED, TVN_ITEMEXPANDED, TVN_DEL
 std::vector<HTREEITEM> g_selectedAtClick; // the selection when NM_CLICK arrives
 HWND g_tree = nullptr;
 std::vector<UINT> g_tipEvents; // TTN_SHOW, TTN_POP
+std::vector<WPARAM> g_commands;  // WM_COMMAND from toolbars
+std::vector<NMTOOLBAR> g_dropDowns;
+std::vector<std::wstring> g_toolbarTips;
 int g_tvVeto = 0;
 
 LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -69,10 +72,19 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_VSCROLL:
 		g_scrolls.push_back(Scroll{msg, LOWORD(wp), static_cast<short>(HIWORD(wp)), reinterpret_cast<HWND>(lp)});
 		return 0;
+	case WM_COMMAND:
+		if(reinterpret_cast<HWND>(lp) != nullptr)
+			g_commands.push_back(wp);
+		return 0;
 	case WM_NOTIFY:
 		{
 			const auto *hdr = reinterpret_cast<const NMHDR *>(lp);
 			g_notifies.push_back(hdr->code);
+			if(hdr->code == TBN_DROPDOWN)
+			{
+				g_dropDowns.push_back(*reinterpret_cast<const NMTOOLBAR *>(lp));
+				return TBDDRET_DEFAULT;
+			}
 			if(hdr->code == UDN_DELTAPOS)
 			{
 				auto *nm = reinterpret_cast<NMUPDOWN *>(lp);
@@ -114,6 +126,13 @@ LRESULT CALLBACK ParentProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			if(hdr->code == TTN_GETDISPINFO)
 			{
 				auto *di = reinterpret_cast<NMTTDISPINFO *>(lp);
+				if(hdr->idFrom >= 800 && hdr->idFrom < 900)
+				{
+					g_toolbarTips.push_back(L"command " + std::to_wstring(hdr->idFrom));
+					wcscpy(di->szText, g_toolbarTips.back().c_str());
+					di->lpszText = di->szText;
+					return 0;
+				}
 				wcscpy(di->szText, L"From the parent");
 				di->lpszText = di->szText;
 				return 0;
@@ -1185,6 +1204,168 @@ void ToolTips(HWND parent)
 	wnd.DestroyWindow();
 }
 
+HIMAGELIST MakeIcons(int count)
+{
+	HIMAGELIST list = ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, count, 1);
+	BITMAPINFO bi{};
+	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth = 16 * count;
+	bi.bmiHeader.biHeight = -16;
+	bi.bmiHeader.biPlanes = 1;
+	bi.bmiHeader.biBitCount = 32;
+	void *bits = nullptr;
+	HDC screen = ::GetDC(nullptr);
+	HBITMAP strip = ::CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
+	auto *px = static_cast<uint32_t *>(bits);
+	const uint32_t colours[] = {0x2060C0, 0x30A030, 0xC03030, 0xC0A020};
+	for(int y = 0; y < 16; y++)
+	{
+		for(int x = 0; x < 16 * count; x++)
+		{
+			const int lx = x % 16;
+			const bool inside = lx >= 3 && lx < 13 && y >= 3 && y < 13;
+			px[y * 16 * count + x] = inside ? colours[(x / 16) % 4] : 0xFF00FF;
+		}
+	}
+	ImageList_AddMasked(list, strip, RGB(255, 0, 255));
+	::DeleteObject(strip);
+	::ReleaseDC(nullptr, screen);
+	return list;
+}
+
+void Toolbars(HWND parent)
+{
+	HWND tb = ::CreateWindowEx(0, TOOLBARCLASSNAME, nullptr, WS_CHILD | WS_VISIBLE | CCS_NORESIZE | CCS_NOPARENTALIGN | CCS_NODIVIDER | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS, 10, 10, 300, 30, parent, reinterpret_cast<HMENU>(800), nullptr, nullptr);
+	Check(tb != nullptr, "toolbar: created");
+	CToolBarCtrl bar;
+	bar.Attach(tb);
+	bar.SetButtonStructSize(sizeof(TBBUTTON));
+	HIMAGELIST icons = MakeIcons(4);
+	CImageList *images = CImageList::FromHandle(icons);
+	bar.SetImageList(images);
+	bar.SetBitmapSize(CSize(16, 16));
+	bar.SetButtonSize(CSize(26, 24));
+	TBBUTTON buttons[] = {
+		{0, 801, TBSTATE_ENABLED, BTNS_BUTTON, {}, 0, 0},
+		{1, 802, TBSTATE_ENABLED, BTNS_CHECK, {}, 0, 0},
+		{0, 0, TBSTATE_ENABLED, BTNS_SEP, {}, 0, 0},
+		{2, 803, TBSTATE_ENABLED, BTNS_CHECK | BTNS_GROUP, {}, 0, 0},
+		{3, 804, TBSTATE_ENABLED | TBSTATE_CHECKED, BTNS_CHECK | BTNS_GROUP, {}, 0, 0},
+		{0, 805, TBSTATE_ENABLED, BTNS_DROPDOWN, {}, 0, 0},
+		{1, 806, 0, BTNS_BUTTON, {}, 0, 0},
+	};
+	bar.SetExtendedStyle(TBSTYLE_EX_DRAWDDARROWS);
+	Check(bar.AddButtons(7, buttons) && bar.GetButtonCount() == 7, "toolbar: AddButtons");
+	Check(bar.CommandToIndex(803) == 3 && bar.CommandToIndex(999) == -1, "toolbar: CommandToIndex");
+	CSize size = bar.GetButtonSize();
+	Check(size.cx == 26 && size.cy == 24, "toolbar: TB_SETBUTTONSIZE");
+	RECT r0{}, r1{}, rs{}, rd{};
+	bar.GetItemRect(0, &r0);
+	bar.GetItemRect(1, &r1);
+	bar.GetItemRect(2, &rs);
+	bar.GetItemRect(5, &rd);
+	Check(r0.left == 0 && r0.right == 26 && r1.left == 26 && r0.top == 0 && r0.bottom == 24, "toolbar: buttons side by side from the left");
+	Check(rs.right - rs.left == 8, "toolbar: separators are 8 wide");
+	Check(rd.right - rd.left == 26 + 14, "toolbar: TBSTYLE_EX_DRAWDDARROWS adds the arrow");
+
+	// A click: NM_CLICK, then WM_COMMAND from the toolbar.
+	g_commands.clear();
+	g_notifies.clear();
+	Mouse(tb, QEvent::MouseButtonPress, 10, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, 10, 10);
+	Check(g_commands.size() == 1 && LOWORD(g_commands[0]) == 801 && HIWORD(g_commands[0]) == BN_CLICKED, "toolbar: a click sends WM_COMMAND");
+	Check(std::find(g_notifies.begin(), g_notifies.end(), static_cast<UINT>(NM_CLICK)) != g_notifies.end(), "toolbar: NM_CLICK");
+	// Pressing, then letting go elsewhere, does nothing.
+	g_commands.clear();
+	Mouse(tb, QEvent::MouseButtonPress, 10, 10);
+	Mouse(tb, QEvent::MouseMove, 200, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, 200, 10);
+	Check(g_commands.empty(), "toolbar: let go elsewhere, no command");
+
+	// Check buttons toggle; group buttons are radio buttons.
+	Mouse(tb, QEvent::MouseButtonPress, r1.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, r1.left + 5, 10);
+	Check(bar.IsButtonChecked(802), "toolbar: BTNS_CHECK toggles on");
+	Mouse(tb, QEvent::MouseButtonPress, r1.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, r1.left + 5, 10);
+	Check(!bar.IsButtonChecked(802), "toolbar: and off");
+	RECT rg{};
+	bar.GetItemRect(3, &rg);
+	Mouse(tb, QEvent::MouseButtonPress, rg.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rg.left + 5, 10);
+	Check(bar.IsButtonChecked(803) && !bar.IsButtonChecked(804), "toolbar: a group button unchecks the others");
+	bar.CheckButton(804, TRUE);
+	Check(!bar.IsButtonChecked(803) && bar.IsButtonChecked(804), "toolbar: TB_CHECKBUTTON in a group too");
+
+	// Disabled buttons do nothing.
+	RECT rx{};
+	bar.GetItemRect(6, &rx);
+	g_commands.clear();
+	Mouse(tb, QEvent::MouseButtonPress, rx.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rx.left + 5, 10);
+	Check(g_commands.empty() && !bar.IsButtonEnabled(806), "toolbar: disabled buttons do nothing");
+	bar.EnableButton(806, TRUE);
+	Check(bar.IsButtonEnabled(806), "toolbar: EnableButton");
+
+	// The drop-down arrow: TBN_DROPDOWN, no WM_COMMAND.
+	g_commands.clear();
+	g_dropDowns.clear();
+	Mouse(tb, QEvent::MouseButtonPress, rd.right - 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rd.right - 5, 10);
+	Check(g_dropDowns.size() == 1 && g_dropDowns[0].iItem == 805 && g_dropDowns[0].rcButton.left == rd.left && g_commands.empty(), "toolbar: the arrow sends TBN_DROPDOWN");
+	Mouse(tb, QEvent::MouseButtonPress, rd.left + 5, 10);
+	Mouse(tb, QEvent::MouseButtonRelease, rd.left + 5, 10);
+	Check(g_commands.size() == 1 && LOWORD(g_commands[0]) == 805, "toolbar: the button part is a plain click");
+
+	// Hit testing, hiding and states.
+	POINT pt{rs.left + 2, 5};
+	Check(bar.HitTest(&pt) < 0, "toolbar: TB_HITTEST, negative on a separator");
+	pt = POINT{r1.left + 2, 5};
+	Check(bar.HitTest(&pt) == 1, "toolbar: TB_HITTEST on a button");
+	bar.HideButton(801, TRUE);
+	bar.GetItemRect(1, &r1);
+	Check(r1.left == 0, "toolbar: a hidden button takes no room");
+	bar.HideButton(801, FALSE);
+	Check(bar.GetState(803) == TBSTATE_ENABLED, "toolbar: TB_GETSTATE");
+
+	// Tooltips: the toolbar asks its parent, by command.
+	CToolTipCtrl *tips = bar.GetToolTips();
+	Check(tips != nullptr && tips->GetToolCount() == 6, "toolbar: TBSTYLE_TOOLTIPS, a tool per button");
+	if(tips != nullptr)
+	{
+		wchar_t text[80] = {};
+		TOOLINFO ti{};
+		ti.cbSize = sizeof(ti);
+		ti.hwnd = tb;
+		ti.uId = 802;
+		ti.lpszText = text;
+		::SendMessage(tips->m_hWnd, TTM_GETTEXT, 80, reinterpret_cast<LPARAM>(&ti));
+		Check(std::wstring(text) == L"command 802", "toolbar: tooltip text from the parent's TTN_NEEDTEXT");
+	}
+
+	// Hot tracking for flat toolbars.
+	Mouse(tb, QEvent::MouseMove, 10, 10);
+	Check(bar.GetHotItem() == 0, "toolbar: TBSTYLE_FLAT tracks the hot button");
+	SaveShot(parent, "toolbar");
+	bar.Detach();
+	::DestroyWindow(tb);
+	ImageList_Destroy(icons);
+
+	// Text buttons, CCS_TOP placement and TB_AUTOSIZE.
+	HWND top = ::CreateWindowEx(0, TOOLBARCLASSNAME, nullptr, WS_CHILD | WS_VISIBLE | TBSTYLE_LIST, 0, 0, 0, 0, parent, reinterpret_cast<HMENU>(801), nullptr, nullptr);
+	TBBUTTON textButton{I_IMAGENONE, 810, TBSTATE_ENABLED, BTNS_AUTOSIZE, {}, 0, reinterpret_cast<INT_PTR>(L"Play")};
+	::SendMessage(top, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
+	::SendMessage(top, TB_ADDBUTTONS, 1, reinterpret_cast<LPARAM>(&textButton));
+	::SendMessage(top, TB_AUTOSIZE, 0, 0);
+	RECT tr{}, pr{};
+	::GetWindowRect(top, &tr);
+	::GetClientRect(parent, &pr);
+	Check(tr.right - tr.left == pr.right && tr.bottom - tr.top >= 20, "toolbar: TB_AUTOSIZE spans the parent");
+	wchar_t text[16] = {};
+	Check(::SendMessage(top, TB_GETBUTTONTEXT, 810, reinterpret_cast<LPARAM>(text)) == 4 && std::wstring(text) == L"Play", "toolbar: button text");
+	::DestroyWindow(top);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1208,6 +1389,7 @@ int main(int argc, char **argv)
 	ListViews(parent);
 	TreeViews(parent);
 	ToolTips(parent);
+	Toolbars(parent);
 	::DestroyWindow(parent);
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
