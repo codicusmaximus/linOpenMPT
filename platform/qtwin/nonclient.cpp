@@ -108,7 +108,15 @@ void ClipToParentClient(Win32Widget *w)
 {
 	auto *parent = w->isWindow() ? nullptr : dynamic_cast<Win32Widget *>(w->parentWidget());
 	if(parent == nullptr)
+	{
+		// A top-level window (perhaps a child once) is not clipped.
+		if(w->data.clipMask)
+		{
+			w->clearMask();
+			w->data.clipMask = false;
+		}
 		return;
+	}
 	const QRect client = ClientRect(parent), g = w->geometry();
 	if(client.contains(g))
 	{

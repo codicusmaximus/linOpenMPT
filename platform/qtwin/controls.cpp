@@ -1052,6 +1052,7 @@ void RegisterToolTipClass();
 void RegisterToolbarClass();
 void RegisterComboBoxExClass();
 void RegisterSysLinkClass();
+void RegisterStatusBarClass();
 
 void RegisterSystemClasses()
 {
@@ -1070,6 +1071,7 @@ void RegisterSystemClasses()
 	RegisterToolbarClass();
 	RegisterComboBoxExClass();
 	RegisterSysLinkClass();
+	RegisterStatusBarClass();
 	RegisterMdiClientClass();
 }
 

@@ -3,6 +3,8 @@
 
 #include "QtWin.h"
 
+#include <QtGui/QWindow>
+
 #include <QtCore/QAbstractEventDispatcher>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEventLoop>
@@ -250,6 +252,8 @@ bool Win32Widget::event(QEvent *e)
 		e->accept();
 		return true;
 	}
+	if(HandleFileDropEvent(this, e))
+		return true;
 	if(e->type() == QEvent::Enter && data.trackLeave)
 	{
 		// TrackMouseEvent() requests are one-shot.
@@ -600,6 +604,15 @@ void Win32Widget::resizeEvent(QResizeEvent *)
 	}
 	data.clientSize = client;
 	ClipToParentClient(this);
+	// The children are clipped to the client area, which changed.
+	if(client != oldSize)
+	{
+		for(QObject *o : children())
+		{
+			if(auto *c = dynamic_cast<Win32Widget *>(o))
+				ClipToParentClient(c);
+		}
+	}
 	::SendMessage(hwnd(), WM_SIZE, type, MAKELPARAM(client.width(), client.height()));
 }
 
@@ -768,6 +781,8 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 	d.proc = cls->wc.lpfnWndProc;
 	d.style = style & ~WS_VISIBLE;
 	d.exStyle = exStyle;
+	if(exStyle & WS_EX_ACCEPTFILES)
+		widget->setAcceptDrops(true);
 	d.extra.assign((cls->wc.cbWndExtra + sizeof(LONG_PTR) - 1) / sizeof(LONG_PTR), 0);
 	if(child)
 		d.id = reinterpret_cast<UINT_PTR>(menu);
@@ -1178,6 +1193,23 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			const bool button = wp == HTCLOSE || wp == HTMAXBUTTON || wp == HTMINBUTTON;
 			if(sizing || moving || button)
 				BeginNonClientTracking(w, static_cast<LRESULT>(wp), QPoint(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+		} else if(QWindow *window = w->windowHandle(); window != nullptr && !(d.style & WS_CHILD))
+		{
+			// A size grip or a caption drawn by the application: the window
+			// manager moves or sizes the window.
+			Qt::Edges edges;
+			if(wp == HTLEFT || wp == HTTOPLEFT || wp == HTBOTTOMLEFT)
+				edges |= Qt::LeftEdge;
+			if(wp == HTRIGHT || wp == HTTOPRIGHT || wp == HTBOTTOMRIGHT)
+				edges |= Qt::RightEdge;
+			if(wp == HTTOP || wp == HTTOPLEFT || wp == HTTOPRIGHT)
+				edges |= Qt::TopEdge;
+			if(wp == HTBOTTOM || wp == HTBOTTOMLEFT || wp == HTBOTTOMRIGHT)
+				edges |= Qt::BottomEdge;
+			if(edges)
+				window->startSystemResize(edges);
+			else if(wp == HTCAPTION)
+				window->startSystemMove();
 		}
 		return 0;
 	case WM_NCLBUTTONDBLCLK:
@@ -1265,11 +1297,12 @@ HWND SetParent(HWND child, HWND parent)
 		return nullptr;
 	const HWND old = GetParent(child);
 	Win32Widget *p = FromHandle(parent);
-	const bool visible = w->isVisible();
+	const bool visible = !w->isHidden(); // WS_VISIBLE, whether or not the parent shows
 	// The window keeps its position in client coordinates.
 	const QPoint clientPos = w->pos() - (w->isWindow() ? QPoint() : ClientOrigin(w->parentWidget()));
 	w->setParent(p, p ? w->windowFlags() & ~Qt::Window : w->windowFlags() | Qt::Window);
 	w->move(clientPos + (p ? ClientOrigin(p) : QPoint()));
+	ClipToParentClient(w);
 	if(visible)
 		w->show();
 	return old;

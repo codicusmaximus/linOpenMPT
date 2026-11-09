@@ -158,6 +158,10 @@ protected:
 	void hideEvent(QHideEvent *e) override;
 };
 
+// Files dropped on a window with WS_EX_ACCEPTFILES arrive as WM_DROPFILES
+// (dragdrop.cpp). Returns true when the event was a file drag or drop.
+bool HandleFileDropEvent(Win32Widget *w, QEvent *e);
+
 // HWND <-> widget. Returns nullptr for handles that are not (or no longer)
 // windows.
 Win32Widget *FromHandle(HWND hwnd);

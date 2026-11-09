@@ -172,6 +172,18 @@
 #define WM_COMMANDHELP 0x0365
 #define WM_HELPHITTEST 0x0366
 #define WM_KICKIDLE 0x036A
+#define WM_QUERYCENTERWND 0x036B
+#define WM_FLOATSTATUS 0x036D
+#define WM_ACTIVATETOPLEVEL 0x036E
+#define WM_POPMESSAGESTRING 0x0375
+// WM_FLOATSTATUS flags: the state of floating palettes follows their frame.
+#define FS_SHOW 0x01
+#define FS_HIDE 0x02
+#define FS_ACTIVATE 0x04
+#define FS_DEACTIVATE 0x08
+#define FS_ENABLE 0x10
+#define FS_DISABLE 0x20
+#define FS_SYNCACTIVE 0x40
 
 // MFC command codes
 #define CN_COMMAND 0

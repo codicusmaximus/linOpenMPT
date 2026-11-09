@@ -1199,6 +1199,18 @@ LRESULT CALLBACK ToolbarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		return s ? reinterpret_cast<LRESULT>(s->hotImages) : 0;
 	case TB_ADDBITMAP:
 		return s ? AddBitmap(hwnd, *s, static_cast<int>(wp), reinterpret_cast<const TBADDBITMAP *>(lp)) : -1;
+	case TB_REPLACEBITMAP:
+		// The images made from one bitmap are replaced with those of another;
+		// the toolbar's own list holds a single bitmap here, so all of them.
+		if(s != nullptr && lp != 0)
+		{
+			const auto *replace = reinterpret_cast<const TBREPLACEBITMAP *>(lp);
+			if(s->ownImages != nullptr && s->images == s->ownImages)
+				ImageList_RemoveAll(s->ownImages);
+			TBADDBITMAP add{replace->hInstNew, replace->nIDNew};
+			return AddBitmap(hwnd, *s, replace->nButtons, &add) >= 0;
+		}
+		return FALSE;
 	case TB_CHANGEBITMAP:
 		if(s != nullptr)
 		{

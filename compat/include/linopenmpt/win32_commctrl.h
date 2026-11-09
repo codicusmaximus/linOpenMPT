@@ -844,6 +844,8 @@ inline BOOL TreeView_SetItemState(HWND hwnd, HTREEITEM item, UINT state, UINT ma
 #define HICF_TOGGLEDROPDOWN 0x00000100
 struct TBADDBITMAP { HINSTANCE hInst; UINT_PTR nID; };
 using LPTBADDBITMAP = TBADDBITMAP *;
+struct TBREPLACEBITMAP { HINSTANCE hInstOld; UINT_PTR nIDOld; HINSTANCE hInstNew; UINT_PTR nIDNew; int nButtons; };
+using LPTBREPLACEBITMAP = TBREPLACEBITMAP *;
 struct NMTBHOTITEM { NMHDR hdr; int idOld; int idNew; DWORD dwFlags; };
 using LPNMTBHOTITEM = NMTBHOTITEM *;
 struct NMMOUSE { NMHDR hdr; DWORD_PTR dwItemSpec; DWORD_PTR dwItemData; POINT pt; LPARAM dwHitInfo; };
@@ -915,6 +917,41 @@ using LPNMTOOLBAR = NMTOOLBAR *;
 #define TBN_HOTITEMCHANGE (TBN_FIRST - 13)
 #define TBN_GETINFOTIPW (TBN_FIRST - 19)
 #define TBN_GETINFOTIP TBN_GETINFOTIPW
+
+// ---- status bar ------------------------------------------------------------
+#define STATUSCLASSNAME L"msctls_statusbar32"
+#define SBARS_SIZEGRIP 0x0100
+#define SBARS_TOOLTIPS 0x0800
+#define SBT_TOOLTIPS 0x0800
+#define SB_SETTEXTW (WM_USER + 11)
+#define SB_GETTEXTW (WM_USER + 13)
+#define SB_GETTEXTLENGTHW (WM_USER + 12)
+#define SB_SETTEXT SB_SETTEXTW
+#define SB_GETTEXT SB_GETTEXTW
+#define SB_GETTEXTLENGTH SB_GETTEXTLENGTHW
+#define SB_SETPARTS (WM_USER + 4)
+#define SB_GETPARTS (WM_USER + 6)
+#define SB_GETBORDERS (WM_USER + 7)
+#define SB_SETMINHEIGHT (WM_USER + 8)
+#define SB_SIMPLE (WM_USER + 9)
+#define SB_GETRECT (WM_USER + 10)
+#define SB_ISSIMPLE (WM_USER + 14)
+#define SB_SETICON (WM_USER + 15)
+#define SB_SETTIPTEXTW (WM_USER + 17)
+#define SB_GETTIPTEXTW (WM_USER + 19)
+#define SB_GETICON (WM_USER + 20)
+#define SB_SETTIPTEXT SB_SETTIPTEXTW
+#define SB_GETTIPTEXT SB_GETTIPTEXTW
+#define CCM_SETBKCOLOR 0x2001
+#define SB_SETBKCOLOR CCM_SETBKCOLOR
+#define SBT_OWNERDRAW 0x1000
+#define SBT_NOBORDERS 0x0100
+#define SBT_POPOUT 0x0200
+#define SBT_RTLREADING 0x0400
+#define SBT_NOTABPARSING 0x0800
+#define SB_SIMPLEID 0x00ff
+#define SBN_FIRST (0U - 880U)
+#define SBN_SIMPLEMODECHANGE (SBN_FIRST - 0)
 
 // ---- tooltip -----------------------------------------------------------------
 #define TTS_ALWAYSTIP 0x01
