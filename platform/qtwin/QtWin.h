@@ -284,6 +284,8 @@ QFont FontOf(HFONT font);
 void SetTransparent(Win32Widget *w);
 // A copy of a bitmap's pixels.
 QImage BitmapImage(HBITMAP bitmap);
+// An image of an image list (imagelist.cpp); null if there is none.
+QImage ImageListImage(HIMAGELIST list, int index);
 // Icons and cursors from a module's resources (resource.cpp).
 HICON LoadResourceIcon(HINSTANCE module, LPCTSTR name, bool cursor, int cx, int cy, bool shared);
 QCursor ToQCursor(HCURSOR cursor);

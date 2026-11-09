@@ -536,7 +536,11 @@ class CImageList : public CObject
 {
 public:
 	HIMAGELIST m_hImageList = nullptr;
-	virtual ~CImageList() = default;
+	CImageList() = default;
+	CImageList(const CImageList &) = delete;
+	CImageList &operator=(const CImageList &) = delete;
+	virtual ~CImageList();
+	static CImageList *FromHandle(HIMAGELIST list);
 	operator HIMAGELIST() const { return m_hImageList; }
 	HIMAGELIST GetSafeHandle() const { return this ? m_hImageList : nullptr; }
 	BOOL Create(int cx, int cy, UINT flags, int initial, int grow);
@@ -1240,10 +1244,22 @@ public:
 class CMFCListCtrl : public CListCtrl
 {
 public:
-	virtual int OnCompareItems(LPARAM item1, LPARAM item2, int column) { return 0; }
-	virtual COLORREF OnGetCellTextColor(int row, int column) { return 0; }
-	virtual COLORREF OnGetCellBkColor(int row, int column) { return 0; }
-	virtual void Sort(int column, BOOL ascending = TRUE, BOOL add = FALSE) { }
+	virtual int OnCompareItems(LPARAM item1, LPARAM item2, int column);
+	virtual COLORREF OnGetCellTextColor(int row, int column);
+	virtual COLORREF OnGetCellBkColor(int row, int column);
+	virtual void Sort(int column, BOOL ascending = TRUE, BOOL add = FALSE);
+	void EnableMarkSortedColumn(BOOL mark = TRUE, BOOL redraw = TRUE);
+	int GetSortColumn() const { return m_iSortedColumn; }
+	BOOL IsAscending() const { return m_bAscending; }
+
+protected:
+	afx_msg void OnCustomDraw(NMHDR *nmhdr, LRESULT *result);
+	afx_msg BOOL OnHeaderItemClick(UINT id, NMHDR *nmhdr, LRESULT *result);
+	static int CALLBACK CompareProc(LPARAM item1, LPARAM item2, LPARAM self);
+	int m_iSortedColumn = -1;
+	BOOL m_bAscending = TRUE;
+	BOOL m_bMarkSortedColumn = FALSE;
+	DECLARE_MESSAGE_MAP()
 };
 class CTreeCtrl : public CWnd
 {
@@ -1383,8 +1399,19 @@ class CReBarCtrl : public CWnd { };
 class CHeaderCtrl : public CWnd
 {
 public:
+	BOOL Create(DWORD style, const RECT &rect, CWnd *parent, UINT id);
 	int GetItemCount() const;
 	BOOL GetItemRect(int index, LPRECT rect) const;
+	BOOL GetItem(int index, HDITEM *item) const;
+	BOOL SetItem(int index, HDITEM *item);
+	int InsertItem(int index, HDITEM *item);
+	BOOL DeleteItem(int index);
+	BOOL GetOrderArray(LPINT array, int count = -1) const;
+	BOOL SetOrderArray(int count, LPINT array);
+	int OrderToIndex(int order) const;
+	int HitTest(LPHDHITTESTINFO info);
+	CImageList *SetImageList(CImageList *list);
+	BOOL Layout(HDLAYOUT *layout);
 };
 class CStatusBarCtrl : public CWnd
 {

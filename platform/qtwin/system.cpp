@@ -503,6 +503,8 @@ int GetSystemMetrics(int index)
 	case SM_CYVIRTUALSCREEN: return virtualGeometry.height();
 	case SM_CMONITORS: return static_cast<int>(QGuiApplication::screens().size());
 	case SM_CXPADDEDBORDER: return 0;
+	case SM_CXDRAG:
+	case SM_CYDRAG: return QApplication::startDragDistance();
 	default: return 0;
 	}
 }

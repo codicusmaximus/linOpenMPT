@@ -1043,6 +1043,11 @@ void Register(LPCTSTR name, WNDPROC proc, UINT style = CS_DBLCLKS | CS_PARENTDC)
 void RegisterEditClass();
 void RegisterListBoxClasses();
 void RegisterComboBoxClass();
+void RegisterCommonControlClasses();
+void RegisterTabControlClass();
+void RegisterHeaderClass();
+void RegisterListViewClass();
+void RegisterTreeViewClass();
 
 void RegisterSystemClasses()
 {
@@ -1052,6 +1057,11 @@ void RegisterSystemClasses()
 	RegisterEditClass();
 	RegisterListBoxClasses();
 	RegisterComboBoxClass();
+	RegisterCommonControlClasses();
+	RegisterTabControlClass();
+	RegisterHeaderClass();
+	RegisterListViewClass();
+	RegisterTreeViewClass();
 }
 
 } // namespace linopenmpt::qtwin

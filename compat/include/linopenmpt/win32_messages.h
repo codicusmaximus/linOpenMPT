@@ -253,6 +253,8 @@
 #define SM_CYVIRTUALSCREEN 79
 #define SM_CMONITORS 80
 #define SM_CXPADDEDBORDER 92
+#define SM_CXDRAG 68
+#define SM_CYDRAG 69
 
 // ---- toolbar button styles and states ------------------------------------
 #define TBSTYLE_BUTTON 0x0000
