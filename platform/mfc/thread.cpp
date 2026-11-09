@@ -60,6 +60,8 @@ CWinApp::CWinApp(LPCTSTR appName)
 
 CWinApp::~CWinApp()
 {
+	delete m_pDocManager; // and the document templates with it
+	m_pDocManager = nullptr;
 	if(g_app == this)
 		g_app = nullptr;
 }

@@ -4,7 +4,9 @@
 // top of it.
 #include <afxwin.h>
 
+#include "MptrackResources.h"
 #include "QtWin.h"
+#include "resource.h"
 
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
@@ -360,12 +362,339 @@ void Win32Mdi()
 	g_client = nullptr;
 }
 
+// ---- MFC: frames, documents, views, splitters ------------------------------------
+
+enum : UINT
+{
+	ID_TEST_APP = 0x8101,
+	ID_TEST_FRAME,
+	ID_TEST_CHILD,
+	ID_TEST_DOC,
+	ID_TEST_VIEW,
+	ID_TEST_NONE,
+};
+
+struct Counts
+{
+	int app = 0, frame = 0, child = 0, doc = 0, view = 0;
+	int docsDeleted = 0, viewsDeleted = 0, framesDeleted = 0;
+	int updates = 0, initialUpdates = 0, paints = 0;
+} g_counts;
+
+class CTestApp : public CWinApp
+{
+public:
+	afx_msg void OnTestApp() { g_counts.app++; }
+	DECLARE_MESSAGE_MAP()
+};
+BEGIN_MESSAGE_MAP(CTestApp, CWinApp)
+	ON_COMMAND(ID_TEST_APP, &CTestApp::OnTestApp)
+END_MESSAGE_MAP()
+
+class CTestMainFrame : public CMDIFrameWnd
+{
+public:
+	~CTestMainFrame() override { g_counts.framesDeleted++; }
+	afx_msg void OnTestFrame() { g_counts.frame++; }
+	DECLARE_MESSAGE_MAP()
+};
+BEGIN_MESSAGE_MAP(CTestMainFrame, CMDIFrameWnd)
+	ON_COMMAND(ID_TEST_FRAME, &CTestMainFrame::OnTestFrame)
+END_MESSAGE_MAP()
+
+class CTestDoc : public CDocument
+{
+	DECLARE_DYNCREATE(CTestDoc)
+public:
+	~CTestDoc() override { g_counts.docsDeleted++; }
+	afx_msg void OnTestDoc() { g_counts.doc++; }
+	afx_msg void OnUpdateTestDoc(CCmdUI *ui) { ui->SetCheck(1); }
+	DECLARE_MESSAGE_MAP()
+};
+IMPLEMENT_DYNCREATE(CTestDoc, CDocument)
+BEGIN_MESSAGE_MAP(CTestDoc, CDocument)
+	ON_COMMAND(ID_TEST_DOC, &CTestDoc::OnTestDoc)
+	ON_UPDATE_COMMAND_UI(ID_TEST_DOC, &CTestDoc::OnUpdateTestDoc)
+END_MESSAGE_MAP()
+
+class CTestView : public CView
+{
+	DECLARE_DYNCREATE(CTestView)
+public:
+	~CTestView() override { g_counts.viewsDeleted++; }
+	void OnDraw(CDC *dc) override
+	{
+		g_counts.paints++;
+		CRect rc;
+		GetClientRect(&rc);
+		dc->FillSolidRect(&rc, RGB(0xE8, 0xF0, 0xFF));
+		dc->TextOut(8, 8, GetDocument() != nullptr ? GetDocument()->GetTitle() : CString(_T("?")));
+	}
+	void OnInitialUpdate() override { g_counts.initialUpdates++; CView::OnInitialUpdate(); }
+	void OnUpdate(CView *sender, LPARAM hint, CObject *obj) override { g_counts.updates++; CView::OnUpdate(sender, hint, obj); }
+	afx_msg void OnTestView() { g_counts.view++; }
+	DECLARE_MESSAGE_MAP()
+};
+IMPLEMENT_DYNCREATE(CTestView, CView)
+BEGIN_MESSAGE_MAP(CTestView, CView)
+	ON_COMMAND(ID_TEST_VIEW, &CTestView::OnTestView)
+END_MESSAGE_MAP()
+
+class CTestScrollView : public CScrollView
+{
+	DECLARE_DYNCREATE(CTestScrollView)
+public:
+	~CTestScrollView() override { g_counts.viewsDeleted++; }
+	CPoint lastOrigin{-1, -1};
+	void OnInitialUpdate() override
+	{
+		SetScrollSizes(MM_TEXT, CSize(1000, 2000), CSize(100, 200), CSize(10, 20));
+		CScrollView::OnInitialUpdate();
+	}
+	void OnDraw(CDC *dc) override
+	{
+		lastOrigin = dc->GetViewportOrg();
+		dc->FillSolidRect(0, 0, 1000, 2000, RGB(0xFF, 0xFF, 0xF0));
+		for(int y = 0; y < 2000; y += 100)
+			dc->FillSolidRect(0, y, 1000, 1, RGB(0xC0, 0xC0, 0xC0));
+		dc->TextOut(8, 8, _T("scroll view"));
+	}
+};
+IMPLEMENT_DYNCREATE(CTestScrollView, CScrollView)
+
+class CTestForm : public CFormView
+{
+	DECLARE_DYNCREATE(CTestForm)
+public:
+	CTestForm() : CFormView(IDD_VIEW_GLOBALS) { }
+	~CTestForm() override { g_counts.viewsDeleted++; }
+	bool initialized = false;
+	void OnInitialUpdate() override { initialized = true; CFormView::OnInitialUpdate(); }
+};
+IMPLEMENT_DYNCREATE(CTestForm, CFormView)
+
+class CTestChild : public CMDIChildWnd
+{
+	DECLARE_DYNCREATE(CTestChild)
+public:
+	~CTestChild() override { g_counts.framesDeleted++; }
+	CSplitterWnd m_wndSplitter;
+	BOOL OnCreateClient(LPCREATESTRUCT, CCreateContext *context) override
+	{
+		// As upstream's CChildFrame: two rows, the document's view on top.
+		if(!m_wndSplitter.CreateStatic(this, 2, 1))
+			return FALSE;
+		if(!m_wndSplitter.CreateView(0, 0, context->m_pNewViewClass, CSize(0, 120), context))
+			return FALSE;
+		return m_wndSplitter.CreateView(1, 0, RUNTIME_CLASS(CTestScrollView), CSize(0, 0), context);
+	}
+	afx_msg void OnTestChild() { g_counts.child++; }
+	DECLARE_MESSAGE_MAP()
+};
+IMPLEMENT_DYNCREATE(CTestChild, CMDIChildWnd)
+BEGIN_MESSAGE_MAP(CTestChild, CMDIChildWnd)
+	ON_COMMAND(ID_TEST_CHILD, &CTestChild::OnTestChild)
+END_MESSAGE_MAP()
+
+CRect PaneRect(CWnd *pane)
+{
+	CRect rc;
+	pane->GetWindowRect(&rc);
+	pane->GetParent()->ScreenToClient(&rc);
+	return rc;
+}
+
+void MfcFrames()
+{
+	CTestApp app;
+	auto *tmpl = new CMultiDocTemplate(IDR_MODULETYPE, RUNTIME_CLASS(CTestDoc), RUNTIME_CLASS(CTestChild), RUNTIME_CLASS(CTestView));
+	app.AddDocTemplate(tmpl);
+	CString docName;
+	Check(tmpl->GetDocString(docName, CDocTemplate::docName) && docName == _T("Module"), "CDocTemplate: the document strings of the resource id");
+
+	auto *frame = new CTestMainFrame;
+	if(!frame->LoadFrame(IDR_MAINFRAME))
+	{
+		Check(false, "CMDIFrameWnd::LoadFrame(IDR_MAINFRAME)");
+		return;
+	}
+	app.m_pMainWnd = frame;
+	frame->SetWindowPos(nullptr, 0, 0, 900, 650, SWP_NOZORDER);
+	frame->ShowWindow(SW_SHOW);
+	Pump();
+	Check(Text(frame->m_hWnd) == L"OpenMPT", "the frame's title from the resource string");
+	Check(::GetMenu(frame->m_hWnd) != nullptr && ::GetMenu(frame->m_hWnd) == frame->m_hMenuDefault, "the frame's menu from the resource");
+	Check(frame->m_hWndMDIClient != nullptr && ::GetDlgCtrlID(frame->m_hWndMDIClient) == AFX_IDW_PANE_FIRST
+		&& (::GetWindowLongPtr(frame->m_hWndMDIClient, GWL_EXSTYLE) & WS_EX_CLIENTEDGE), "the MDI client: the frame's pane, sunken");
+
+	// A new document: its frame, its views, its title.
+	app.OnFileNew();
+	Pump();
+	Check(app.GetOpenDocumentCount() == 1, "OnFileNew: one document");
+	CMDIChildWnd *child = frame->MDIGetActive();
+	auto *testChild = dynamic_cast<CTestChild *>(child);
+	Check(testChild != nullptr && child->IsWindowVisible(), "... in a child frame of the template's class, shown");
+	CDocument *doc = child != nullptr ? child->GetActiveDocument() : nullptr;
+	Check(doc != nullptr && doc->GetTitle() == _T("Module1"), "... titled from the template (Module1)");
+	Check(Text(child->m_hWnd) == L"Module1" && Text(frame->m_hWnd) == L"Module1 - OpenMPT", "the frames' titles (FWS_PREFIXTITLE, as MFC sets it)");
+	int views = 0;
+	for(POSITION pos = doc ? doc->GetFirstViewPosition() : nullptr; pos != nullptr; doc->GetNextView(pos))
+		views++;
+	Check(views == 2, "the document has both splitter panes as views");
+	if(testChild == nullptr || doc == nullptr)
+		return;
+	CSplitterWnd &splitter = testChild->m_wndSplitter;
+	auto *topView = dynamic_cast<CTestView *>(splitter.GetPane(0, 0));
+	auto *scrollView = dynamic_cast<CTestScrollView *>(splitter.GetPane(1, 0));
+	Check(topView != nullptr && scrollView != nullptr, "CSplitterWnd: the panes are the views");
+	Check(child->GetActiveView() == topView, "InitialUpdateFrame: the first pane is the active view");
+	Check(g_counts.initialUpdates == 1 && ::GetFocus() == topView->m_hWnd, "... with its initial update, and the focus");
+	if(topView == nullptr || scrollView == nullptr)
+		return;
+
+	// The splitter's layout.
+	CRect client;
+	splitter.GetClientRect(&client);
+	const CRect top = PaneRect(topView), bottom = PaneRect(scrollView);
+	Check(top.left == 2 && top.top == 2 && top.Height() == 120 && top.right == client.right - 2, "CSplitterWnd: the top pane, its ideal height inside the border");
+	Check(bottom.top == top.bottom + splitter.m_cySplitterGap && bottom.bottom == client.bottom - 2, "... the bottom pane takes the rest");
+	{
+		CRect childClient;
+		child->GetClientRect(&childClient);
+		Check(PaneRect(&splitter) == childClient, "the splitter fills the child frame");
+	}
+	// Dragging the bar.
+	{
+		const QPoint bar(50, top.bottom + 3);
+		::SendMessage(splitter.m_hWnd, WM_SETCURSOR, reinterpret_cast<WPARAM>(splitter.m_hWnd), MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+		Mouse(splitter.m_hWnd, QEvent::MouseButtonPress, bar);
+		Mouse(splitter.m_hWnd, QEvent::MouseMove, bar + QPoint(0, 40));
+		Mouse(splitter.m_hWnd, QEvent::MouseButtonRelease, bar + QPoint(0, 40));
+		int cur = 0, min = 0;
+		splitter.GetRowInfo(0, cur, min);
+		Check(cur == 160 && PaneRect(topView).Height() == 160 && PaneRect(scrollView).top == 162 + splitter.m_cySplitterGap, "dragging the splitter bar sizes the panes");
+		splitter.SetRowInfo(0, 100, 15);
+		splitter.RecalcLayout();
+		Check(PaneRect(topView).Height() == 100, "SetRowInfo and RecalcLayout");
+	}
+
+	// CScrollView.
+	{
+		const DWORD style = scrollView->GetStyle();
+		Check((style & WS_VSCROLL) && (style & WS_HSCROLL), "CScrollView: scroll bars for a size larger than the view");
+		SCROLLINFO si{sizeof(si), SIF_ALL};
+		::GetScrollInfo(scrollView->m_hWnd, SB_VERT, &si);
+		CRect rc;
+		scrollView->GetClientRect(&rc);
+		Check(si.nMax == 1999 && static_cast<int>(si.nPage) == rc.Height(), "... the range is the size, the page the client area");
+		scrollView->SendMessage(WM_VSCROLL, SB_PAGEDOWN, 0);
+		Check(scrollView->GetScrollPosition() == CPoint(0, 200), "SB_PAGEDOWN scrolls by the page size given");
+		scrollView->SendMessage(WM_VSCROLL, SB_LINEDOWN, 0);
+		Check(scrollView->GetScrollPosition().y == 220, "SB_LINEDOWN by the line size");
+		scrollView->SendMessage(WM_VSCROLL, SB_BOTTOM, 0);
+		Check(scrollView->GetScrollPosition().y == 2000 - rc.Height(), "SB_BOTTOM: to the end");
+		scrollView->ScrollToPosition(CPoint(30, 400));
+		scrollView->Invalidate();
+		scrollView->UpdateWindow();
+		Check(scrollView->GetScrollPosition() == CPoint(30, 400) && scrollView->lastOrigin == CPoint(-30, -400), "OnPrepareDC: the viewport follows the scroll position");
+		scrollView->SetScrollSizes(MM_TEXT, CSize(10, 10));
+		Check(!(scrollView->GetStyle() & (WS_VSCROLL | WS_HSCROLL)) && scrollView->GetScrollPosition() == CPoint(0, 0), "... and the bars go when it fits");
+		scrollView->SetScrollSizes(MM_TEXT, CSize(1000, 2000), CSize(100, 200), CSize(10, 20));
+	}
+
+	// Command routing: active view, its document, the child frame, the main
+	// frame, the application.
+	for(UINT id : {ID_TEST_VIEW, ID_TEST_DOC, ID_TEST_CHILD, ID_TEST_FRAME, ID_TEST_APP})
+		frame->SendMessage(WM_COMMAND, id, 0);
+	Check(g_counts.view == 1 && g_counts.doc == 1 && g_counts.child == 1 && g_counts.frame == 1 && g_counts.app == 1, "WM_COMMAND to the main frame: view, document, child frame, main frame, application");
+	// Menu items through CCmdUI.
+	{
+		HMENU popup = ::CreatePopupMenu();
+		::AppendMenu(popup, MF_STRING, ID_TEST_DOC, L"Doc");
+		::AppendMenu(popup, MF_STRING, ID_TEST_NONE, L"None");
+		::AppendMenu(popup, MF_STRING, ID_TEST_FRAME, L"Frame");
+		frame->SendMessage(WM_INITMENUPOPUP, reinterpret_cast<WPARAM>(popup), 0);
+		Check((::GetMenuState(popup, ID_TEST_DOC, MF_BYCOMMAND) & MF_CHECKED) != 0, "WM_INITMENUPOPUP: the document's update handler checks its item");
+		Check((::GetMenuState(popup, ID_TEST_NONE, MF_BYCOMMAND) & MF_GRAYED) != 0, "... an item nobody handles is disabled");
+		Check((::GetMenuState(popup, ID_TEST_FRAME, MF_BYCOMMAND) & MF_GRAYED) == 0, "... an item with a handler stays enabled");
+		::DestroyMenu(popup);
+	}
+
+	// UpdateAllViews: the other views.
+	g_counts.updates = 0;
+	doc->UpdateAllViews(scrollView);
+	Check(g_counts.updates == 1, "UpdateAllViews: every view but the sender");
+
+	// A form view in the bottom pane, as upstream's CChildFrame changes it.
+	{
+		splitter.DeleteView(1, 0);
+		Check(splitter.GetPane(1, 0) == nullptr && g_counts.viewsDeleted == 1, "CSplitterWnd::DeleteView: the view goes");
+		CCreateContext context;
+		context.m_pCurrentDoc = doc;
+		context.m_pNewViewClass = RUNTIME_CLASS(CTestForm);
+		Check(splitter.CreateView(1, 0, RUNTIME_CLASS(CTestForm), CSize(0, 0), &context) != FALSE, "CreateView: a CFormView from a dialog template");
+		splitter.RecalcLayout();
+		auto *form = dynamic_cast<CTestForm *>(splitter.GetPane(1, 0));
+		Check(form != nullptr && form->GetDocument() == doc && ::GetWindow(form->m_hWnd, GW_CHILD) != nullptr, "... the form, its controls, and its document");
+		if(form != nullptr)
+		{
+			form->SendMessage(WM_INITIALUPDATE);
+			Check(form->initialized && PaneRect(form).top == 102 + splitter.m_cySplitterGap, "... laid out in the pane");
+			Check((form->GetStyle() & WS_VSCROLL) != 0, "... with a scroll bar when the pane is smaller than the template");
+		}
+	}
+	child->UpdateWindow();
+	SaveShot(frame->m_hWnd, "mfc_mdi_splitter");
+
+	// A second document, in its own frame.
+	app.OnFileNew();
+	Pump();
+	CDocument *doc2 = frame->MDIGetActive() != nullptr ? frame->MDIGetActive()->GetActiveDocument() : nullptr;
+	Check(app.GetOpenDocumentCount() == 2 && doc2 != doc && doc2 != nullptr && doc2->GetTitle() == _T("Module2"), "a second document: Module2");
+	Check(Text(frame->m_hWnd) == L"Module2 - OpenMPT", "the main frame's title follows the active child");
+	frame->MDIActivate(child);
+	Check(frame->MDIGetActive() == child && child->GetActiveDocument() == doc && Text(frame->m_hWnd) == L"Module1 - OpenMPT", "activating the first child: its document, its title");
+	frame->MDIMaximize(child);
+	frame->SendMessage(WM_IDLEUPDATECMDUI); // the title follows at idle time
+	Check(Text(frame->m_hWnd) == L"OpenMPT - [Module1]", "a maximized child's title in brackets");
+	frame->MDIRestore(child);
+	frame->SendMessage(WM_IDLEUPDATECMDUI);
+	Check(Text(frame->m_hWnd) == L"Module1 - OpenMPT", "... and back");
+
+	// Command routing reaches the active child's document only.
+	g_counts.doc = 0;
+	frame->SendMessage(WM_COMMAND, ID_TEST_DOC, 0);
+	Check(g_counts.doc == 1, "commands go to the active document");
+
+	// Closing a child frame closes its document (unmodified: no question).
+	const int docsBefore = g_counts.docsDeleted, framesBefore = g_counts.framesDeleted;
+	const HWND childWnd = child->m_hWnd;
+	::SendMessage(childWnd, WM_CLOSE, 0, 0);
+	Pump();
+	Check(!::IsWindow(childWnd) && g_counts.docsDeleted == docsBefore + 1 && g_counts.framesDeleted == framesBefore + 1, "WM_CLOSE on a child frame: frame, views and document go");
+	Check(g_counts.viewsDeleted == 3 && app.GetOpenDocumentCount() == 1, "... every view, and the document leaves the template");
+
+	app.CloseAllDocuments(FALSE);
+	Pump();
+	Check(app.GetOpenDocumentCount() == 0 && frame->MDIGetActive() == nullptr && Text(frame->m_hWnd) == L"OpenMPT", "CloseAllDocuments: no document, no child, the title back");
+	frame->DestroyWindow();
+	Check(g_counts.framesDeleted == 3, "the main frame deletes itself (PostNcDestroy)");
+	app.m_pMainWnd = nullptr;
+	// The quit message the main frame posted.
+	MSG msg;
+	while(::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+	{
+	}
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
 	Win32Mdi();
+	LinOpenMPTRegisterMptrackResources();
+	MfcFrames();
 	std::printf("passed: %d failure(s)\n", g_failures);
 	return g_failures == 0 ? 0 : 1;
 }

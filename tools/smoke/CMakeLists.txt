@@ -26,9 +26,13 @@ if(TARGET mpt_soundlib)
 endif()
 
 # MFC message maps in compat/ (command routing used by every menu and dialog).
-add_executable(msgmap_test msgmap_test.cpp)
-target_link_libraries(msgmap_test PRIVATE linopenmpt_compat)
-add_test(NAME msgmap_test COMMAND msgmap_test)
+# CCmdUI is implemented in the MFC layer (platform/mfc), with menus.
+if(TARGET linopenmpt_mfc)
+  add_executable(msgmap_test msgmap_test.cpp)
+  target_link_libraries(msgmap_test PRIVATE linopenmpt_mfc)
+  add_test(NAME msgmap_test COMMAND msgmap_test)
+  set_tests_properties(msgmap_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 
 # Win32 windowing, messages and GDI on Qt (plan step 3), offscreen.
 if(TARGET linopenmpt_qtwin)
@@ -78,7 +82,8 @@ if(TARGET linopenmpt_resources)
   add_test(NAME commctrl_test COMMAND commctrl_test)
   set_tests_properties(commctrl_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
   add_executable(frame_test frame_test.cpp)
-  target_link_libraries(frame_test PRIVATE linopenmpt_mfc)
+  target_link_libraries(frame_test PRIVATE linopenmpt_mfc linopenmpt_resources)
+  target_include_directories(frame_test PRIVATE ${MPT_UPSTREAM_DIR}/mptrack)
   add_test(NAME frame_test COMMAND frame_test)
   set_tests_properties(frame_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

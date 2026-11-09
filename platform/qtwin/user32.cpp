@@ -1638,7 +1638,27 @@ LONG_PTR GetWindowLongPtr(HWND hwnd, int index)
 	case GWLP_WNDPROC: return reinterpret_cast<LONG_PTR>(d->proc);
 	case GWLP_USERDATA: return d->userData;
 	case GWLP_ID: return static_cast<LONG_PTR>(d->id);
-	case GWL_STYLE: return static_cast<LONG_PTR>(d->style | (!d->widget->isHidden() ? WS_VISIBLE : 0));
+	case GWL_STYLE:
+	{
+		// WS_MAXIMIZE and WS_MINIMIZE say the window's state, as on Windows.
+		DWORD style = d->style | (!d->widget->isHidden() ? WS_VISIBLE : 0);
+		if(d->style & WS_CHILD)
+		{
+			style &= ~(WS_MAXIMIZE | WS_MINIMIZE);
+			if(d->childShow == SIZE_MAXIMIZED)
+				style |= WS_MAXIMIZE;
+			else if(d->childShow == SIZE_MINIMIZED)
+				style |= WS_MINIMIZE;
+		} else if(!d->widget->isHidden())
+		{
+			style &= ~(WS_MAXIMIZE | WS_MINIMIZE);
+			if(d->widget->isMinimized())
+				style |= WS_MINIMIZE;
+			else if(d->widget->isMaximized())
+				style |= WS_MAXIMIZE;
+		}
+		return static_cast<LONG_PTR>(style);
+	}
 	case GWL_EXSTYLE: return static_cast<LONG_PTR>(d->exStyle);
 	default:
 		if(index >= 0 && static_cast<std::size_t>(index) / sizeof(LONG_PTR) < d->extra.size())

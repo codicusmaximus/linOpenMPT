@@ -193,6 +193,7 @@ LPARAM SetMessageExtraInfo(LPARAM info);
 #define XBUTTON1 0x0001
 #define XBUTTON2 0x0002
 #define WHEEL_DELTA 120
+#define WHEEL_PAGESCROLL 0xFFFFFFFFu
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #define GET_WHEEL_DELTA_WPARAM(wp) ((short)HIWORD(wp))

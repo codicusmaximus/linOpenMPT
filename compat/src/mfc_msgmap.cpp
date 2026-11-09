@@ -28,9 +28,11 @@ const AFX_MSGMAP_ENTRY *AfxFindMessageEntry(const AFX_MSGMAP *map, UINT message,
 //
 // code is a WM_COMMAND notification code (CN_COMMAND for menu commands), or
 // MAKELONG(code, message) for WM_NOTIFY and reflected messages, as in MFC.
+//
+// With handlerInfo, it only says whether a handler exists (CCmdUI::DoUpdate
+// asks that before disabling a menu item nothing handles).
 BOOL CCmdTarget::OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo)
 {
-	(void)handlerInfo;
 	UINT message = WM_COMMAND;
 	UINT notifyCode = static_cast<UINT>(code);
 	if(notifyCode != static_cast<UINT>(CN_UPDATE_COMMAND_UI))
@@ -45,6 +47,13 @@ BOOL CCmdTarget::OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo)
 		{
 			if(e->nMessage != message || e->nCode != notifyCode || id < e->nID || id > e->nLastID)
 				continue;
+			if(handlerInfo != nullptr)
+			{
+				auto *info = static_cast<AFX_CMDHANDLERINFO *>(handlerInfo);
+				info->pTarget = this;
+				info->pmf = e->pfn;
+				return TRUE;
+			}
 			switch(e->nSig)
 			{
 			case AfxSig_cmd:
@@ -59,8 +68,17 @@ BOOL CCmdTarget::OnCmdMsg(UINT id, int code, void *extra, void *handlerInfo)
 				(this->*reinterpret_cast<void (CCmdTarget::*)(UINT)>(e->pfn))(id);
 				return TRUE;
 			case AfxSig_cmd_ui:
-				(this->*reinterpret_cast<void (CCmdTarget::*)(CCmdUI *)>(e->pfn))(static_cast<CCmdUI *>(extra));
-				return TRUE;
+				{
+					// ContinueRouting() passes the update on to the next target.
+					auto *ui = static_cast<CCmdUI *>(extra);
+					if(ui == nullptr)
+						return FALSE;
+					ui->m_bContinueRouting = FALSE;
+					(this->*reinterpret_cast<void (CCmdTarget::*)(CCmdUI *)>(e->pfn))(ui);
+					const BOOL handled = !ui->m_bContinueRouting;
+					ui->m_bContinueRouting = FALSE;
+					return handled;
+				}
 			case AfxSig_notify:
 				{
 					auto *notify = static_cast<AFX_NOTIFY *>(extra);
