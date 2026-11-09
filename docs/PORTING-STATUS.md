@@ -224,13 +224,44 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 208 undefined symbols, down from
   318.
 
+### Step 3d: the common controls, part 2 (done)
+
+- Win32, following comctl32 (and Wine's where the documentation is quiet):
+  - tooltips (`tooltips_class32`): tools by window or rectangle,
+    `TTM_RELAYEVENT` and `TTF_SUBCLASS`, the show, pop and leave delays,
+    `TTN_GETDISPINFO`, tracking, titles, balloons, close buttons and links;
+  - toolbars (`ToolbarWindow32`): image lists (normal, disabled, hot),
+    check and group buttons, drop-down buttons (`TBN_DROPDOWN`), flat hot
+    tracking, text buttons, `TB_AUTOSIZE` with the `CCS_*` placement styles
+    and tooltips by command;
+  - `ComboBoxEx32`: an owner-drawn combo box child with images, selected
+    images, overlays, indents and `CBEN_GETDISPINFO` callbacks;
+  - `SysLink`: `<a href id>` links in wrapped text, `NM_CLICK` and
+    `NM_RETURN` with `NMLINK`, Tab between links, `LM_*` messages;
+  - property sheets: `PropertySheet()` and `CreatePropertySheetPage()`,
+    pages made when first shown, the `PSN_*` notifications and `PSM_*`
+    messages, Apply, Ctrl+Tab between pages, modal and modeless sheets.
+    Wizards are not done (upstream has none).
+- MFC: `EnableToolTips` and `CToolTipCtrl`, `CToolBarCtrl`, `CComboBoxEx`,
+  and `CPropertySheet` and `CPropertyPage` as in MFC's dlgprop.cpp
+  (`DoModal()` runs a modeless sheet in its own modal loop). The frame
+  toolbar, `CToolBar`, comes with the frames.
+- Dialog fixes found on the way: `FALSE` from `WM_INITDIALOG` keeps the
+  focus the procedure set, and a modal dialog keeps that focus when its
+  owner is disabled.
+- Tests: `commctrl_test` covers the new controls; `dialog_test` runs
+  property sheets with upstream's Options pages and now creates every
+  control of every dialog in `mptrack.rc`. All tests pass at display scales
+  1, 1.5 and 2.
+- Linking upstream's UI files now leaves 181 undefined symbols, down from
+  208.
+
 ### Next in step 3
 
-1. The common controls, part 2: tooltips (and MFC's `EnableToolTips`),
-   toolbars, `ComboBoxEx`, SysLink, property sheets; then accelerators and
-   dynamic dialog layouts.
-2. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`), then
-   upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
+1. Accelerators and dynamic dialog layouts.
+2. Frames and document/view (`CMDIFrameWnd`, `CView`, `CDocTemplate`,
+   `CToolBar`), then upstream's `CMainFrame` and `CTrackApp::InitInstance`
+   running for real.
 3. Playback through JACK from the main window.
 
 ## Step 4: views and dialogs
