@@ -95,8 +95,34 @@ bool UpdateNonClient(Win32Widget *w)
 	{
 		w->data.ncDirty = true;
 		w->update();
+		for(QObject *o : w->children())
+		{
+			if(auto *c = dynamic_cast<Win32Widget *>(o))
+				ClipToParentClient(c);
+		}
 	}
 	return changed;
+}
+
+void ClipToParentClient(Win32Widget *w)
+{
+	auto *parent = w->isWindow() ? nullptr : dynamic_cast<Win32Widget *>(w->parentWidget());
+	if(parent == nullptr)
+		return;
+	const QRect client = ClientRect(parent), g = w->geometry();
+	if(client.contains(g))
+	{
+		if(w->data.clipMask)
+		{
+			w->clearMask();
+			w->data.clipMask = false;
+		}
+		return;
+	}
+	const QRect visible = client.intersected(g).translated(-g.topLeft());
+	// An empty mask would mean no mask: one pixel outside hides it all.
+	w->setMask(visible.isEmpty() ? QRegion(-1, -1, 1, 1) : QRegion(visible));
+	w->data.clipMask = true;
 }
 
 void DefNcCalcSize(Win32Widget *w, RECT *rect)
@@ -158,12 +184,25 @@ void DefNcPaint(Win32Widget *w)
 			// A child window caption (floating panes inside a frame).
 			RECT caption = r;
 			caption.bottom = caption.top + GetSystemMetrics((exStyle & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
-			const bool active = ::GetFocus() == w->hwnd() || ::IsChild(w->hwnd(), ::GetFocus());
+			const bool active = (exStyle & WS_EX_MDICHILD) ? MdiIsActiveChild(w->hwnd()) : (::GetFocus() == w->hwnd() || ::IsChild(w->hwnd(), ::GetFocus()));
 			::FillRect(dc, &caption, ::GetSysColorBrush(active ? COLOR_ACTIVECAPTION : COLOR_INACTIVECAPTION));
 			::SetBkMode(dc, TRANSPARENT);
 			::SetTextColor(dc, ::GetSysColor(active ? COLOR_CAPTIONTEXT : COLOR_INACTIVECAPTIONTEXT));
 			HGDIOBJ oldFont = ::SelectObject(dc, ::GetStockObject(DEFAULT_GUI_FONT));
 			caption.left += 4;
+			for(LRESULT button : {HTMINBUTTON, HTMAXBUTTON, HTCLOSE})
+			{
+				const QRect b = CaptionButtonRect(w, button);
+				if(b.isEmpty())
+					continue;
+				caption.right = std::min(caption.right, static_cast<LONG>(b.left() - 2));
+				RECT br{b.left(), b.top(), b.right() + 1, b.bottom() + 1};
+				UINT state = button == HTCLOSE ? DFCS_CAPTIONCLOSE : button == HTMINBUTTON ? (w->data.childShow == SIZE_MINIMIZED ? DFCS_CAPTIONRESTORE : DFCS_CAPTIONMIN)
+					: (w->data.childShow == SIZE_MAXIMIZED ? DFCS_CAPTIONRESTORE : DFCS_CAPTIONMAX);
+				if(PushedCaptionButton(w) == button)
+					state |= DFCS_PUSHED;
+				::DrawFrameControl(dc, &br, DFC_CAPTION, state);
+			}
 			::DrawText(dc, w->data.text.c_str(), -1, &caption, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
 			::SelectObject(dc, oldFont);
 		}
@@ -195,6 +234,11 @@ LRESULT DefNcHitTest(Win32Widget *w, QPoint screen)
 	if(w->data.scroll[SB_VERT].shown && w->data.scroll[SB_HORZ].shown && p.x() > client.right() && p.y() > client.bottom())
 		return HTSIZE;
 	const QMargins frame = FrameMargins(w->data.style, w->data.exStyle, IsChildWindow(w));
+	for(LRESULT button : {HTCLOSE, HTMAXBUTTON, HTMINBUTTON})
+	{
+		if(CaptionButtonRect(w, button).contains(p))
+			return button;
+	}
 	if(IsChildWindow(w) && (w->data.style & WS_CAPTION) == WS_CAPTION)
 	{
 		const QRect inside = w->rect().marginsRemoved(QMargins(frame.left(), frame.left(), frame.right(), frame.bottom()));
@@ -216,6 +260,131 @@ LRESULT DefNcHitTest(Win32Widget *w, QPoint screen)
 		if(bottom) return HTBOTTOM;
 	}
 	return HTBORDER;
+}
+
+QRect CaptionButtonRect(const Win32Widget *w, LRESULT hit)
+{
+	const DWORD style = w->data.style, exStyle = w->data.exStyle;
+	if(!IsChildWindow(w) || (style & WS_CAPTION) != WS_CAPTION || !(style & WS_SYSMENU))
+		return QRect();
+	// Right to left: close, then maximize and minimize (both shown, one
+	// disabled, when either style is there), as Windows lays them out.
+	const QMargins frame = FrameMargins(style, exStyle, true);
+	const int captionHeight = GetSystemMetrics((exStyle & WS_EX_TOOLWINDOW) ? SM_CYSMCAPTION : SM_CYCAPTION);
+	const int size = std::max(captionHeight - 4, 4);
+	const int top = frame.top() - captionHeight + (captionHeight - size) / 2;
+	int right = w->width() - frame.right() - 2;
+	const bool minMax = (style & (WS_MINIMIZEBOX | WS_MAXIMIZEBOX)) != 0 && !(exStyle & WS_EX_TOOLWINDOW);
+	for(LRESULT button : {HTCLOSE, HTMAXBUTTON, HTMINBUTTON})
+	{
+		if(button != HTCLOSE && !minMax)
+			break;
+		const QRect r(right - size, top, size, size);
+		if(button == hit)
+			return r;
+		right -= size + (button == HTCLOSE ? 2 : 0);
+	}
+	return QRect();
+}
+
+namespace
+{
+// The mouse is moving or sizing a child window by its frame, or holding a
+// caption button.
+struct NcTracking
+{
+	Win32Widget *widget = nullptr;
+	LRESULT hit = HTNOWHERE;
+	QPoint start;     // where the mouse went down, on the screen
+	QRect startRect;  // the window, in the parent's client coordinates
+	bool over = false; // still over the pressed button
+};
+NcTracking g_tracking;
+} // namespace
+
+LRESULT PushedCaptionButton(const Win32Widget *w)
+{
+	return g_tracking.widget == w && g_tracking.over ? g_tracking.hit : HTNOWHERE;
+}
+
+QRect ChildWindowRect(const Win32Widget *w)
+{
+	return QRect(w->pos() - ClientOrigin(w->parentWidget()), w->size());
+}
+
+void BeginNonClientTracking(Win32Widget *w, LRESULT hit, QPoint screen)
+{
+	g_tracking = NcTracking{w, hit, screen, ChildWindowRect(w), true};
+	if(hit == HTCLOSE || hit == HTMINBUTTON || hit == HTMAXBUTTON)
+	{
+		w->data.ncDirty = true;
+		w->update();
+	} else
+	{
+		::SendMessage(w->hwnd(), WM_ENTERSIZEMOVE, 0, 0);
+	}
+}
+
+bool NonClientTrackingEvent(Win32Widget *w, QMouseEvent *e)
+{
+	if(g_tracking.widget != w)
+		return false;
+	const HWND hwnd = w->hwnd();
+	const QPoint screen = e->globalPosition().toPoint();
+	const LRESULT hit = g_tracking.hit;
+	const bool release = e->type() == QEvent::MouseButtonRelease;
+	if(hit == HTCLOSE || hit == HTMINBUTTON || hit == HTMAXBUTTON)
+	{
+		const bool over = CaptionButtonRect(w, hit).contains(w->mapFromGlobal(screen));
+		if(over != g_tracking.over || release)
+		{
+			g_tracking.over = over && !release;
+			w->data.ncDirty = true;
+			w->update();
+		}
+		if(release)
+		{
+			g_tracking = NcTracking{};
+			if(over)
+			{
+				WPARAM command = SC_CLOSE;
+				if(hit == HTMAXBUTTON)
+					command = w->data.childShow == SIZE_MAXIMIZED ? SC_RESTORE : SC_MAXIMIZE;
+				else if(hit == HTMINBUTTON)
+					command = w->data.childShow == SIZE_MINIMIZED ? SC_RESTORE : SC_MINIMIZE;
+				::SendMessage(hwnd, WM_SYSCOMMAND, command, MAKELPARAM(static_cast<WORD>(static_cast<short>(screen.x())), static_cast<WORD>(static_cast<short>(screen.y()))));
+			}
+		}
+		return true;
+	}
+	if(e->type() == QEvent::MouseMove || release)
+	{
+		const QPoint delta = screen - g_tracking.start;
+		QRect r = g_tracking.startRect;
+		const int minW = std::max(GetSystemMetrics(SM_CXMINTRACK), 0), minH = std::max(GetSystemMetrics(SM_CYMINTRACK), 0);
+		if(hit == HTCAPTION)
+			r.translate(delta);
+		if(hit == HTLEFT || hit == HTTOPLEFT || hit == HTBOTTOMLEFT)
+			r.setLeft(std::min(r.left() + delta.x(), r.right() + 1 - minW));
+		if(hit == HTRIGHT || hit == HTTOPRIGHT || hit == HTBOTTOMRIGHT)
+			r.setRight(std::max(r.right() + delta.x(), r.left() + minW - 1));
+		if(hit == HTTOP || hit == HTTOPLEFT || hit == HTTOPRIGHT)
+			r.setTop(std::min(r.top() + delta.y(), r.bottom() + 1 - minH));
+		if(hit == HTBOTTOM || hit == HTBOTTOMLEFT || hit == HTBOTTOMRIGHT)
+			r.setBottom(std::max(r.bottom() + delta.y(), r.top() + minH - 1));
+		if(r != ChildWindowRect(w))
+		{
+			RECT proposed{r.left(), r.top(), r.right() + 1, r.bottom() + 1};
+			::SendMessage(hwnd, hit == HTCAPTION ? WM_MOVING : WM_SIZING, hit == HTCAPTION ? 0 : static_cast<WPARAM>(hit - HTLEFT + 1), reinterpret_cast<LPARAM>(&proposed));
+			::SetWindowPos(hwnd, nullptr, proposed.left, proposed.top, proposed.right - proposed.left, proposed.bottom - proposed.top, SWP_NOZORDER | SWP_NOACTIVATE | (hit == HTCAPTION ? SWP_NOSIZE : 0));
+		}
+		if(release)
+		{
+			g_tracking = NcTracking{};
+			::SendMessage(hwnd, WM_EXITSIZEMOVE, 0, 0);
+		}
+	}
+	return true;
 }
 
 void LayoutScrollBars(Win32Widget *w)

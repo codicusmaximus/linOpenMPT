@@ -786,6 +786,25 @@ int TranslateAccelerator(HWND hwnd, HACCEL accel, LPMSG msg);
 struct MINMAXINFO { POINT ptReserved; POINT ptMaxSize; POINT ptMaxPosition; POINT ptMinTrackSize; POINT ptMaxTrackSize; };
 typedef MINMAXINFO *LPMINMAXINFO;
 
+// ---- multiple-document interface -----------------------------------------------
+#define MDIS_ALLCHILDSTYLES 0x0001
+#define MDITILE_VERTICAL 0x0000
+#define MDITILE_HORIZONTAL 0x0001
+#define MDITILE_SKIPDISABLED 0x0002
+#define MDITILE_ZORDER 0x0004
+struct CLIENTCREATESTRUCT { HANDLE hWindowMenu; UINT idFirstChild; };
+typedef CLIENTCREATESTRUCT *LPCLIENTCREATESTRUCT;
+struct MDICREATESTRUCTW { LPCWSTR szClass; LPCWSTR szTitle; HANDLE hOwner; int x; int y; int cx; int cy; DWORD style; LPARAM lParam; };
+typedef MDICREATESTRUCTW MDICREATESTRUCT;
+typedef MDICREATESTRUCT *LPMDICREATESTRUCT;
+LRESULT DefFrameProc(HWND frame, HWND client, UINT msg, WPARAM wp, LPARAM lp);
+LRESULT DefMDIChildProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+HWND CreateMDIWindow(LPCTSTR className, LPCTSTR title, DWORD style, int x, int y, int w, int h, HWND client, HINSTANCE instance, LPARAM lp);
+BOOL TranslateMDISysAccel(HWND client, LPMSG msg);
+WORD CascadeWindows(HWND parent, UINT how, const RECT *rect, UINT count, const HWND *kids);
+WORD TileWindows(HWND parent, UINT how, const RECT *rect, UINT count, const HWND *kids);
+UINT ArrangeIconicWindows(HWND parent);
+
 // ---- accelerator tables ------------------------------------------------------
 #define FVIRTKEY 0x01
 #define FNOINVERT 0x02

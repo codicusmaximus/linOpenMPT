@@ -2299,6 +2299,22 @@ BOOL DrawFrameControl(HDC hdc, LPRECT rect, UINT type, UINT state)
 		default: break;
 		}
 		style->drawPrimitive(arrow, &option, p);
+	} else if(type == DFC_CAPTION)
+	{
+		// Title bar buttons of child windows (MDI children): a button face
+		// with the style's title bar icon.
+		style->drawPrimitive(QStyle::PE_PanelButtonTool, &option, p);
+		QStyle::StandardPixmap icon = QStyle::SP_TitleBarCloseButton;
+		switch(state & 0x1F)
+		{
+		case DFCS_CAPTIONMIN: icon = QStyle::SP_TitleBarMinButton; break;
+		case DFCS_CAPTIONMAX: icon = QStyle::SP_TitleBarMaxButton; break;
+		case DFCS_CAPTIONRESTORE: icon = QStyle::SP_TitleBarNormalButton; break;
+		default: break;
+		}
+		const QRect r = option.rect.adjusted(2, 2, -2, -2);
+		const QPixmap pixmap = style->standardIcon(icon, &option).pixmap(r.size(), p->device() ? p->device()->devicePixelRatioF() : 1.0, (state & DFCS_INACTIVE) ? QIcon::Disabled : QIcon::Normal);
+		p->drawPixmap(r, pixmap);
 	} else
 	{
 		style->drawPrimitive(QStyle::PE_PanelButtonCommand, &option, p);

@@ -1070,6 +1070,7 @@ void RegisterSystemClasses()
 	RegisterToolbarClass();
 	RegisterComboBoxExClass();
 	RegisterSysLinkClass();
+	RegisterMdiClientClass();
 }
 
 } // namespace linopenmpt::qtwin
