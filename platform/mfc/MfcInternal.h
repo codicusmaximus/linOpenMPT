@@ -8,6 +8,7 @@
 #include <afxwin.h>
 
 #include <memory>
+#include <vector>
 
 namespace linopenmpt::mfc
 {
@@ -38,6 +39,9 @@ void PopPreTranslate();
 void DeleteTempWindowMap();
 void DeleteTempGdiMaps();
 void DetachFromMaps(HWND hwnd);
+
+// Every CFrameWnd (MFC's frame list).
+std::vector<CFrameWnd *> &FrameList();
 
 } // namespace linopenmpt::mfc
 

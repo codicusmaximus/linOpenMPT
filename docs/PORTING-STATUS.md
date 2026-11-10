@@ -318,13 +318,66 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 159 undefined symbols, down from
   180.
 
+### Step 3f part 2: control bars, docking and startup (done)
+
+- MFC's control bars, written after barcore, bartool, barstat and bardlg:
+  `CControlBar` (layout through `WM_SIZEPARENT`, delayed showing and
+  hiding, borders and grippers, flyby help in the status bar and tooltips,
+  idle command updates), `CToolBar` on the toolbar control (buttons from an
+  id array, `LoadToolBar`, `LoadBitmap`, button text, wrapping into rows
+  and columns, dynamic sizing), `CStatusBar` on a new status bar control
+  (`msctls_statusbar32`, with indicators named from their strings and the
+  key indicators) and `CDialogBar`.
+- Docking, after bardock, dockcont, winmini and dockstat: `CDockBar` rows
+  and placeholders, `CDockContext` dragging and resizing with MFC's outline
+  and Ctrl to stop docking, `CMiniDockFrameWnd` floating frames with their
+  own caption and close box (so docking by dragging works under any window
+  manager), `EnableDocking`, `DockControlBar`, `FloatControlBar`,
+  `ShowControlBar`, and `SaveBarState`/`LoadBarState` with MFC's section
+  and key names.
+- What `CWinApp::InitInstance` uses: `ParseCommandLine` (flags start with
+  `-`; `/` starts a path here), `ProcessShellCommand`, the profile
+  functions (an ini file, under `~/.config/<registry key>/` once
+  `SetRegistryKey` is called), the recent file list, `EnableShellOpen`
+  (the desktop opens files through the command line) and files dropped on
+  the main window (`DragAcceptFiles`, `WM_DROPFILES`, `DragQueryFile`).
+- Fixes found on the way: `FWS_PREFIXTITLE` and `FWS_SNAPTOBARS` had the
+  values of window styles (`WS_THICKFRAME`, `WS_SYSMENU`); a re-parented
+  child kept a clip from its old parent and could vanish; a status bar's
+  `WM_GETFONT` now answers with the font it draws with.
+- Tests: `bars_test` lays out a frame with a toolbar, status bar and dialog
+  bar, checks idle updates and flyby text, docks the toolbar top and left,
+  floats it, drags it back and out again, saves and loads the bar state,
+  and runs the command line, profile and file drop functions. All tests
+  pass at display scales 1, 1.5 and 2.
+- Linking upstream's UI files now leaves 129 undefined symbols, down from
+  159.
+
 ### Next in step 3
 
-1. Control bars (`CToolBar`, `CStatusBar`, `CDialogBar`, docking and saved
-   bar state), then upstream's `CMainFrame` and `CTrackApp::InitInstance`
-   running for real.
+1. Upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
 2. Playback through JACK from the main window.
 
 ## Step 4: views and dialogs
 
 Not started. The checklist of every view and dialog will live here.
+
+## Step 5: the MFC to Qt6 bridge as its own project
+
+Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and
+`platform/mfc/` move into a standalone, reusable project for porting other
+MFC applications to Linux:
+
+- Move the OpenMPT-specific parts out of the headers (`afxwin.h`,
+  `mfc_ui.h` and friends) into this repository, behind hooks the bridge
+  calls.
+- A reusable CMake function that compiles an application's `.rc` file into
+  its resources (what `tools/rc` does for `mptrack.rc` today).
+- Its own tests and test resources, so it no longer depends on upstream's
+  `mptrack.rc`; the smoke tests here become the start of that suite.
+- Packaged as a CMake library (`find_package` and `add_subdirectory`), with
+  a license, a README and a short porting guide. This repository then uses
+  it as a dependency.
+
+It covers what OpenMPT uses of MFC and Win32, which is a large part of both
+but not all: another application may need pieces added.

@@ -149,15 +149,83 @@ CWnd *CWnd::GetNextWindow(UINT flag) const { return FromHandle(::GetWindow(m_hWn
 CWnd *CWnd::GetNextDlgTabItem(CWnd *ctrl, BOOL previous) const { return FromHandle(::GetNextDlgTabItem(m_hWnd, ctrl ? ctrl->m_hWnd : nullptr, previous)); }
 BOOL CWnd::IsChild(const CWnd *wnd) const { return wnd && ::IsChild(m_hWnd, wnd->m_hWnd); }
 CWnd *CWnd::GetDesktopWindow() { return FromHandle(::GetDesktopWindow()); }
-CWnd *CWnd::GetOwner() const { return GetParent(); }
-void CWnd::SetOwner(CWnd *) { }
+CWnd *CWnd::GetOwner() const { return m_hWndOwner != nullptr ? FromHandle(m_hWndOwner) : GetParent(); }
+void CWnd::SetOwner(CWnd *owner) { m_hWndOwner = owner != nullptr ? owner->m_hWnd : nullptr; }
 
 CWnd *CWnd::GetTopLevelParent() const
 {
+	// Up through parents and owners, as MFC's AfxGetParentOwner: a floating
+	// palette's top-level parent is the frame that owns it.
 	HWND hwnd = m_hWnd;
-	while(hwnd != nullptr && (::GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD))
-		hwnd = ::GetParent(hwnd);
+	for(;;)
+	{
+		const HWND next = (::GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) ? ::GetParent(hwnd) : ::GetWindow(hwnd, GW_OWNER);
+		if(next == nullptr)
+			break;
+		hwnd = next;
+	}
 	return FromHandle(hwnd);
+}
+
+void CWnd::ActivateTopParent()
+{
+	// A click on a floating palette activates its frame instead.
+	const HWND active = ::GetForegroundWindow();
+	if(active == nullptr || !(active == m_hWnd || ::IsChild(active, m_hWnd)))
+	{
+		if(CWnd *top = GetTopLevelParent())
+			top->SetForegroundWindow();
+	}
+}
+
+BOOL CWnd::IsFrameWnd() const
+{
+	return IsKindOf(RUNTIME_CLASS(CFrameWnd));
+}
+
+void CWnd::CalcWindowRect(LPRECT clientRect, UINT adjustType)
+{
+	DWORD exStyle = GetExStyle();
+	if(adjustType == 0)
+		exStyle &= ~WS_EX_CLIENTEDGE;
+	::AdjustWindowRectEx(clientRect, GetStyle(), FALSE, exStyle);
+}
+
+void CWnd::UpdateDialogControls(CCmdTarget *target, BOOL disableIfNoHandler)
+{
+	// Every child's command UI, by its id (MFC's wincore.cpp).
+	CCmdUI state;
+	CWnd temp;
+	for(HWND child = ::GetWindow(m_hWnd, GW_CHILD); child != nullptr; child = ::GetWindow(child, GW_HWNDNEXT))
+	{
+		temp.m_hWnd = child;
+		state.m_nID = static_cast<UINT>(::GetDlgCtrlID(child));
+		state.m_pOther = &temp;
+		// Reflected handlers in the child itself.
+		if(CWnd *wnd = FromHandlePermanent(child))
+		{
+			if(wnd->CWnd::OnCmdMsg(0, MAKELONG(0xFFFF, WM_COMMAND + WM_REFLECT_BASE), &state, nullptr))
+				continue;
+		}
+		if(CWnd::OnCmdMsg(state.m_nID, static_cast<int>(CN_UPDATE_COMMAND_UI), &state, nullptr))
+			continue;
+		// Only push buttons are disabled for want of a handler.
+		BOOL disable = disableIfNoHandler;
+		if(disable)
+		{
+			if((::SendMessage(child, WM_GETDLGCODE, 0, 0) & DLGC_BUTTON) == 0)
+			{
+				disable = FALSE;
+			} else
+			{
+				const UINT style = static_cast<UINT>(::GetWindowLongPtr(child, GWL_STYLE) & 0x0F);
+				if(style == BS_AUTOCHECKBOX || style == BS_AUTO3STATE || style == BS_GROUPBOX || style == BS_AUTORADIOBUTTON)
+					disable = FALSE;
+			}
+		}
+		state.DoUpdate(target, disable);
+	}
+	temp.m_hWnd = nullptr;
 }
 
 CFrameWnd *CWnd::GetParentFrame() const

@@ -199,7 +199,41 @@ BEGIN_MESSAGE_MAP(CFrameWnd, CWnd)
 	ON_WM_ERASEBKGND()
 	ON_WM_INITMENUPOPUP()
 	ON_MESSAGE(WM_IDLEUPDATECMDUI, &CFrameWnd::OnIdleUpdateCmdUI)
+	ON_WM_ACTIVATE()
+	ON_WM_ENABLE()
+	ON_WM_MENUSELECT()
+	ON_WM_DROPFILES()
+	ON_MESSAGE(WM_SETMESSAGESTRING, &CFrameWnd::OnSetMessageString)
+	ON_MESSAGE(WM_POPMESSAGESTRING, &CFrameWnd::OnPopMessageString)
+	// The standard bars and indicators (MFC's winfrm.cpp).
+	ON_UPDATE_COMMAND_UI(ID_VIEW_STATUS_BAR, &CFrameWnd::OnUpdateControlBarMenu)
+	ON_COMMAND_EX(ID_VIEW_STATUS_BAR, &CFrameWnd::OnBarCheck)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_TOOLBAR, &CFrameWnd::OnUpdateControlBarMenu)
+	ON_COMMAND_EX(ID_VIEW_TOOLBAR, &CFrameWnd::OnBarCheck)
+	ON_UPDATE_COMMAND_UI(ID_INDICATOR_CAPS, &CFrameWnd::OnUpdateKeyIndicator)
+	ON_UPDATE_COMMAND_UI(ID_INDICATOR_NUM, &CFrameWnd::OnUpdateKeyIndicator)
+	ON_UPDATE_COMMAND_UI(ID_INDICATOR_SCRL, &CFrameWnd::OnUpdateKeyIndicator)
+	ON_NOTIFY_EX_RANGE(TTN_NEEDTEXTW, 0, 0xFFFF, &CFrameWnd::OnToolTipText)
 END_MESSAGE_MAP()
+
+// Every frame window, as MFC's frame list: idle-time updates reach floating
+// frames through it.
+std::vector<CFrameWnd *> &linopenmpt::mfc::FrameList()
+{
+	static std::vector<CFrameWnd *> frames;
+	return frames;
+}
+
+CFrameWnd::CFrameWnd()
+{
+	linopenmpt::mfc::FrameList().push_back(this);
+}
+
+CFrameWnd::~CFrameWnd()
+{
+	auto &frames = linopenmpt::mfc::FrameList();
+	frames.erase(std::remove(frames.begin(), frames.end(), this), frames.end());
+}
 
 namespace
 {
@@ -308,6 +342,7 @@ void CFrameWnd::PostNcDestroy()
 
 void CFrameWnd::OnDestroy()
 {
+	DestroyDockBars();
 	// The shared menu of a document goes back to the frame's own before the
 	// window takes it with it.
 	if(m_hMenuDefault != nullptr && ::GetMenu(m_hWnd) != m_hMenuDefault)
@@ -380,12 +415,26 @@ BOOL CFrameWnd::OnEraseBkgnd(CDC *dc)
 	return CWnd::OnEraseBkgnd(dc);
 }
 
-void CFrameWnd::RecalcLayout(BOOL)
+void CFrameWnd::RecalcLayout(BOOL notify)
 {
 	if(m_bInRecalcLayout)
 		return;
 	m_bInRecalcLayout = TRUE;
-	RepositionBars(0, 0xFFFF, AFX_IDW_PANE_FIRST, reposExtra, &m_rectBorder);
+	if(m_nIdleFlags & idleNotify)
+		notify = TRUE;
+	m_nIdleFlags &= ~(idleLayout | idleNotify);
+	if(GetStyle() & FWS_SNAPTOBARS)
+	{
+		// The frame takes the size of its bars (floating frames).
+		CRect rect(0, 0, 32767, 32767);
+		RepositionBars(0, 0xFFFF, AFX_IDW_PANE_FIRST, reposQuery, &rect, &rect, FALSE);
+		RepositionBars(0, 0xFFFF, AFX_IDW_PANE_FIRST, reposExtra, &m_rectBorder, &rect, TRUE);
+		CalcWindowRect(&rect);
+		SetWindowPos(nullptr, 0, 0, rect.Width(), rect.Height(), SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+	} else
+	{
+		RepositionBars(0, 0xFFFF, AFX_IDW_PANE_FIRST, reposExtra, &m_rectBorder);
+	}
 	m_bInRecalcLayout = FALSE;
 }
 
@@ -631,7 +680,70 @@ LRESULT CFrameWnd::OnIdleUpdateCmdUI(WPARAM, LPARAM)
 		if(top == this)
 			OnUpdateFrameTitle(TRUE);
 	}
+	// The layout asked for since (DelayRecalcLayout).
+	if(m_nIdleFlags & idleLayout)
+	{
+		RecalcLayout((m_nIdleFlags & idleNotify) != 0);
+		UpdateWindow();
+	}
+	// The prompt of what the menu is on.
+	if(m_nIDTracking != m_nIDLastMessage)
+		SetMessageText(m_nIDTracking);
+	m_nIdleFlags = 0;
 	return 0;
+}
+
+void CFrameWnd::OnActivate(UINT state, CWnd *other, BOOL minimized)
+{
+	CWnd::OnActivate(state, other, minimized);
+	// Floating bars look active while the frame they belong to is.
+	CFrameWnd *top = (GetStyle() & WS_CHILD) ? this : GetTopLevelFrame();
+	if(top == nullptr)
+		return;
+	CWnd *active = state == WA_INACTIVE ? other : this;
+	BOOL stayActive = FALSE;
+	if(active != nullptr)
+	{
+		CFrameWnd *activeTop = active->IsFrameWnd() ? static_cast<CFrameWnd *>(active)->GetTopLevelFrame() : nullptr;
+		stayActive = top == active || (top == activeTop && active->SendMessage(WM_FLOATSTATUS, FS_SYNCACTIVE) != 0);
+	}
+	top->m_nFlags &= ~WF_STAYACTIVE;
+	if(stayActive)
+		top->m_nFlags |= WF_STAYACTIVE;
+	NotifyFloatingWindows(stayActive ? FS_ACTIVATE : FS_DEACTIVATE);
+	// The active view hears of it.
+	CView *view = GetActiveView();
+	if(view == nullptr && GetActiveFrame() != nullptr)
+		view = GetActiveFrame()->GetActiveView();
+	if(view != nullptr)
+	{
+		if(state != WA_INACTIVE && !minimized)
+			view->OnActivateView(TRUE, view, view);
+		view->OnActivateFrame(state, this);
+	}
+}
+
+void CFrameWnd::OnEnable(BOOL enable)
+{
+	// Floating bars are disabled with their frame (by a modal dialog).
+	if(GetParent() != nullptr)
+		return;
+	NotifyFloatingWindows(enable ? FS_ENABLE : FS_DISABLE);
+}
+
+void CFrameWnd::OnDropFiles(HDROP drop)
+{
+	SetActiveWindow();
+	const UINT files = ::DragQueryFile(drop, 0xFFFFFFFF, nullptr, 0);
+	CWinApp *app = AfxGetApp();
+	for(UINT i = 0; i < files && app != nullptr; i++)
+	{
+		const UINT length = ::DragQueryFile(drop, i, nullptr, 0);
+		std::wstring name(static_cast<std::size_t>(length) + 1, L'\0');
+		::DragQueryFile(drop, i, name.data(), length + 1);
+		app->OpenDocumentFile(name.c_str());
+	}
+	::DragFinish(drop);
 }
 
 // Control bars: the list the frame lays out. Docking comes with the bars.
@@ -648,20 +760,14 @@ void CFrameWnd::RemoveControlBar(CControlBar *bar)
 
 CControlBar *CFrameWnd::GetControlBar(UINT id)
 {
+	if(id == 0)
+		return nullptr;
 	for(CControlBar *bar : m_listControlBars)
 	{
 		if(bar->m_hWnd != nullptr && static_cast<UINT>(bar->GetDlgCtrlID()) == id)
 			return bar;
 	}
 	return nullptr;
-}
-
-void CFrameWnd::ShowControlBar(CControlBar *bar, BOOL show, BOOL)
-{
-	if(bar == nullptr || bar->m_hWnd == nullptr)
-		return;
-	bar->ShowWindow(show ? SW_SHOWNOACTIVATE : SW_HIDE);
-	RecalcLayout();
 }
 
 BOOL CFrameWnd::OnBarCheck(UINT id)

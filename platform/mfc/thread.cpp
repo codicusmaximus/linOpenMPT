@@ -163,6 +163,24 @@ BOOL CWinThread::OnIdle(LONG count)
 			AfxCallWndProc(mainWnd, mainWnd->m_hWnd, WM_IDLEUPDATECMDUI, TRUE, 0);
 			mainWnd->SendMessageToDescendants(WM_IDLEUPDATECMDUI, TRUE, 0, TRUE, TRUE);
 		}
+		// The other top-level frames (floating toolbars), and their delayed
+		// showing and hiding.
+		const std::vector<CFrameWnd *> frames = linopenmpt::mfc::FrameList();
+		for(CFrameWnd *frame : frames)
+		{
+			if(frame->m_hWnd == nullptr || frame == mainWnd || (frame->GetStyle() & WS_CHILD))
+				continue;
+			if(frame->m_nShowDelay == SW_HIDE)
+				frame->ShowWindow(frame->m_nShowDelay);
+			if(frame->IsWindowVisible() || frame->m_nShowDelay >= 0)
+			{
+				AfxCallWndProc(frame, frame->m_hWnd, WM_IDLEUPDATECMDUI, TRUE, 0);
+				frame->SendMessageToDescendants(WM_IDLEUPDATECMDUI, TRUE, 0, TRUE, TRUE);
+			}
+			if(frame->m_nShowDelay > SW_HIDE)
+				frame->ShowWindow(frame->m_nShowDelay);
+			frame->m_nShowDelay = -1;
+		}
 	} else
 	{
 		linopenmpt::mfc::DeleteTempWindowMap();

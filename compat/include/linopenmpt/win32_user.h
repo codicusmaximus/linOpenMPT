@@ -256,6 +256,7 @@ LINOPENMPT_DECLARE_HANDLE(HRSRC);
 #define RT_GROUP_CURSOR MAKEINTRESOURCE(12)
 #define RT_VERSION MAKEINTRESOURCE(16)
 #define RT_DLGINIT MAKEINTRESOURCE(240)
+#define RT_TOOLBAR MAKEINTRESOURCE(241)
 // MFC's dynamic layout data (afxres.h): a named resource type.
 #define RT_DIALOG_LAYOUT _T("AFX_DIALOG_LAYOUT")
 
@@ -530,6 +531,8 @@ BOOL EnableScrollBar(HWND hwnd, UINT bar, UINT arrows);
 #define HTBOTTOM 15
 #define HTBOTTOMLEFT 16
 #define HTBOTTOMRIGHT 17
+#define HTSIZEFIRST HTLEFT
+#define HTSIZELAST HTBOTTOMRIGHT
 #define HTBORDER 18
 #define HTSIZE 4
 #define HTCLOSE 20
@@ -906,6 +909,14 @@ UINT DragQueryFile(HDROP drop, UINT index, LPTSTR file, UINT size);
 BOOL DragQueryPoint(HDROP drop, LPPOINT point);
 void DragFinish(HDROP drop);
 void DragAcceptFiles(HWND hwnd, BOOL accept);
+
+// The outline MFC draws on the screen while a control bar is dragged
+// (CDockContext): Windows draws it in XOR on the desktop; here it is an
+// overlay above every window. thickness is the width of its lines; dither
+// draws them in MFC's halftone pattern. A null rect takes it away.
+void LinOpenMPTShowDragFrame(const RECT *rect, SIZE thickness, BOOL dither);
+// Where the overlay is now (empty when hidden), for tests.
+BOOL LinOpenMPTGetDragFrame(RECT *rect);
 
 #include "linopenmpt/win32_controls.h"
 

@@ -39,8 +39,8 @@ using POSITION = __POSITION *;
 #include "mfc_coll.h"
 
 #define FWS_ADDTOTITLE 0x00008000L
-#define FWS_PREFIXTITLE 0x00040000L
-#define FWS_SNAPTOBARS 0x00080000L
+#define FWS_PREFIXTITLE 0x00004000L
+#define FWS_SNAPTOBARS 0x00002000L
 
 struct CCreateContext
 {
@@ -645,6 +645,9 @@ public:
 	HWND m_hWnd = nullptr;
 	// The window procedure MFC subclassed, called for default processing.
 	WNDPROC m_pfnSuper = nullptr;
+	// The owner MFC routes a child's notifications to, when not its parent
+	// (control bars floating in a mini frame keep the main frame).
+	HWND m_hWndOwner = nullptr;
 	UINT m_nFlags = 0;
 	int m_nModalResult = 0;
 	class CMFCDynamicLayout *m_pDynamicLayout = nullptr;
@@ -834,6 +837,13 @@ public:
 	CWnd *GetOwner() const;
 	void SetOwner(CWnd *owner);
 	CWnd *GetDescendantWindow(int id, BOOL onlyPerm = FALSE) const;
+	// Floating palettes activate their top-level frame instead of themselves.
+	void ActivateTopParent();
+	BOOL IsFrameWnd() const;
+	// CCmdUI updates of the child controls (dialog bars, controls on bars).
+	void UpdateDialogControls(CCmdTarget *target, BOOL disableIfNoHandler);
+	enum AdjustType { adjustBorder = 0, adjustOutside = 1 };
+	virtual void CalcWindowRect(LPRECT clientRect, UINT adjustType = adjustBorder);
 	BOOL IsWindowEnabled();
 	void SetWindowContextHelpId(DWORD id);
 	// Default message handlers, as in MFC. Upstream calls these as
@@ -1532,76 +1542,366 @@ public:
 #define AFX_IDC_HSPLITBAR 30980
 #define AFX_IDC_VSPLITBAR 30981
 #define AFX_IDC_NODROPCRSR 30982
+class CDockBar;
+class CDockContext;
+class CMiniDockFrameWnd;
+class CControlBarInfo;
+// What control bars get with WM_SIZEPARENT: the rectangle left for the
+// frame's client, which each bar takes its part of.
+struct AFX_SIZEPARENTPARAMS
+{
+	HDWP hDWP;
+	RECT rect;
+	SIZE sizeTotal;
+	BOOL bStretch;
+};
+
+class CDockState;
+// The base of toolbars, status bars, dialog bars and dock bars (MFC's
+// barcore.cpp): laid out by their frame through WM_SIZEPARENT, updated at
+// idle time through OnUpdateCmdUI, with borders and a gripper drawn around
+// them, flyby help in the status bar, and the messages their children send
+// passed on to the owner (the frame).
 class CControlBar : public CWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CControlBar)
-protected:
-	CSize m_sizeDefault;
-	int m_cxLeftBorder = 0, m_cxRightBorder = 0, m_cyTopBorder = 0, m_cyBottomBorder = 0;
-	DWORD m_dwStyle = 0;
 public:
-	DWORD GetBarStyle();
+	CControlBar() = default;
+	~CControlBar() override;
+	int GetCount() const { return m_nCount; }
+	DWORD GetBarStyle() { return m_dwStyle; }
 	void SetBarStyle(DWORD style);
+	void SetBorders(int left = 0, int top = 0, int right = 0, int bottom = 0);
+	void SetBorders(LPCRECT rect) { SetBorders(rect->left, rect->top, rect->right, rect->bottom); }
+	CRect GetBorders() const { return CRect(m_cxLeftBorder, m_cyTopBorder, m_cxRightBorder, m_cyBottomBorder); }
+	CFrameWnd *GetDockingFrame() const;
 	BOOL IsFloating() const;
 	BOOL IsVisible() const;
+	virtual BOOL IsDockBar() const { return FALSE; }
 	void EnableDocking(DWORD dockStyle);
-	CFrameWnd *GetDockingFrame() const;
-	int GetCount() const;
+	virtual CSize CalcFixedLayout(BOOL stretch, BOOL horz);
+	virtual CSize CalcDynamicLayout(int length, DWORD mode);
+	virtual void OnUpdateCmdUI(CFrameWnd *target, BOOL disableIfNoHandler) = 0;
+	virtual void DelayShow(BOOL show);
+	virtual void CalcInsideRect(CRect &rect, BOOL horz) const;
+	virtual void DoPaint(CDC *dc);
+	virtual void DrawBorders(CDC *dc, CRect &rect);
+	virtual void DrawGripper(CDC *dc, const CRect &rect);
+	virtual void OnBarStyleChange(DWORD oldStyle, DWORD newStyle) { }
+	virtual void GetBarInfo(CControlBarInfo *info);
+	virtual void SetBarInfo(CControlBarInfo *info, CFrameWnd *frame);
+	BOOL PreTranslateMessage(MSG *msg) override;
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	BOOL DestroyWindow() override;
+	void PostNcDestroy() override;
+	LRESULT WindowProc(UINT msg, WPARAM wp, LPARAM lp) override;
+	// Implementation, public as in MFC.
 	BOOL m_bAutoDelete = FALSE;
-	virtual CSize CalcFixedLayout(BOOL stretch, BOOL horz) { return {}; }
-	virtual CSize CalcDynamicLayout(int length, DWORD mode) { return {}; }
-	virtual void DelayShow(BOOL show) { }
+	int m_cxLeftBorder = 6, m_cxRightBorder = 6;
+	int m_cyTopBorder = 1, m_cyBottomBorder = 1;
+	int m_cxDefaultGap = 2;
+	UINT m_nMRUWidth = 32767;
+	int m_nCount = 0;
+	DWORD m_dwStyle = 0;     // CBRS_* styles
+	DWORD m_dwDockStyle = 0; // where it may dock (EnableDocking)
+	CFrameWnd *m_pDockSite = nullptr;
+	CDockBar *m_pDockBar = nullptr;
+	CDockContext *m_pDockContext = nullptr;
+	enum StateFlags { delayHide = 1, delayShow = 2, tempHide = 4, statusSet = 8 };
+	UINT m_nStateFlags = 0;
+	void EraseNonClient();
+	DWORD RecalcDelayShow(AFX_SIZEPARENTPARAMS *layout);
+	BOOL SetStatusText(INT_PTR hit);
+	void ResetTimer(UINT event, UINT time);
+protected:
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnDestroy();
+	afx_msg void OnPaint();
+	afx_msg void OnTimer(UINT_PTR event);
+	afx_msg void OnLButtonDown(UINT flags, CPoint point);
+	afx_msg void OnLButtonDblClk(UINT flags, CPoint point);
+	afx_msg int OnMouseActivate(CWnd *topParent, UINT hitTest, UINT message);
+	afx_msg LRESULT OnSizeParent(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnIdleUpdateCmdUI(WPARAM wp, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
 };
+// AfxRepositionWindow: a child moved within a WM_SIZEPARENT layout.
+void AFXAPI AfxRepositionWindow(AFX_SIZEPARENTPARAMS *layout, HWND hwnd, LPCRECT rect);
+
+// A toolbar on the toolbar common control (MFC's bartool.cpp): buttons from
+// an id array, sizes, button styles in MFC's TBBS_* form, wrapping into
+// rows for docked and floating layouts, the command UI of every button.
 class CToolBar : public CControlBar
 {
+	LINOPENMPT_MFC_DYNAMIC(CToolBar)
 public:
+	CToolBar();
+	~CToolBar() override;
 	BOOL Create(CWnd *parent, DWORD style = WS_CHILD | WS_VISIBLE | CBRS_TOP, UINT id = AFX_IDW_TOOLBAR);
 	BOOL CreateEx(CWnd *parent, DWORD ctrlStyle = TBSTYLE_FLAT, DWORD style = WS_CHILD | WS_VISIBLE | CBRS_ALIGN_TOP, CRect borders = CRect(0, 0, 0, 0), UINT id = AFX_IDW_TOOLBAR);
-	BOOL LoadToolBar(UINT id);
-	BOOL LoadBitmap(UINT id);
+	BOOL LoadToolBar(LPCTSTR name);
+	BOOL LoadToolBar(UINT id) { return LoadToolBar(MAKEINTRESOURCE(id)); }
+	BOOL LoadBitmap(LPCTSTR name);
+	BOOL LoadBitmap(UINT id) { return LoadBitmap(MAKEINTRESOURCE(id)); }
+	BOOL SetBitmap(HBITMAP bitmap);
 	BOOL SetButtons(const UINT *ids, int count);
 	void SetSizes(SIZE button, SIZE image);
 	void SetHeight(int height);
 	int CommandToIndex(UINT id) const;
 	UINT GetItemID(int index) const;
-	void GetItemRect(int index, LPRECT rect) const;
+	virtual void GetItemRect(int index, LPRECT rect) const;
 	UINT GetButtonStyle(int index) const;
 	void SetButtonStyle(int index, UINT style);
 	void GetButtonInfo(int index, UINT &id, UINT &style, int &image) const;
 	void SetButtonInfo(int index, UINT id, UINT style, int image);
 	BOOL SetButtonText(int index, LPCTSTR text);
 	CString GetButtonText(int index) const;
+	void GetButtonText(int index, CString &text) const;
 	CToolBarCtrl &GetToolBarCtrl() const;
+	void SetOwner(CWnd *owner);
+	CSize CalcFixedLayout(BOOL stretch, BOOL horz) override;
+	CSize CalcDynamicLayout(int length, DWORD mode) override;
+	void OnUpdateCmdUI(CFrameWnd *target, BOOL disableIfNoHandler) override;
+	INT_PTR OnToolHitTest(CPoint point, TOOLINFO *ti) const override;
+	void OnBarStyleChange(DWORD oldStyle, DWORD newStyle) override;
+	// Implementation.
+	CSize m_sizeImage{16, 15};
+	CSize m_sizeButton{23, 22};
+	HBITMAP m_hbmImageWell = nullptr;
+	BOOL m_bDelayedButtonLayout = TRUE;
+	void _GetButton(int index, TBBUTTON *button) const;
+	void _SetButton(int index, TBBUTTON *button);
+	CSize CalcLayout(DWORD mode, int length = -1);
+	CSize CalcSize(TBBUTTON *data, int count);
+	int WrapToolBar(TBBUTTON *data, int count, int width);
+	void SizeToolBar(TBBUTTON *data, int count, int length, BOOL vert = FALSE);
+	void Layout();
+protected:
+	afx_msg int OnCreate(LPCREATESTRUCT cs);
+	afx_msg void OnNcCalcSize(BOOL calcValidRects, NCCALCSIZE_PARAMS *params);
+	afx_msg void OnNcPaint();
+	afx_msg LRESULT OnNcHitTest(CPoint point);
+	afx_msg void OnPaint();
+	afx_msg BOOL OnEraseBkgnd(CDC *dc);
+	afx_msg LRESULT OnSetButtonSize(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnSetBitmapSize(WPARAM wp, LPARAM lp);
+	LRESULT OnSetSizeHelper(CSize &size, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
 };
+
+// A status bar pane, as MFC keeps it.
+struct AFX_STATUSPANE
+{
+	UINT nID = 0;
+	UINT nStyle = 0;   // SBPS_*
+	UINT nFlags = 0;   // SBPF_*
+	int cxText = 0;    // the width of its text
+	CString strText;
+};
+// A status bar on the status bar common control (MFC's barstat.cpp):
+// indicator panes from string resources, the first one stretching, pane
+// text, styles and widths, and WM_SETTEXT going to the message pane.
 class CStatusBar : public CControlBar
 {
+	LINOPENMPT_MFC_DYNAMIC(CStatusBar)
 public:
+	CStatusBar();
+	~CStatusBar() override;
 	BOOL Create(CWnd *parent, DWORD style = WS_CHILD | WS_VISIBLE | CBRS_BOTTOM, UINT id = AFX_IDW_STATUS_BAR);
+	BOOL CreateEx(CWnd *parent, DWORD ctrlStyle = 0, DWORD style = WS_CHILD | WS_VISIBLE | CBRS_BOTTOM, UINT id = AFX_IDW_STATUS_BAR);
 	BOOL SetIndicators(const UINT *ids, int count);
 	int CommandToIndex(UINT id) const;
+	UINT GetItemID(int index) const;
+	void GetItemRect(int index, LPRECT rect) const;
 	void GetPaneInfo(int index, UINT &id, UINT &style, int &width) const;
 	void SetPaneInfo(int index, UINT id, UINT style, int width);
+	UINT GetPaneStyle(int index) const;
+	void SetPaneStyle(int index, UINT style);
 	BOOL SetPaneText(int index, LPCTSTR text, BOOL update = TRUE);
 	CString GetPaneText(int index) const;
-	void GetItemRect(int index, LPRECT rect) const;
+	void GetPaneText(int index, CString &text) const;
 	CStatusBarCtrl &GetStatusBarCtrl() const;
+	virtual void DrawItem(LPDRAWITEMSTRUCT dis) { }
+	CSize CalcFixedLayout(BOOL stretch, BOOL horz) override;
+	void OnUpdateCmdUI(CFrameWnd *target, BOOL disableIfNoHandler) override;
+	void CalcInsideRect(CRect &rect, BOOL horz) const override;
+	BOOL OnChildNotify(UINT msg, WPARAM wp, LPARAM lp, LRESULT *result) override;
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	void OnBarStyleChange(DWORD oldStyle, DWORD newStyle) override;
+	// Implementation.
+	std::vector<AFX_STATUSPANE> m_panes;
+	int m_nMinHeight = 0;
+	HFONT m_hFont = nullptr;
+	void UpdateAllPanes(BOOL updateRects, BOOL updateText);
+protected:
+	afx_msg void OnNcCalcSize(BOOL calcValidRects, NCCALCSIZE_PARAMS *params);
+	afx_msg void OnNcPaint();
+	afx_msg void OnPaint();
+	afx_msg void OnSize(UINT type, int cx, int cy);
+	afx_msg LRESULT OnNcHitTest(CPoint point);
+	afx_msg LRESULT OnSetText(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnGetText(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnGetTextLength(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnSetMinHeight(WPARAM wp, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
 };
 #define SBPS_NORMAL 0x0000
-#define SBPS_NOBORDERS 0x0100
-#define SBPS_POPOUT 0x0200
-#define SBPS_OWNERDRAW 0x1000
+#define SBPS_NOBORDERS SBT_NOBORDERS
+#define SBPS_POPOUT SBT_POPOUT
+#define SBPS_OWNERDRAW SBT_OWNERDRAW
 #define SBPS_DISABLED 0x04000000
 #define SBPS_STRETCH 0x08000000
+
+// A dialog template as a control bar (MFC's bardlg.cpp).
 class CDialogBar : public CControlBar
 {
+	LINOPENMPT_MFC_DYNAMIC(CDialogBar)
 public:
-	virtual BOOL Create(CWnd *parent, UINT templateID, UINT style, UINT id) { return FALSE; }
-	virtual BOOL Create(CWnd *parent, LPCTSTR templateName, UINT style, UINT id) { return FALSE; }
+	CDialogBar();
+	~CDialogBar() override;
+	virtual BOOL Create(CWnd *parent, LPCTSTR templateName, UINT style, UINT id);
+	virtual BOOL Create(CWnd *parent, UINT templateID, UINT style, UINT id) { return Create(parent, MAKEINTRESOURCE(templateID), style, id); }
+	CSize CalcFixedLayout(BOOL stretch, BOOL horz) override;
+	void OnUpdateCmdUI(CFrameWnd *target, BOOL disableIfNoHandler) override;
+	CSize m_sizeDefault;
 protected:
-	afx_msg LRESULT HandleInitDialog(WPARAM wParam, LPARAM lParam);
 	LPCTSTR m_lpszTemplateName = nullptr;
+	afx_msg LRESULT HandleInitDialog(WPARAM wp, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
 };
-class CReBar : public CControlBar { };
+class CReBar : public CControlBar
+{
+public:
+	void OnUpdateCmdUI(CFrameWnd *, BOOL) override { }
+};
+
+// A frame's docking area along one side (or inside a floating frame), in
+// rows: m_arrBars holds the bars, with nullptr between rows (MFC's
+// bardock.cpp).
+class CDockBar : public CControlBar
+{
+	LINOPENMPT_MFC_DYNAMIC(CDockBar)
+public:
+	explicit CDockBar(BOOL floating = FALSE);
+	~CDockBar() override;
+	BOOL Create(CWnd *parent, DWORD style, UINT id);
+	BOOL IsDockBar() const override { return TRUE; }
+	BOOL m_bFloating;
+	BOOL m_bLayoutQuery = FALSE;
+	CRect m_rectLayout;
+	std::vector<CControlBar *> m_arrBars;
+	void DockControlBar(CControlBar *bar, LPCRECT rect = nullptr);
+	// addPlaceHolder 1 leaves the bar's id where it was (to go back there).
+	BOOL RemoveControlBar(CControlBar *bar, int posExclude = -1, int addPlaceHolder = 0);
+	void RemovePlaceHolder(CControlBar *bar);
+	int GetDockedCount() const;
+	int GetDockedVisibleCount() const;
+	// Entries below 0x10000 are place holders (bar ids), as in MFC.
+	static bool IsPlaceHolder(const CControlBar *entry) { return entry != nullptr && reinterpret_cast<UINT_PTR>(entry) <= 0xFFFF; }
+	CControlBar *GetDockedControlBar(int pos) const
+	{
+		if(pos < 0 || pos >= static_cast<int>(m_arrBars.size()))
+			return nullptr;
+		CControlBar *entry = m_arrBars[static_cast<std::size_t>(pos)];
+		return IsPlaceHolder(entry) ? nullptr : entry;
+	}
+	int FindBar(CControlBar *bar, int posExclude = -1) const;
+	int Insert(CControlBar *bar, CRect rect, CPoint mid);
+	void ShowAll(BOOL show);
+	CSize CalcFixedLayout(BOOL stretch, BOOL horz) override;
+	void OnUpdateCmdUI(CFrameWnd *, BOOL) override { }
+	void DoPaint(CDC *dc) override;
+	void GetBarInfo(CControlBarInfo *info) override;
+	void SetBarInfo(CControlBarInfo *info, CFrameWnd *frame) override;
+protected:
+	afx_msg LRESULT OnSizeParent(WPARAM wp, LPARAM lp);
+	afx_msg void OnNcCalcSize(BOOL calcValidRects, NCCALCSIZE_PARAMS *params);
+	afx_msg void OnNcPaint();
+	DECLARE_MESSAGE_MAP()
+};
+
+// Dragging a control bar to dock it elsewhere or float it (MFC's
+// dockcont.cpp). The outline follows the mouse; Ctrl keeps it floating,
+// Shift turns it the other way.
+class CDockContext
+{
+public:
+	explicit CDockContext(CControlBar *bar);
+	virtual ~CDockContext();
+	virtual void StartDrag(CPoint point);
+	virtual void StartResize(int hitTest, CPoint point);
+	virtual void ToggleDocking();
+	CControlBar *m_pBar;
+	CFrameWnd *m_pDockSite;
+	DWORD m_dwDockStyle = 0;    // allowed dock styles of the bar
+	DWORD m_dwOverDockStyle = 0; // where it would dock now
+	DWORD m_dwStyle = 0;        // the bar's alignment when the drag started
+	BOOL m_bFlip = FALSE;
+	BOOL m_bForceFrame = FALSE;
+	BOOL m_bDragging = FALSE;
+	CPoint m_ptLast;
+	CRect m_rectLast;
+	CRect m_rectDragHorz, m_rectDragVert, m_rectFrameDragHorz, m_rectFrameDragVert;
+	// Where it was docked or floated last (ToggleDocking, the bar state).
+	UINT m_uMRUDockID = 0;
+	CRect m_rectMRUDockPos;
+	DWORD m_dwMRUFloatStyle = 0;
+	CPoint m_ptMRUFloatPos{-1, -1};
+	// Resizing a floating bar by its frame.
+	int m_nHitTest = 0;
+	CRect m_rectRequestedSize, m_rectActualSize, m_rectActualFrameSize, m_rectFrameBorders;
+	CSize m_sizeLast;
+	BOOL m_bDitherLast = FALSE;
+	void InitLoop();
+	void Move(CPoint point);
+	void Stretch(CPoint point);
+	void EndDrag();
+	void EndResize();
+	void CancelLoop();
+	void OnKey(int key, BOOL down);
+	void UpdateState(BOOL *flag, BOOL newValue);
+	DWORD CanDock();
+	CDockBar *GetDockBar(DWORD overDockStyle);
+	void DrawFocusRect(BOOL removeRect = FALSE);
+	BOOL Track();
+};
+
+// The saved state of one control bar or dock bar (MFC's dockstat.cpp), in
+// the profile sections "<name>-Bar<n>", as MFC writes them.
+class CControlBarInfo
+{
+public:
+	UINT m_nBarID = 0;
+	BOOL m_bVisible = FALSE;
+	BOOL m_bFloating = FALSE;
+	BOOL m_bHorz = FALSE;
+	BOOL m_bDockBar = FALSE;
+	CPoint m_pointPos{-1, -1};
+	UINT m_nMRUWidth = 32767;
+	BOOL m_bDocking = FALSE;
+	UINT m_uMRUDockID = 0;
+	CRect m_rectMRUDockPos;
+	DWORD m_dwMRUFloatStyle = 0;
+	CPoint m_ptMRUFloatPos{-1, -1};
+	std::vector<UINT> m_arrBarID; // bar ids, 0 between rows
+	CControlBar *m_pBar = nullptr;
+	BOOL SaveState(LPCTSTR profileName, int index);
+	BOOL LoadState(LPCTSTR profileName, int index, CDockState *state);
+};
+class CDockState : public CObject
+{
+public:
+	~CDockState() override { Clear(); }
+	std::vector<CControlBarInfo *> m_arrBarInfo;
+	void LoadState(LPCTSTR profileName);
+	void SaveState(LPCTSTR profileName);
+	void Clear();
+	CSize GetScreenSize();
+	void ScalePoint(CPoint &point);
+	void ScaleRectPos(CRect &rect);
+	CSize m_sizeDevice;
+	BOOL m_bScaling = FALSE;
+};
 // Static splitter windows, as MFC's winsplit.cpp: a grid of panes (views)
 // with bars between them that the mouse drags. (Dynamic splitters, which
 // create panes on the fly, are not used by upstream.)
@@ -1921,22 +2221,13 @@ public:
 	CString GetHotKeyName() const;
 };
 
-// What control bars get with WM_SIZEPARENT: the rectangle left for the
-// frame's client, which each bar takes its part of.
-struct AFX_SIZEPARENTPARAMS
-{
-	HDWP hDWP;
-	RECT rect;
-	SIZE sizeTotal;
-	BOOL bStretch;
-};
-
 class CFrameWnd : public CWnd
 {
 	LINOPENMPT_MFC_DYNAMIC(CFrameWnd)
 public:
 	static const CRect rectDefault;
-	CFrameWnd() = default;
+	CFrameWnd();
+	~CFrameWnd() override;
 	BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style = WS_OVERLAPPEDWINDOW, const RECT &rect = rectDefault, CWnd *parent = nullptr, LPCTSTR menuName = nullptr, DWORD exStyle = 0, CCreateContext *context = nullptr);
 	virtual BOOL LoadFrame(UINT resourceID, DWORD style = WS_OVERLAPPEDWINDOW | FWS_ADDTOTITLE, CWnd *parent = nullptr, CCreateContext *context = nullptr);
 	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
@@ -1972,6 +2263,31 @@ public:
 	void SaveBarState(LPCTSTR profileName) const;
 	void SetMessageText(LPCTSTR text);
 	void SetMessageText(UINT id);
+	// Docking internals (MFC's winfrm2.cpp), public as in MFC.
+	CRuntimeClass *m_pFloatingFrameClass = nullptr;
+	void DockControlBar(CControlBar *bar, CDockBar *dockBar, LPCRECT rect = nullptr);
+	void ReDockControlBar(CControlBar *bar, CDockBar *dockBar, LPCRECT rect = nullptr);
+	DWORD CanDock(CRect rect, DWORD dockStyle, CDockBar **dockBar = nullptr);
+	virtual CMiniDockFrameWnd *CreateFloatingFrame(DWORD style);
+	void GetDockState(CDockState &state) const;
+	void SetDockState(const CDockState &state);
+	void DelayRecalcLayout(BOOL notify = TRUE);
+	void DestroyDockBars();
+	void NotifyFloatingWindows(DWORD flags);
+	// Flyby help and the status bar's message pane.
+	virtual void GetMessageString(UINT id, CString &message) const;
+	virtual CWnd *GetMessageBar();
+	UINT m_nIDTracking = 0;
+	UINT m_nIDLastMessage = 0;
+	int m_nShowDelay = -1;
+	UINT m_nIdleFlags = 0;
+	enum IdleFlags { idleMenu = 1, idleTitle = 2, idleNotify = 4, idleLayout = 8 };
+	afx_msg LRESULT OnSetMessageString(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnPopMessageString(WPARAM wp, LPARAM lp);
+	afx_msg void OnMenuSelect(UINT item, UINT flags, HMENU sysMenu);
+	afx_msg void OnEnterIdle(UINT why, CWnd *who);
+	afx_msg void OnUpdateKeyIndicator(CCmdUI *cmdUI);
+	afx_msg BOOL OnToolTipText(UINT id, NMHDR *nmhdr, LRESULT *result);
 	afx_msg BOOL OnBarCheck(UINT id);
 	afx_msg void OnUpdateControlBarMenu(CCmdUI *cmdUI);
 	BOOL m_bAutoMenuEnable = TRUE;
@@ -1997,6 +2313,9 @@ protected:
 	afx_msg BOOL OnEraseBkgnd(CDC *dc);
 	afx_msg void OnInitMenuPopup(CMenu *popup, UINT index, BOOL sysMenu);
 	afx_msg LRESULT OnIdleUpdateCmdUI(WPARAM wp, LPARAM lp);
+	afx_msg void OnActivate(UINT state, CWnd *other, BOOL minimized);
+	afx_msg void OnEnable(BOOL enable);
+	afx_msg void OnDropFiles(HDROP drop);
 	DECLARE_MESSAGE_MAP()
 };
 // CFrameWnd styles.
@@ -2069,6 +2388,61 @@ protected:
 };
 class CMDIFrameWndEx : public CMDIFrameWnd { LINOPENMPT_MFC_DYNAMIC(CMDIFrameWndEx) };
 class CMDIChildWndEx : public CMDIChildWnd { LINOPENMPT_MFC_DYNAMIC(CMDIChildWndEx) };
+
+// Small-caption frames (MFC's winmini.cpp); floating control bars live in one.
+// The small caption and frame are drawn here, in the non-client area of
+// a frameless window, as Windows draws a tool window's: the window manager
+// would not report a drag of its own caption, and docking needs that.
+class CMiniFrameWnd : public CFrameWnd
+{
+	LINOPENMPT_MFC_DYNAMIC(CMiniFrameWnd)
+public:
+	BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent = nullptr, UINT id = 0);
+	BOOL CreateEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent = nullptr, UINT id = 0);
+	BOOL PreCreateWindow(CREATESTRUCT &cs) override;
+	void CalcWindowRect(LPRECT clientRect, UINT adjustType = adjustBorder) override;
+	static void CalcBorders(LPRECT rect, DWORD style = WS_THICKFRAME | WS_CAPTION, DWORD exStyle = 0);
+	// The caption and frame styles asked for (the window itself has neither).
+	DWORD m_dwFrameStyle = 0;
+	BOOL m_bActive = FALSE;
+	BOOL m_bClosePressed = FALSE;
+	CRect GetCloseRect() const;
+	void DrawFrame();
+protected:
+	afx_msg void OnNcCalcSize(BOOL calcValidRects, NCCALCSIZE_PARAMS *params);
+	afx_msg void OnNcPaint();
+	afx_msg LRESULT OnNcHitTest(CPoint point);
+	afx_msg void OnNcLButtonDown(UINT hitTest, CPoint point);
+	afx_msg BOOL OnNcActivate(BOOL active);
+	afx_msg LRESULT OnSetText(WPARAM wp, LPARAM lp);
+	afx_msg LRESULT OnFloatStatus(WPARAM wp, LPARAM lp);
+	DECLARE_MESSAGE_MAP()
+};
+#define MFS_SYNCACTIVE 0x00000100L
+#define MFS_4THICKFRAME 0x00000200L
+#define MFS_THICKFRAME 0x00000400L
+#define MFS_MOVEFRAME 0x00000800L
+#define MFS_BLOCKSYSMENU 0x00001000L
+
+// The floating frame of control bars.
+class CMiniDockFrameWnd : public CMiniFrameWnd
+{
+	LINOPENMPT_MFC_DYNAMIC(CMiniDockFrameWnd)
+public:
+	static CObject *CreateObject();
+	CMiniDockFrameWnd();
+	virtual BOOL Create(CWnd *parent, DWORD barStyle);
+	void RecalcLayout(BOOL notify = TRUE) override;
+	CDockBar m_wndDockBar;
+	CControlBar *FirstBar() const;
+protected:
+	afx_msg void OnClose();
+	afx_msg void OnNcLButtonDown(UINT hitTest, CPoint point);
+	afx_msg void OnNcLButtonDblClk(UINT hitTest, CPoint point);
+	afx_msg int OnMouseActivate(CWnd *topParent, UINT hitTest, UINT message);
+	DECLARE_MESSAGE_MAP()
+};
+
 
 // The style MFC creates views with.
 #define AFX_WS_DEFAULT_VIEW (WS_CHILD | WS_VISIBLE | WS_BORDER)
@@ -2343,11 +2717,11 @@ public:
 	CString m_strPortName;
 	CString m_strRestartIdentifier;
 	virtual ~CCommandLineInfo() = default;
-	virtual void ParseParam(LPCTSTR param, BOOL flag, BOOL last)
-	{
-		if(!flag && m_strFileName.IsEmpty())
-			m_strFileName = param;
-	}
+	virtual void ParseParam(LPCTSTR param, BOOL flag, BOOL last);
+protected:
+	void ParseParamFlag(const char *param);
+	void ParseParamNotFlag(LPCTSTR param);
+	void ParseLast(BOOL last);
 };
 
 class CWinApp : public CWinThread
@@ -2394,6 +2768,13 @@ public:
 	void EnableShellOpen();
 	void LoadStdProfileSettings(UINT maxMRU = 4);
 	void SetRegistryKey(LPCTSTR key);
+	// The profile (an ini file at m_pszProfileName; there is no registry).
+	UINT GetProfileInt(LPCTSTR section, LPCTSTR entry, int defaultValue);
+	BOOL WriteProfileInt(LPCTSTR section, LPCTSTR entry, int value);
+	CString GetProfileString(LPCTSTR section, LPCTSTR entry, LPCTSTR defaultValue = nullptr);
+	BOOL WriteProfileString(LPCTSTR section, LPCTSTR entry, LPCTSTR value);
+	UINT m_nMaxMRU = 0;
+	std::vector<CString> m_recentFiles;
 };
 
 
@@ -2418,6 +2799,13 @@ LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CFormView, CScrollView)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIFrameWndEx, CMDIFrameWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMDIChildWndEx, CMDIChildWnd)
 LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CSplitterWnd, CWnd)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CToolBar, CControlBar)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CStatusBar, CControlBar)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CDialogBar, CControlBar)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CDockBar, CControlBar)
+LINOPENMPT_MFC_IMPLEMENT_DYNAMIC(CMiniFrameWnd, CFrameWnd)
+inline CObject *CMiniDockFrameWnd::CreateObject() { return new CMiniDockFrameWnd; }
+inline const CRuntimeClass CMiniDockFrameWnd::classCMiniDockFrameWnd = {"CMiniDockFrameWnd", static_cast<int>(sizeof(CMiniDockFrameWnd)), 0xFFFF, &CMiniDockFrameWnd::CreateObject, RUNTIME_CLASS(CMiniFrameWnd)};
 
 CWinApp *AfxGetApp();
 CWinThread *AfxGetThread();
