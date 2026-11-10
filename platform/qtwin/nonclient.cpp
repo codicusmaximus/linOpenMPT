@@ -107,18 +107,16 @@ bool UpdateNonClient(Win32Widget *w)
 void ClipToParentClient(Win32Widget *w)
 {
 	auto *parent = w->isWindow() ? nullptr : dynamic_cast<Win32Widget *>(w->parentWidget());
-	if(parent == nullptr)
+	const QRect full(QPoint(0, 0), w->size());
+	QRegion visible = w->data.shape.isEmpty() ? QRegion(full) : w->data.shape;
+	// A top-level window (perhaps a child once) is not clipped to a parent.
+	if(parent != nullptr)
 	{
-		// A top-level window (perhaps a child once) is not clipped.
-		if(w->data.clipMask)
-		{
-			w->clearMask();
-			w->data.clipMask = false;
-		}
-		return;
+		const QRect client = ClientRect(parent), g = w->geometry();
+		if(!client.contains(g))
+			visible &= client.intersected(g).translated(-g.topLeft());
 	}
-	const QRect client = ClientRect(parent), g = w->geometry();
-	if(client.contains(g))
+	if(visible == QRegion(full))
 	{
 		if(w->data.clipMask)
 		{
@@ -127,10 +125,17 @@ void ClipToParentClient(Win32Widget *w)
 		}
 		return;
 	}
-	const QRect visible = client.intersected(g).translated(-g.topLeft());
 	// An empty mask would mean no mask: one pixel outside hides it all.
-	w->setMask(visible.isEmpty() ? QRegion(-1, -1, 1, 1) : QRegion(visible));
+	w->setMask(visible.isEmpty() ? QRegion(-1, -1, 1, 1) : visible);
 	w->data.clipMask = true;
+}
+
+void SetShape(Win32Widget *w, const QRegion &shape)
+{
+	if(w == nullptr || w->data.shape == shape)
+		return;
+	w->data.shape = shape;
+	ClipToParentClient(w);
 }
 
 void DefNcCalcSize(Win32Widget *w, RECT *rect)

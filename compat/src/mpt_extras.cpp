@@ -2,6 +2,8 @@
 // Compiled as part of mpt_common (tracker configuration).
 #include "stdafx.h"
 
+#include <algorithm>
+
 #include "mptRandom.h"
 #include "mpt/uuid/uuid.hpp"
 
@@ -46,9 +48,13 @@ mpt::PathString RelativePathToAbsolute(const mpt::PathString &path, const mpt::P
 	// relativeTo; absolute paths stay as they are.
 	if(path.empty() || relativeTo.empty())
 		return path;
-	const mpt::RawPathString &p = path.AsNative();
+	mpt::RawPathString p = path.AsNative();
 	if(p[0] == '/')
 		return path;
+	// Modules saved on Windows store ".\\sample.wav" and "samples\\x.wav":
+	// a relative path with backslashes means folders, not a file name with
+	// backslashes in it.
+	std::replace(p.begin(), p.end(), '\\', '/');
 	mpt::RawPathString base = relativeTo.AsNative();
 	if(!base.empty() && base.back() != '/')
 		base.push_back('/');

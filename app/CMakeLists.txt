@@ -31,6 +31,10 @@ endif()
 if(TARGET openmpt AND LINOPENMPT_BUILD_TESTS)
   add_test(NAME app_start COMMAND ${CMAKE_SOURCE_DIR}/tools/smoke/app_start_test.sh
     $<TARGET_FILE:openmpt> ${MPT_UPSTREAM_DIR}/test/test.mod)
+  # Every view and dialog of the screenshot pass, opened and closed.
+  add_test(NAME app_views COMMAND ${CMAKE_SOURCE_DIR}/tools/screenshots/pass.sh
+    $<TARGET_FILE:openmpt> ${CMAKE_CURRENT_BINARY_DIR}/app_views)
+  set_tests_properties(app_views PROPERTIES TIMEOUT 900)
   find_program(JACKD_EXECUTABLE jackd)
   if(LINOPENMPT_WITH_JACK AND JACKD_EXECUTABLE)
     add_executable(jack_meter ${CMAKE_SOURCE_DIR}/tools/smoke/jack_meter.c)

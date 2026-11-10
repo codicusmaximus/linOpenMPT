@@ -2,6 +2,8 @@
 // buttons, icon, default button and return values of the Win32 one.
 #include "QtWin.h"
 
+#include <QtCore/QPointer>
+
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
@@ -15,7 +17,11 @@ int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type)
 	QWidget *parent = nullptr;
 	if(Win32Widget *w = FromHandle(owner))
 		parent = w->window();
-	QMessageBox box(parent);
+	// On the heap: if the owner is destroyed while the box is up (as
+	// DestroyWindow destroys owned windows on Windows), Qt deletes the box
+	// with it and exec() returns.
+	QPointer<QMessageBox> boxPtr = new QMessageBox(parent);
+	QMessageBox &box = *boxPtr;
 	box.setTextFormat(Qt::PlainText);
 	box.setText(ToQString(text != nullptr ? text : L""));
 	box.setWindowTitle(caption != nullptr ? ToQString(caption) : QStringLiteral("Error"));
@@ -88,8 +94,10 @@ int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type)
 	int result = escape >= 0 ? escape : made.front().second;
 	{
 		ForeignModalLoop loop;
-		box.exec();
+		boxPtr->exec();
 	}
+	if(boxPtr.isNull())
+		return result; // the owner went, and the box with it
 	if(ownerEnabled && ::IsWindow(owner))
 		::EnableWindow(owner, TRUE);
 	// The owner is active again, as on Windows.
@@ -100,5 +108,6 @@ int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type)
 		if(box.clickedButton() == m.first)
 			result = m.second;
 	}
+	delete boxPtr;
 	return result;
 }

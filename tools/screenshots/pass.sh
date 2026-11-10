@@ -1,0 +1,103 @@
+#!/bin/bash
+# The step 4 screenshot pass: starts the real application once per entry,
+# with a module open, runs one or more menu commands (by their resource.h
+# names) and saves the main window and any dialog they opened.
+#   tools/screenshots/pass.sh <openmpt> <out dir> [entry ...]
+# An entry is "name:module:COMMAND[,COMMAND...]"; without entries, the list
+# below. Runs under Xvfb at 1600x1000 when it is installed, else offscreen,
+# unless QT_QPA_PLATFORM says otherwise.
+# Exits with 1 when an entry crashed, hung or saved no picture (the
+# app_views test).
+set -u
+openmpt=$1
+out=$2
+shift 2
+here=$(cd "$(dirname "$0")" && pwd)
+root=$(cd "$here/../.." && pwd)
+test=$root/upstream/test
+mkdir -p "$out"
+failed=0
+
+entries=("$@")
+if [ ${#entries[@]} -eq 0 ]; then
+	entries=(
+		"start:$test/test.mod:"
+		"welcome:$test/test.mod:"
+		"start-missing-samples:$test/test.mptm:"
+		"general:$test/test.xm:ID_VIEW_GLOBALS"
+		"patterns:$test/test.xm:ID_VIEW_PATTERNS"
+		"samples:$test/test.xm:ID_VIEW_SAMPLES"
+		"instruments:$test/test.xm:ID_VIEW_INSTRUMENTS"
+		"comments:$test/test.xm:ID_VIEW_COMMENTS"
+		"about:$test/test.mod:ID_APP_ABOUT"
+		"open:$test/test.mod:ID_FILE_OPEN"
+		"save-as:$test/test.mod:ID_FILE_SAVE_AS"
+		"stream-export:$test/test.mod:ID_FILE_SAVEASWAVE"
+		"midi-export:$test/test.mod:ID_FILE_SAVEMIDI"
+		"cleanup:$test/test.xm:ID_EDIT_CLEANUP"
+		"sample-trimmer:$test/test.xm:ID_EDIT_SAMPLETRIMMER"
+		"find:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_FIND"
+		"goto:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_GOTO_MENU"
+		"split-keyboard:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_SPLITKEYBOARDSETTINGS"
+		"setup:$test/test.mod:ID_VIEW_OPTIONS"
+		"plugin-manager:$test/test.mod:ID_PLUGIN_SETUP"
+		"channel-manager:$test/test.xm:ID_CHANNEL_MANAGER"
+		"clipboard-manager:$test/test.xm:ID_CLIPBOARD_MANAGER"
+		"song-properties:$test/test.xm:ID_VIEW_SONGPROPERTIES"
+		"zxx-macros:$test/test.xm:ID_PATTERN_MIDIMACRO"
+		"midi-mapping:$test/test.xm:ID_VIEW_MIDIMAPPING"
+		"edit-history:$test/test.xm:ID_VIEW_EDITHISTORY"
+		"mpt-hacks:$test/test.mod:ID_VIEW_MPTHACKS"
+		"song-length:$test/test.mod:ID_ESTIMATESONGLENGTH"
+	)
+fi
+
+id_of()
+{
+	# The tracker's own ids, or MFC's standard ones.
+	local id
+	id=$(grep -hE "^#define $1 " "$root/upstream/mptrack/resource.h" "$root/compat/include/afxres.h" | head -1 | awk '{print $3}')
+	[ -n "$id" ] && echo $((id))
+}
+
+run()
+{
+	# A platform chosen by the caller (the tests run offscreen) wins.
+	if [ -n "${QT_QPA_PLATFORM:-}" ]; then
+		"$@"
+	elif command -v xvfb-run >/dev/null; then
+		xvfb-run -a -s "-screen 0 1600x1000x24" "$@"
+	else
+		QT_QPA_PLATFORM=offscreen "$@"
+	fi
+}
+
+for entry in "${entries[@]}"; do
+	IFS=: read -r name module commands <<<"$entry"
+	ids=""
+	for c in ${commands//,/ }; do
+		id=$(id_of "$c")
+		[ -z "$id" ] && { echo "$name: unknown command $c"; continue 2; }
+		ids="$ids${ids:+,}$id"
+	done
+	home=$(mktemp -d)
+	# Not the first run, so the welcome dialog stays away (entry "welcome"
+	# shows it on purpose).
+	if [ "$name" != welcome ]; then
+		mkdir -p "$home/.config/OpenMPT"
+		printf '[Version]\nVersion=1.32.12.00\n' >"$home/.config/OpenMPT/mptrack.ini"
+	fi
+	rm -f "$out/$name".png "$out/$name"-*.png
+	HOME=$home XDG_CONFIG_HOME= LINOPENMPT_COMMANDS=$ids \
+	LINOPENMPT_SCREENSHOT=$out/$name.png LINOPENMPT_SCREENSHOT_DELAY=$((2500 + 500 * $(echo "$ids" | tr ',' '\n' | grep -c .))) \
+		run timeout 60 "$openmpt" "$module" >"$out/$name.log" 2>&1
+	status=$?
+	rm -rf "$home"
+	shots=$(ls "$out/$name".png "$out/$name"-*.png 2>/dev/null | wc -l)
+	echo "$name: exit $status, $shots picture(s)"
+	if [ $status -ne 0 ] || [ ! -f "$out/$name.png" ]; then
+		echo "$name: FAILED, see $out/$name.log"
+		failed=1
+	fi
+done
+exit $failed

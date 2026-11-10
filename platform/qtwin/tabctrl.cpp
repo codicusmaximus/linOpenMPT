@@ -131,6 +131,34 @@ int RowsHeight(HWND hwnd, const TabState &s)
 
 void UpdateScroller(HWND hwnd, TabState &s, bool overflow, int clientWidth);
 
+// The pages of a tab control are usually its siblings, created after it,
+// which Windows draws over the display area; Qt would stack them under the
+// tab control. So the display area inside the frame is cut out of the
+// control, unless the control holds its pages as its own children there.
+void UpdateShape(HWND hwnd, TabState &s)
+{
+	Win32Widget *w = FromHandle(hwnd);
+	if(w == nullptr)
+		return;
+	const QRect all(QPoint(0, 0), w->size());
+	const int rows = RowsHeight(hwnd, s);
+	const bool bottom = Bottom(hwnd);
+	QRect pane = all;
+	if(bottom)
+		pane.setBottom(pane.bottom() - rows);
+	else
+		pane.setTop(pane.top() + rows);
+	const QRect inside = pane.adjusted(ControlBorder, ControlBorder, -ControlBorder, -ControlBorder);
+	bool ownPages = false;
+	for(QObject *child : w->children())
+	{
+		auto *page = qobject_cast<QWidget *>(child);
+		if(page != nullptr && !page->isWindow() && page->geometry().intersects(inside))
+			ownPages = true;
+	}
+	SetShape(w, ownPages || inside.isEmpty() ? QRegion() : QRegion(all) - QRegion(inside));
+}
+
 void Layout(HWND hwnd, TabState &s)
 {
 	const LONG_PTR style = StyleOf(hwnd);
@@ -243,6 +271,7 @@ void Layout(HWND hwnd, TabState &s)
 	for(int w : widths)
 		full += w + gap;
 	UpdateScroller(hwnd, s, !multi && Count(s) > 0 && full + 2 * SelectedTabOffset > clientWidth, clientWidth);
+	UpdateShape(hwnd, s);
 }
 
 int ScrollOffset(const TabState &s)
