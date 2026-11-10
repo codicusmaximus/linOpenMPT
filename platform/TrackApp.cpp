@@ -11,7 +11,6 @@
 #include "Mptrack.h"
 #include "Settings.h"
 #include "TrackerSettings.h"
-#include "ExceptionHandler.h"
 #include "UpdateCheck.h"
 #include "TuningDialog.h"
 #include "../soundlib/Dlsbank.h"
@@ -41,17 +40,6 @@ MidiLibrary CTrackApp::midiLibrary;
 std::vector<std::unique_ptr<CDLSBank>> CTrackApp::gpDLSBanks;
 const mpt::Charset TuningCharsetFallback = mpt::Charset::Locale;
 
-bool ExceptionHandler::fullMemDump = false;
-bool ExceptionHandler::stopSoundDeviceOnCrash = true;
-bool ExceptionHandler::stopSoundDeviceBeforeDump = false;
-bool ExceptionHandler::delegateToWindowsHandler = false;
-bool ExceptionHandler::debugExceptionHandler = false;
-bool ExceptionHandler::useAnyCrashHandler = false;
-bool ExceptionHandler::useImplicitFallbackSEH = false;
-bool ExceptionHandler::useExplicitSEH = false;
-bool ExceptionHandler::handleStdTerminate = false;
-bool ExceptionHandler::handleMfcExceptions = false;
-
 namespace Tracker
 {
 mpt::recursive_mutex_with_lock_count &GetGlobalMutexRef()
@@ -59,34 +47,6 @@ mpt::recursive_mutex_with_lock_count &GetGlobalMutexRef()
 	return theApp.GetGlobalMutexRef();
 }
 } // namespace Tracker
-
-MPT_NOINLINE void AssertHandler(const mpt::source_location &loc, const char *expr, const char *msg)
-{
-	std::cerr << "linOpenMPT: assertion failed: " << (expr ? expr : "") << " at "
-	          << (loc.file_name() ? loc.file_name() : "?") << ":" << loc.line();
-	if(msg)
-		std::cerr << " (" << msg << ")";
-	std::cerr << std::endl;
-	if(!msg)
-		std::abort();
-}
-
-void DebugTraceDump()
-{
-}
-
-std::vector<mpt::ustring> CUpdateCheck::GetDefaultUpdateSigningKeysRootAnchors()
-{
-	return {
-		U_("https://update.openmpt.de/update/"),
-		U_("https://demo.openmpt.org/update/"),
-	};
-}
-
-mpt::ustring CUpdateCheck::GetDefaultAPIURL()
-{
-	return U_("https://update.openmpt.org/api/v3/");
-}
 
 // ---- CTrackApp ------------------------------------------------------------
 

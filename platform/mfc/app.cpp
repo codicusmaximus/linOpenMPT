@@ -5,6 +5,8 @@
 
 #include "QtWin.h"
 
+#include <afxdatarecovery.h>
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QStandardPaths>
@@ -73,6 +75,22 @@ void CCommandLineInfo::ParseLast(BOOL last)
 			m_nShellCommand = FileOpen;
 		m_bShowSplash = !m_bRunEmbedded && !m_bRunAutomated;
 	}
+}
+
+BOOL CWinApp::InitInstance()
+{
+	// As MFC (appcore.cpp): data recovery when the application asked for
+	// it. The handler declines to start here (afxextras.cpp), so this only
+	// keeps the order of calls.
+	if(m_pDataRecoveryHandler == nullptr && (m_dwRestartManagerSupportFlags & AFX_RESTART_MANAGER_SUPPORT_RECOVERY))
+	{
+		auto *handler = new CDataRecoveryHandler(m_dwRestartManagerSupportFlags, m_nAutosaveInterval);
+		if(handler->Initialize())
+			m_pDataRecoveryHandler = handler;
+		else
+			delete handler;
+	}
+	return TRUE;
 }
 
 void CWinApp::ParseCommandLine(CCommandLineInfo &info)

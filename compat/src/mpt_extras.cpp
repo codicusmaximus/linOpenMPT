@@ -42,17 +42,19 @@ mpt::PathString AbsolutePathToRelative(const mpt::PathString &path, const mpt::P
 
 mpt::PathString RelativePathToAbsolute(const mpt::PathString &path, const mpt::PathString &relativeTo)
 {
+	// As upstream: "./x" and any other path that is not absolute are below
+	// relativeTo; absolute paths stay as they are.
 	if(path.empty() || relativeTo.empty())
 		return path;
 	const mpt::RawPathString &p = path.AsNative();
+	if(p[0] == '/')
+		return path;
+	mpt::RawPathString base = relativeTo.AsNative();
+	if(!base.empty() && base.back() != '/')
+		base.push_back('/');
 	if(p.size() >= 2 && p[0] == '.' && p[1] == '/')
-	{
-		mpt::RawPathString base = relativeTo.AsNative();
-		if(!base.empty() && base.back() != '/')
-			base.push_back('/');
 		return mpt::PathString::FromNative(base + p.substr(2));
-	}
-	return path;
+	return mpt::PathString::FromNative(base + p);
 }
 
 namespace OS

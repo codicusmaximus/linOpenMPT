@@ -50,12 +50,22 @@ std::wstring Lower(std::wstring s)
 	return s;
 }
 
-// Class names compare case-insensitively, as on Windows. Atoms (from
-// MAKEINTATOM) are not used by OpenMPT.
+// Class names compare case-insensitively, as on Windows. A class can also
+// be named by the atom RegisterClass returned (MAKEINTATOM).
 const WindowClass *FindClass(LPCTSTR name)
 {
 	if(name == nullptr)
 		return nullptr;
+	if(IS_INTRESOURCE(name))
+	{
+		const ATOM atom = static_cast<ATOM>(reinterpret_cast<UINT_PTR>(name));
+		for(const auto &[key, cls] : Classes())
+		{
+			if(cls->atom == atom)
+				return cls.get();
+		}
+		return nullptr;
+	}
 	auto it = Classes().find(Lower(name));
 	if(it == Classes().end())
 	{
@@ -738,13 +748,24 @@ ATOM RegisterClass(const WNDCLASS *wc)
 	cls->name = wc->lpszClassName;
 	cls->wc = *wc;
 	cls->wc.lpszClassName = cls->name.c_str();
+	// Atoms of registered classes count up from 0xC000, as on Windows.
+	static ATOM nextAtom = 0xC000;
+	cls->atom = nextAtom++;
+	const ATOM atom = cls->atom;
 	classes[key] = std::move(cls);
-	return static_cast<ATOM>(classes.size());
+	return atom;
 }
 
 BOOL UnregisterClass(LPCTSTR className, HINSTANCE)
 {
-	return className && Classes().erase(Lower(className)) ? TRUE : FALSE;
+	if(className == nullptr)
+		return FALSE;
+	if(IS_INTRESOURCE(className))
+	{
+		const WindowClass *cls = FindClass(className);
+		return cls != nullptr && Classes().erase(Lower(cls->name)) ? TRUE : FALSE;
+	}
+	return Classes().erase(Lower(className)) ? TRUE : FALSE;
 }
 
 // ---- creation and destruction ------------------------------------------------
@@ -801,12 +822,29 @@ HWND CreateWindowEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD 
 
 	if(child && (exStyle & WS_EX_MDICHILD))
 		MdiDefaultRect(parent, x, y, w, h);
+	// As Windows: overlapped windows at the default position cascade down
+	// the work area, and their default size is three quarters of it; for
+	// child windows the defaults are zero.
+	const QRect workArea = !child && QGuiApplication::primaryScreen() != nullptr ? QGuiApplication::primaryScreen()->availableGeometry() : QRect();
 	if(x == CW_USEDEFAULT)
+	{
 		x = y = 0;
+		if(!child && workArea.isValid())
+		{
+			static int cascade = 0;
+			const int step = 26 * (cascade++ % 8);
+			x = workArea.left() + step;
+			y = workArea.top() + step;
+		}
+	}
 	if(w == CW_USEDEFAULT)
 	{
-		w = 640;
-		h = 480;
+		w = h = 0;
+		if(!child)
+		{
+			w = workArea.isValid() ? workArea.width() * 3 / 4 : 640;
+			h = workArea.isValid() ? workArea.height() * 3 / 4 : 480;
+		}
 	}
 	const QPoint parentOrigin = child ? ClientOrigin(parentWidget) : QPoint();
 	widget->setGeometry(x + parentOrigin.x(), y + parentOrigin.y(), std::max(w, 0), std::max(h, 0));

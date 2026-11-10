@@ -15,10 +15,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
+          # jackd2 runs the JACK playback test (a private server, dummy driver).
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             cmake ninja-build pkg-config g++ \
             qt6-base-dev \
-            libjack-jackd2-dev libpulse-dev libasound2-dev libdbus-1-dev \
+            libjack-jackd2-dev jackd2 libpulse-dev libasound2-dev libdbus-1-dev \
             zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo

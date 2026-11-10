@@ -10,6 +10,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)          # upstream builds with gnu++20 on Linux
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# MFC code calls members through null pointers on purpose
+# (CWnd::GetSafeHwnd() is "this ? m_hWnd : NULL"); MSVC keeps such checks,
+# GCC drops them unless told not to.
+add_compile_options(-fno-delete-null-pointer-checks)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)

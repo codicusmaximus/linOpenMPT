@@ -98,7 +98,7 @@ struct BitmapData
 	UINT Width;
 	UINT Height;
 	INT Stride;
-	PixelFormat PixelFormat;
+	INT PixelFormat; // a PixelFormat (the member hides the type name)
 	void *Scan0;
 	UINT_PTR Reserved;
 };

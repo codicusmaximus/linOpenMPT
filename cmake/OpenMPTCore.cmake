@@ -89,7 +89,7 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
       MPTrackUtilWine    # Wine integration
       MPTrackWine        # Wine integration
       UpdateCheck        # WinInet and Windows CNG signature checks
-      WineSoundDeviceStub)
+      )
     list(REMOVE_ITEM MPT_TRACKER_UI_SOURCES ${MPT_UPSTREAM_DIR}/mptrack/${windows_only}.cpp)
   endforeach()
   add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})

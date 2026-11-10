@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,10 +41,103 @@ std::vector<std::wstring> LocalFiles(const QMimeData *mime)
 	return files;
 }
 
+std::map<HWND, DropTargetCallbacks> &DropTargets()
+{
+	static std::map<HWND, DropTargetCallbacks> targets;
+	return targets;
+}
+
+POINT ClientPoint(Win32Widget *w, QPoint pos)
+{
+	const QRect client = ClientRect(w);
+	return POINT{pos.x() - client.left(), pos.y() - client.top()};
+}
+
+// A drag over a window with a drop target: OLE's calls instead of
+// WM_DROPFILES.
+bool HandleOleDrop(Win32Widget *w, QEvent *e, DropTargetCallbacks &target)
+{
+	switch(e->type())
+	{
+	case QEvent::DragEnter:
+	case QEvent::DragMove:
+	{
+		auto *drag = static_cast<QDragMoveEvent *>(e);
+		const auto files = LocalFiles(drag->mimeData());
+		DWORD effect = 0;
+		if(!files.empty() && target.over)
+			effect = target.over(files, static_cast<DWORD>(MouseKeyFlags(drag->buttons(), drag->modifiers())), ClientPoint(w, drag->position().toPoint()), e->type() == QEvent::DragEnter);
+		if(effect != 0)
+		{
+			drag->setDropAction((effect & 2) ? Qt::MoveAction : ((effect & 4) ? Qt::LinkAction : Qt::CopyAction));
+			drag->accept();
+		} else if(e->type() == QEvent::DragEnter && !files.empty())
+		{
+			// Not here yet, but keep the moves coming: OLE asks the target
+			// at every move, and the item under the mouse decides.
+			drag->accept();
+		} else
+		{
+			drag->ignore();
+		}
+		return true;
+	}
+	case QEvent::DragLeave:
+		if(target.leave)
+			target.leave();
+		return true;
+	case QEvent::Drop:
+	{
+		auto *drop = static_cast<QDropEvent *>(e);
+		const auto files = LocalFiles(drop->mimeData());
+		const DWORD effect = drop->dropAction() == Qt::MoveAction ? 2 : (drop->dropAction() == Qt::LinkAction ? 4 : 1);
+		if(!files.empty() && target.drop && target.drop(files, effect, ClientPoint(w, drop->position().toPoint())))
+			drop->acceptProposedAction();
+		else
+			drop->ignore();
+		return true;
+	}
+	default:
+		return false;
+	}
+}
+
 } // namespace
+
+void RegisterDropTarget(HWND hwnd, DropTargetCallbacks callbacks)
+{
+	DropTargets()[hwnd] = std::move(callbacks);
+	if(Win32Widget *w = FromHandle(hwnd))
+		w->setAcceptDrops(true);
+}
+
+void RevokeDropTarget(HWND hwnd)
+{
+	DropTargets().erase(hwnd);
+	if(Win32Widget *w = FromHandle(hwnd))
+		w->setAcceptDrops((w->data.exStyle & WS_EX_ACCEPTFILES) != 0);
+}
+
+HDROP CreateDrop(const std::vector<std::wstring> &files, POINT point, bool inClient)
+{
+	auto *data = new DropData;
+	data->files = files;
+	data->point = point;
+	data->inClient = inClient;
+	return reinterpret_cast<HDROP>(data);
+}
 
 bool HandleFileDropEvent(Win32Widget *w, QEvent *e)
 {
+	{
+		auto it = DropTargets().find(w->hwnd());
+		if(it != DropTargets().end())
+		{
+			// A copy: the target may revoke itself while it runs.
+			DropTargetCallbacks target = it->second;
+			return HandleOleDrop(w, e, target);
+		}
+	}
 	switch(e->type())
 	{
 	case QEvent::DragEnter:
