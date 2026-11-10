@@ -20,7 +20,8 @@ Ubuntu 24.04 / Debian packages:
 ```sh
 sudo apt install cmake ninja-build pkg-config g++ qt6-base-dev \
   libjack-jackd2-dev libpulse-dev libasound2-dev libdbus-1-dev \
-  zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev
+  zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev \
+  libopus-dev libopusfile-dev libopusenc-dev libmp3lame-dev liblhasa-dev
 ```
 
 ```sh

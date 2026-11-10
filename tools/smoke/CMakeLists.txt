@@ -21,6 +21,23 @@ if(TARGET mpt_soundlib)
   target_compile_options(tracker_engine PRIVATE -fpermissive -w)
   add_test(NAME tracker_engine_mod COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_mod.it)
   add_test(NAME tracker_engine_s3m COMMAND tracker_engine ${MPT_UPSTREAM_DIR}/test/test.s3m ${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_s3m.it)
+  # Stream export encoders and sample decoders, round trip; a module in a
+  # ZIP archive (made here with Python's zipfile, as no zip tool is assumed).
+  add_executable(codecs_test codecs_test.cpp)
+  target_link_libraries(codecs_test PRIVATE mpt_soundlib linopenmpt_platform)
+  target_compile_options(codecs_test PRIVATE -fpermissive -w)
+  find_package(Python3 COMPONENTS Interpreter)
+  if(Python3_FOUND)
+    add_test(NAME codecs_zip COMMAND ${Python3_EXECUTABLE} -c
+      "import zipfile; zipfile.ZipFile('${CMAKE_CURRENT_BINARY_DIR}/codecs_test.zip', 'w', zipfile.ZIP_DEFLATED).write('${MPT_UPSTREAM_DIR}/test/test.xm', 'test.xm')")
+    set_tests_properties(codecs_zip PROPERTIES FIXTURES_SETUP codecs_zip)
+    add_test(NAME codecs_test COMMAND codecs_test ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/codecs_test.zip)
+    set_tests_properties(codecs_test PROPERTIES FIXTURES_REQUIRED codecs_zip)
+  else()
+    add_test(NAME codecs_test COMMAND codecs_test ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR})
+  endif()
+  set_tests_properties(codecs_test PROPERTIES
+    ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/codecs_test_config")
   set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_config")
 endif()

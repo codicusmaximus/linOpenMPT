@@ -449,14 +449,38 @@ documents, remove channels, progress and update dialogs.
 
 Known gaps:
 
-- Optional libraries. Upstream's Windows build has FLAC, Opus, LAME (MP3
-  export), Vorbis encoding, ancient, lhasa, minizip, UnRAR, r8brain and
-  Signalsmith Stretch; this build has none of them yet, so for example a
-  FLAC sample cannot be loaded and the sample editor's time stretching
-  and the stream export's MP3/Opus/FLAC formats are missing. All are
-  vendored in `upstream/include`. This is step 4b.
 - The update check is compiled out, so the Welcome dialog shows its
   update options with a placeholder line, as upstream does in such a build.
+
+### Step 4b: upstream's optional libraries (done)
+
+Upstream's Windows build (`build/premake/mpt-OpenMPT.lua`) has a set of
+optional libraries for sample formats, stream export and archives. This
+build now has all of them that make sense on Linux
+(`cmake/OpenMPTExternal.cmake`):
+
+| Library | Gives | From |
+|---------|-------|------|
+| FLAC | FLAC samples, FLAC export | system (`libflac-dev`) |
+| Vorbis encoder | Ogg Vorbis export | system (`libvorbis-dev`) |
+| Opus, opusfile, libopusenc | Opus samples, Opus export | system |
+| LAME | MP3 export | system (`libmp3lame-dev`) |
+| lhasa | modules in LHA archives | system (`liblhasa-dev`) |
+| ancient | PowerPacker, XPK and MMCMP packed modules | `upstream/include/ancient` |
+| UnRAR | modules in RAR archives | `upstream/include/unrar` (upstream's trimmed copy) |
+| minizip | modules in ZIP archives | `upstream/include/zlib/contrib/minizip`, on the system zlib |
+
+r8brain (resampling) and Signalsmith Stretch (time stretching) were
+already built from `upstream/include`. Left out, because they are only
+used on Windows: PortAudio (Windows sound APIs; JACK, PulseAudio and ALSA
+go through RtAudio here), ASIO, and Crypto++ (signatures for the update
+check, which is not built yet).
+
+Test: `codecs_test` renders a module, writes it as FLAC, MP3, Opus and
+Vorbis with each encoder's default settings, reads every file back as a
+sample, and loads a module from a ZIP archive. The test module with an
+external FLAC sample (`test.mptm`) now opens without the missing samples
+dialog.
 
 ## Step 5: the MFC to Qt6 bridge as its own project
 
