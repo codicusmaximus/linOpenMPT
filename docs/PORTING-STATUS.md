@@ -96,12 +96,15 @@ Left out because they only make sense on Windows, and what replaces each:
 
 | File | What it does | Replacement |
 |------|--------------|-------------|
-| `ExceptionHandler.cpp` | Crash dumps with dbghelp | Signal handler that saves open documents and writes a backtrace (step 3) |
-| `FileDialog.cpp` | Win32 common file dialogs | `FileDialog`/`BrowseForFolder` (same header) on `QFileDialog`, with sample preview (step 3) |
+| `ExceptionHandler.cpp` | Crash dumps with dbghelp | `platform/ExceptionHandler.cpp`: fatal signals and unhandled exceptions are reported with a backtrace and what the tracker was doing (step 3g). Saving open documents on a crash is still to do. |
+| `FileDialog.cpp` | Win32 common file dialogs | `app/FileDialog.cpp`: `FileDialog`/`BrowseForFolder` (same header) on `QFileDialog`, with sample preview (step 3g) |
 | `HTTP.cpp` | WinInet | HTTP client for the update check (step 4) |
-| `UpdateCheck.cpp` | Update check, verified with Windows CNG | Same checks with a portable crypto library, or distribution packages (step 4) |
-| `MPTrackWine.cpp`, `MPTrackUtilWine.cpp` | Integration for running under Wine | Not needed natively; `GetWine()` returns nothing |
-| `MPTrackLink.cpp`, `WineSoundDeviceStub.cpp` | MSVC linker directives, Wine sound bridge | Not needed |
+| `UpdateCheck.cpp` | Update check, verified with Windows CNG | Switched off with upstream's own `MPT_ENABLE_UPDATE` for now. Same checks with a portable crypto library, or left to distribution packages (step 4) |
+| `MPTrackWine.cpp`, `MPTrackUtilWine.cpp` | Integration for running under Wine | `app/WineIntegration.cpp`: the Wine wrapper component exists but is never available, as on Windows proper |
+| `MPTrackLink.cpp` | MSVC linker directives | Not needed |
+
+`WineSoundDeviceStub.cpp` is compiled unchanged: with the Wine wrapper never
+available it lists no devices.
 
 Known gaps to handle in later steps:
 
@@ -353,10 +356,49 @@ Known gaps to handle in later steps:
 - Linking upstream's UI files now leaves 129 undefined symbols, down from
   159.
 
-### Next in step 3
+### Step 3g: the real application, playing through JACK (done)
 
-1. Upstream's `CMainFrame` and `CTrackApp::InitInstance` running for real.
-2. Playback through JACK from the main window.
+- `openmpt` is built from upstream's tracker files unchanged
+  (`mpt_tracker_ui`) and three small replacements in `app/`: `main.cpp`
+  (what `AfxWinMain` does: `InitInstance`, then the message loop),
+  `FileDialog.cpp` and `WineIntegration.cpp`. Upstream's `CTrackApp` and
+  `CMainFrame` start for real: settings and key bindings in
+  `~/.config/OpenMPT/`, the toolbars, the tree view, the quick start dialog,
+  modules from the command line (`openmpt -play song.it` plays at once),
+  and closing saves the settings and exits cleanly.
+- The Win32 and system pieces it needed: events, waits and change
+  notifications on file descriptors (`eventfd`, `inotify`, `poll`), file
+  finding, the clipboard (on `QClipboard`, registered formats as their own
+  MIME types), the shell functions (trash, copy and move, file icons,
+  opening files and links), GDI+ for the PNG toolbar and icon images (on
+  `QImage`), winmm MIDI input on RtMidi (ALSA sequencer or JACK), the
+  colour and font dialogs, OLE file drops on the tree view, window class
+  atoms, and the default size and position of top-level windows.
+- Sound: upstream's own sound device layer through the bundled RtAudio.
+  When a JACK server is running (JACK lists devices only then, and PipeWire
+  always provides one), its devices now rank first, ahead of PulseAudio
+  (`patches/0004`). A device chosen in the settings still wins.
+- Help opens the OpenMPT wiki manual page for the topic in the browser,
+  since the Windows help file does not exist here.
+- Fixes found on the way: `CWinApp::InitInstance` returned `FALSE`;
+  `CFrameWnd::GetActiveView` was virtual, which MFC's is not, so
+  `CMainFrame`'s own version took over the frame's and closing the main
+  window used a deleted document; GCC dropped MFC's `this == NULL` checks
+  (`GetSafeHwnd`), so everything now builds with
+  `-fno-delete-null-pointer-checks`; clipboard formats registered from
+  static initialisers came before the registry existed; relative paths on
+  the command line were not resolved against the starting folder.
+- Tests: `app_start` starts the application offscreen with a module and a
+  fresh configuration, saves a picture of the main window and closes it;
+  `app_jack_playback` (when `jackd` is installed) starts a private JACK
+  server with the dummy driver, plays the module with `-play` and measures
+  the sound on the tracker's JACK ports.
+- Known gaps, for step 4: the General tab's upper pane is empty and the VU
+  meter in the toolbar stays black.
+
+### Next
+
+Step 4: every view and dialog, checked against Windows one by one.
 
 ## Step 4: views and dialogs
 

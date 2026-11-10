@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
@@ -107,6 +108,10 @@ HRESULT SHGetFolderPath(HWND, int folder, HANDLE, DWORD, LPWSTR path)
 	}
 	if(!path || dir.empty() || dir.size() >= MAX_PATH)
 		return E_FAIL;
+	// Windows' known folders always exist; XDG's may not yet (a fresh
+	// account), and callers create only their own folder inside.
+	std::error_code ec;
+	std::filesystem::create_directories(dir, ec);
 	// Paths are UTF-8 on Linux; decode to wide.
 	std::mbstate_t state{};
 	const char *src = dir.c_str();
@@ -128,15 +133,7 @@ int MulDiv(int number, int numerator, int denominator)
 	return static_cast<int>(q);
 }
 
-UINT midiInGetNumDevs()
-{
-	return 0;
-}
-
-MMRESULT midiInGetDevCaps(UINT_PTR, MIDIINCAPS *, UINT)
-{
-	return MMSYSERR_BADDEVICEID;
-}
+void LinOpenMPTForgetHandle(int fd);
 
 // ---- files ---------------------------------------------------------------
 // File handles are POSIX file descriptors plus one, so that a valid handle is
@@ -183,7 +180,10 @@ BOOL CloseHandle(HANDLE handle)
 {
 	if(handle == nullptr || handle == INVALID_HANDLE_VALUE)
 		return FALSE;
-	return ::close(static_cast<int>(reinterpret_cast<intptr_t>(handle) - 1)) == 0 ? TRUE : FALSE;
+	// Events are file descriptors too (win32_kernel.cpp).
+	const int fd = static_cast<int>(reinterpret_cast<intptr_t>(handle) - 1);
+	LinOpenMPTForgetHandle(fd);
+	return ::close(fd) == 0 ? TRUE : FALSE;
 }
 
 BOOL DeleteFile(const char *path)

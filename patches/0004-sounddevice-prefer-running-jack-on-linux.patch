@@ -1,0 +1,27 @@
+diff --git a/src/openmpt/sounddevice/SoundDeviceManager.cpp b/src/openmpt/sounddevice/SoundDeviceManager.cpp
+index 916d40c..d181688 100644
+--- a/src/openmpt/sounddevice/SoundDeviceManager.cpp
++++ b/src/openmpt/sounddevice/SoundDeviceManager.cpp
+@@ -270,6 +270,22 @@ void Manager::ReEnumerate(bool firstRun)
+ 	{  // unknown
+ 		typeDefault[SoundDevice::TypePORTAUDIO_WASAPI].value = Info::DefaultFor::System;
+ 	}
++	if(GetSysInfo().SystemClass == mpt::osinfo::osclass::Linux)
++	{
++		// JACK lists devices only while its server runs (as it always does on
++		// PipeWire). Then it is the lowest-latency choice, ahead of the
++		// desktop sound server.
++		const SoundDevice::Type jack = MPT_UFORMAT_MESSAGE("RtAudio-{}")(MPT_USTRING("jack"));
++		if(std::any_of(m_SoundDevices.begin(), m_SoundDevices.end(), [&jack](const SoundDevice::Info &info) { return info.type == jack; }))
++		{
++			for(auto &entry : typeDefault)
++			{
++				if(entry.second.value == Info::DefaultFor::System)
++					entry.second.value = Info::DefaultFor::ProAudio;
++			}
++			typeDefault[jack].value = Info::DefaultFor::System;
++		}
++	}
+ 	for(auto &deviceInfo : m_SoundDevices)
+ 	{
+ 		if(typeDefault[deviceInfo.type].value != Info::DefaultFor::None)

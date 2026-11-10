@@ -13,6 +13,10 @@
 // Win32 headers, which define a few function-like macros.
 #pragma once
 
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <QtCore/QHash>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
@@ -44,6 +48,7 @@ struct WindowClass
 {
 	std::wstring name;
 	WNDCLASS wc{};
+	ATOM atom = 0;
 };
 
 class Win32Widget;
@@ -161,6 +166,19 @@ protected:
 // Files dropped on a window with WS_EX_ACCEPTFILES arrive as WM_DROPFILES
 // (dragdrop.cpp). Returns true when the event was a file drag or drop.
 bool HandleFileDropEvent(Win32Widget *w, QEvent *e);
+// OLE drop targets (MFC's COleDropTarget): a window with one gets file
+// drags as calls to it instead of WM_DROPFILES. Points are in the client
+// area; the result is a DROPEFFECT.
+struct DropTargetCallbacks
+{
+	std::function<DWORD(const std::vector<std::wstring> &files, DWORD keys, POINT client, bool enter)> over;
+	std::function<void()> leave;
+	std::function<BOOL(const std::vector<std::wstring> &files, DWORD effect, POINT client)> drop;
+};
+void RegisterDropTarget(HWND hwnd, DropTargetCallbacks callbacks);
+void RevokeDropTarget(HWND hwnd);
+// An HDROP of some files, which DragQueryFile reads and DragFinish frees.
+HDROP CreateDrop(const std::vector<std::wstring> &files, POINT point, bool inClient);
 
 // HWND <-> widget. Returns nullptr for handles that are not (or no longer)
 // windows.

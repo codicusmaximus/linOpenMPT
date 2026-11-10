@@ -2,9 +2,11 @@
 # non-UI code uses (CString, Win32 base types, MFC class skeletons, a few
 # functions). Its include directory provides <afx.h> and friends, so upstream
 # code that includes them compiles unchanged.
-add_library(linopenmpt_compat STATIC src/win32.cpp src/win32_profile.cpp src/mfc_msgmap.cpp)
+add_library(linopenmpt_compat STATIC src/win32.cpp src/win32_kernel.cpp src/win32_profile.cpp src/winmm_midi.cpp src/mfc_msgmap.cpp)
 add_library(linopenmpt::compat ALIAS linopenmpt_compat)
 target_include_directories(linopenmpt_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# MIDI input (winmm_midi.cpp) is RtMidi's (mpt_rtmidi, cmake/OpenMPTSoundDevice.cmake).
+target_link_libraries(linopenmpt_compat PRIVATE mpt_rtmidi)
 target_compile_definitions(linopenmpt_compat PUBLIC MPT_WITH_MFC UNICODE _UNICODE)
 
 # Sources compiled inside mpt_common, because they need upstream's headers.

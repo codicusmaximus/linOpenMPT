@@ -20,6 +20,12 @@
 // Windows ones. Built-in plugins (DMO emulations, LFO, echo, MIDI I/O) work.
 #undef MPT_WITH_VST
 
+// OpenMPT's update check downloads and runs Windows installers (WinInet,
+// Windows signature checks). Upstream's own switch turns it off, as Linux
+// distributions ship updates themselves; the menu item and options page go
+// with it.
+#undef MPT_ENABLE_UPDATE
+
 #include <filesystem>
 #include <string>
 #include <string_view>

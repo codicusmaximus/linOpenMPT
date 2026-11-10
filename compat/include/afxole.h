@@ -4,6 +4,9 @@
 #pragma once
 #include "afxwin.h"
 
+#include <string>
+#include <vector>
+
 using DROPEFFECT = DWORD;
 #define DROPEFFECT_NONE 0
 #define DROPEFFECT_COPY 1
@@ -44,16 +47,25 @@ void ReleaseStgMedium(LPSTGMEDIUM medium);
 class COleDataObject
 {
 public:
+	COleDataObject() = default;
+	COleDataObject(const COleDataObject &) = delete;
+	COleDataObject &operator=(const COleDataObject &) = delete;
+	~COleDataObject();
 	BOOL IsDataAvailable(CLIPFORMAT format, LPFORMATETC formatEtc = nullptr);
 	BOOL GetData(CLIPFORMAT format, LPSTGMEDIUM medium, LPFORMATETC formatEtc = nullptr);
 	HGLOBAL GetGlobalData(CLIPFORMAT format, LPFORMATETC formatEtc = nullptr);
 	BOOL AttachClipboard();
 	void Release();
+	// What is being dragged here: files, and where (client coordinates).
+	std::vector<std::wstring> m_files;
+	POINT m_point{};
+	std::vector<HDROP> m_drops;
 };
 
 class COleDropTarget : public CCmdTarget
 {
 public:
+	~COleDropTarget() override;
 	BOOL Register(CWnd *wnd);
 	virtual void Revoke();
 	virtual DROPEFFECT OnDragEnter(CWnd *wnd, COleDataObject *dataObject, DWORD keyState, CPoint point) { return DROPEFFECT_NONE; }
@@ -62,6 +74,8 @@ public:
 	virtual BOOL OnDrop(CWnd *wnd, COleDataObject *dataObject, DROPEFFECT dropEffect, CPoint point) { return FALSE; }
 	virtual DROPEFFECT OnDropEx(CWnd *wnd, COleDataObject *dataObject, DROPEFFECT dropDefault, DROPEFFECT dropList, CPoint point) { return static_cast<DROPEFFECT>(-1); }
 	virtual DROPEFFECT OnDragScroll(CWnd *wnd, DWORD keyState, CPoint point) { return DROPEFFECT_NONE; }
+protected:
+	HWND m_hWnd = nullptr;
 };
 
 class COleDataSource : public CCmdTarget

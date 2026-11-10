@@ -652,6 +652,8 @@ public:
 	int m_nModalResult = 0;
 	class CMFCDynamicLayout *m_pDynamicLayout = nullptr;
 	CWnd() = default;
+	// The special windows of SetWindowPos (wndTop, wndBottom, wndTopMost).
+	explicit CWnd(HWND special) { m_hWnd = special; }
 	// Destroys the window if it still exists, as MFC does.
 	virtual ~CWnd();
 	HWND GetSafeHwnd() const { return this ? m_hWnd : nullptr; }
@@ -2170,7 +2172,7 @@ class CFontDialog : public CDialog
 {
 public:
 	explicit CFontDialog(const LOGFONT *initial = nullptr, DWORD flags = CF_EFFECTS | CF_SCREENFONTS, CDC *printerDC = nullptr, CWnd *parent = nullptr);
-	INT_PTR DoModal() override { return IDCANCEL; }
+	INT_PTR DoModal() override; // Qt's font dialog
 	CString GetFaceName() const;
 	CString GetStyleName() const;
 	int GetSize() const;
@@ -2203,7 +2205,7 @@ class CColorDialog : public CDialog
 {
 public:
 	explicit CColorDialog(COLORREF init = 0, DWORD flags = 0, CWnd *parent = nullptr);
-	INT_PTR DoModal() override { return IDCANCEL; }
+	INT_PTR DoModal() override; // ChooseColor, on Qt's colour dialog
 	COLORREF GetColor() const;
 	void SetCurrentColor(COLORREF color);
 	static COLORREF *GetSavedCustomColors();
@@ -2246,7 +2248,8 @@ public:
 	virtual void OnUpdateFrameMenu(HMENU menuAlt);
 	virtual HACCEL GetDefaultAccelerator();
 	// Views and documents.
-	virtual class CView *GetActiveView() const { return m_pViewActive; }
+	// Not virtual, as in MFC: CMainFrame hides it with the MDI child's view.
+	class CView *GetActiveView() const { return m_pViewActive; }
 	void SetActiveView(class CView *view, BOOL notify = TRUE);
 	virtual class CDocument *GetActiveDocument();
 	virtual CFrameWnd *GetActiveFrame() { return this; }
@@ -2731,6 +2734,8 @@ public:
 	// Registers the application object (AfxGetApp), as in MFC.
 	explicit CWinApp(LPCTSTR appName = nullptr);
 	~CWinApp() override;
+	// MFC's starts the restart manager's data recovery and succeeds.
+	BOOL InitInstance() override;
 	BOOL OnIdle(LONG count) override;
 	LPCTSTR m_pszAppName = nullptr;
 	DWORD m_dwRestartManagerSupportFlags = 0;
