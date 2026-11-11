@@ -40,6 +40,12 @@ if [ ${#entries[@]} -eq 0 ]; then
 		"sample-trimmer:$test/test.xm:ID_EDIT_SAMPLETRIMMER"
 		"find:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_FIND"
 		"goto:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_GOTO_MENU"
+		"find-range:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_FIND,CFindReplaceTab:IDC_COMBO1=2"
+		"transpose-custom:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_TRANSPOSE_CUSTOM"
+		"legacy-playback:$test/test.xm:ID_VIEW_SONGPROPERTIES,CModTypeDlg:IDC_BUTTON2"
+		"eq-save-preset:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page3,COptionsPlayer:IDC_BUTTON5"
+		"mix-paste:$test/test.xm:ID_VIEW_SAMPLES,CViewSample:ID_EDIT_SELECT_ALL,CViewSample:ID_EDIT_COPY,CViewSample:ID_EDIT_PASTE_SPECIAL"
+		"close-modified:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_EDIT_SELECT_ALL,CViewPattern:ID_EDIT_CUT,ID_FILE_CLOSEALL"
 		"split-keyboard:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_SPLITKEYBOARDSETTINGS"
 		"setup:$test/test.mod:ID_VIEW_OPTIONS"
 		"plugin-manager:$test/test.mod:ID_PLUGIN_SETUP"
@@ -92,7 +98,10 @@ if [ ${#entries[@]} -eq 0 ]; then
 			"lfo-editor:$plugins/plugins.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON2"
 			"echo-editor:$plugins/plugins.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON4,CViewGlobals:IDC_BUTTON2"
 			"missing-plugin:$plugins/missing-plugin.mptm:"
+			"tuning-editor:$plugins/plugins.mptm:ID_VIEW_INSTRUMENTS,CCtrlInstruments:IDC_COMBOTUNING=last"
+			"tempo-swing:$plugins/plugins.mptm:ID_VIEW_SONGPROPERTIES,CModTypeDlg:IDC_BUTTON1"
 		)
+		[ -f "$plugins/opl.mptm" ] && entries+=("opl-editor:$plugins/opl.mptm:ID_VIEW_SAMPLES")
 	fi
 	# Native Linux VST2 plugins: DISTRHO's MVerb (its own editor) and
 	# MaFreeverb (none, so the generic one), from dpf-plugins-vst. Each run
@@ -140,9 +149,15 @@ for entry in "${entries[@]}"; do
 			ids="$ids${ids:+,}$target$c"
 			continue
 		fi
+		# NAME=N picks item N of combo box NAME (see app/main.cpp).
+		select=""
+		if [[ $c == *=* ]]; then
+			select="=${c#*=}"
+			c=${c%%=*}
+		fi
 		id=$(id_of "$c")
 		[ -z "$id" ] && { echo "$name: unknown command $c"; continue 2; }
-		ids="$ids${ids:+,}$target$id"
+		ids="$ids${ids:+,}$target$id$select"
 	done
 	home=$(mktemp -d)
 	# Not the first run, so the welcome dialog stays away (entry "welcome"
