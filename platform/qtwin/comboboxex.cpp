@@ -388,7 +388,13 @@ LRESULT CALLBACK ComboBoxExProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	{
 	case WM_NCCREATE:
 		if(WindowData *d = Data(hwnd))
+		{
 			d->control = std::make_unique<ComboExState>();
+			// WS_VSCROLL and WS_HSCROLL are for the list (the child combo
+			// gets them in WM_CREATE), not scroll bars beside the control.
+			d->style &= ~(WS_VSCROLL | WS_HSCROLL);
+			d->scroll[SB_HORZ].shown = d->scroll[SB_VERT].shown = false;
+		}
 		return ::DefWindowProc(hwnd, msg, wp, lp);
 	case WM_CREATE:
 		if(s != nullptr)

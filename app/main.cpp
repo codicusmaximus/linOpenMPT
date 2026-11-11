@@ -18,6 +18,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
+#include <typeinfo>
 #include <vector>
 
 namespace
@@ -55,12 +57,37 @@ std::vector<QWidget *> OtherWindows(QWidget *mainWidget)
 	return windows;
 }
 
+// The first visible window under hwnd whose C++ class is called name
+// (typeid names are mangled, with the name's length in front).
+HWND FindByClass(HWND hwnd, const std::string &name)
+{
+	if(CWnd *wnd = CWnd::FromHandlePermanent(hwnd); wnd != nullptr && ::IsWindowVisible(hwnd))
+	{
+		const std::string mangled = typeid(*wnd).name();
+		// "12CCtrlSamples", or "N7OpenMPT12CCtrlSamplesE" in a namespace.
+		const std::string plain = std::to_string(name.size()) + name;
+		const auto endsWith = [&mangled](const std::string &suffix) {
+			return mangled.size() >= suffix.size() && mangled.compare(mangled.size() - suffix.size(), suffix.size(), suffix) == 0;
+		};
+		if(endsWith(plain) || endsWith(plain + "E"))
+			return hwnd;
+	}
+	for(HWND child = ::GetWindow(hwnd, GW_CHILD); child != nullptr; child = ::GetWindow(child, GW_HWNDNEXT))
+	{
+		if(HWND found = FindByClass(child, name))
+			return found;
+	}
+	return nullptr;
+}
+
 void CloseAll(QWidget *mainWidget, int attempt);
 
 // For tests and screenshots, all driven by the environment:
 // - LINOPENMPT_COMMANDS=id,id,... sends these menu commands (decimal ids,
 //   as in resource.h) to the main window, half a second apart, once the
-//   program has started; a dialog they open stays open.
+//   program has started; a dialog they open stays open. Class:id sends one
+//   to the first visible window of that C++ class instead, and
+//   Class:pageN shows page N of a property sheet of that class.
 // - LINOPENMPT_SCREENSHOT=file.png saves the main window after
 //   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
 //   other window open then (a dialog) as file-1.png, file-2.png, ...
@@ -77,10 +104,38 @@ void ScheduleTestHooks()
 		int when = 500;
 		for(const QString &id : QString::fromLocal8Bit(commands).split(u',', Qt::SkipEmptyParts))
 		{
-			const UINT command = id.trimmed().toUInt();
-			QTimer::singleShot(when, [command]() {
-				if(CWnd *mainWnd = AfxGetMainWnd())
+			// "Class:id" sends the command to a window of that C++ class
+			// instead (a view's control panel, whose toolbar buttons send
+			// their commands to it).
+			// Class:pageN shows page N of a property sheet (Setup).
+			const QStringList parts = id.trimmed().split(u':');
+			const QString last = parts.back();
+			const bool page = last.startsWith(QLatin1String("page"));
+			const UINT command = (page ? last.mid(4) : last).toUInt();
+			const std::string target = parts.size() > 1 ? parts.front().toStdString() : std::string();
+			QTimer::singleShot(when, [command, target, page]() {
+				CWnd *mainWnd = AfxGetMainWnd();
+				if(mainWnd == nullptr)
+					return;
+				if(target.empty())
+				{
 					mainWnd->PostMessage(WM_COMMAND, command);
+					return;
+				}
+				// In the main window, or in a dialog it opened.
+				HWND hwnd = FindByClass(mainWnd->GetSafeHwnd(), target);
+				for(QWidget *w : QApplication::topLevelWidgets())
+				{
+					auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
+					if(hwnd == nullptr && win32 != nullptr && w->isVisible())
+						hwnd = FindByClass(linopenmpt::qtwin::WindowOf(win32), target);
+				}
+				if(hwnd == nullptr)
+					std::fprintf(stderr, "linOpenMPT: no visible %s for command %u\n", target.c_str(), command);
+				else if(page)
+					::PostMessage(hwnd, PSM_SETCURSEL, command, 0);
+				else
+					::PostMessage(hwnd, WM_COMMAND, command, 0);
 			});
 			when += 500;
 		}

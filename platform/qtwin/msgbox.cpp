@@ -5,6 +5,7 @@
 #include <QtCore/QPointer>
 
 #include <QtWidgets/QApplication>
+#include <QtGui/QIcon>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 
@@ -77,6 +78,9 @@ int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type)
 		QAbstractButton *button = b.text != nullptr
 			? static_cast<QAbstractButton *>(box.addButton(QString::fromUtf8(b.text), QMessageBox::AcceptRole))
 			: static_cast<QAbstractButton *>(box.addButton(b.standard));
+		// Text only, as Windows' buttons (some styles add icons to the
+		// standard ones).
+		button->setIcon(QIcon());
 		made.emplace_back(button, b.id);
 		if(b.id == escape)
 			box.setEscapeButton(button);
