@@ -34,7 +34,12 @@ if(TARGET openmpt AND LINOPENMPT_BUILD_TESTS)
   # Every view and dialog of the screenshot pass, opened and closed.
   add_test(NAME app_views COMMAND ${CMAKE_SOURCE_DIR}/tools/screenshots/pass.sh
     $<TARGET_FILE:openmpt> ${CMAKE_CURRENT_BINARY_DIR}/app_views)
-  set_tests_properties(app_views PROPERTIES TIMEOUT 900)
+  set_tests_properties(app_views PROPERTIES TIMEOUT 1200)
+  if(LINOPENMPT_PLUGIN_MODULES)
+    # The plugin entries use modules make_plugin_module writes.
+    set_tests_properties(app_views PROPERTIES FIXTURES_REQUIRED plugin_modules
+      ENVIRONMENT "LINOPENMPT_PLUGIN_MODULES=${LINOPENMPT_PLUGIN_MODULES}")
+  endif()
   find_program(JACKD_EXECUTABLE jackd)
   if(LINOPENMPT_WITH_JACK AND JACKD_EXECUTABLE)
     add_executable(jack_meter ${CMAKE_SOURCE_DIR}/tools/smoke/jack_meter.c)

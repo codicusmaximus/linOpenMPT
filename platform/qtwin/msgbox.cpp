@@ -95,7 +95,10 @@ int MessageBox(HWND owner, LPCTSTR text, LPCTSTR caption, UINT type)
 	const bool ownerEnabled = owner != nullptr && ::IsWindowEnabled(owner);
 	if(ownerEnabled)
 		::EnableWindow(owner, FALSE);
-	int result = escape >= 0 ? escape : made.front().second;
+	// A box closed without an answer (its owner went, or it was rejected)
+	// gives the cancelling answer, or the last button (No, Ignore), never
+	// the first (Yes, which may start something).
+	int result = escape >= 0 ? escape : made.back().second;
 	{
 		ForeignModalLoop loop;
 		boxPtr->exec();

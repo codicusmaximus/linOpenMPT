@@ -13,7 +13,9 @@
 #include <QtCore/QTimer>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QWidget>
 
 #include <cstdio>
@@ -182,7 +184,12 @@ void CloseAll(QWidget *mainWidget, int attempt)
 			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
 			if(hwnd == nullptr)
 			{
-				if(auto *dialog = qobject_cast<QDialog *>(w))
+				// A message box answers with its Escape button (No,
+				// Cancel), as the user would.
+				auto *box = qobject_cast<QMessageBox *>(w);
+				if(box != nullptr && box->escapeButton() != nullptr)
+					box->escapeButton()->click();
+				else if(auto *dialog = qobject_cast<QDialog *>(w))
 					dialog->reject();
 				else
 					w->close();

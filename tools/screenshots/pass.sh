@@ -76,7 +76,22 @@ if [ ${#entries[@]} -eq 0 ]; then
 		"effect-visualizer:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_PATTERN_VISUALIZE_EFFECT"
 		"chord-editor:$test/test.xm:ID_VIEW_PATTERNS,CCtrlPatterns:ID_PATTERN_CHORDEDIT"
 		"metronome:$test/test.xm:ID_VIEW_PATTERNS,CCtrlPatterns:ID_METRONOME_SETTINGS"
+		"plugin-editor:$test/test.xm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON2"
+		"plugin-select:$test/test.xm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON1"
+		"move-fx-slot:$test/test.xm:ID_VIEW_GLOBALS,CViewGlobals:IDC_MOVEFXSLOT"
+		"insert-fx-slot:$test/test.xm:ID_VIEW_GLOBALS,CViewGlobals:IDC_INSERTFXSLOT"
+		"plugin-save-preset:$test/test.xm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON8"
 	)
+	# Modules with the built-in plugins, written by make_plugin_module
+	# (tools/smoke); the app_views test passes their folder.
+	plugins=${LINOPENMPT_PLUGIN_MODULES:-}
+	if [ -n "$plugins" ] && [ -f "$plugins/plugins.mptm" ]; then
+		entries+=(
+			"lfo-editor:$plugins/plugins.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON2"
+			"echo-editor:$plugins/plugins.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON4,CViewGlobals:IDC_BUTTON2"
+			"missing-plugin:$plugins/missing-plugin.mptm:"
+		)
+	fi
 fi
 
 id_of()
