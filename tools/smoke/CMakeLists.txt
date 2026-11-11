@@ -45,7 +45,7 @@ if(TARGET mpt_soundlib)
   target_compile_options(make_plugin_module PRIVATE -fpermissive -w)
   add_test(NAME make_plugin_module COMMAND make_plugin_module ${MPT_UPSTREAM_DIR}/test/test.mptm
     ${CMAKE_CURRENT_BINARY_DIR}/plugins.mptm ${CMAKE_CURRENT_BINARY_DIR}/missing-plugin.mptm
-    ${CMAKE_CURRENT_BINARY_DIR}/vst.mptm)
+    ${CMAKE_CURRENT_BINARY_DIR}/vst.mptm ${CMAKE_CURRENT_BINARY_DIR}/opl.mptm)
   set_tests_properties(make_plugin_module PROPERTIES FIXTURES_SETUP plugin_modules
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/make_plugin_module_config")
   set(LINOPENMPT_PLUGIN_MODULES ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)

@@ -600,6 +600,34 @@ branches next to the Windows code.
 Next: Windows VST plugins through a bridge (Wine), and the remaining
 dialogs.
 
+### Step 4f: the remaining dialogs (done)
+
+The dialogs that need a particular state to open are in the screenshot
+pass now: the tuning editor, the tempo swing and legacy playback settings
+(from the song properties), the find dialog's range picker, the input box
+(custom transpose), mix paste, the EQ preset save box, the "save modified
+files" list when closing, and the OPL instrument editor in the sample
+view. `make_plugin_module` also writes `opl.mptm`, whose first sample is an
+OPL instrument.
+
+The harness can now pick an item of a combo box (`Class:ID=N`, `=last`
+for the last item) and notify its window, as a user's pick does: the
+tuning editor and the range picker open from a combo box's last items.
+
+Found and fixed:
+
+- The tempo swing dialog showed its row labels but none of its sliders.
+  Each row's label is as wide as the row, and the slider and value are
+  placed on it. Windows paints overlapping siblings in Z order, so the
+  controls created after the label paint over it, and a static control
+  lets clicks through. Statics now leave out the controls below them, as
+  group boxes already did, and become see-through (and click-through,
+  unless `SS_NOTIFY`) when anything overlaps them.
+
+Not in the pass: the pattern editor's note properties window opens from a
+double-click or a keyboard shortcut, which the harness does not send yet;
+progress windows only show during long operations.
+
 ## Step 5: the MFC to Qt6 bridge as its own project
 
 Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and

@@ -101,7 +101,9 @@ QPixmap Grab(QWidget *w)
 //   as in resource.h) to the main window, half a second apart, once the
 //   program has started; a dialog they open stays open. Class:id sends one
 //   to the first visible window of that C++ class instead, and
-//   Class:pageN shows page N of a property sheet of that class.
+//   Class:pageN shows page N of a property sheet of that class, and
+//   Class:id=N selects item N of that window's combo box id (=last for the
+//   last item) and notifies the window (CBN_SELCHANGE), as a user's pick.
 // - LINOPENMPT_SCREENSHOT=file.png saves the main window after
 //   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
 //   other window open then (a dialog) as file-1.png, file-2.png, ...
@@ -122,12 +124,19 @@ void ScheduleTestHooks()
 			// instead (a view's control panel, whose toolbar buttons send
 			// their commands to it).
 			// Class:pageN shows page N of a property sheet (Setup).
+			// Class:id=N picks item N of a combo box (=last: the last).
 			const QStringList parts = id.trimmed().split(u':');
-			const QString last = parts.back();
+			QString last = parts.back();
 			const bool page = last.startsWith(QLatin1String("page"));
+			QString select;
+			if(const int eq = last.indexOf(u'='); eq > 0)
+			{
+				select = last.mid(eq + 1);
+				last = last.left(eq);
+			}
 			const UINT command = (page ? last.mid(4) : last).toUInt();
 			const std::string target = parts.size() > 1 ? parts.front().toStdString() : std::string();
-			QTimer::singleShot(when, [command, target, page]() {
+			QTimer::singleShot(when, [command, target, page, select]() {
 				CWnd *mainWnd = AfxGetMainWnd();
 				if(mainWnd == nullptr)
 					return;
@@ -148,6 +157,19 @@ void ScheduleTestHooks()
 					std::fprintf(stderr, "linOpenMPT: no visible %s for command %u\n", target.c_str(), command);
 				else if(page)
 					::PostMessage(hwnd, PSM_SETCURSEL, command, 0);
+				else if(!select.isEmpty())
+				{
+					HWND combo = ::GetDlgItem(hwnd, command);
+					const int count = combo != nullptr ? static_cast<int>(::SendMessage(combo, CB_GETCOUNT, 0, 0)) : 0;
+					const int item = select == QLatin1String("last") ? count - 1 : select.toInt();
+					if(combo == nullptr || item < 0 || item >= count)
+					{
+						std::fprintf(stderr, "linOpenMPT: no item %s in combo box %u\n", select.toLocal8Bit().constData(), command);
+						return;
+					}
+					::SendMessage(combo, CB_SETCURSEL, item, 0);
+					::PostMessage(hwnd, WM_COMMAND, MAKEWPARAM(command, CBN_SELCHANGE), reinterpret_cast<LPARAM>(combo));
+				}
 				else
 					::PostMessage(hwnd, WM_COMMAND, command, 0);
 			});

@@ -7,6 +7,9 @@
 // through the control's DC, so they match the rest of the desktop.
 #include "QtWin.h"
 
+#include <QPointer>
+#include <QTimer>
+
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStyle>
@@ -230,6 +233,37 @@ QIcon ButtonIcon(const ButtonState &s, QSize &size)
 	return QIcon(QPixmap::fromImage(image));
 }
 
+// Windows paints overlapping siblings without WS_CLIPSIBLINGS in Z order,
+// so a control below this one (created after it) paints over it. Leaves
+// those controls' areas out of the drawing on dc (in hwnd's coordinates).
+// Group boxes below do not count: they are frames around other controls.
+// Returns whether any area was left out.
+bool ExcludeLowerSiblings(HWND hwnd, HDC dc)
+{
+	if(::GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CLIPSIBLINGS)
+		return false;
+	bool excluded = false;
+	RECT self{};
+	::GetWindowRect(hwnd, &self);
+	for(HWND sibling = ::GetWindow(hwnd, GW_HWNDNEXT); sibling != nullptr; sibling = ::GetWindow(sibling, GW_HWNDNEXT))
+	{
+		if(!::IsWindowVisible(sibling))
+			continue;
+		RECT r{}, overlap{};
+		::GetWindowRect(sibling, &r);
+		if(!::IntersectRect(&overlap, &r, &self))
+			continue;
+		TCHAR cls[16] = {};
+		::GetClassName(sibling, cls, 16);
+		const bool groupBox = ::lstrcmpi(cls, _T("Button")) == 0 && (::GetWindowLongPtr(sibling, GWL_STYLE) & BS_TYPEMASK) == BS_GROUPBOX;
+		if(groupBox)
+			continue;
+		::ExcludeClipRect(dc, overlap.left - self.left, overlap.top - self.top, overlap.right - self.left, overlap.bottom - self.top);
+		excluded = true;
+	}
+	return excluded;
+}
+
 void PaintButton(HWND hwnd, HDC dc)
 {
 	Win32Widget *w = FromHandle(hwnd);
@@ -301,26 +335,7 @@ void PaintButton(HWND hwnd, HDC dc)
 		// order, so a control below the group box (one created after it,
 		// such as a check box on its top line) paints over the frame.
 		const int saved = ::SaveDC(dc);
-		if(!(style & WS_CLIPSIBLINGS))
-		{
-			RECT self{};
-			::GetWindowRect(hwnd, &self);
-			for(HWND sibling = ::GetWindow(hwnd, GW_HWNDNEXT); sibling != nullptr; sibling = ::GetWindow(sibling, GW_HWNDNEXT))
-			{
-				if(!::IsWindowVisible(sibling))
-					continue;
-				RECT r{}, overlap{};
-				::GetWindowRect(sibling, &r);
-				if(!::IntersectRect(&overlap, &r, &self))
-					continue;
-				TCHAR cls[16] = {};
-				::GetClassName(sibling, cls, 16);
-				const bool groupBox = ::lstrcmpi(cls, _T("Button")) == 0 && (::GetWindowLongPtr(sibling, GWL_STYLE) & BS_TYPEMASK) == BS_GROUPBOX;
-				if(groupBox)
-					continue;
-				::ExcludeClipRect(dc, overlap.left - self.left, overlap.top - self.top, overlap.right - self.left, overlap.bottom - self.top);
-			}
-		}
+		ExcludeLowerSiblings(hwnd, dc);
 		const std::wstring caption = Data(hwnd) != nullptr ? Data(hwnd)->text : std::wstring();
 		TEXTMETRIC tm{};
 		::GetTextMetrics(dc, &tm);
@@ -671,6 +686,27 @@ void PaintStatic(HWND hwnd, HDC dc)
 		return;
 	}
 	HBRUSH brush = ControlBrush(hwnd, dc, WM_CTLCOLORSTATIC);
+	// A label as wide as its row with a slider on it (tempo swing) shows
+	// the slider, as on Windows. For that the label's widget must let what
+	// is below show through where it does not draw (and, as Windows'
+	// statics, let clicks through), which it becomes after this paint.
+	if(ExcludeLowerSiblings(hwnd, dc))
+	{
+		if(WindowData *d = Data(hwnd); d != nullptr && !d->transparent)
+		{
+			QPointer<QWidget> widget = d->widget;
+			const bool notify = (::GetWindowLongPtr(hwnd, GWL_STYLE) & SS_NOTIFY) != 0;
+			QTimer::singleShot(0, widget, [widget, notify]() {
+				if(auto *w = dynamic_cast<Win32Widget *>(widget.data()))
+				{
+					SetTransparent(w);
+					::InvalidateRect(w->hwnd(), nullptr, TRUE);
+					if(!notify)
+						w->setAttribute(Qt::WA_TransparentForMouseEvents);
+				}
+			});
+		}
+	}
 	switch(type)
 	{
 	case SS_BLACKRECT: ::FillRect(dc, &rc, ::GetSysColorBrush(COLOR_3DDKSHADOW)); return;

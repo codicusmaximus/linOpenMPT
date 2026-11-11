@@ -10,7 +10,9 @@
 //   <vst.mptm>             FX1 MVerb, FX2 MaFreeverb: native Linux VST2
 //                          plugins from DISTRHO (Debian/Ubuntu package
 //                          dpf-plugins-vst), the first with its own editor
-// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm>]
+//   <opl.mptm>             sample 1 an OPL (AdLib) instrument, whose
+//                          editor the sample view shows
+// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm>]]
 
 #include "stdafx.h"
 #include "../../platform/Platform.h"
@@ -54,7 +56,7 @@ int main(int argc, char *argv[])
 {
 	if(argc < 4)
 	{
-		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm>]\n";
+		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm>]]\n";
 		return 2;
 	}
 	if(!linopenmpt::StartApp())
@@ -97,6 +99,13 @@ int main(int argc, char *argv[])
 		// VST plugins are found by their unique ID (the second ID).
 		SetPlugin(sndFile, 0, PlugMagic('V', 's', 't', 'P'), PlugMagic('M', 'V', 'r', 'b'), "MVerb", "MVerb-vst");
 		SetPlugin(sndFile, 1, PlugMagic('V', 's', 't', 'P'), PlugMagic('D', 'M', 'f', 'v'), "MaFreeverb", "MaFreeverb-vst");
+	})) && (argc < 6 || save(argv[5], [](CSoundFile &sndFile) {
+		// A simple organ-like two-operator patch (OPL register layout:
+		// characteristics, levels, attack/decay, sustain/release, waveform
+		// for modulator and carrier, then feedback/connection).
+		ModSample &sample = sndFile.GetSample(1);
+		sample.SetAdlib(true, OPLPatch{{0x21, 0x21, 0x1A, 0x00, 0xF3, 0xF2, 0x54, 0x56, 0x00, 0x00, 0x0C, 0x00}});
+		sndFile.m_szNames[1] = "OPL Organ";
 	}));
 	if(!ok)
 		return 1;
