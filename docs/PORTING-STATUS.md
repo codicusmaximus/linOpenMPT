@@ -519,6 +519,33 @@ the sample generator, mix samples, tempo swing, close documents, modified
 samples, legacy playback, find range, pattern edit command, EQ preset
 save, progress, info box and input dialogs.
 
+### Step 4d: the plugin dialogs (done)
+
+The built-in plugins' dialogs are in the screenshot pass: the generic
+plugin editor (on the DirectX Echo emulation), the LFO editor, plugin
+selection, move and insert slot, preset saving, and the message for a
+plugin that is not installed. `make_plugin_module` (`tools/smoke`) writes
+the modules they need from `test.mptm`: one with LFO and Echo, one with a
+plugin that is not installed. 64 entries in all.
+
+Found and fixed:
+
+- The plugin editors' first row was under their menu bar. On Windows,
+  `SetMenu` moves the client area down and the child windows with it,
+  since they are placed in client coordinates; when the non-client area
+  changes, the children now move with the client area.
+- A Yes/No message box closed without an answer (its owner destroyed, or
+  rejected) answered Yes, the first button. It now answers with the
+  cancelling button, or the last one (No). The test harness found this by
+  answering "search for the missing plugin online?" with Yes.
+
+Not in the pass: the MIDI Input Output plugin needs the ALSA sequencer
+(`/dev/snd/seq`), which containers and CI lack; there, upstream reports
+the plugin as not found, as it does on Windows when its MIDI layer fails.
+
+Next: hosting VST plugins (`MPT_WITH_VST`, off so far), with native Linux
+VST plugins and the plugin editors embedded in Qt windows.
+
 ## Step 5: the MFC to Qt6 bridge as its own project
 
 Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and

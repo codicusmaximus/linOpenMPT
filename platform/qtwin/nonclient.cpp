@@ -88,6 +88,10 @@ bool UpdateNonClient(Win32Widget *w)
 	const QMargins margins(std::max(0, static_cast<int>(c.left - window.left())), std::max(0, static_cast<int>(c.top - window.top())),
 		std::max(0, static_cast<int>(window.left() + window.width() - c.right)), std::max(0, static_cast<int>(window.top() + window.height() - c.bottom)));
 	const bool changed = margins != w->data.nonClient;
+	// Child windows are placed in client coordinates: when the client area
+	// moves inside the window (a menu bar added by SetMenu, a frame style
+	// changed), they move with it, as on Windows.
+	const QPoint shift(margins.left() - w->data.nonClient.left(), margins.top() - w->data.nonClient.top());
 	w->data.nonClient = margins;
 	LayoutScrollBars(w);
 	LayoutMenuBar(w);
@@ -98,7 +102,11 @@ bool UpdateNonClient(Win32Widget *w)
 		for(QObject *o : w->children())
 		{
 			if(auto *c = dynamic_cast<Win32Widget *>(o))
+			{
+				if(!shift.isNull() && !c->isWindow())
+					c->move(c->pos() + shift);
 				ClipToParentClient(c);
+			}
 		}
 	}
 	return changed;
