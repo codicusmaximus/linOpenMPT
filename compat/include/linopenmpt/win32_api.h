@@ -241,6 +241,19 @@ int GetLocaleInfo(LCID locale, DWORD type, LPTSTR data, int size);
 BOOL IsWindow(HWND hwnd);
 // Native paths are narrow (UTF-8/locale) on Linux.
 BOOL CreateDirectory(const char *path, void *securityAttributes);
+// Creates every missing folder of the path (mkdir -p). Returns ERROR_SUCCESS,
+// or ERROR_ALREADY_EXISTS when the folder was there already.
+int SHCreateDirectoryEx(HWND owner, const char *path, const void *securityAttributes);
+// Shared libraries (dlopen). Plugins are native .so files on Linux.
+using FARPROC = intptr_t (*)();
+HMODULE LoadLibrary(const char *path);
+FARPROC GetProcAddress(HMODULE module, const char *name);
+BOOL FreeLibrary(HMODULE module);
+// Why the last LoadLibrary failed, as dlerror() put it.
+const char *LinOpenMPTLastLoadLibraryError();
+#ifndef _MAX_PATH
+#define _MAX_PATH 260
+#endif
 BOOL CopyFile(const char *from, const char *to, BOOL failIfExists);
 BOOL RemoveDirectory(const char *path);
 BOOL SetCurrentDirectory(const char *path);
@@ -252,6 +265,9 @@ void SetLastError(DWORD error);
 #define ERROR_SUCCESS 0L
 #define ERROR_FILE_NOT_FOUND 2L
 #define ERROR_PATH_NOT_FOUND 3L
+#define ERROR_MOD_NOT_FOUND 126L
+#define ERROR_DLL_INIT_FAILED 1114L
+#define ERROR_BAD_EXE_FORMAT 193L
 #define ERROR_INVALID_FUNCTION 1L
 #define ERROR_ACCESS_DENIED 5L
 #define ERROR_INVALID_HANDLE 6L

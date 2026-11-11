@@ -7,7 +7,10 @@
 // containers and CI machines usually lack, and without it upstream reports
 // the plugin as not found.
 //   <missing.mptm>         FX1 a VST plugin that is not installed
-// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm>
+//   <vst.mptm>             FX1 MVerb, FX2 MaFreeverb: native Linux VST2
+//                          plugins from DISTRHO (Debian/Ubuntu package
+//                          dpf-plugins-vst), the first with its own editor
+// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm>]
 
 #include "stdafx.h"
 #include "../../platform/Platform.h"
@@ -35,6 +38,7 @@ constexpr int32 PlugMagic(char a, char b, char c, char d)
 void SetPlugin(CSoundFile &sndFile, PLUGINDEX slot, int32 id1, int32 id2, const char *name, const char *library)
 {
 	SNDMIXPLUGIN &plugin = sndFile.m_MixPlugins[slot];
+	plugin.Destroy();
 	plugin = SNDMIXPLUGIN();
 	plugin.Info.dwPluginId1 = id1;
 	plugin.Info.dwPluginId2 = id2;
@@ -50,7 +54,7 @@ int main(int argc, char *argv[])
 {
 	if(argc < 4)
 	{
-		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm>\n";
+		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm>]\n";
 		return 2;
 	}
 	if(!linopenmpt::StartApp())
@@ -69,8 +73,12 @@ int main(int argc, char *argv[])
 		// module does not depend on where it is written.
 		for(SAMPLEINDEX smp = 1; smp <= sndFile->GetNumSamples(); smp++)
 			sndFile->GetSample(smp).uFlags.reset(SMP_KEEPONDISK);
+		// The module's own plugins, loaded with it, are released first.
 		for(PLUGINDEX slot = 0; slot < 4; slot++)
+		{
+			sndFile->m_MixPlugins[slot].Destroy();
 			sndFile->m_MixPlugins[slot] = SNDMIXPLUGIN();
+		}
 		setup(*sndFile);
 		std::ofstream out(path, std::ios::binary | std::ios::trunc);
 		if(!sndFile->SaveIT(out, mpt::PathString::FromUTF8(path)))
@@ -85,7 +93,11 @@ int main(int argc, char *argv[])
 		SetPlugin(sndFile, 1, PlugMagic('D', 'X', 'M', 'O'), static_cast<int32>(0xEF3E932C), "Echo", "{EF3E932C-D40B-4F51-8CCF-3F98F1B29D5D}");
 	}) && save(argv[3], [](CSoundFile &sndFile) {
 		SetPlugin(sndFile, 0, PlugMagic('V', 's', 't', 'P'), PlugMagic('l', 'n', 'X', 'X'), "Not Installed", "Not Installed Synth");
-	});
+	}) && (argc < 5 || save(argv[4], [](CSoundFile &sndFile) {
+		// VST plugins are found by their unique ID (the second ID).
+		SetPlugin(sndFile, 0, PlugMagic('V', 's', 't', 'P'), PlugMagic('M', 'V', 'r', 'b'), "MVerb", "MVerb-vst");
+		SetPlugin(sndFile, 1, PlugMagic('V', 's', 't', 'P'), PlugMagic('D', 'M', 'f', 'v'), "MaFreeverb", "MaFreeverb-vst");
+	}));
 	if(!ok)
 		return 1;
 	return 0;

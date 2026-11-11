@@ -44,10 +44,20 @@ if(TARGET mpt_soundlib)
   target_link_libraries(make_plugin_module PRIVATE mpt_soundlib linopenmpt_platform)
   target_compile_options(make_plugin_module PRIVATE -fpermissive -w)
   add_test(NAME make_plugin_module COMMAND make_plugin_module ${MPT_UPSTREAM_DIR}/test/test.mptm
-    ${CMAKE_CURRENT_BINARY_DIR}/plugins.mptm ${CMAKE_CURRENT_BINARY_DIR}/missing-plugin.mptm)
+    ${CMAKE_CURRENT_BINARY_DIR}/plugins.mptm ${CMAKE_CURRENT_BINARY_DIR}/missing-plugin.mptm
+    ${CMAKE_CURRENT_BINARY_DIR}/vst.mptm)
   set_tests_properties(make_plugin_module PROPERTIES FIXTURES_SETUP plugin_modules
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/make_plugin_module_config")
   set(LINOPENMPT_PLUGIN_MODULES ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
+  # Native Linux VST2 hosting with a real plugin: DISTRHO's MVerb
+  # (dpf-plugins-vst); skipped when it is not installed.
+  set(LINOPENMPT_TEST_VST /usr/lib/vst/MVerb-vst.so CACHE FILEPATH "A Linux VST2 effect plugin for vst_host_test")
+  add_executable(vst_host_test vst_host_test.cpp)
+  target_link_libraries(vst_host_test PRIVATE mpt_soundlib linopenmpt_platform)
+  target_compile_options(vst_host_test PRIVATE -fpermissive -w)
+  add_test(NAME vst_host_test COMMAND vst_host_test ${LINOPENMPT_TEST_VST} ${MPT_UPSTREAM_DIR}/test/test.mod)
+  set_tests_properties(vst_host_test PROPERTIES SKIP_RETURN_CODE 77
+    ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_host_test_config")
   set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_config")
 endif()

@@ -92,6 +92,15 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
       )
     list(REMOVE_ITEM MPT_TRACKER_UI_SOURCES ${MPT_UPSTREAM_DIR}/mptrack/${windows_only}.cpp)
   endforeach()
+  # The VST host (plugin loading and the plugin's own editor window) on its
+  # own, so that the headless tools host plugins too (linopenmpt_platform).
+  set(MPT_TRACKER_VST_SOURCES
+    ${MPT_UPSTREAM_DIR}/mptrack/Vstplug.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/VSTEditor.cpp)
+  list(REMOVE_ITEM MPT_TRACKER_UI_SOURCES ${MPT_TRACKER_VST_SOURCES})
+  add_library(mpt_tracker_vst OBJECT ${MPT_TRACKER_VST_SOURCES})
+  target_compile_options(mpt_tracker_vst PRIVATE ${MPT_WARN_OPTS})
+  target_link_libraries(mpt_tracker_vst PUBLIC mpt_tracker_logic)
   add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})
   target_compile_options(mpt_tracker_ui PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_tracker_ui PUBLIC mpt_tracker_logic)

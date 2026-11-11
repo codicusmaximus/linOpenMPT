@@ -38,8 +38,8 @@ written by OpenMPT 1.32.
 
 Turned off on Linux for now:
 
-- `MPT_WITH_VST`: hosting of VST plugins (step 4, native Linux VSTs and a
-  bridge for Windows ones).
+- `MPT_WITH_VST`: hosting of VST plugins. Native Linux VST2 plugins came in
+  step 4e; Windows plugins through a bridge are still to come.
 - `MPT_WITH_DMO`: hosting of Windows DirectX Media Object plugins. OpenMPT's
   built-in emulations of the DMO effects still work.
 - MIDI input reports no devices until RtMidi is wired in.
@@ -543,8 +543,62 @@ Not in the pass: the MIDI Input Output plugin needs the ALSA sequencer
 (`/dev/snd/seq`), which containers and CI lack; there, upstream reports
 the plugin as not found, as it does on Windows when its MIDI layer fails.
 
-Next: hosting VST plugins (`MPT_WITH_VST`, off so far), with native Linux
-VST plugins and the plugin editors embedded in Qt windows.
+### Step 4e: native Linux VST2 plugins (done)
+
+Upstream's VST host (`mptrack/Vstplug.cpp`, `VSTEditor.cpp`) now runs on
+Linux: `MPT_WITH_VST` is on, and Linux VST2 plugins (`.so`) load into the
+tracker's process, as Windows plugins of the tracker's own architecture do
+upstream.
+
+- `LoadLibrary`, `GetProcAddress` and `FreeLibrary` are `dlopen`, `dlsym`
+  and `dlclose` (`compat/src/win32.cpp`). A plugin that does not load
+  prints `dlerror()` (a missing library, usually) to stderr.
+- The plugin bridge, which runs plugins in a separate Windows process, is
+  not built. `compat/src/vst_bridge.cpp` stands in for its host side: it
+  tells native plugins (ELF shared objects of this architecture) from the
+  rest, and reports the bridge as missing, so upstream loads plugins
+  in-process. A Windows `.dll` shows upstream's message that it needs the
+  bridge.
+- The plugin's own editor is an X11 window, which the plugin opens inside
+  the editor dialog's plugin area (`LinOpenMPTNativeWindowId`,
+  `platform/qtwin/embed.cpp`). For that the tracker runs on X11: on a
+  Wayland desktop it starts through XWayland (`QT_QPA_PLATFORM=xcb` when
+  `DISPLAY` is set and no platform is chosen). Without X11 (offscreen, pure
+  Wayland) plugins get the generic editor, as plugins without an editor
+  do.
+- Plugin files are `.so` in the plugin selection dialog, its folder scan
+  and when a file is dropped on the tracker. The welcome dialog offers the
+  first of `$VST_PATH`, `~/.vst`, `~/.lxvst`, `/usr/local/lib/vst`,
+  `/usr/lib/vst`, `/usr/local/lib/lxvst` and `/usr/lib/lxvst` that exists.
+- Upstream masks a crashing plugin with Windows structured exceptions.
+  Linux has nothing that leaves the process usable afterwards, so a
+  plugin's crash is the tracker's, as in other Linux hosts.
+
+The headless tools link the VST host too (`mpt_tracker_vst`), so
+`vst_host_test` loads a real plugin (DISTRHO's MVerb, from Debian and
+Ubuntu's `dpf-plugins-vst`), checks it is recognised as native, adds it as a
+folder scan does, and renders a module through it. The screenshot pass
+opens MVerb's own editor and MaFreeverb's generic one, and the plugin
+selection dialog listing both; `app_vst_editor` runs the first under Xvfb,
+where the editor is embedded for real. Both are skipped when the plugins
+are not installed.
+
+With the three VST entries the pass has 67.
+
+Found and fixed:
+
+- A dialog's size limits (`WM_GETMINMAXINFO`) held for every top-level
+  window, also when the program resized it. Windows applies them only to
+  windows the user can resize (`WS_THICKFRAME`), and the plugin editor,
+  which sizes itself to the plugin, stayed at its dialog template's size.
+- `make_plugin_module` overwrote the plugins `test.mptm` loads with, without
+  releasing them; harmless until the tools got a plugin manager.
+
+Patch `0006-vst-host-on-linux.patch` holds the upstream changes: Linux
+branches next to the Windows code.
+
+Next: Windows VST plugins through a bridge (Wine), and the remaining
+dialogs.
 
 ## Step 5: the MFC to Qt6 bridge as its own project
 

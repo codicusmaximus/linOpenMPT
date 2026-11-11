@@ -14,7 +14,8 @@ add_library(linopenmpt_crash STATIC ExceptionHandler.cpp)
 target_link_libraries(linopenmpt_crash PUBLIC mpt_tracker_logic)
 target_compile_options(linopenmpt_crash PRIVATE -fpermissive -w)
 
-add_library(linopenmpt_platform STATIC TrackApp.cpp UiBoundary.cpp ModDocHooks.cpp)
+# With upstream's VST host (mpt_tracker_vst), so the tools load plugins.
+add_library(linopenmpt_platform STATIC TrackApp.cpp UiBoundary.cpp ModDocHooks.cpp $<TARGET_OBJECTS:mpt_tracker_vst>)
 add_library(linopenmpt::platform ALIAS linopenmpt_platform)
 target_include_directories(linopenmpt_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic linopenmpt_crash linopenmpt_mfc linopenmpt_resources)

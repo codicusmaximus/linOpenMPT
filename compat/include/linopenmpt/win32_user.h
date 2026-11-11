@@ -754,6 +754,12 @@ HDWP BeginDeferWindowPos(int count);
 HDWP DeferWindowPos(HDWP info, HWND hwnd, HWND after, int x, int y, int cx, int cy, UINT flags);
 BOOL EndDeferWindowPos(HDWP info);
 
+// Foreign windows (plugin editors) inside a window. The native window id
+// (an X11 window) of a window, made native for this; 0 where there is none
+// (Wayland, offscreen), which LinOpenMPTCanEmbedForeignWindows() tells first.
+BOOL LinOpenMPTCanEmbedForeignWindows();
+uintptr_t LinOpenMPTNativeWindowId(HWND hwnd);
+
 // ---- message loop --------------------------------------------------------
 #define PM_NOREMOVE 0x0000
 #define PM_REMOVE 0x0001

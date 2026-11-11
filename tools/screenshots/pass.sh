@@ -15,6 +15,8 @@ shift 2
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
 test=$root/upstream/test
+# Native Linux VST2 plugins for the vst-* entries.
+vst=${LINOPENMPT_VST_DIR:-/usr/lib/vst}
 mkdir -p "$out"
 failed=0
 
@@ -92,6 +94,16 @@ if [ ${#entries[@]} -eq 0 ]; then
 			"missing-plugin:$plugins/missing-plugin.mptm:"
 		)
 	fi
+	# Native Linux VST2 plugins: DISTRHO's MVerb (its own editor) and
+	# MaFreeverb (none, so the generic one), from dpf-plugins-vst. Each run
+	# registers them in the settings, as scanning their folder would.
+	if [ -n "$plugins" ] && [ -f "$plugins/vst.mptm" ] && [ -f "$vst/MVerb-vst.so" ] && [ -f "$vst/MaFreeverb-vst.so" ]; then
+		entries+=(
+			"vst-editor:$plugins/vst.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON2"
+			"vst-generic-editor:$plugins/vst.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON4,CViewGlobals:IDC_BUTTON2"
+			"vst-select:$plugins/vst.mptm:ID_VIEW_GLOBALS,CViewGlobals:IDC_BUTTON1"
+		)
+	fi
 fi
 
 id_of()
@@ -138,6 +150,9 @@ for entry in "${entries[@]}"; do
 	if [ "$name" != welcome ]; then
 		mkdir -p "$home/.config/OpenMPT"
 		printf '[Version]\nVersion=1.32.12.00\n' >"$home/.config/OpenMPT/mptrack.ini"
+	fi
+	if [[ $name == vst-* ]]; then
+		printf '[VST Plugins]\nNumPlugins=2\nPlugin0=%s\nPlugin1=%s\n' "$vst/MVerb-vst.so" "$vst/MaFreeverb-vst.so" >>"$home/.config/OpenMPT/mptrack.ini"
 	fi
 	rm -f "$out/$name".png "$out/$name"-*.png
 	HOME=$home XDG_CONFIG_HOME= LINOPENMPT_COMMANDS=$ids \

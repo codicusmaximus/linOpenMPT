@@ -667,6 +667,7 @@ public:
 	void Invalidate(BOOL erase = TRUE);
 	void InvalidateRect(LPCRECT rect, BOOL erase = TRUE);
 	void UpdateWindow();
+	BOOL GetUpdateRect(LPRECT rect, BOOL erase = FALSE) { return ::GetUpdateRect(m_hWnd, rect, erase); }
 	void GetClientRect(LPRECT rect) const;
 	void GetWindowRect(LPRECT rect) const;
 	void SetWindowText(LPCTSTR text);
