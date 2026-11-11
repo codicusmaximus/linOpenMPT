@@ -1,5 +1,7 @@
 // linOpenMPT platform layer: the points where upstream's engine and app logic
-// call into the Windows UI, implemented headless.
+// call into the Windows UI, implemented headless. The tools link upstream's
+// VST host (mpt_tracker_vst) as it is, so plugins load and process audio;
+// only their editor windows are out of reach.
 //
 // Everything here is a placeholder for the Qt application (plan steps 3-4):
 // message boxes go to stderr, file dialogs report "cancelled", there is no
@@ -58,6 +60,11 @@ void Reporting::Error(const AnyStringLocale &text, const CWnd *)
 	std::cerr << "[error] " << Utf8(text) << std::endl;
 }
 
+void Reporting::Error(const AnyStringLocale &text, const AnyStringLocale &caption, const CWnd *)
+{
+	std::cerr << "[error] " << Utf8(caption) << ": " << Utf8(text) << std::endl;
+}
+
 ConfirmAnswer Reporting::Confirm(const AnyStringLocale &text, const AnyStringLocale &caption, bool showCancel, bool, const CWnd *)
 {
 	std::cerr << "[confirm] " << Utf8(caption) << ": " << Utf8(text) << " -> " << (showCancel ? "cancel" : "no") << std::endl;
@@ -68,6 +75,11 @@ ConfirmAnswer Reporting::Confirm(const AnyStringLocale &text, const AnyStringLoc
 bool FileDialog::Show(CWnd *)
 {
 	return false;   // as if the user cancelled
+}
+
+bool BrowseForFolder::Show(CWnd *)
+{
+	return false;
 }
 
 // ---- window placement -------------------------------------------------------
@@ -106,6 +118,10 @@ bool CAbstractVstEditor::OpenEditor(CWnd *) { return false; }
 void CAbstractVstEditor::DoClose() { }
 void CAbstractVstEditor::UpdateView(UpdateHint) { }
 BOOL CAbstractVstEditor::PreTranslateMessage(MSG *) { return FALSE; }
+bool CAbstractVstEditor::HandleKeyMessage(MSG &, bool) { return false; }
+void CAbstractVstEditor::OnNcLButtonDblClk(UINT, CPoint) { }
+CAbstractVstEditor::WindowSizeAdjuster::WindowSizeAdjuster(CWnd &wnd) : m_wnd(wnd) { }
+CAbstractVstEditor::WindowSizeAdjuster::~WindowSizeAdjuster() { }
 
 CDefaultVstEditor::CDefaultVstEditor(IMixPlugin &plugin) : CAbstractVstEditor(plugin) { }
 CDefaultVstEditor::~CDefaultVstEditor() { }

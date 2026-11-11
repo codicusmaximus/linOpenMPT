@@ -119,6 +119,10 @@ BOOL CTrackApp::InitInstance()
 	m_pSoundDevicesManager = std::make_unique<SoundDevice::Manager>(m_GlobalLogger, sysInfo, appInfo, SoundDevice::Manager::GetDefaultEnumerators());
 	m_pTrackerSettings->MigrateOldSoundDeviceSettings(*m_pSoundDevicesManager);
 
+	// The built-in plugins; tools add VST plugins with AddPlugin(), as
+	// upstream's LoadPlugins() does from the settings.
+	m_pPluginManager = new CVstPluginManager();
+
 	GetDefaultMidiMacro(m_MidiCfg);
 	return TRUE;
 }
@@ -126,6 +130,8 @@ BOOL CTrackApp::InitInstance()
 int CTrackApp::ExitInstance()
 {
 	m_pSoundDevicesManager = nullptr;
+	delete m_pPluginManager;
+	m_pPluginManager = nullptr;
 	gpDLSBanks.clear();
 	if(m_pSettings)
 		m_pSettings->Flush();

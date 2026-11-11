@@ -9,7 +9,8 @@ if(TARGET mpt_tracker_ui)
     main.cpp
     FileDialog.cpp
     WineIntegration.cpp
-    $<TARGET_OBJECTS:mpt_tracker_ui>)
+    $<TARGET_OBJECTS:mpt_tracker_ui>
+    $<TARGET_OBJECTS:mpt_tracker_vst>)
   target_compile_options(openmpt PRIVATE -fpermissive -w)
   target_link_libraries(openmpt PRIVATE
     mpt_tracker_logic
@@ -39,6 +40,12 @@ if(TARGET openmpt AND LINOPENMPT_BUILD_TESTS)
     # The plugin entries use modules make_plugin_module writes.
     set_tests_properties(app_views PROPERTIES FIXTURES_REQUIRED plugin_modules
       ENVIRONMENT "LINOPENMPT_PLUGIN_MODULES=${LINOPENMPT_PLUGIN_MODULES}")
+  endif()
+  if(LINOPENMPT_PLUGIN_MODULES)
+    # A Linux VST2 plugin's own editor, embedded, under Xvfb.
+    add_test(NAME app_vst_editor COMMAND ${CMAKE_SOURCE_DIR}/tools/smoke/app_vst_editor_test.sh
+      $<TARGET_FILE:openmpt> ${LINOPENMPT_PLUGIN_MODULES}/vst.mptm ${CMAKE_CURRENT_BINARY_DIR}/app_vst_editor)
+    set_tests_properties(app_vst_editor PROPERTIES FIXTURES_REQUIRED plugin_modules SKIP_RETURN_CODE 77)
   endif()
   find_program(JACKD_EXECUTABLE jackd)
   if(LINOPENMPT_WITH_JACK AND JACKD_EXECUTABLE)

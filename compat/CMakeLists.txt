@@ -6,11 +6,11 @@ add_library(linopenmpt_compat STATIC src/win32.cpp src/win32_kernel.cpp src/win3
 add_library(linopenmpt::compat ALIAS linopenmpt_compat)
 target_include_directories(linopenmpt_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 # MIDI input (winmm_midi.cpp) is RtMidi's (mpt_rtmidi, cmake/OpenMPTSoundDevice.cmake).
-target_link_libraries(linopenmpt_compat PRIVATE mpt_rtmidi)
+target_link_libraries(linopenmpt_compat PRIVATE mpt_rtmidi ${CMAKE_DL_LIBS})
 target_compile_definitions(linopenmpt_compat PUBLIC MPT_WITH_MFC UNICODE _UNICODE)
 
 # Sources compiled inside mpt_common, because they need upstream's headers.
-set(LINOPENMPT_COMPAT_MPT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/mpt_extras.cpp PARENT_SCOPE)
+set(LINOPENMPT_COMPAT_MPT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/mpt_extras.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/vst_bridge.cpp PARENT_SCOPE)
 
 # Same include order as upstream's Windows build: its precompiled header
 # (build/pch/PCH.h, which pulls in MFC and the common mpt/ headers) is

@@ -662,11 +662,22 @@ void Win32Widget::contextMenuEvent(QContextMenuEvent *e)
 
 // Top-level windows: the procedure's WM_GETMINMAXINFO limits become the
 // widget's minimum and maximum sizes, which the window manager enforces while
-// the user resizes.
+// the user resizes. As on Windows, they only apply to windows the user can
+// resize (WS_THICKFRAME): Qt's limits also hold for SetWindowPos, and a
+// fixed-frame window sized by its program (a plugin editor, to the plugin's
+// size) must not be held at its dialog template's size.
 void ApplyMinMaxInfo(Win32Widget *w)
 {
 	if(!w->isWindow())
 		return;
+	if(!(w->data.style & WS_THICKFRAME))
+	{
+		if(w->minimumSize() != QSize(0, 0))
+			w->setMinimumSize(0, 0);
+		if(w->maximumSize() != QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX))
+			w->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		return;
+	}
 	const QRect screen = w->screen() ? w->screen()->availableGeometry() : QRect(0, 0, 1920, 1080);
 	MINMAXINFO mmi{};
 	mmi.ptMaxSize = {screen.width(), screen.height()};

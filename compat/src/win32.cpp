@@ -13,6 +13,8 @@
 #include <ctime>
 #include <fcntl.h>
 #include <sys/syscall.h>
+#include <cstdio>
+#include <dlfcn.h>
 
 DWORD GetCurrentThreadId()
 {
@@ -33,6 +35,58 @@ DWORD GetTickCount()
 BOOL CreateDirectory(const char *path, void *)
 {
 	return ::mkdir(path, 0777) == 0 ? TRUE : FALSE;
+}
+
+int SHCreateDirectoryEx(HWND, const char *path, const void *)
+{
+	std::error_code ec;
+	if(!path || !*path)
+		return ERROR_PATH_NOT_FOUND;
+	if(std::filesystem::is_directory(path, ec))
+		return ERROR_ALREADY_EXISTS;
+	std::filesystem::create_directories(path, ec);
+	return ec ? ERROR_PATH_NOT_FOUND : ERROR_SUCCESS;
+}
+
+static thread_local std::string g_lastLoadLibraryError;
+
+HMODULE LoadLibrary(const char *path)
+{
+	g_lastLoadLibraryError.clear();
+	if(!path || ::access(path, F_OK) != 0)
+	{
+		SetLastError(ERROR_MOD_NOT_FOUND);
+		return nullptr;
+	}
+	// RTLD_LOCAL: plugins often export the same symbol names (VSTPluginMain,
+	// their toolkit's), which must not resolve against each other.
+	void *handle = ::dlopen(path, RTLD_NOW | RTLD_LOCAL);
+	if(!handle)
+	{
+		const char *error = ::dlerror();
+		g_lastLoadLibraryError = error ? error : "unknown error";
+		std::fprintf(stderr, "linopenmpt: cannot load %s: %s\n", path, g_lastLoadLibraryError.c_str());
+		SetLastError(ERROR_BAD_EXE_FORMAT);
+		return nullptr;
+	}
+	return reinterpret_cast<HMODULE>(handle);
+}
+
+FARPROC GetProcAddress(HMODULE module, const char *name)
+{
+	if(!module || !name)
+		return nullptr;
+	return reinterpret_cast<FARPROC>(::dlsym(reinterpret_cast<void *>(module), name));
+}
+
+BOOL FreeLibrary(HMODULE module)
+{
+	return module && ::dlclose(reinterpret_cast<void *>(module)) == 0 ? TRUE : FALSE;
+}
+
+const char *LinOpenMPTLastLoadLibraryError()
+{
+	return g_lastLoadLibraryError.c_str();
 }
 
 BOOL GlobalMemoryStatusEx(MEMORYSTATUSEX *status)

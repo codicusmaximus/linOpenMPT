@@ -11,7 +11,10 @@
 #include "QtWin.h"
 
 #include <QtCore/QTimer>
+#include <QtCore/QVariant>
+#include <QtGui/QGuiApplication>
 #include <QtGui/QPixmap>
+#include <QtGui/QScreen>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QDialog>
@@ -84,6 +87,15 @@ HWND FindByClass(HWND hwnd, const std::string &name)
 
 void CloseAll(QWidget *mainWidget, int attempt);
 
+// A window's picture. A window with another toolkit's windows inside (a
+// plugin editor) is taken from the screen, as Qt does not draw those.
+QPixmap Grab(QWidget *w)
+{
+	if(w->property("linopenmptForeignWindows").toBool() && w->isVisible() && w->screen() != nullptr)
+		return w->screen()->grabWindow(w->winId());
+	return w->grab();
+}
+
 // For tests and screenshots, all driven by the environment:
 // - LINOPENMPT_COMMANDS=id,id,... sends these menu commands (decimal ids,
 //   as in resource.h) to the main window, half a second apart, once the
@@ -151,15 +163,18 @@ void ScheduleTestHooks()
 		const bool dump = std::getenv("LINOPENMPT_DUMP_WINDOWS") != nullptr;
 		if(mainWidget != nullptr)
 		{
-			mainWidget->grab().save(path);
+			Grab(mainWidget).save(path);
 			if(dump)
 				DumpWindows(mainWnd->GetSafeHwnd(), mainWnd->GetSafeHwnd(), 0);
 		}
-		const QString base = path.endsWith(QLatin1String(".png")) ? path.chopped(4) : path;
+		// The pictures of the other windows take the main one's format.
+		const int dot = path.lastIndexOf(QLatin1Char('.'));
+		const QString base = dot > 0 ? path.left(dot) : path;
+		const QString suffix = dot > 0 ? path.mid(dot) : QStringLiteral(".png");
 		int index = 0;
 		for(QWidget *w : OtherWindows(mainWidget))
 		{
-			w->grab().save(QStringLiteral("%1-%2.png").arg(base).arg(++index));
+			Grab(w).save(QStringLiteral("%1-%2%3").arg(base).arg(++index).arg(suffix));
 			auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
 			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
 			if(dump && hwnd != nullptr)
@@ -225,6 +240,11 @@ void CloseAll(QWidget *mainWidget, int attempt)
 
 int main(int argc, char *argv[])
 {
+	// Plugin editors (Linux VST2) are X11 windows that need an X11 window to
+	// live in, so on a Wayland desktop the tracker runs through XWayland, as
+	// other Linux plugin hosts do. A platform the user picks still wins.
+	if(std::getenv("QT_QPA_PLATFORM") == nullptr && std::getenv("DISPLAY") != nullptr)
+		::setenv("QT_QPA_PLATFORM", "xcb", 0);
 	QApplication application(argc, argv);
 	QApplication::setApplicationName(QStringLiteral("OpenMPT"));
 	QApplication::setOrganizationName(QStringLiteral("OpenMPT"));

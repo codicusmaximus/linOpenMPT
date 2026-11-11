@@ -14,11 +14,10 @@
 // and stay enabled.
 #undef MPT_WITH_DMO
 
-// Hosting VST plugins is Windows-specific upstream (DLL loading and the
-// 32/64-bit plugin bridge built on Win32 events and windows). It is off until
-// the plugin milestone, which adds native Linux plugins and a bridge for
-// Windows ones. Built-in plugins (DMO emulations, LFO, echo, MIDI I/O) work.
-#undef MPT_WITH_VST
+// VST plugins: native Linux VST2 plugins (.so) are loaded in-process, with
+// LoadLibrary on dlopen. Upstream's 32/64-bit plugin bridge (Win32 events,
+// shared memory and windows) is not built; BridgeWrapper's stand-in reports
+// it as missing.
 
 // OpenMPT's update check downloads and runs Windows installers (WinInet,
 // Windows signature checks). Upstream's own switch turns it off, as Linux
@@ -307,6 +306,32 @@ Tstring ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes(const Tbuf *buf,
 
 #define MPT_TFORMAT_MESSAGE(f) mpt::format_message_typed<mpt::default_formatter, mpt::parse_format_string_argument_count(TEXT(f)), mpt::tstring>(TEXT(f))
 #define MPT_TFORMAT(f) MPT_TFORMAT_MESSAGE(f)
+
+// Upstream's misc/mptOSException.h: structured exception handling, with which
+// OpenMPT survives a crashing plugin on Windows. Linux has no equivalent that
+// leaves the process in a usable state, so a plugin's crash is the tracker's,
+// as with other Linux hosts. TryOrError runs the function and reports no
+// exception.
+namespace Windows
+{
+namespace SEH
+{
+struct Code
+{
+private:
+	DWORD m_Code;
+public:
+	constexpr Code(DWORD code) noexcept : m_Code(code) { }
+	constexpr DWORD code() const noexcept { return m_Code; }
+};
+template <typename Tfn>
+DWORD TryOrError(const Tfn &fn)
+{
+	fn();
+	return 0;
+}
+} // namespace SEH
+} // namespace Windows
 
 namespace Util
 {

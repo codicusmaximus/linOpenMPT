@@ -24,6 +24,9 @@ sudo apt install cmake ninja-build pkg-config g++ qt6-base-dev \
   libopus-dev libopusfile-dev libopusenc-dev libmp3lame-dev liblhasa-dev
 ```
 
+The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
+and are skipped without them.
+
 ```sh
 git clone --recurse-submodules https://github.com/codicusmaximus/linopenmpt.git
 cd linopenmpt

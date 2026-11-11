@@ -1,0 +1,203 @@
+diff --git a/mptrack/ModDocTemplate.cpp b/mptrack/ModDocTemplate.cpp
+index b6d3ec1..72b3c7d 100644
+--- a/mptrack/ModDocTemplate.cpp
++++ b/mptrack/ModDocTemplate.cpp
+@@ -132,7 +132,11 @@ CDocument *CModDocManager::OpenDocumentFile(LPCTSTR lpszFileName, BOOL bAddToMRU
+ 		return pDoc;
+ 	}
+ 
++#if MPT_OS_WINDOWS
+ 	if(const auto fileExt = filename.GetFilenameExtension(); !mpt::PathCompareNoCase(fileExt, P_(".dll")) || !mpt::PathCompareNoCase(fileExt, P_(".vst3")))
++#else
++	if(filename.GetFilenameExtension() == P_(".so"))
++#endif
+ 	{
+ 		if(auto plugManager = theApp.GetPluginManager(); plugManager != nullptr)
+ 		{
+diff --git a/mptrack/SelectPluginDialog.cpp b/mptrack/SelectPluginDialog.cpp
+index 9b6fb1a..95a13ea 100644
+--- a/mptrack/SelectPluginDialog.cpp
++++ b/mptrack/SelectPluginDialog.cpp
+@@ -685,8 +685,13 @@ void CSelectPluginDlg::OnAddPlugin()
+ {
+ 	FileDialog dlg = OpenFileDialog()
+ 		.AllowMultiSelect()
++#if MPT_OS_WINDOWS
+ 		.DefaultExtension(U_("dll"))
+ 		.ExtensionFilter(U_("VST Plugins|*.dll;*.vst3||"))
++#else
++		.DefaultExtension(U_("so"))
++		.ExtensionFilter(U_("VST Plugins|*.so||"))
++#endif
+ 		.WorkingDirectory(TrackerSettings::Instance().PathPlugins.GetWorkingDir());
+ 	if(!dlg.Show(this)) return;
+ 
+@@ -762,7 +767,11 @@ VSTPluginLib *CSelectPluginDlg::ScanPlugins(const mpt::PathString &path, CWnd *p
+ 	int files = 0;
+ 	while(scan.Next(fileName) && pluginScanDlg.IsWindowVisible())
+ 	{
++#if MPT_OS_WINDOWS
+ 		if(!mpt::PathCompareNoCase(fileName.GetFilenameExtension(), P_(".dll")))
++#else
++		if(fileName.GetFilenameExtension() == P_(".so"))
++#endif
+ 		{
+ 			CWnd *text = pluginScanDlg.GetDlgItem(IDC_SCANTEXT);
+ 			CString scanStr = _T("Scanning Plugin...\n") + fileName.ToCString();
+diff --git a/mptrack/VSTEditor.cpp b/mptrack/VSTEditor.cpp
+index d90e1ad..c3e58fa 100644
+--- a/mptrack/VSTEditor.cpp
++++ b/mptrack/VSTEditor.cpp
+@@ -83,7 +83,11 @@ bool COwnerVstEditor::OpenEditor(CWnd *parent)
+ 	CVstPlugin &vstPlug = static_cast<CVstPlugin &>(m_VstPlugin);
+ 	vstPlug.Dispatch(Vst::effEditGetRect, 0, 0, &pRect, 0);
+ 	if(pRect) rect = *pRect;
++#if MPT_OS_WINDOWS
+ 	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, m_plugWindow.m_hWnd, 0);
++#else
++	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, reinterpret_cast<void *>(LinOpenMPTNativeWindowId(m_plugWindow.m_hWnd)), 0);
++#endif
+ 	vstPlug.Dispatch(Vst::effEditGetRect, 0, 0, &pRect, 0);
+ 	if(pRect) rect = *pRect;
+ 	if(rect.right > rect.left && rect.bottom > rect.top)
+diff --git a/mptrack/Vstplug.cpp b/mptrack/Vstplug.cpp
+index 8c768e2..2d02418 100644
+--- a/mptrack/Vstplug.cpp
++++ b/mptrack/Vstplug.cpp
+@@ -838,7 +838,7 @@ intptr_t CVstPlugin::VstFileSelector(bool destructor, VstFileSelect &fileSel)
+ #elif MPT_OS_MACOSX_OR_IOS
+ 				extensions += "*";
+ 				extensions += type.macType;
+-#elif MPT_OS_GENERIC_UNIX
++#elif MPT_OS_LINUX || MPT_OS_GENERIC_UNIX
+ 				extensions += "*.";
+ 				extensions += type.unixType;
+ #elif !defined(CPPCHECK)
+@@ -1791,7 +1791,12 @@ CAbstractVstEditor *CVstPlugin::OpenEditor()
+ {
+ 	try
+ 	{
++#if MPT_OS_WINDOWS
+ 		if(HasEditor())
++#else
++		// The plugin's own editor needs a native (X11) window to live in.
++		if(HasEditor() && LinOpenMPTCanEmbedForeignWindows())
++#endif
+ 			return new COwnerVstEditor(*this);
+ 		else
+ 			return new CDefaultVstEditor(*this);
+diff --git a/mptrack/WelcomeDialog.cpp b/mptrack/WelcomeDialog.cpp
+index 2336a93..1e6b64b 100644
+--- a/mptrack/WelcomeDialog.cpp
++++ b/mptrack/WelcomeDialog.cpp
+@@ -49,7 +49,39 @@ BOOL WelcomeDlg::OnInitDialog()
+ {
+ 	DialogBase::OnInitDialog();
+ 
+-#ifdef MPT_WITH_VST
++#if defined(MPT_WITH_VST) && !MPT_OS_WINDOWS
++	// The usual Linux VST2 folders: $VST_PATH (a colon-separated list), then
++	// the per-user and system folders. The first that exists is offered.
++	{
++		std::vector<mpt::PathString> candidates;
++		if(const char *vstPath = std::getenv("VST_PATH"); vstPath && *vstPath)
++		{
++			for(const auto &dir : mpt::split(std::string(vstPath), std::string(":")))
++			{
++				if(!dir.empty())
++					candidates.push_back(mpt::PathString::FromLocale(dir));
++			}
++		}
++		if(const char *home = std::getenv("HOME"); home && *home)
++		{
++			candidates.push_back(mpt::PathString::FromLocale(home) + P_("/.vst"));
++			candidates.push_back(mpt::PathString::FromLocale(home) + P_("/.lxvst"));
++		}
++		candidates.push_back(P_("/usr/local/lib/vst"));
++		candidates.push_back(P_("/usr/lib/vst"));
++		candidates.push_back(P_("/usr/local/lib/lxvst"));
++		candidates.push_back(P_("/usr/lib/lxvst"));
++		for(const auto &dir : candidates)
++		{
++			if(mpt::native_fs{}.is_directory(dir))
++			{
++				m_vstPath = dir.WithTrailingSlash();
++				break;
++			}
++		}
++	}
++#endif
++#if defined(MPT_WITH_VST) && MPT_OS_WINDOWS
+ 	HKEY hkEnum = NULL;
+ 	TCHAR str[MAX_PATH];
+ 	DWORD datasize = sizeof(str);
+@@ -66,10 +98,12 @@ BOOL WelcomeDlg::OnInitDialog()
+ 			m_vstPath = mpt::PathString();
+ 		}
+ 	}
++#endif
++#ifdef MPT_WITH_VST
+ 	SetDlgItemText(IDC_EDIT2, mpt::ToCString(TrackerSettings::Instance().defaultArtist.Get()));
+ 	if(!m_vstPath.empty())
+ 	{
+-		SetDlgItemText(IDC_EDIT1, m_vstPath.AsNative().c_str());
++		SetDlgItemText(IDC_EDIT1, m_vstPath.ToCString());
+ 		if(TrackerSettings::Instance().PathPlugins.GetDefaultDir().empty())
+ 		{
+ 			TrackerSettings::Instance().PathPlugins.SetDefaultDir(m_vstPath);
+diff --git a/pluginBridge/BridgeWrapper.h b/pluginBridge/BridgeWrapper.h
+index e69f792..a2b0b22 100644
+--- a/pluginBridge/BridgeWrapper.h
++++ b/pluginBridge/BridgeWrapper.h
+@@ -14,7 +14,11 @@
+ 
+ #ifdef MPT_WITH_VST
+ 
++#if MPT_OS_WINDOWS
+ #include "BridgeCommon.h"
++#else // !MPT_OS_WINDOWS
++#include "../mptrack/plugins/VstDefinitions.h"
++#endif // MPT_OS_WINDOWS
+ #include "../common/ComponentManager.h"
+ #include "mpt/exception/exception.hpp"
+ #include "mpt/exception/runtime_error.hpp"
+@@ -135,6 +139,30 @@ public:
+ 
+ #endif // MPT_WITH_WINDOWS10
+ 
++#if !MPT_OS_WINDOWS
++
++// The plugin bridge runs plugins in a separate Windows process. Elsewhere only
++// native plugins are loaded, in-process: the bridge is always missing.
++class BridgeWrapper
++{
++public:
++	class BridgeException : public mpt::runtime_error
++	{
++	public:
++		BridgeException(mpt::ustring &&str) : mpt::runtime_error(std::move(str)) { }
++		BridgeException() : mpt::runtime_error(U_("unknown BridgeException")) { }
++	};
++	class BridgeNotFoundException : public BridgeException { };
++
++	static PluginArch GetNativePluginBinaryType();
++	static PluginArch GetPluginBinaryType(const mpt::PathString &pluginPath);
++	static bool IsPluginNative(const mpt::PathString &pluginPath) { return GetPluginBinaryType(pluginPath) == GetNativePluginBinaryType(); }
++
++	static Vst::AEffect *Create(const VSTPluginLib &plugin, bool forceLegacy);
++};
++
++#else // MPT_OS_WINDOWS
++
+ class BridgeWrapper : private BridgeCommon
+ {
+ protected:
+@@ -234,6 +262,8 @@ protected:
+ 	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+ };
+ 
++#endif // MPT_OS_WINDOWS
++
+ OPENMPT_NAMESPACE_END
+ 
+ #endif // MPT_WITH_VST
