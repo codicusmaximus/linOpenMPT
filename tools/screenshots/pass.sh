@@ -46,6 +46,7 @@ if [ ${#entries[@]} -eq 0 ]; then
 		"eq-save-preset:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page3,COptionsPlayer:IDC_BUTTON5"
 		"mix-paste:$test/test.xm:ID_VIEW_SAMPLES,CViewSample:ID_EDIT_SELECT_ALL,CViewSample:ID_EDIT_COPY,CViewSample:ID_EDIT_PASTE_SPECIAL"
 		"close-modified:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_EDIT_SELECT_ALL,CViewPattern:ID_EDIT_CUT,ID_FILE_CLOSEALL"
+		"note-properties:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:key=Show_Note_Properties"
 		"split-keyboard:$test/test.xm:ID_VIEW_PATTERNS,ID_EDIT_SPLITKEYBOARDSETTINGS"
 		"setup:$test/test.mod:ID_VIEW_OPTIONS"
 		"plugin-manager:$test/test.mod:ID_PLUGIN_SETUP"
@@ -144,6 +145,12 @@ for entry in "${entries[@]}"; do
 		if [[ $c == *:* ]]; then
 			target="${c%%:*}:"
 			c=${c#*:}
+		fi
+		# key=Name sends the keyboard command of that name, with _ for
+		# spaces (see app/main.cpp).
+		if [[ $c == key=* ]]; then
+			ids="$ids${ids:+,}$target${c//_/ }"
+			continue
 		fi
 		if [[ $c == page[0-9]* ]]; then
 			ids="$ids${ids:+,}$target$c"

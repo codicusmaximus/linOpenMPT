@@ -96,7 +96,7 @@ Left out because they only make sense on Windows, and what replaces each:
 
 | File | What it does | Replacement |
 |------|--------------|-------------|
-| `ExceptionHandler.cpp` | Crash dumps with dbghelp | `platform/ExceptionHandler.cpp`: fatal signals and unhandled exceptions are reported with a backtrace and what the tracker was doing (step 3g). Saving open documents on a crash is still to do. |
+| `ExceptionHandler.cpp` | Crash dumps with dbghelp | `platform/ExceptionHandler.cpp`: fatal signals and unhandled exceptions are reported with a backtrace and what the tracker was doing (step 3g). Modified modules are saved into a crash folder first, as upstream does (step 4g). |
 | `FileDialog.cpp` | Win32 common file dialogs | `app/FileDialog.cpp`: `FileDialog`/`BrowseForFolder` (same header) on `QFileDialog`, with sample preview (step 3g) |
 | `HTTP.cpp` | WinInet | HTTP client for the update check (step 4) |
 | `UpdateCheck.cpp` | Update check, verified with Windows CNG | Switched off with upstream's own `MPT_ENABLE_UPDATE` for now. Same checks with a portable crypto library, or left to distribution packages (step 4) |
@@ -109,7 +109,7 @@ available it lists no devices.
 Known gaps to handle in later steps:
 
 - The tree view's file browser lists drive letters. Linux has none, so it
-  needs mount points and the home folder instead (step 4).
+  lists the root, the home folder and mounted drives instead (step 4g).
 - Windows shell links (`.lnk`) are not resolved; symbolic links work as
   normal paths.
 - Registry lookups (the DirectMusic GM bank) find nothing.
@@ -624,9 +624,30 @@ Found and fixed:
   group boxes already did, and become see-through (and click-through,
   unless `SS_NOTIFY`) when anything overlaps them.
 
-Not in the pass: the pattern editor's note properties window opens from a
-double-click or a keyboard shortcut, which the harness does not send yet;
-progress windows only show during long operations.
+Not in the pass: progress windows only show during long operations. (The
+note properties window joined it in step 4g.)
+
+### Step 4g: the Linux gaps (done)
+
+- **The instrument library's places.** Where Windows lists drive letters
+  below the folders, the tree view now lists the file system's root, the
+  home folder and the drives mounted at `/mnt/name`, `/media/name`,
+  `/media/user/name` and `/run/media/user/name` (from `/proc/self/mounts`),
+  with their icons from the desktop theme. Mounts nested deeper (a
+  container's, a snap's) are left out. Patch `0007` swaps the drive-letter
+  loop for these off Windows.
+- **Rescuing modules on a crash.** As upstream does on Windows, a crash (a
+  fatal signal or an unhandled exception) first saves every modified
+  module into `~/.local/share/OpenMPT/Crash Files/<date and time>/`
+  (`$XDG_DATA_HOME` if set; upstream uses the temporary folder, which Linux
+  empties at boot), numbered and named after the module. It says where on
+  stderr and in a desktop notification (`notify-send`, where installed).
+  Saving uses the module writer directly, without the document's
+  interface. The `app_crash_rescue` test crashes the application after
+  editing a module and checks the saved file.
+- **The note properties window** is in the screenshot pass. The harness
+  can send a window a keyboard command by its name in the keyboard setup
+  (`Class:key=Show_Note_Properties`), as its shortcut would.
 
 ## Step 5: the MFC to Qt6 bridge as its own project
 

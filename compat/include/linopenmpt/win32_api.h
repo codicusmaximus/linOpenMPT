@@ -12,6 +12,8 @@
 
 #include <cerrno>
 #include <cstdlib>
+#include <string>
+#include <vector>
 
 // ---- structures ----------------------------------------------------------
 struct WINDOWPLACEMENT
@@ -251,6 +253,10 @@ FARPROC GetProcAddress(HMODULE module, const char *name);
 BOOL FreeLibrary(HMODULE module);
 // Why the last LoadLibrary failed, as dlerror() put it.
 const char *LinOpenMPTLastLoadLibraryError();
+// What the tree view's file browser lists where Windows lists drive
+// letters: the file system's root, the home folder and the drives mounted
+// under /media, /run/media and /mnt, each with a trailing slash.
+std::vector<std::wstring> LinOpenMPTFileBrowserPlaces();
 #ifndef _MAX_PATH
 #define _MAX_PATH 260
 #endif
