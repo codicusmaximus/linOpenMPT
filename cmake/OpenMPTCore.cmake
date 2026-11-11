@@ -17,7 +17,6 @@ find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 pkg_check_modules(MPT_DEPS REQUIRED IMPORTED_TARGET
   zlib libmpg123 ogg vorbis vorbisfile)
-pkg_check_modules(MPT_FLAC IMPORTED_TARGET flac)
 
 option(LINOPENMPT_TRACKER_SOUNDLIB "Build the engine and app logic in tracker configuration" ON)
 
@@ -38,12 +37,13 @@ target_link_libraries(mpt_common PUBLIC linopenmpt_compat Threads::Threads ${CMA
 
 # ---- mpt_soundlib (tracker configuration, step 2) -------------------------
 if(LINOPENMPT_TRACKER_SOUNDLIB)
+  include(OpenMPTExternal)
   add_library(mpt_soundlib STATIC ${MPT_SOUNDLIB_SOURCES})
   add_library(linopenmpt::soundlib ALIAS mpt_soundlib)
   target_compile_definitions(mpt_soundlib PUBLIC
     MPT_WITH_ZLIB MPT_WITH_MPG123 MPT_WITH_OGG MPT_WITH_VORBIS MPT_WITH_VORBISFILE)
   target_compile_options(mpt_soundlib PRIVATE ${MPT_WARN_OPTS})
-  target_link_libraries(mpt_soundlib PUBLIC mpt_common PkgConfig::MPT_DEPS)
+  target_link_libraries(mpt_soundlib PUBLIC mpt_common PkgConfig::MPT_DEPS linopenmpt_external)
 
   # The non-UI half of upstream's tracker application (mptrack/), compiled
   # unchanged against compat/. Files are added here as they are ported; the
