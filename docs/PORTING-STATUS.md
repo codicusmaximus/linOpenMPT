@@ -393,16 +393,70 @@ Known gaps to handle in later steps:
   `app_jack_playback` (when `jackd` is installed) starts a private JACK
   server with the dummy driver, plays the module with `-play` and measures
   the sound on the tracker's JACK ports.
-- Known gaps, for step 4: the General tab's upper pane is empty and the VU
-  meter in the toolbar stays black.
-
-### Next
-
-Step 4: every view and dialog, checked against Windows one by one.
+- Known gap, fixed in step 4: the General tab's upper pane was empty. (The
+  VU meter was fine: it only looked black in a still picture taken while
+  nothing played.)
 
 ## Step 4: views and dialogs
 
-Not started. The checklist of every view and dialog will live here.
+### Step 4a: the screenshot pass (done)
+
+`tools/screenshots/pass.sh <openmpt> <out dir>` starts the real application
+once per entry, opens one of upstream's test modules, runs menu commands by
+their `resource.h` names and saves the main window and every dialog they
+open. `app/main.cpp` has the hooks it uses (`LINOPENMPT_COMMANDS`,
+`LINOPENMPT_SCREENSHOT`, `LINOPENMPT_DUMP_WINDOWS`); when the picture is
+taken, the dialogs are cancelled and the main window is closed, as a user
+would.
+
+Found and fixed with it:
+
+- The General tab's upper pane was hidden behind the tab control. A tab
+  control now leaves its display area to the windows behind it, as on
+  Windows, unless it holds its pages as its own children.
+- The comments view crashed: list and tree views answered `WM_GETFONT`
+  with no font where comctl32 answers with the control's default one.
+- Closing the main window while a dialog was open (a message box, a file
+  or colour dialog) freed the dialog twice. Qt's dialogs are now on the
+  heap and go with their owner.
+- Sample paths saved on Windows (`.\test.flac`) were not found, because
+  the backslashes were taken as part of the file name.
+- The About dialog named the system "Generic Windows NT (Version 0.0)"; it
+  now shows `uname` (patch 0005).
+- The Open dialog started in the program's own folder; with no folder of
+  its own it now starts in the songs folder or home, as Windows' dialog
+  does.
+
+Checked and the same as upstream on Windows: the pattern view's empty band
+above row 0 ("always center active row" is on by default), the channel
+manager's highlight-coloured background, the MIDI mapping dialog's tall
+up/down control.
+
+Dialogs and views (78 in `mptrack.rc`), checked so far: the five module
+views (General, Patterns, Samples, Instruments, Comments), About, Welcome,
+splash screen, missing external samples, Open, Save As, stream export,
+MIDI export, cleanup, sample trimmer, find, go to, keyboard split, Setup
+(General page), plugin manager, channel manager, clipboard manager, song
+properties, Zxx macros, MIDI mapping, edit history, MPT hacks, song length.
+
+Still to check: the other Setup pages, the sample editor's dialogs
+(amplify, resample, pitch shift, silence, generator, crossfade, grid,
+raw import, autotune), the instrument editor's (sample map, envelope
+scaling, tuning), the pattern editor's (effect visualizer, edit command,
+pattern properties, find range, chords, tempo swing, channel settings),
+plugin editors and plugin-related dialogs, OPL, metronome, close/modified
+documents, remove channels, progress and update dialogs.
+
+Known gaps:
+
+- Optional libraries. Upstream's Windows build has FLAC, Opus, LAME (MP3
+  export), Vorbis encoding, ancient, lhasa, minizip, UnRAR, r8brain and
+  Signalsmith Stretch; this build has none of them yet, so for example a
+  FLAC sample cannot be loaded and the sample editor's time stretching
+  and the stream export's MP3/Opus/FLAC formats are missing. All are
+  vendored in `upstream/include`. This is step 4b.
+- The update check is compiled out, so the Welcome dialog shows its
+  update options with a placeholder line, as upstream does in such a build.
 
 ## Step 5: the MFC to Qt6 bridge as its own project
 

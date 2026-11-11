@@ -1627,6 +1627,9 @@ LRESULT CALLBACK TreeProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_ENABLE:
 		::InvalidateRect(hwnd, nullptr, TRUE);
 		return 0;
+	case WM_GETFONT:
+		// As comctl32: the control's own default font until one is set.
+		return reinterpret_cast<LRESULT>(FontOfControl(hwnd));
 	case WM_SETFONT:
 		::DefWindowProc(hwnd, msg, wp, 0);
 		if(s != nullptr)

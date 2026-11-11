@@ -4,6 +4,9 @@
 // servers, so CoCreateInstance fails and callers take their fallbacks).
 #include "QtWin.h"
 
+#include <QtCore/QPointer>
+#include <memory>
+
 #include "HtmlHelp.h"
 #include "Msctf.h"
 #include "atlbase.h"
@@ -532,7 +535,9 @@ BOOL ChooseColor(LPCHOOSECOLOR cc)
 	if(cc == nullptr)
 		return FALSE;
 	QWidget *parent = cc->hwndOwner != nullptr ? FromHandle(cc->hwndOwner) : nullptr;
-	QColorDialog dialog(ToQColor(cc->rgbResult), parent);
+	// On the heap, so that it goes with its owner if that is destroyed.
+	QPointer<QColorDialog> dialogPtr = new QColorDialog(ToQColor(cc->rgbResult), parent);
+	QColorDialog &dialog = *dialogPtr;
 	// The 16 custom colours go both ways.
 	if(cc->lpCustColors != nullptr)
 	{
@@ -541,7 +546,10 @@ BOOL ChooseColor(LPCHOOSECOLOR cc)
 	}
 	if(cc->Flags & CC_RGBINIT)
 		dialog.setCurrentColor(ToQColor(cc->rgbResult));
-	const bool ok = dialog.exec() == QDialog::Accepted;
+	const bool ok = dialogPtr->exec() == QDialog::Accepted;
+	if(dialogPtr.isNull())
+		return FALSE;
+	const std::unique_ptr<QColorDialog> owned(dialogPtr.data());
 	if(cc->lpCustColors != nullptr)
 	{
 		for(int i = 0; i < 16 && i < QColorDialog::customCount(); i++)

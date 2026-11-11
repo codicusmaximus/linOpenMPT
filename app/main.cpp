@@ -4,6 +4,7 @@
 // if starting failed. This does the same on a QApplication, after making
 // the tracker's resources (dialogs, menus, bitmaps, strings) available.
 #include "stdafx.h"
+#include "Moddoc.h"
 #include "Mptrack.h"
 #include "MptrackResources.h"
 
@@ -12,32 +13,150 @@
 #include <QtCore/QTimer>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QDialog>
 #include <QtWidgets/QWidget>
 
+#include <cstdio>
 #include <cstdlib>
+#include <vector>
 
 namespace
 {
 
-// For tests and screenshots: LINOPENMPT_SCREENSHOT=file.png saves the main
-// window once the program has been running for LINOPENMPT_SCREENSHOT_DELAY
-// milliseconds (3000 by default), then closes it as the user would.
-void ScheduleScreenshot()
+// For debugging layouts: the window tree under hwnd, with each window's
+// class, id, visibility, text and rectangle relative to the main window.
+void DumpWindows(HWND hwnd, HWND origin, int depth)
+{
+	TCHAR cls[64] = {}, text[64] = {};
+	::GetClassName(hwnd, cls, 64);
+	::GetWindowText(hwnd, text, 64);
+	RECT rc{};
+	::GetWindowRect(hwnd, &rc);
+	POINT topLeft{rc.left, rc.top};
+	::ScreenToClient(origin, &topLeft);
+	std::fprintf(stderr, "%*s%ls id=%d %s \"%ls\" (%d,%d %dx%d)\n", depth * 2, "", cls, ::GetDlgCtrlID(hwnd),
+		::IsWindowVisible(hwnd) ? "visible" : "hidden", text, (int)topLeft.x, (int)topLeft.y, (int)(rc.right - rc.left), (int)(rc.bottom - rc.top));
+	for(HWND child = ::GetWindow(hwnd, GW_CHILD); child != nullptr; child = ::GetWindow(child, GW_HWNDNEXT))
+		DumpWindows(child, origin, depth + 1);
+}
+
+// Visible top-level windows besides the main window: dialogs (the tracker's
+// own, and Qt's file, colour and font dialogs), floating bars, plugin
+// editors.
+std::vector<QWidget *> OtherWindows(QWidget *mainWidget)
+{
+	std::vector<QWidget *> windows;
+	for(QWidget *w : QApplication::topLevelWidgets())
+	{
+		const Qt::WindowType type = w->windowType();
+		if(w != mainWidget && w->isVisible() && type != Qt::ToolTip && type != Qt::Popup && type != Qt::Desktop)
+			windows.push_back(w);
+	}
+	return windows;
+}
+
+void CloseAll(QWidget *mainWidget, int attempt);
+
+// For tests and screenshots, all driven by the environment:
+// - LINOPENMPT_COMMANDS=id,id,... sends these menu commands (decimal ids,
+//   as in resource.h) to the main window, half a second apart, once the
+//   program has started; a dialog they open stays open.
+// - LINOPENMPT_SCREENSHOT=file.png saves the main window after
+//   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
+//   other window open then (a dialog) as file-1.png, file-2.png, ...
+// - LINOPENMPT_DUMP_WINDOWS prints the window trees then.
+// Then the other windows are cancelled and the main window is closed, as
+// the user would.
+void ScheduleTestHooks()
 {
 	const char *file = std::getenv("LINOPENMPT_SCREENSHOT");
 	if(file == nullptr || *file == '\0')
 		return;
+	if(const char *commands = std::getenv("LINOPENMPT_COMMANDS"))
+	{
+		int when = 500;
+		for(const QString &id : QString::fromLocal8Bit(commands).split(u',', Qt::SkipEmptyParts))
+		{
+			const UINT command = id.trimmed().toUInt();
+			QTimer::singleShot(when, [command]() {
+				if(CWnd *mainWnd = AfxGetMainWnd())
+					mainWnd->PostMessage(WM_COMMAND, command);
+			});
+			when += 500;
+		}
+	}
 	const char *delayText = std::getenv("LINOPENMPT_SCREENSHOT_DELAY");
 	const int delay = delayText != nullptr ? std::atoi(delayText) : 3000;
 	const QString path = QString::fromLocal8Bit(file);
 	QTimer::singleShot(delay, [path]() {
 		CWnd *mainWnd = AfxGetMainWnd();
-		if(mainWnd == nullptr || mainWnd->GetSafeHwnd() == nullptr)
-			return;
-		if(QWidget *widget = linopenmpt::qtwin::FromHandle(mainWnd->GetSafeHwnd()))
-			widget->grab().save(path);
-		mainWnd->PostMessage(WM_CLOSE);
+		QWidget *mainWidget = mainWnd != nullptr && mainWnd->GetSafeHwnd() != nullptr ? linopenmpt::qtwin::FromHandle(mainWnd->GetSafeHwnd()) : nullptr;
+		const bool dump = std::getenv("LINOPENMPT_DUMP_WINDOWS") != nullptr;
+		if(mainWidget != nullptr)
+		{
+			mainWidget->grab().save(path);
+			if(dump)
+				DumpWindows(mainWnd->GetSafeHwnd(), mainWnd->GetSafeHwnd(), 0);
+		}
+		const QString base = path.endsWith(QLatin1String(".png")) ? path.chopped(4) : path;
+		int index = 0;
+		for(QWidget *w : OtherWindows(mainWidget))
+		{
+			w->grab().save(QStringLiteral("%1-%2.png").arg(base).arg(++index));
+			auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
+			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
+			if(dump && hwnd != nullptr)
+				DumpWindows(hwnd, hwnd, 0);
+		}
+		CloseAll(mainWidget, 0);
 	});
+}
+
+// Cancels the other windows first (a modal dialog's loop would otherwise
+// run the main window's close underneath it), then closes the main window.
+void CloseAll(QWidget *mainWidget, int attempt)
+{
+	const std::vector<QWidget *> others = OtherWindows(mainWidget);
+	if(!others.empty() && attempt < 20)
+	{
+		for(QWidget *w : others)
+		{
+			// The tracker's windows are Win32 windows; the rest are Qt's own
+			// dialogs (message boxes, file dialogs).
+			auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
+			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
+			if(hwnd == nullptr)
+			{
+				if(auto *dialog = qobject_cast<QDialog *>(w))
+					dialog->reject();
+				else
+					w->close();
+				continue;
+			}
+			// A dialog takes IDCANCEL; a message box or another window, Escape.
+			::PostMessage(hwnd, WM_COMMAND, IDCANCEL, 0);
+			::PostMessage(hwnd, WM_KEYDOWN, VK_ESCAPE, 0);
+		}
+		QTimer::singleShot(250, [mainWidget, attempt]() { CloseAll(mainWidget, attempt + 1); });
+		return;
+	}
+	// What the commands changed is not saved: no "save changes?" on close.
+	if(CWinApp *app = AfxGetApp(); app != nullptr && app->m_pDocManager != nullptr)
+	{
+		POSITION templatePos = app->m_pDocManager->GetFirstDocTemplatePosition();
+		while(templatePos != nullptr)
+		{
+			CDocTemplate *docTemplate = app->m_pDocManager->GetNextDocTemplate(templatePos);
+			POSITION docPos = docTemplate->GetFirstDocPosition();
+			while(docPos != nullptr)
+			{
+				if(auto *modDoc = dynamic_cast<CModDoc *>(docTemplate->GetNextDoc(docPos)))
+					modDoc->SetModified(false);
+			}
+		}
+	}
+	if(CWnd *mainWnd = AfxGetMainWnd())
+		mainWnd->PostMessage(WM_CLOSE);
 }
 
 } // namespace
@@ -58,11 +177,13 @@ int main(int argc, char *argv[])
 	if(app->m_pszAppName == nullptr)
 		app->m_pszAppName = _T("OpenMPT");
 
+	// Before InitInstance, so that a dialog shown while starting (say, for
+	// samples a module refers to that are missing) is captured too.
+	ScheduleTestHooks();
 	if(!app->InitInstance())
 	{
 		const int code = app->ExitInstance();
 		return code != 0 ? code : 1;
 	}
-	ScheduleScreenshot();
 	return app->Run();
 }

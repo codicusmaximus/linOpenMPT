@@ -14,11 +14,14 @@
 #include "QtWin.h"
 
 #include <QtCore/QDir>
+#include <QtCore/QPointer>
 #include <QtCore/QFileInfo>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QStringList>
 #include <QtCore/QUrl>
 #include <QtWidgets/QFileDialog>
+
+#include <memory>
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -76,6 +79,19 @@ QStringList NameFilters(const QString &mfcFilter)
 	return filters;
 }
 
+// Where a dialog without a working directory starts. Windows' dialog then
+// opens the last folder used or the user's documents, never the process's
+// current folder (which the tracker sets to its own install folder).
+QString StartDirectory(const mpt::RawPathString &workingDirectory)
+{
+	if(!workingDirectory.empty())
+		return ToQString(workingDirectory);
+	const mpt::PathString songs = TrackerSettings::Instance().PathSongs.GetDefaultDir();
+	if(!songs.empty() && QFileInfo(ToQString(songs)).isDir())
+		return ToQString(songs);
+	return QDir::homePath();
+}
+
 QList<QUrl> Places(const std::vector<mpt::PathString> &extra)
 {
 	QList<QUrl> urls;
@@ -108,7 +124,10 @@ bool FileDialog::Show(CWnd *parent)
 {
 	m_filenames.clear();
 
-	QFileDialog dialog(ParentWidget(parent));
+	// On the heap, so that it goes with its parent if that is destroyed
+	// while it is open.
+	QPointer<QFileDialog> dialogPtr = new QFileDialog(ParentWidget(parent));
+	QFileDialog &dialog = *dialogPtr;
 	dialog.setAcceptMode(m_load ? QFileDialog::AcceptOpen : QFileDialog::AcceptSave);
 	dialog.setFileMode(m_load ? (m_multiSelect ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile) : QFileDialog::AnyFile);
 	// Qt's own dialog: it keeps the window inside the application's modal
@@ -127,8 +146,7 @@ bool FileDialog::Show(CWnd *parent)
 	}
 	if(!m_defaultExtension.empty())
 		dialog.setDefaultSuffix(ToQString(m_defaultExtension));
-	if(!m_workingDirectory.empty())
-		dialog.setDirectory(ToQString(m_workingDirectory));
+	dialog.setDirectory(StartDirectory(m_workingDirectory));
 	if(!m_defaultFilename.empty())
 	{
 		const QString name = ToQString(m_defaultFilename);
@@ -154,8 +172,11 @@ bool FileDialog::Show(CWnd *parent)
 	bool accepted;
 	{
 		linopenmpt::qtwin::ForeignModalLoop loop;
-		accepted = dialog.exec() == QDialog::Accepted;
+		accepted = dialogPtr->exec() == QDialog::Accepted;
 	}
+	if(dialogPtr.isNull())
+		return false;
+	const std::unique_ptr<QFileDialog> owned(dialogPtr.data());
 	if(played)
 	{
 		if(CMainFrame *mainFrame = CMainFrame::GetMainFrame())
@@ -183,22 +204,25 @@ bool FileDialog::Show(CWnd *parent)
 
 bool BrowseForFolder::Show(CWnd *parent)
 {
-	QFileDialog dialog(ParentWidget(parent));
+	QPointer<QFileDialog> dialogPtr = new QFileDialog(ParentWidget(parent));
+	QFileDialog &dialog = *dialogPtr;
 	dialog.setFileMode(QFileDialog::Directory);
 	dialog.setOption(QFileDialog::ShowDirsOnly);
 	dialog.setOption(QFileDialog::DontUseNativeDialog);
 	dialog.setSidebarUrls(Places(m_places));
 	if(!m_caption.IsEmpty())
 		dialog.setWindowTitle(QString::fromWCharArray(m_caption.GetString()));
-	if(!m_workingDirectory.empty())
-		dialog.setDirectory(ToQString(m_workingDirectory));
+	dialog.setDirectory(StartDirectory(m_workingDirectory.AsNative()));
 
 	BypassInputHandler bih;
 	bool accepted;
 	{
 		linopenmpt::qtwin::ForeignModalLoop loop;
-		accepted = dialog.exec() == QDialog::Accepted;
+		accepted = dialogPtr->exec() == QDialog::Accepted;
 	}
+	if(dialogPtr.isNull())
+		return false;
+	const std::unique_ptr<QFileDialog> owned(dialogPtr.data());
 	if(!accepted || dialog.selectedFiles().isEmpty())
 		return false;
 	m_workingDirectory = ToPath(dialog.selectedFiles().front());

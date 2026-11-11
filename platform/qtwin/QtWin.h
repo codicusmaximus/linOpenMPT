@@ -108,6 +108,9 @@ struct WindowData
 	// A mask keeps a child that reaches outside its parent's client area
 	// off the parent's borders (see ClipToParentClient).
 	bool clipMask = false;
+	// When not empty, only this part of the window shows and takes the
+	// mouse, in its own coordinates (see SetShape).
+	QRegion shape;
 };
 
 class Win32Widget : public QWidget
@@ -257,6 +260,11 @@ QRect ChildWindowRect(const Win32Widget *w); // in the parent's client coordinat
 // the parent widget, borders and all. Children that reach outside the client
 // area get a mask (a maximized MDI child's caption, for one).
 void ClipToParentClient(Win32Widget *w);
+// Limits a window to a region of itself; an empty region means all of it.
+// For controls that Windows draws under siblings overlapping them (a tab
+// control's display area, where the pages are siblings created later): Qt
+// stacks siblings strictly, so the part the siblings cover is cut out.
+void SetShape(Win32Widget *w, const QRegion &shape);
 
 // MDI (mdi.cpp): what user32 asks of MDI clients about their children.
 bool MdiShowWindow(HWND child, int cmd);       // true if handled

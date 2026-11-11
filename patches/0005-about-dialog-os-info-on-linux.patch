@@ -1,0 +1,43 @@
+--- a/mptrack/AboutDialog.cpp
++++ b/mptrack/AboutDialog.cpp
+@@ -21,6 +21,10 @@
+ #include "../common/version.h"
+ #include "../misc/mptWine.h"
+ 
++#if !MPT_OS_WINDOWS
++#include <sys/utsname.h>
++#endif
++
+ 
+ OPENMPT_NAMESPACE_BEGIN
+ 
+@@ -358,9 +362,11 @@
+ 				+ MPT_UFORMAT("Source Code: {}\n")(SourceInfo::Current().GetUrlWithRevision() + UL_(" ") + SourceInfo::Current().GetStateString())
+ 				+ MPT_UFORMAT("Build Date: {}\n")(Build::GetBuildDateString())
+ 				+ MPT_UFORMAT("Compiler: {}\n")(Build::GetBuildCompilerString())
+-				+ MPT_UFORMAT("Architecture: {}\n")(mpt::OS::Windows::Name(mpt::OS::Windows::GetProcessArchitecture()))
+-				+ MPT_UFORMAT("Required Windows Kernel Level: {}\n")(mpt::OS::Windows::Version::GetName(mpt::OS::Windows::Version::GetMinimumKernelLevel()))
++				+ MPT_UFORMAT("Architecture: {}\n")(mpt::OS::Windows::Name(mpt::OS::Windows::GetProcessArchitecture()));
++#if MPT_OS_WINDOWS
++			text += MPT_UFORMAT("Required Windows Kernel Level: {}\n")(mpt::OS::Windows::Version::GetName(mpt::OS::Windows::Version::GetMinimumKernelLevel()))
+ 				+ MPT_UFORMAT("Required Windows API Level: {}\n")(mpt::OS::Windows::Version::GetName(mpt::OS::Windows::Version::GetMinimumAPILevel()));
++#endif // MPT_OS_WINDOWS
+ 			{
+ 				text += UL_("Required CPU features: ");
+ 				std::vector<mpt::ustring> features;
+@@ -398,7 +404,15 @@
+ #endif
+ 			text += MPT_UFORMAT("Available CPU features: {}\n")(CPUFeaturesToString(CPUInfo.get_features()));
+ #endif // MPT_ENABLE_ARCH_INTRINSICS
++#if MPT_OS_WINDOWS
+ 			text += MPT_UFORMAT("Operating System: {}\n\n")(mpt::OS::Windows::Version::GetCurrentName());
++#else
++			{
++				struct utsname name{};
++				::uname(&name);
++				text += MPT_UFORMAT("Operating System: {} {} ({})\n\n")(mpt::ToUnicode(mpt::Charset::UTF8, name.sysname), mpt::ToUnicode(mpt::Charset::UTF8, name.release), mpt::ToUnicode(mpt::Charset::UTF8, name.machine));
++			}
++#endif // MPT_OS_WINDOWS
+ 			text += MPT_UFORMAT("OpenMPT Install Path{1}: {0}\n")(theApp.GetInstallPath(), theApp.IsPortableMode() ? UV_(" (portable)") : UV_(""));
+ 			text += MPT_UFORMAT("OpenMPT Executable Path{1}: {0}\n")(theApp.GetInstallBinArchPath(), theApp.IsPortableMode() ? UV_(" (portable)") : UV_(""));
+ 			text += MPT_UFORMAT("Settings{1}: {0}\n")(theApp.GetConfigFileName(), theApp.IsPortableMode() ? UV_(" (portable)") : UV_(""));
