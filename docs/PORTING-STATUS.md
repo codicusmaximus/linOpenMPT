@@ -482,6 +482,43 @@ sample, and loads a module from a ZIP archive. The test module with an
 external FLAC sample (`test.mptm`) now opens without the missing samples
 dialog.
 
+### Step 4c: the editors' dialogs and the Setup pages (done)
+
+The screenshot pass can now press buttons inside a view's control panel
+and switch Setup pages: a command written `Class:NAME` goes to the first
+visible window of that C++ class (`CCtrlSamples:IDC_SAMPLE_AMPLIFY`), and
+`Class:pageN` shows page N of a property sheet. 27 entries were added, so
+55 in all, every one opened and closed by the `app_views` test.
+
+Checked: every Setup page (General, Sound Card, Mixer, DSP, Samples,
+Keyboard, Display, MIDI, Paths / Auto Save, Advanced; Update needs the
+update check and Wine only applies on Wine), Quick Start, OPL export, the
+sample editor's amplify, resample, silence, crossfade, autotune, grid
+size and raw import file dialog, the instrument editor's sample map and
+envelope scaling, and the pattern editor's pattern properties, channel
+settings, remove channels, amplify, effect visualizer, chord editor and
+metronome settings.
+
+Found and fixed:
+
+- A combo box with an icon column (ComboBoxEx: Sound Card device, fade
+  curves) showed a scroll bar beside it. Its `WS_VSCROLL` is for the
+  list, as for a plain combo box.
+- A check box on a group box's top line (DSP's "Enable Graphic
+  Equalizer") had the frame line drawn through it. Windows paints
+  overlapping siblings in Z order, so the control below the group box
+  wins; the group box now leaves those controls out when it draws.
+- Message box buttons showed the Qt style's icons (a tick on OK).
+
+Still to check, because they need a particular state to open (a plugin,
+an OPL instrument, a tuning, a raw file chosen, several open documents,
+a long operation, a search): plugin editors and the plugin dialogs
+(missing plugins, move slot, plugin scan, LFO and MIDI I/O editors), OPL
+instrument parameters, the tuning editor, raw sample import options,
+the sample generator, mix samples, tempo swing, close documents, modified
+samples, legacy playback, find range, pattern edit command, EQ preset
+save, progress, info box and input dialogs.
+
 ## Step 5: the MFC to Qt6 bridge as its own project
 
 Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and

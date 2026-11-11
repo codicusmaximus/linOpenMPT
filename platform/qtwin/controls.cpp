@@ -297,6 +297,30 @@ void PaintButton(HWND hwnd, HDC dc)
 		// top line, nothing filled), which upstream's layouts are made for:
 		// controls and statics inside it sit on the dialog's background.
 		p->restore();
+		// Windows paints overlapping siblings without WS_CLIPSIBLINGS in Z
+		// order, so a control below the group box (one created after it,
+		// such as a check box on its top line) paints over the frame.
+		const int saved = ::SaveDC(dc);
+		if(!(style & WS_CLIPSIBLINGS))
+		{
+			RECT self{};
+			::GetWindowRect(hwnd, &self);
+			for(HWND sibling = ::GetWindow(hwnd, GW_HWNDNEXT); sibling != nullptr; sibling = ::GetWindow(sibling, GW_HWNDNEXT))
+			{
+				if(!::IsWindowVisible(sibling))
+					continue;
+				RECT r{}, overlap{};
+				::GetWindowRect(sibling, &r);
+				if(!::IntersectRect(&overlap, &r, &self))
+					continue;
+				TCHAR cls[16] = {};
+				::GetClassName(sibling, cls, 16);
+				const bool groupBox = ::lstrcmpi(cls, _T("Button")) == 0 && (::GetWindowLongPtr(sibling, GWL_STYLE) & BS_TYPEMASK) == BS_GROUPBOX;
+				if(groupBox)
+					continue;
+				::ExcludeClipRect(dc, overlap.left - self.left, overlap.top - self.top, overlap.right - self.left, overlap.bottom - self.top);
+			}
+		}
 		const std::wstring caption = Data(hwnd) != nullptr ? Data(hwnd)->text : std::wstring();
 		TEXTMETRIC tm{};
 		::GetTextMetrics(dc, &tm);
@@ -320,6 +344,7 @@ void PaintButton(HWND hwnd, HDC dc)
 			back.left += 2;
 			::DrawText(dc, caption.c_str(), -1, &back, DT_SINGLELINE | DT_LEFT | DT_TOP);
 		}
+		::RestoreDC(dc, saved);
 		return;
 	} else if(pushLike)
 	{

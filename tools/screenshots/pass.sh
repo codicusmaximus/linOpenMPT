@@ -49,6 +49,33 @@ if [ ${#entries[@]} -eq 0 ]; then
 		"edit-history:$test/test.xm:ID_VIEW_EDITHISTORY"
 		"mpt-hacks:$test/test.mod:ID_VIEW_MPTHACKS"
 		"song-length:$test/test.mod:ID_ESTIMATESONGLENGTH"
+		"quick-start::"
+		"opl-export:$test/test.xm:ID_FILE_SAVEOPL"
+		"setup-soundcard:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page1"
+		"setup-mixer:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page2"
+		"setup-player:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page3"
+		"setup-sample-editor:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page4"
+		"setup-keyboard:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page5"
+		"setup-colors:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page6"
+		"setup-midi:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page7"
+		"setup-paths:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page8"
+		"setup-advanced:$test/test.mod:ID_VIEW_OPTIONS,CPropertySheetMPT:page9"
+		"sample-amplify:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_AMPLIFY"
+		"sample-resample:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_RESAMPLE"
+		"sample-silence:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_SILENCE"
+		"sample-xfade:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_XFADE"
+		"sample-autotune:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_AUTOTUNE"
+		"sample-grid:$test/test.xm:ID_VIEW_SAMPLES,CViewSample:ID_SAMPLE_GRID"
+		"sample-raw-import:$test/test.xm:ID_VIEW_SAMPLES,CCtrlSamples:IDC_SAMPLE_OPENRAW"
+		"sample-map:$test/test.xm:ID_VIEW_INSTRUMENTS,CViewInstrument:ID_INSTRUMENT_SAMPLEMAP"
+		"envelope-scale:$test/test.xm:ID_VIEW_INSTRUMENTS,CViewInstrument:ID_ENVELOPE_SCALEPOINTS"
+		"pattern-properties:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_PATTERN_PROPERTIES"
+		"channel-settings:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_CHANNEL_SETTINGS"
+		"remove-channels:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_PATTERN_REMOVECHANNELDIALOG"
+		"pattern-amplify:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_PATTERN_AMPLIFY"
+		"effect-visualizer:$test/test.xm:ID_VIEW_PATTERNS,CViewPattern:ID_PATTERN_VISUALIZE_EFFECT"
+		"chord-editor:$test/test.xm:ID_VIEW_PATTERNS,CCtrlPatterns:ID_PATTERN_CHORDEDIT"
+		"metronome:$test/test.xm:ID_VIEW_PATTERNS,CCtrlPatterns:ID_METRONOME_SETTINGS"
 	)
 fi
 
@@ -76,9 +103,19 @@ for entry in "${entries[@]}"; do
 	IFS=: read -r name module commands <<<"$entry"
 	ids=""
 	for c in ${commands//,/ }; do
+		# Class:NAME goes to a window of that class (see app/main.cpp).
+		target=""
+		if [[ $c == *:* ]]; then
+			target="${c%%:*}:"
+			c=${c#*:}
+		fi
+		if [[ $c == page[0-9]* ]]; then
+			ids="$ids${ids:+,}$target$c"
+			continue
+		fi
 		id=$(id_of "$c")
 		[ -z "$id" ] && { echo "$name: unknown command $c"; continue 2; }
-		ids="$ids${ids:+,}$id"
+		ids="$ids${ids:+,}$target$id"
 	done
 	home=$(mktemp -d)
 	# Not the first run, so the welcome dialog stays away (entry "welcome"
@@ -90,7 +127,7 @@ for entry in "${entries[@]}"; do
 	rm -f "$out/$name".png "$out/$name"-*.png
 	HOME=$home XDG_CONFIG_HOME= LINOPENMPT_COMMANDS=$ids \
 	LINOPENMPT_SCREENSHOT=$out/$name.png LINOPENMPT_SCREENSHOT_DELAY=$((2500 + 500 * $(echo "$ids" | tr ',' '\n' | grep -c .))) \
-		run timeout 60 "$openmpt" "$module" >"$out/$name.log" 2>&1
+		run timeout 60 "$openmpt" ${module:+"$module"} >"$out/$name.log" 2>&1
 	status=$?
 	rm -rf "$home"
 	shots=$(ls "$out/$name".png "$out/$name"-*.png 2>/dev/null | wc -l)
