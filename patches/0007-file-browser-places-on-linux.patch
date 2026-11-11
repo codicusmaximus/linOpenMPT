@@ -1,0 +1,30 @@
+diff --git a/mptrack/View_tre.cpp b/mptrack/View_tre.cpp
+--- a/mptrack/View_tre.cpp
++++ b/mptrack/View_tre.cpp
+@@ -1956,6 +1956,7 @@
+ 			// Avoid adding the same images again and again...
+ 			images.SetImageCount(IMGLIST_NUMIMAGES);
+ 
++#if MPT_OS_WINDOWS
+ 			TCHAR s[] = _T("?:\\");
+ 			for(int drive = 'A'; drive <= 'Z'; drive++)
+ 			{
+@@ -1985,6 +1986,18 @@
+ 					DestroyIcon(fileInfo.hIcon);
+ 				}
+ 			}
++#else
++			// No drive letters: the file system's root, the home folder and
++			// mounted drives instead, as absolute paths with a trailing slash.
++			for(const mpt::winstring &place : LinOpenMPTFileBrowserPlaces())
++			{
++				SHFILEINFO fileInfo{};
++				SHGetFileInfo(place.c_str(), 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_SMALLICON);
++				const int imageIndex = fileInfo.hIcon ? images.Add(fileInfo.hIcon) : IMAGE_FOLDER;
++				m_fileBrowserEntries.push_back({place, 0, 0, static_cast<uint32>(imageIndex < 0 ? IMAGE_FOLDER : imageIndex), false});
++				DestroyIcon(fileInfo.hIcon);
++			}
++#endif
+ 		}
+ 
+ 		// Enumerating Directories and samples/instruments

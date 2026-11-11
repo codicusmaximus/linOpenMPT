@@ -4,7 +4,13 @@
 // if starting failed. This does the same on a QApplication, after making
 // the tracker's resources (dialogs, menus, bitmaps, strings) available.
 #include "stdafx.h"
+#include "CommandSet.h"
+#include "../platform/CrashRescue.h"
+#include "InputHandler.h"
+#include "Mainfrm.h"
 #include "Moddoc.h"
+#include "../soundlib/mod_specifications.h"
+#include "WindowMessages.h"
 #include "Mptrack.h"
 #include "MptrackResources.h"
 
@@ -21,6 +27,7 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QWidget>
 
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -104,12 +111,87 @@ QPixmap Grab(QWidget *w)
 //   Class:pageN shows page N of a property sheet of that class, and
 //   Class:id=N selects item N of that window's combo box id (=last for the
 //   last item) and notifies the window (CBN_SELCHANGE), as a user's pick.
+//   Class:key=Name sends that window the keyboard command of that name (as
+//   in the keyboard setup, "Show Note Properties"), as its shortcut would.
 // - LINOPENMPT_SCREENSHOT=file.png saves the main window after
 //   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
 //   other window open then (a dialog) as file-1.png, file-2.png, ...
 // - LINOPENMPT_DUMP_WINDOWS prints the window trees then.
+// - LINOPENMPT_CRASH=ms crashes the program (SIGSEGV) that many milliseconds
+//   after starting, for the crash handler's test.
 // Then the other windows are cancelled and the main window is closed, as
 // the user would.
+// The first visible window of that C++ class, in the main window or in a
+// dialog it opened.
+HWND FindTestTarget(const std::string &target)
+{
+	CWnd *mainWnd = AfxGetMainWnd();
+	if(mainWnd == nullptr)
+		return nullptr;
+	HWND hwnd = FindByClass(mainWnd->GetSafeHwnd(), target);
+	for(QWidget *w : QApplication::topLevelWidgets())
+	{
+		auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
+		if(hwnd == nullptr && win32 != nullptr && w->isVisible())
+			hwnd = FindByClass(linopenmpt::qtwin::WindowOf(win32), target);
+	}
+	return hwnd;
+}
+
+// What the input handler sends a window when a shortcut is pressed.
+void SendKeyCommand(const std::string &target, const QString &name)
+{
+	CInputHandler *input = CMainFrame::GetInputHandler();
+	if(input == nullptr || input->m_activeCommandSet == nullptr)
+		return;
+	const CCommandSet &commands = *input->m_activeCommandSet;
+	const CString text = CString(name.toStdWString().c_str());
+	for(int cmd = 0; cmd < kcNumCommands; cmd++)
+	{
+		if(commands.GetCommandText(static_cast<CommandID>(cmd)) != text)
+			continue;
+		HWND hwnd = FindTestTarget(target);
+		if(hwnd == nullptr)
+		{
+			std::fprintf(stderr, "linOpenMPT: no visible %s for key command %s\n", target.c_str(), name.toLocal8Bit().constData());
+			return;
+		}
+		KeyCombination combination;
+		if(commands.GetKeyListSize(static_cast<CommandID>(cmd)) > 0)
+			combination = commands.GetKey(static_cast<CommandID>(cmd), 0);
+		::SendMessage(hwnd, WM_MOD_KEYCOMMAND, cmd, combination.AsLPARAM());
+		return;
+	}
+	std::fprintf(stderr, "linOpenMPT: no key command %s\n", name.toLocal8Bit().constData());
+}
+
+// When the tracker crashes: the modified modules, saved as upstream's
+// crash handler does (numbered, named after their titles), without the
+// document's user interface.
+int RescueModifiedModules(const mpt::PathString &folder)
+{
+	int saved = 0;
+	for(CModDoc *modDoc : theApp.GetOpenDocuments())
+	{
+		if(!modDoc->IsModified())
+			continue;
+		// The title is the file name, extension included, once saved.
+		const mpt::PathString extension = mpt::PathString::FromUnicode(modDoc->GetSoundFile().GetModSpecifications().GetFileExtension());
+		mpt::PathString title = mpt::PathString::FromCString(modDoc->GetTitle()).AsSanitizedComponent();
+		if(!mpt::PathCompareNoCase(title.GetFilenameExtension(), P_(".") + extension))
+			title = title.GetFilenameBase();
+		const mpt::PathString file = folder + mpt::PathString::FromUnicode(mpt::ufmt::val(saved + 1)) + P_("_") + title + P_(".") + extension;
+		try
+		{
+			if(modDoc->SaveFile(file, false))
+				saved++;
+		} catch(...)
+		{
+		}
+	}
+	return saved;
+}
+
 void ScheduleTestHooks()
 {
 	const char *file = std::getenv("LINOPENMPT_SCREENSHOT");
@@ -127,6 +209,15 @@ void ScheduleTestHooks()
 			// Class:id=N picks item N of a combo box (=last: the last).
 			const QStringList parts = id.trimmed().split(u':');
 			QString last = parts.back();
+			// Class:key=Name sends a keyboard command (a shortcut's).
+			if(last.startsWith(QLatin1String("key=")) && parts.size() > 1)
+			{
+				const QString name = last.mid(4);
+				const std::string target = parts.front().toStdString();
+				QTimer::singleShot(when, [name, target]() { SendKeyCommand(target, name); });
+				when += 500;
+				continue;
+			}
 			const bool page = last.startsWith(QLatin1String("page"));
 			QString select;
 			if(const int eq = last.indexOf(u'='); eq > 0)
@@ -145,14 +236,7 @@ void ScheduleTestHooks()
 					mainWnd->PostMessage(WM_COMMAND, command);
 					return;
 				}
-				// In the main window, or in a dialog it opened.
-				HWND hwnd = FindByClass(mainWnd->GetSafeHwnd(), target);
-				for(QWidget *w : QApplication::topLevelWidgets())
-				{
-					auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
-					if(hwnd == nullptr && win32 != nullptr && w->isVisible())
-						hwnd = FindByClass(linopenmpt::qtwin::WindowOf(win32), target);
-				}
+				HWND hwnd = FindTestTarget(target);
 				if(hwnd == nullptr)
 					std::fprintf(stderr, "linOpenMPT: no visible %s for command %u\n", target.c_str(), command);
 				else if(page)
@@ -176,6 +260,8 @@ void ScheduleTestHooks()
 			when += 500;
 		}
 	}
+	if(const char *crash = std::getenv("LINOPENMPT_CRASH"))
+		QTimer::singleShot(std::atoi(crash), []() { std::raise(SIGSEGV); });
 	const char *delayText = std::getenv("LINOPENMPT_SCREENSHOT_DELAY");
 	const int delay = delayText != nullptr ? std::atoi(delayText) : 3000;
 	const QString path = QString::fromLocal8Bit(file);
@@ -275,6 +361,7 @@ int main(int argc, char *argv[])
 	CWinApp *app = AfxGetApp();
 	if(app == nullptr)
 		return 1;
+	linopenmpt::SetCrashRescue(RescueModifiedModules);
 	// As AfxWinInit: the name of the program, without its folder.
 	if(app->m_pszExeName == nullptr)
 		app->m_pszExeName = _T("OpenMPT");
