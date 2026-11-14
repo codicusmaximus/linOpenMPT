@@ -15,6 +15,10 @@ for the plan and [docs/PORTING-STATUS.md](docs/PORTING-STATUS.md) for progress.
 
 ## Building
 
+See [docs/BUILDING.md](docs/BUILDING.md) for the full guide, including
+[Fedora Workstation 44](docs/BUILDING.md#fedora-workstation-44) (quick start in
+[instruction.md](instruction.md)) and troubleshooting.
+
 Ubuntu 24.04 / Debian packages:
 
 ```sh
