@@ -469,6 +469,84 @@ UINT GetDriveType(LPCWSTR rootPath)
 	return DRIVE_NO_ROOT_DIR;
 }
 
+namespace
+{
+
+// /proc/self/mounts writes spaces, tabs, newlines and backslashes in octal.
+std::string UnescapeMountPath(const std::string &path)
+{
+	std::string out;
+	for(std::size_t i = 0; i < path.size(); i++)
+	{
+		if(path[i] == '\\' && i + 3 < path.size()
+			&& path[i + 1] >= '0' && path[i + 1] <= '7' && path[i + 2] >= '0' && path[i + 2] <= '7' && path[i + 3] >= '0' && path[i + 3] <= '7')
+		{
+			out += static_cast<char>(((path[i + 1] - '0') << 6) | ((path[i + 2] - '0') << 3) | (path[i + 3] - '0'));
+			i += 3;
+		} else
+		{
+			out += path[i];
+		}
+	}
+	return out;
+}
+
+bool IsDirectory(const std::string &path)
+{
+	struct stat st;
+	return ::stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+// Where drives get mounted: /mnt/name, /media/name, /media/user/name and
+// /run/media/user/name (what udisks and fstab entries use). Mounts nested
+// deeper are part of something else.
+bool IsDriveMountPoint(const std::string &path)
+{
+	const auto depthBelow = [&path](const std::string &prefix) {
+		if(path.size() <= prefix.size() || path.compare(0, prefix.size(), prefix) != 0)
+			return -1;
+		std::string rest = path.substr(prefix.size());
+		while(!rest.empty() && rest.back() == '/')
+			rest.pop_back();
+		return rest.empty() ? -1 : static_cast<int>(std::count(rest.begin(), rest.end(), '/')) + 1;
+	};
+	const int mnt = depthBelow("/mnt/"), media = depthBelow("/media/"), runMedia = depthBelow("/run/media/");
+	return mnt == 1 || media == 1 || media == 2 || runMedia == 2;
+}
+
+} // namespace
+
+std::vector<std::wstring> LinOpenMPTFileBrowserPlaces()
+{
+	std::vector<std::string> places{"/"};
+	if(const char *home = std::getenv("HOME"); home != nullptr && home[0] == '/' && IsDirectory(home))
+		places.push_back(home);
+	if(FILE *mounts = std::fopen("/proc/self/mounts", "r"))
+	{
+		char line[4096];
+		while(std::fgets(line, sizeof(line), mounts) != nullptr)
+		{
+			char device[1024], mountPoint[1024];
+			if(std::sscanf(line, "%1023s %1023s", device, mountPoint) != 2)
+				continue;
+			const std::string path = UnescapeMountPath(mountPoint);
+			if(IsDriveMountPoint(path) && IsDirectory(path))
+				places.push_back(path);
+		}
+		std::fclose(mounts);
+	}
+	std::vector<std::wstring> result;
+	for(std::string &place : places)
+	{
+		if(place.back() != '/')
+			place += '/';
+		std::wstring wide = Wide(place.c_str());
+		if(std::find(result.begin(), result.end(), wide) == result.end())
+			result.push_back(std::move(wide));
+	}
+	return result;
+}
+
 BOOL DeviceIoControl(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD returned, LPOVERLAPPED)
 {
 	// Only asked of drive letters, which do not exist here.
