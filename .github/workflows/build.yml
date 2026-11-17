@@ -17,14 +17,17 @@ jobs:
           sudo apt-get update
           # jackd2 runs the JACK playback test (a private server, dummy driver).
           # dpf-plugins-vst has the Linux VST2 plugins the VST tests load, and
-          # Xvfb runs the one that embeds a plugin's editor.
+          # Xvfb runs the one that embeds a plugin's editor. MinGW builds the
+          # Wine bridge for Windows plugins and its test plugin, which Wine
+          # runs; xdotool clicks the bridged editor; libxcb1-dev places it.
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             cmake ninja-build pkg-config g++ \
             qt6-base-dev \
             libjack-jackd2-dev jackd2 libpulse-dev libasound2-dev libdbus-1-dev \
             zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev \
             libopus-dev libopusfile-dev libopusenc-dev libmp3lame-dev liblhasa-dev \
-            dpf-plugins-vst xvfb xauth
+            dpf-plugins-vst xvfb xauth \
+            g++-mingw-w64-x86-64 wine64 xdotool libxcb1-dev
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - name: Build

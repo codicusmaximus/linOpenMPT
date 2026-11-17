@@ -48,6 +48,16 @@ Fedora has DISTRHO's plugins (`dnf search dpf`), install them and point the
 tests at the folder they use, normally `/usr/lib64/vst` on Fedora (see
 [Running the tests](#4-run-the-tests-optional)).
 
+For Windows VST plugins (run in Wine through the tracker's own bridge),
+the bridge is built with MinGW and run with Wine; without MinGW the build
+leaves it out, and the tracker says so when asked to load a `.dll`:
+
+```sh
+sudo dnf install mingw64-gcc-c++ mingw64-winpthreads-static wine 'pkgconfig(xcb)'
+```
+
+`xdotool` lets the tests click a bridged plugin's editor.
+
 ### 2. Get the source
 
 ```sh
@@ -194,7 +204,9 @@ sudo apt install git cmake ninja-build pkg-config g++ python3 qt6-base-dev \
 ```
 
 The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
-and are skipped without them. Then follow steps 2 to 5 above.
+and are skipped without them. Windows VST plugins need the Wine bridge, built
+with MinGW and run with Wine (`g++-mingw-w64-x86-64 wine64 libxcb1-dev`, and
+`xdotool` for its click test). Then follow steps 2 to 5 above.
 
 ## Build options
 

@@ -1,12 +1,16 @@
-// Smoke test for native Linux VST2 hosting (step 4e): upstream's VST host
-// (mptrack/Vstplug.cpp) loading a real .so plugin in-process.
-//   - the plugin is recognised as native (ELF of this architecture) and a
-//     file that is not a shared object is not;
+// Smoke test for VST2 hosting: upstream's VST host (mptrack/Vstplug.cpp)
+// loading a real plugin, a native .so in-process (step 4e) or a Windows
+// .dll through the Wine bridge (vstbridge/).
+//   - a .so is recognised as native (ELF of this architecture), a .dll and
+//     a file that is not a plugin are not;
 //   - the plugin manager adds it, as scanning a plugin folder does;
 //   - a module rendered with the plugin on the master output sounds, and
 //     differently from the same module without it.
-// Usage: vst_host_test <plugin.so> <module>
-// Exits with 77 (skipped) when the plugin is not installed.
+// With the bridge's test plugin (vstbridge/testplugin.cpp), also its
+// parameters, MIDI and chunks across the bridge.
+// Usage: vst_host_test <plugin.so|plugin.dll> <module>
+// Exits with 77 (skipped) when the plugin is not installed, or for a .dll
+// when Wine is not.
 
 #include "stdafx.h"
 #include "../../platform/Platform.h"
@@ -20,6 +24,7 @@
 #include "mpt/io_read/filecursor_stdstream.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -90,9 +95,17 @@ int main(int argc, char *argv[])
 	const mpt::PathString pluginPath = mpt::PathString::FromUTF8(argv[1]);
 	int failures = 0;
 
-	if(!BridgeWrapper::IsPluginNative(pluginPath))
+	const std::string pluginName = argv[1];
+	const bool windows = pluginName.size() > 4 && pluginName.compare(pluginName.size() - 4, 4, ".dll") == 0;
+	const bool bridgeTestPlugin = pluginName.find("BridgeTestGain") != std::string::npos;
+	if(windows && std::system("command -v wine >/dev/null 2>&1") != 0)
 	{
-		std::cerr << "plugin not recognised as native\n";
+		std::cout << "Wine is not installed, skipped\n";
+		return 77;
+	}
+	if(BridgeWrapper::IsPluginNative(pluginPath) == windows)
+	{
+		std::cerr << (windows ? "Windows plugin recognised as native\n" : "plugin not recognised as native\n");
 		failures++;
 	}
 	if(BridgeWrapper::IsPluginNative(mpt::PathString::FromUTF8(argv[2])))
@@ -138,6 +151,34 @@ int main(int argc, char *argv[])
 		std::cout << ", first \"" << mpt::ToCharset(mpt::Charset::UTF8, plugin.GetParamName(0)) << "\" = " << plugin.GetParameter(0);
 	std::cout << "\n";
 
+	if(bridgeTestPlugin)
+	{
+		// Parameters both ways, then the state as a chunk both ways.
+		const float defaultGain = plugin.GetParameter(0);
+		plugin.SetParameter(0, 0.75f);
+		const float setGain = plugin.GetParameter(0);
+		const auto chunkSpan = plugin.GetChunk(false);
+		const std::vector<std::byte> chunk(chunkSpan.begin(), chunkSpan.end());
+		const std::string chunkText(reinterpret_cast<const char *>(chunk.data()), chunk.size());
+		plugin.SetParameter(0, 0.1f);
+		plugin.SetChunk(mpt::as_span(chunk), false);
+		const float restoredGain = plugin.GetParameter(0);
+		std::cout << "gain " << defaultGain << ", set " << setGain << ", chunk \"" << chunkText.c_str() << "\", restored " << restoredGain << "\n";
+		if(std::abs(defaultGain - 0.25f) > 1e-4 || std::abs(setGain - 0.75f) > 1e-4 || std::abs(restoredGain - 0.75f) > 1e-4 || chunkText.rfind("LTGAIN", 0) != 0)
+		{
+			std::cerr << "parameters or chunks did not cross the bridge\n";
+			failures++;
+		}
+		plugin.SetParameter(0, 0.25f);
+		if(mpt::ToCharset(mpt::Charset::UTF8, plugin.GetParamName(0)) != "Gain")
+		{
+			std::cerr << "wrong parameter name\n";
+			failures++;
+		}
+		// A note-on, which the plugin counts when it gets it with the audio.
+		plugin.MidiSend(0x7F3C90);
+	}
+
 	const std::vector<float> dryAudio = Render(*dry, 3.0);
 	const std::vector<float> wetAudio = Render(*wet, 3.0);
 	double difference = 0.0;
@@ -153,6 +194,11 @@ int main(int argc, char *argv[])
 	if(difference <= 1e-4)
 	{
 		std::cerr << "the plugin did not change the sound\n";
+		failures++;
+	}
+	if(bridgeTestPlugin && plugin.GetParameter(1) <= 0.0f)
+	{
+		std::cerr << "the note did not reach the plugin\n";
 		failures++;
 	}
 	return failures ? 1 : 0;

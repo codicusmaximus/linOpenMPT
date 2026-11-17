@@ -1,9 +1,8 @@
 // linOpenMPT: the host side of upstream's plugin bridge (pluginBridge/
-// BridgeWrapper.cpp) for Linux. The bridge runs Windows plugins in a
-// separate Windows process, so it is never available here: Create() reports
-// it as missing and upstream then loads the plugin in-process. What remains
-// is telling native plugins (ELF shared objects of this process's
-// architecture) from the rest.
+// BridgeWrapper.cpp) for Linux: telling native plugins (ELF shared objects
+// of this process's architecture) from the rest, which go through the Wine
+// bridge (vstbridge/). Upstream's own bridge executables (a Windows
+// component) are never available here.
 // Compiled as part of mpt_common (tracker configuration).
 #include "stdafx.h"
 
@@ -78,10 +77,8 @@ PluginArch BridgeWrapper::GetPluginBinaryType(const mpt::PathString &pluginPath)
 	}
 }
 
-Vst::AEffect *BridgeWrapper::Create(const VSTPluginLib &, bool)
-{
-	throw BridgeNotFoundException();
-}
+// BridgeWrapper::Create, which runs Windows plugins in Wine, is in
+// vstbridge/host.cpp, with the VST host.
 
 OPENMPT_NAMESPACE_END
 

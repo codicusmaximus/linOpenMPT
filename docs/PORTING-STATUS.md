@@ -553,12 +553,10 @@ upstream.
 - `LoadLibrary`, `GetProcAddress` and `FreeLibrary` are `dlopen`, `dlsym`
   and `dlclose` (`compat/src/win32.cpp`). A plugin that does not load
   prints `dlerror()` (a missing library, usually) to stderr.
-- The plugin bridge, which runs plugins in a separate Windows process, is
-  not built. `compat/src/vst_bridge.cpp` stands in for its host side: it
-  tells native plugins (ELF shared objects of this architecture) from the
-  rest, and reports the bridge as missing, so upstream loads plugins
-  in-process. A Windows `.dll` shows upstream's message that it needs the
-  bridge.
+- Upstream's plugin bridge, which runs plugins in a separate Windows
+  process, is not built. `compat/src/vst_bridge.cpp` tells native plugins
+  (ELF shared objects of this architecture) from the rest, which go to the
+  port's own Wine bridge (step 4h).
 - The plugin's own editor is an X11 window, which the plugin opens inside
   the editor dialog's plugin area (`LinOpenMPTNativeWindowId`,
   `platform/qtwin/embed.cpp`). For that the tracker runs on X11: on a
@@ -597,8 +595,7 @@ Found and fixed:
 Patch `0006-vst-host-on-linux.patch` holds the upstream changes: Linux
 branches next to the Windows code.
 
-Next: Windows VST plugins through a bridge (Wine), and the remaining
-dialogs.
+Windows plugins followed in step 4h, through the port's own Wine bridge.
 
 ### Step 4f: the remaining dialogs (done)
 
@@ -648,6 +645,55 @@ note properties window joined it in step 4g.)
 - **The note properties window** is in the screenshot pass. The harness
   can send a window a keyboard command by its name in the keyboard setup
   (`Class:key=Show_Note_Properties`), as its shortcut would.
+
+### Step 4h: Windows VST2 plugins through Wine (done)
+
+Windows plugins (64-bit `.dll`) load into the tracker and work as Linux
+ones do: sound, parameters and automation, MIDI, saved state (chunks), and
+their own editors inside the tracker's editor window.
+
+Upstream runs plugins it cannot load in-process in its plugin bridge, a
+separate Windows process that talks to the tracker through Windows shared
+memory, named events and window messages. None of those reach from a Wine
+process to a native Linux one, so the port has its own bridge (`vstbridge/`):
+
+- `linopenmpt-vstbridge.exe`, a small Windows program built with MinGW,
+  which the tracker runs in Wine, one per plugin. It loads the plugin and
+  serves the tracker's calls. Built when a MinGW compiler is found; without
+  it, loading a `.dll` reports the bridge as missing, as upstream does.
+- They talk over three local TCP connections (`protocol.h`): one for the
+  editor thread's calls (served by the bridge's window thread, so editors
+  run), one for audio, parameters and MIDI, and one for what the plugin
+  says on its own (a knob turned in its editor). The plugin's callbacks to
+  the host during a call come back on the same connection, and the tracker
+  answers them there, as it would on the same thread in-process. What each
+  opcode's pointer carries both ways is one table for both sides
+  (`opcodes.h`).
+- The tracker's side is upstream's own hook: `BridgeWrapper::Create`
+  (`vstbridge/host.cpp`) starts the bridge and returns a stand-in plugin
+  whose calls travel to it, and upstream's VST host uses it like any other.
+- The editor is a Wine window, which the tracker puts inside its editor
+  window (`LinOpenMPTEmbedX11Window`). Wine translates mouse positions with
+  where it believes its window is on the screen, so whenever the tracker's
+  window moves, the bridge moves its window to that screen position (which
+  Wine believes) and the tracker puts the X window back in place (which
+  Wine does not notice, for a window no window manager handles).
+- The plugin dialog, its folder scan and dropping a file take `.dll` files
+  too, and the welcome dialog also looks for Wine's usual plugin folders.
+  Plugins run in the user's Wine folder (`WINEPREFIX`, normally `~/.wine`).
+- 32-bit Windows plugins are refused with a message for now (they need a
+  32-bit bridge and Wine's 32-bit support).
+
+Tests: the bridge's own test plugin (`vstbridge/testplugin.cpp`, a stereo
+gain with a MIDI note counter, its state as a chunk and an editor that
+paints a gradient) is built with the bridge. `vst_bridge_test` loads it
+headless through the bridge, checks parameters and chunks both ways, sends
+it a note and renders a module through it. `app_wine_editor` opens its
+editor in the real tracker under Xvfb, checks the editor is inside the
+window, then clicks it with `xdotool` and checks that the parameter change
+reached the tracker at the right position. All are skipped without Wine.
+`LINOPENMPT_BRIDGE_TRACE=1` prints what the plugin tells the tracker on its
+own, for debugging.
 
 ## Step 5: the MFC to Qt6 bridge as its own project
 
