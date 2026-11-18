@@ -135,25 +135,34 @@ std::string FindInPath(const std::string &name)
 	return std::string();
 }
 
-// The bridge: $LINOPENMPT_VSTBRIDGE, else next to the tracker, else where
-// it is installed.
-std::string FindBridge()
+// The bridge for a plugin of this many bits: linopenmpt-vstbridge.exe (64)
+// or linopenmpt-vstbridge32.exe (32). $LINOPENMPT_VSTBRIDGE (or
+// $LINOPENMPT_VSTBRIDGE32) if set, else the one next to it, else next to the
+// tracker, else where it is installed.
+std::string FindBridge(int bits)
 {
-	if(const char *path = std::getenv("LINOPENMPT_VSTBRIDGE"); path != nullptr && *path)
+	const std::string name = bits == 32 ? "linopenmpt-vstbridge32.exe" : "linopenmpt-vstbridge.exe";
+	std::vector<std::string> candidates;
+	if(const char *path = std::getenv(bits == 32 ? "LINOPENMPT_VSTBRIDGE32" : "LINOPENMPT_VSTBRIDGE"); path != nullptr && *path)
 		return ::access(path, R_OK) == 0 ? path : std::string();
+	if(const char *path = std::getenv("LINOPENMPT_VSTBRIDGE"); bits == 32 && path != nullptr && *path)
+	{
+		const std::string other = path;
+		const auto slash = other.find_last_of('/');
+		candidates.push_back((slash == std::string::npos ? std::string(".") : other.substr(0, slash)) + "/" + name);
+	}
 	char self[4096];
 	const ssize_t length = ::readlink("/proc/self/exe", self, sizeof(self) - 1);
-	std::vector<std::string> candidates;
 	if(length > 0)
 	{
 		std::string dir(self, static_cast<std::size_t>(length));
 		dir = dir.substr(0, dir.find_last_of('/'));
-		candidates.push_back(dir + "/linopenmpt-vstbridge.exe");
-		candidates.push_back(dir + "/../lib/linopenmpt/linopenmpt-vstbridge.exe");
-		candidates.push_back(dir + "/../vstbridge/linopenmpt-vstbridge.exe");  // build tree
+		candidates.push_back(dir + "/" + name);
+		candidates.push_back(dir + "/../lib/linopenmpt/" + name);
+		candidates.push_back(dir + "/../vstbridge/" + name);  // build tree
 	}
-#ifdef LINOPENMPT_VSTBRIDGE_INSTALL_PATH
-	candidates.push_back(LINOPENMPT_VSTBRIDGE_INSTALL_PATH);
+#ifdef LINOPENMPT_VSTBRIDGE_INSTALL_DIR
+	candidates.push_back(std::string(LINOPENMPT_VSTBRIDGE_INSTALL_DIR "/") + name);
 #endif
 	for(const auto &candidate : candidates)
 	{
@@ -257,20 +266,25 @@ public:
 		// in-process.
 		if(BridgeWrapper::IsPluginNative(lib.dllPath))
 			throw BridgeWrapper::BridgeNotFoundException();
-		const std::string bridge = FindBridge();
-		if(bridge.empty())
-			throw BridgeWrapper::BridgeNotFoundException();
-		const char *wineName = std::getenv("LINOPENMPT_WINE");
-		const std::string wine = FindInPath(wineName && *wineName ? wineName : "wine");
-		if(wine.empty())
-			throw BridgeWrapper::BridgeException(U_("Windows plugins run in Wine, which is not installed. Install Wine (the wine or wine64 package) and try again."));
 		if(::access(lib.dllPath.AsNative().c_str(), R_OK) != 0)
 			throw BridgeWrapper::BridgeException(U_("The plugin file cannot be found: ") + lib.dllPath.ToUnicode());
 		const int bits = WindowsBinaryBits(lib.dllPath);
-		if(bits == 32)
-			throw BridgeWrapper::BridgeException(U_("This is a 32-bit Windows plugin. Only 64-bit Windows plugins can be loaded so far."));
-		if(bits != 64)
-			throw BridgeWrapper::BridgeException(U_("This file is neither a Linux nor a 64-bit Windows plugin."));
+		if(bits != 32 && bits != 64)
+			throw BridgeWrapper::BridgeException(U_("This file is neither a Linux nor a Windows (32-bit or 64-bit) plugin."));
+		const std::string bridge = FindBridge(bits);
+		if(bridge.empty())
+		{
+			// No bridge at all: as for any missing bridge. Only no 32-bit
+			// one: say so.
+			if(bits == 32 && !FindBridge(64).empty())
+				throw BridgeWrapper::BridgeException(U_("This is a 32-bit Windows plugin, and this build of OpenMPT has no bridge for 32-bit plugins (linopenmpt-vstbridge32.exe)."));
+			throw BridgeWrapper::BridgeNotFoundException();
+		}
+		const char *wineName = std::getenv("LINOPENMPT_WINE");
+		const std::string wine = FindInPath(wineName && *wineName ? wineName : "wine");
+		if(wine.empty())
+			throw BridgeWrapper::BridgeException(U_("Windows plugins run in Wine, which is not installed. Install Wine (the wine package) and try again."));
+		m_bits = bits;
 
 		// Listen on a port of our own, on this machine only.
 		const int listener = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
@@ -331,6 +345,8 @@ public:
 			if(::waitpid(m_pid, nullptr, WNOHANG) == m_pid)
 			{
 				m_pid = 0;
+				if(m_bits == 32)
+					throw BridgeWrapper::BridgeException(U_("The plugin bridge stopped while starting. 32-bit Windows plugins need Wine's 32-bit part (the wine32 package on Debian and Ubuntu, wine.i686 on Fedora)."));
 				throw BridgeWrapper::BridgeException(U_("The plugin bridge stopped while starting."));
 			}
 			if(!WaitReadable(listener, 200))
@@ -394,6 +410,7 @@ public:
 private:
 	int m_control = -1, m_audio = -1, m_notify = -1;
 	pid_t m_pid = 0;
+	int m_bits = 64;  // the plugin's, and so its bridge's
 	std::recursive_mutex m_controlMutex, m_audioMutex;
 	std::thread m_notifyThread;
 	std::atomic<bool> m_dead{false};

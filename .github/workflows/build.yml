@@ -14,6 +14,9 @@ jobs:
           submodules: true
       - name: Install dependencies
         run: |
+          # wine has the wine command (wine64 alone has not); i386: Wine's
+          # 32-bit part, for the 32-bit bridge's tests.
+          sudo dpkg --add-architecture i386
           sudo apt-get update
           # jackd2 runs the JACK playback test (a private server, dummy driver).
           # dpf-plugins-vst has the Linux VST2 plugins the VST tests load, and
@@ -27,7 +30,8 @@ jobs:
             zlib1g-dev libmpg123-dev libogg-dev libvorbis-dev libflac-dev \
             libopus-dev libopusfile-dev libopusenc-dev libmp3lame-dev liblhasa-dev \
             dpf-plugins-vst xvfb xauth \
-            g++-mingw-w64-x86-64 wine64 xdotool libxcb1-dev
+            g++-mingw-w64-x86-64 wine64 xdotool libxcb1-dev \
+            g++-mingw-w64-i686 wine wine32:i386
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - name: Build

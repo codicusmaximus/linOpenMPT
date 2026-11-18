@@ -55,8 +55,17 @@ if(TARGET openmpt AND LINOPENMPT_BUILD_TESTS)
     # under Xvfb. The tracker finds the bridge in the build tree.
     add_test(NAME app_wine_editor COMMAND ${CMAKE_SOURCE_DIR}/tools/smoke/app_wine_editor_test.sh
       $<TARGET_FILE:openmpt> ${LINOPENMPT_PLUGIN_MODULES}/wine.mptm ${LINOPENMPT_VSTBRIDGE_TEST_DLL} ${CMAKE_CURRENT_BINARY_DIR}/app_wine_editor)
+    # Wine processes of one Wine folder share one desktop, on one X display:
+    # the editor tests, each on an Xvfb of its own, take turns.
     set_tests_properties(app_wine_editor PROPERTIES FIXTURES_REQUIRED "plugin_modules;wine_prefix" SKIP_RETURN_CODE 77
-      ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+      RESOURCE_LOCK wine_display ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    if(LINOPENMPT_VSTBRIDGE32_TEST_DLL)
+      # The same, 32-bit, through the 32-bit bridge.
+      add_test(NAME app_wine_editor32 COMMAND ${CMAKE_SOURCE_DIR}/tools/smoke/app_wine_editor_test.sh
+        $<TARGET_FILE:openmpt> ${LINOPENMPT_PLUGIN_MODULES}/wine.mptm ${LINOPENMPT_VSTBRIDGE32_TEST_DLL} ${CMAKE_CURRENT_BINARY_DIR}/app_wine_editor32)
+      set_tests_properties(app_wine_editor32 PROPERTIES FIXTURES_REQUIRED "plugin_modules;wine_prefix" SKIP_RETURN_CODE 77
+        RESOURCE_LOCK wine_display ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    endif()
   endif()
   find_program(JACKD_EXECUTABLE jackd)
   if(LINOPENMPT_WITH_JACK AND JACKD_EXECUTABLE)

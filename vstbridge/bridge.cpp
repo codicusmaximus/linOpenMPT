@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -41,6 +42,14 @@ using uint64 = std::uint64_t;
 }  // namespace vstdefs
 
 namespace Vst = vstdefs::Vst;
+
+// The structures that travel as they are (opcodes.h) must have the 64-bit
+// host's layout in a 32-bit bridge too: these are their sizes there.
+static_assert(sizeof(Vst::VstTimeInfo) == 88 && offsetof(Vst::VstTimeInfo, timeSigNumerator) == 64);
+static_assert(sizeof(Vst::VstPinProperties) == 128 && sizeof(Vst::VstParameterProperties) == 152);
+static_assert(sizeof(Vst::MidiProgramName) == 80 && sizeof(Vst::MidiProgramCategory) == 76 && sizeof(Vst::MidiKeyName) == 80);
+static_assert(sizeof(Vst::VstPatchChunkInfo) == 64 && sizeof(Vst::VstSpeakerArrangement) == 904 && sizeof(Vst::ERect) == 8);
+static_assert(sizeof(Vst::VstEvent) == 16 && sizeof(Vst::VstMidiEvent) == 32);
 
 #include "opcodes.h"
 
@@ -611,7 +620,7 @@ bool Connect(Channel &channel, uint16_t port, const char *token, Connection whic
 	HelloPayload hello{};
 	hello.version = kProtocolVersion;
 	hello.connection = static_cast<uint32_t>(which);
-	std::strncpy(hello.token, token, kTokenLength);
+	std::strncpy(hello.token, token, kTokenLength - 1);
 	return Send(channel, MakeMessage(MsgType::hello, &hello, sizeof(hello)));
 }
 

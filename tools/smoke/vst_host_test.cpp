@@ -103,6 +103,14 @@ int main(int argc, char *argv[])
 		std::cout << "Wine is not installed, skipped\n";
 		return 77;
 	}
+	// A 32-bit plugin needs Wine's 32-bit part: the 32-bit bridge, run
+	// with no arguments, then prints its usage and exits with 2.
+	if(windows && pluginName.find("32.dll") != std::string::npos
+	   && std::system("WINEDEBUG=-all wine \"$(dirname \"$LINOPENMPT_VSTBRIDGE\")/linopenmpt-vstbridge32.exe\" >/dev/null 2>&1; test $? = 2") != 0)
+	{
+		std::cout << "Wine's 32-bit part is not installed, skipped\n";
+		return 77;
+	}
 	if(BridgeWrapper::IsPluginNative(pluginPath) == windows)
 	{
 		std::cerr << (windows ? "Windows plugin recognised as native\n" : "plugin not recognised as native\n");

@@ -66,8 +66,17 @@ if(TARGET mpt_soundlib)
     set_tests_properties(wine_prefix PROPERTIES FIXTURES_SETUP wine_prefix SKIP_RETURN_CODE 77 TIMEOUT 300
       ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
     add_test(NAME vst_bridge_test COMMAND vst_host_test ${LINOPENMPT_VSTBRIDGE_TEST_DLL} ${MPT_UPSTREAM_DIR}/test/test.mod)
+    # Wine processes of one Wine folder share one desktop, on one X display
+    # (or none): the tests that run Wine take turns (also app_wine_editor).
     set_tests_properties(vst_bridge_test PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED wine_prefix
-      ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_bridge_test_config;LINOPENMPT_VSTBRIDGE=${LINOPENMPT_VSTBRIDGE_EXE};WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+      RESOURCE_LOCK wine_display ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_bridge_test_config;LINOPENMPT_VSTBRIDGE=${LINOPENMPT_VSTBRIDGE_EXE};WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    if(LINOPENMPT_VSTBRIDGE32_TEST_DLL)
+      # The same plugin built 32-bit, through the 32-bit bridge (found next
+      # to the 64-bit one). Without Wine's 32-bit part, skipped.
+      add_test(NAME vst_bridge32_test COMMAND vst_host_test ${LINOPENMPT_VSTBRIDGE32_TEST_DLL} ${MPT_UPSTREAM_DIR}/test/test.mod)
+      set_tests_properties(vst_bridge32_test PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED wine_prefix
+        RESOURCE_LOCK wine_display ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_bridge32_test_config;LINOPENMPT_VSTBRIDGE=${LINOPENMPT_VSTBRIDGE_EXE};WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    endif()
     set(LINOPENMPT_TEST_WINEPREFIX ${LINOPENMPT_TEST_WINEPREFIX} PARENT_SCOPE)
   endif()
   set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
