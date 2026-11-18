@@ -283,7 +283,7 @@ public:
 		const char *wineName = std::getenv("LINOPENMPT_WINE");
 		const std::string wine = FindInPath(wineName && *wineName ? wineName : "wine");
 		if(wine.empty())
-			throw BridgeWrapper::BridgeException(U_("Windows plugins run in Wine, which is not installed. Install Wine (the wine or wine64 package) and try again."));
+			throw BridgeWrapper::BridgeException(U_("Windows plugins run in Wine, which is not installed. Install Wine (the wine package) and try again."));
 		m_bits = bits;
 
 		// Listen on a port of our own, on this machine only.

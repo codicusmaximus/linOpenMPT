@@ -212,7 +212,7 @@ sudo apt install git cmake ninja-build pkg-config g++ python3 qt6-base-dev \
 
 The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
 and are skipped without them. Windows VST plugins need the Wine bridge, built
-with MinGW and run with Wine (`g++-mingw-w64-x86-64 wine64 libxcb1-dev`, and
+with MinGW and run with Wine (`g++-mingw-w64-x86-64 wine wine64 libxcb1-dev`, and
 `xdotool` for its click test). For 32-bit Windows plugins add
 `g++-mingw-w64-i686` and, after `sudo dpkg --add-architecture i386 && sudo
 apt update`, `wine32:i386`. Then follow steps 2 to 5 above.

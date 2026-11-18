@@ -32,7 +32,7 @@ The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
 and are skipped without them.
 
 Windows VST plugins (`.dll`, 64-bit or 32-bit) run in Wine, through a small
-bridge program built with MinGW: add `g++-mingw-w64-x86-64 wine64
+bridge program built with MinGW: add `g++-mingw-w64-x86-64 wine wine64
 libxcb1-dev` (and `xdotool` for its tests). For 32-bit plugins, also add
 `g++-mingw-w64-i686` and Wine's 32-bit part (`sudo dpkg --add-architecture
 i386`, then `wine32:i386`). Add a plugin from the plugin dialog as usual,
