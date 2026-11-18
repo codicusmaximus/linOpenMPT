@@ -373,6 +373,41 @@ using LPCMENUITEMINFO = const MENUITEMINFO *;
 #define EVENT_OBJECT_NAMECHANGE 0x800C
 #define EVENT_OBJECT_VALUECHANGE 0x800E
 void NotifyWinEvent(DWORD event, HWND hwnd, LONG idObject, LONG idChild);
+// What a window says about itself to screen readers, beyond its class,
+// text and state: kind 0 its name, 1 its value, 2 its description. The MFC
+// layer answers with CWnd::get_accName and friends.
+void LinOpenMPTSetAccessibleTextHook(BOOL (*hook)(HWND hwnd, int kind, std::wstring &text));
+// Touch gestures (WM_GESTURE): the platform layer turns touch screen
+// input into them as Windows does with its default gesture settings (one
+// finger pans, two zoom; a tap clicks, a long press right-clicks), and a
+// touch pad's pinch into zoom. A window that leaves GID_PAN to
+// DefWindowProc gets the drag as mouse input instead.
+#define GID_BEGIN 1
+#define GID_END 2
+#define GID_ZOOM 3
+#define GID_PAN 4
+#define GID_ROTATE 5
+#define GID_TWOFINGERTAP 6
+#define GID_PRESSANDTAP 7
+#define GF_BEGIN 0x00000001
+#define GF_INERTIA 0x00000002
+#define GF_END 0x00000004
+LINOPENMPT_DECLARE_HANDLE(HGESTUREINFO);
+struct GESTUREINFO
+{
+	UINT cbSize;
+	DWORD dwFlags;
+	DWORD dwID;
+	HWND hwndTarget;
+	POINTS ptsLocation;  // screen coordinates
+	DWORD dwInstanceID;
+	DWORD dwSequenceID;
+	ULONGLONG ullArguments;  // GID_ZOOM: the distance between the fingers
+	UINT cbExtraArgs;
+};
+using PGESTUREINFO = GESTUREINFO *;
+BOOL GetGestureInfo(HGESTUREINFO handle, PGESTUREINFO info);
+BOOL CloseGestureInfoHandle(HGESTUREINFO handle);
 // Window hooks. The tracker uses a CBT hook to see focus changes.
 #define WH_KEYBOARD 2
 #define WH_CBT 5

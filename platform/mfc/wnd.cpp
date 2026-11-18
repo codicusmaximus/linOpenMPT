@@ -381,6 +381,89 @@ LRESULT CWnd::WindowProc(UINT msg, WPARAM wp, LPARAM lp)
 	return result;
 }
 
+namespace
+{
+// Screen readers ask the window's CWnd: get_accName and friends, for the
+// window itself (CHILDID_SELF). No answer leaves it to the platform layer.
+BOOL AccessibleText(HWND hwnd, int kind, std::wstring &text)
+{
+	CWnd *wnd = CWnd::FromHandlePermanent(hwnd);
+	if(wnd == nullptr)
+		return FALSE;
+	VARIANT self{};
+	self.vt = 3;  // VT_I4
+	self.lVal = CHILDID_SELF;
+	BSTR answer = nullptr;
+	HRESULT result = E_FAIL;
+	switch(kind)
+	{
+	case 0: result = wnd->get_accName(self, &answer); break;
+	case 1: result = wnd->get_accValue(self, &answer); break;
+	case 2: result = wnd->get_accDescription(self, &answer); break;
+	default: break;
+	}
+	if(answer == nullptr)
+		return FALSE;
+	if(SUCCEEDED(result))
+		text = answer;
+	::SysFreeString(answer);
+	return SUCCEEDED(result) ? TRUE : FALSE;
+}
+
+const bool g_accessibleTextHook = (LinOpenMPTSetAccessibleTextHook(AccessibleText), true);
+} // namespace
+
+BOOL CWnd::OnGestureMessage(LPARAM lp)
+{
+	GESTUREINFO info{};
+	info.cbSize = sizeof(info);
+	if(!::GetGestureInfo(reinterpret_cast<HGESTUREINFO>(lp), &info))
+		return FALSE;
+	CPoint point(info.ptsLocation.x, info.ptsLocation.y);
+	ScreenToClient(&point);
+	BOOL handled = FALSE;
+	switch(info.dwID)
+	{
+	case GID_PAN:
+		// The first one says where the pan starts; each next one where it
+		// has got to since.
+		if(info.dwFlags & (GF_BEGIN | GF_END))
+		{
+			m_ptGestureFrom = point;
+			return TRUE;
+		}
+		handled = OnGesturePan(m_ptGestureFrom, point);
+		m_ptGestureFrom = point;
+		break;
+	case GID_ZOOM:
+		// Likewise, with the distance between the fingers.
+		if(info.dwFlags & (GF_BEGIN | GF_END))
+		{
+			m_ptGestureFrom = point;
+			m_ulGestureArg = info.ullArguments;
+			return TRUE;
+		}
+		handled = OnGestureZoom(point, static_cast<long>(static_cast<LONGLONG>(info.ullArguments) - static_cast<LONGLONG>(m_ulGestureArg)));
+		m_ptGestureFrom = point;
+		m_ulGestureArg = info.ullArguments;
+		break;
+	case GID_ROTATE:
+		handled = OnGestureRotate(point, (static_cast<double>(info.ullArguments & 0xFFFF) / 65535.0 * 4.0 - 2.0) * 3.14159265358979323846);
+		break;
+	case GID_TWOFINGERTAP:
+		handled = OnGestureTwoFingerTap(point);
+		break;
+	case GID_PRESSANDTAP:
+		handled = OnGesturePressAndTap(point, static_cast<long>(info.ullArguments));
+		break;
+	default:
+		break;
+	}
+	if(handled)
+		::CloseGestureInfoHandle(reinterpret_cast<HGESTUREINFO>(lp));
+	return handled;
+}
+
 BOOL CWnd::PreTranslateMessage(MSG *msg)
 {
 	// MFC's tooltips: some messages pop them up, some put them away.
@@ -546,6 +629,12 @@ BOOL CWnd::OnWndMsg(UINT msg, WPARAM wp, LPARAM lp, LRESULT *pResult)
 		{
 		case WM_NCDESTROY:
 			OnNcDestroy();
+			return TRUE;
+		case WM_GESTURE:
+			if(!OnGestureMessage(lp))
+				return FALSE;
+			if(pResult)
+				*pResult = 0;
 			return TRUE;
 		case WM_DRAWITEM:
 		case WM_MEASUREITEM:

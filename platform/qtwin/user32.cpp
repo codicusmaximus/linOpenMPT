@@ -18,6 +18,8 @@
 #include <QtGui/QIcon>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QPointingDevice>
+#include <QtGui/QStyleHints>
 #include <QtGui/QResizeEvent>
 #include <QtGui/QScreen>
 #include <QtGui/QWheelEvent>
@@ -153,6 +155,8 @@ LPARAM PointParam(const QPoint &p)
 }
 
 HWND g_capture = nullptr;
+// Set by DefWindowProc for WM_GESTURE: the window left the gesture alone.
+bool g_gestureUnhandled = false;
 HWND g_focus = nullptr; // the last window that had the focus
 bool g_hasFocus = false; // and whether it still has it
 
@@ -243,6 +247,9 @@ Win32Widget::Win32Widget(QWidget *parent, Qt::WindowFlags flags)
 	setFocusPolicy(Qt::ClickFocus);
 	// Upstream paints everything itself in WM_PAINT/WM_ERASEBKGND.
 	setAttribute(Qt::WA_OpaquePaintEvent);
+	// Touch screens: gestures and clicks, as Windows makes them (TouchEvent).
+	setAttribute(Qt::WA_AcceptTouchEvents);
+	InstallAccessibility();
 }
 
 Win32Widget::~Win32Widget()
@@ -264,6 +271,22 @@ bool Win32Widget::event(QEvent *e)
 	}
 	if(HandleFileDropEvent(this, e))
 		return true;
+	switch(e->type())
+	{
+	case QEvent::TouchBegin:
+	case QEvent::TouchUpdate:
+	case QEvent::TouchEnd:
+	case QEvent::TouchCancel:
+		if(TouchEvent(static_cast<QTouchEvent *>(e)))
+			return true;
+		break;
+	case QEvent::NativeGesture:
+		if(NativeGestureEvent(static_cast<QNativeGestureEvent *>(e)))
+			return true;
+		break;
+	default:
+		break;
+	}
 	if(e->type() == QEvent::Enter && data.trackLeave)
 	{
 		// TrackMouseEvent() requests are one-shot.
@@ -429,6 +452,228 @@ void Win32Widget::wheelEvent(QWheelEvent *e)
 	e->accept();
 }
 
+// ---- touch -----------------------------------------------------------------
+
+// WM_GESTURE, with the point in client coordinates of this widget. Returns
+// whether the window handled it (rather than leaving it to DefWindowProc).
+bool Win32Widget::SendGesture(DWORD id, DWORD flags, const QPointF &local, ULONGLONG arguments)
+{
+	const QPoint g = mapToGlobal(local).toPoint();
+	GESTUREINFO info{};
+	info.cbSize = sizeof(info);
+	info.dwFlags = flags;
+	info.dwID = id;
+	info.hwndTarget = hwnd();
+	info.ptsLocation = POINTS{g.x(), g.y()};
+	info.dwSequenceID = touch.sequence;
+	info.ullArguments = arguments;
+	const HWND self = hwnd();
+	g_gestureUnhandled = false;
+	::SendMessage(self, WM_GESTURE, id, reinterpret_cast<LPARAM>(&info));
+	return !g_gestureUnhandled && FromHandle(self) == this;
+}
+
+// Mouse input made from touch, through the mouse handlers.
+void Win32Widget::TouchMouse(QEvent::Type type, Qt::MouseButton button, const QPointF &local)
+{
+	const Qt::MouseButtons buttons = (type == QEvent::MouseButtonRelease) ? Qt::NoButton : (type == QEvent::MouseMove ? Qt::LeftButton : Qt::MouseButtons(button));
+	QMouseEvent e(type, local, mapToGlobal(local), button, buttons, QGuiApplication::keyboardModifiers());
+	switch(type)
+	{
+	case QEvent::MouseButtonPress: mousePressEvent(&e); break;
+	case QEvent::MouseButtonRelease: mouseReleaseEvent(&e); break;
+	case QEvent::MouseButtonDblClick: mouseDoubleClickEvent(&e); break;
+	default: mouseMoveEvent(&e); break;
+	}
+}
+
+// A touch screen, as Windows with its default gesture settings: one finger
+// that moves pans (GID_PAN), two fingers zoom (GID_ZOOM), a tap clicks, a
+// long press right-clicks. A window that leaves the pan to DefWindowProc
+// gets the drag as mouse input. Other touch devices are left to Qt.
+bool Win32Widget::TouchEvent(QTouchEvent *e)
+{
+	if(e->device() == nullptr || e->device()->type() != QInputDevice::DeviceType::TouchScreen)
+		return false;
+	e->accept();
+	const HWND self = hwnd();
+	QPointF position;
+	std::vector<QPointF> down, downBefore;  // fingers on the screen, now and at the last event
+	for(const QEventPoint &point : e->points())
+	{
+		if(point.state() != QEventPoint::Released)
+		{
+			down.push_back(point.position());
+			downBefore.push_back(point.state() == QEventPoint::Pressed ? point.position() : point.lastPosition());
+		}
+	}
+	if(!e->points().isEmpty())
+		position = down.empty() ? e->points().front().position() : down.front();
+	const qint64 now = static_cast<qint64>(e->timestamp());
+
+	if(e->type() == QEvent::TouchBegin)
+	{
+		touch.mode = Touch::Mode::undecided;
+		touch.start = position;
+		touch.startTime = now;
+		touch.panning = touch.zooming = false;
+		touch.sequence++;
+		return true;
+	}
+	if(touch.mode == Touch::Mode::none)
+		return true;
+	const bool end = e->type() == QEvent::TouchEnd || e->type() == QEvent::TouchCancel;
+
+	if(touch.mode == Touch::Mode::mouse)
+	{
+		TouchMouse(end ? QEvent::MouseButtonRelease : QEvent::MouseMove, Qt::LeftButton, position);
+		if(end)
+			touch.mode = Touch::Mode::none;
+		return true;
+	}
+
+	if(end)
+	{
+		if(touch.mode == Touch::Mode::undecided && e->type() == QEvent::TouchEnd)
+		{
+			// A tap: a click, a double click, or after a long press, a
+			// right click.
+			if(now - touch.startTime >= 800)
+			{
+				TouchMouse(QEvent::MouseButtonPress, Qt::RightButton, touch.start);
+				if(FromHandle(self) == this)
+					TouchMouse(QEvent::MouseButtonRelease, Qt::RightButton, touch.start);
+				touch.lastTapTime = -1;
+			} else
+			{
+				const bool dbl = touch.lastTapTime >= 0 && now - touch.lastTapTime <= QGuiApplication::styleHints()->mouseDoubleClickInterval()
+					&& QLineF(touch.lastTap, touch.start).length() <= QGuiApplication::styleHints()->startDragDistance() * 2;
+				TouchMouse(dbl ? QEvent::MouseButtonDblClick : QEvent::MouseButtonPress, Qt::LeftButton, touch.start);
+				if(FromHandle(self) == this)
+					TouchMouse(QEvent::MouseButtonRelease, Qt::LeftButton, touch.start);
+				touch.lastTap = touch.start;
+				touch.lastTapTime = dbl ? -1 : now;
+			}
+		} else if(touch.mode == Touch::Mode::gesture)
+		{
+			if(touch.zooming)
+				SendGesture(GID_ZOOM, GF_END, position);
+			if(touch.panning && FromHandle(self) == this)
+				SendGesture(GID_PAN, GF_END, position);
+			if(FromHandle(self) == this)
+				SendGesture(GID_END, GF_END, position);
+		}
+		if(FromHandle(self) == this)
+			touch.mode = Touch::Mode::none;
+		return true;
+	}
+
+	if(down.size() >= 2)
+	{
+		// Two fingers: zoom, around the point between them.
+		const QPointF centre = (down[0] + down[1]) / 2;
+		const auto distance = static_cast<ULONGLONG>(QLineF(down[0], down[1]).length());
+		if(touch.mode == Touch::Mode::undecided)
+		{
+			touch.mode = Touch::Mode::gesture;
+			SendGesture(GID_BEGIN, GF_BEGIN, centre);
+		}
+		if(touch.panning)
+		{
+			SendGesture(GID_PAN, GF_END, centre);
+			touch.panning = false;
+		}
+		if(FromHandle(self) != this)
+			return true;
+		if(!touch.zooming)
+		{
+			// From where the fingers were, so that this move zooms already.
+			touch.zooming = true;
+			SendGesture(GID_ZOOM, GF_BEGIN, (downBefore[0] + downBefore[1]) / 2, static_cast<ULONGLONG>(QLineF(downBefore[0], downBefore[1]).length()));
+			if(FromHandle(self) != this)
+				return true;
+		}
+		SendGesture(GID_ZOOM, 0, centre, distance);
+		return true;
+	}
+
+	if(touch.mode == Touch::Mode::undecided)
+	{
+		if(QLineF(touch.start, position).length() < QGuiApplication::styleHints()->startDragDistance())
+			return true;
+		// One finger moved: a pan, unless the window does not take pans.
+		SendGesture(GID_BEGIN, GF_BEGIN, touch.start);
+		if(FromHandle(self) == this)
+			SendGesture(GID_PAN, GF_BEGIN, touch.start);
+		if(FromHandle(self) != this)
+			return true;
+		if(SendGesture(GID_PAN, 0, position))
+		{
+			touch.mode = Touch::Mode::gesture;
+			touch.panning = true;
+			return true;
+		}
+		if(FromHandle(self) != this)
+			return true;
+		SendGesture(GID_END, GF_END, position);
+		touch.mode = Touch::Mode::mouse;
+		TouchMouse(QEvent::MouseButtonPress, Qt::LeftButton, touch.start);
+		if(FromHandle(self) == this)
+			TouchMouse(QEvent::MouseMove, Qt::LeftButton, position);
+		return true;
+	}
+
+	// A gesture going on, with one finger (again).
+	if(touch.zooming)
+	{
+		SendGesture(GID_ZOOM, GF_END, position);
+		touch.zooming = false;
+		if(FromHandle(self) != this)
+			return true;
+	}
+	SendGesture(GID_PAN, touch.panning ? 0 : GF_BEGIN, position);
+	touch.panning = true;
+	return true;
+}
+
+// A touch pad's pinch: zoom, as on a touch screen whose fingers start 200
+// pixels apart.
+bool Win32Widget::NativeGestureEvent(QNativeGestureEvent *e)
+{
+	const QPointF position = e->position();
+	switch(e->gestureType())
+	{
+	case Qt::ZoomNativeGesture:
+		if(touch.pinch <= 0.0)
+		{
+			touch.pinch = 200.0;
+			touch.sequence++;
+			const HWND self = hwnd();
+			SendGesture(GID_BEGIN, GF_BEGIN, position);
+			if(FromHandle(self) != this)
+				return true;
+			SendGesture(GID_ZOOM, GF_BEGIN, position, 200);
+			if(FromHandle(self) != this)
+				return true;
+		}
+		touch.pinch = std::max(touch.pinch * (1.0 + e->value()), 1.0);
+		SendGesture(GID_ZOOM, 0, position, static_cast<ULONGLONG>(touch.pinch));
+		return true;
+	case Qt::EndNativeGesture:
+		if(touch.pinch > 0.0)
+		{
+			touch.pinch = 0.0;
+			const HWND self = hwnd();
+			SendGesture(GID_ZOOM, GF_END, position);
+			if(FromHandle(self) == this)
+				SendGesture(GID_END, GF_END, position);
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+
 namespace
 {
 // lParam of keyboard messages: repeat count, scan code, extended flag,
@@ -537,6 +782,7 @@ void Win32Widget::HandleFocusIn()
 	const HWND old = (g_focus != self && FromHandle(g_focus)) ? g_focus : nullptr;
 	g_focus = self;
 	g_hasFocus = true;
+	DescribeFocusProxy(this);
 	CallHooks(WH_CBT, HCBT_SETFOCUS, reinterpret_cast<WPARAM>(self), reinterpret_cast<LPARAM>(old));
 	::SendMessage(self, WM_SETFOCUS, reinterpret_cast<WPARAM>(old), 0);
 	if(FromHandle(self))
@@ -1140,6 +1386,11 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	{
 	case WM_NCCREATE:
 		return TRUE;
+	case WM_GESTURE:
+		// No legacy panning: Win32Widget::TouchEvent turns an unhandled pan
+		// into mouse input.
+		g_gestureUnhandled = true;
+		return 0;
 	case WM_CLOSE:
 		::DestroyWindow(hwnd);
 		return 0;
@@ -1480,9 +1731,23 @@ BOOL EnumWindows(WNDENUMPROC proc, LPARAM lParam)
 	return TRUE;
 }
 
+BOOL GetGestureInfo(HGESTUREINFO handle, PGESTUREINFO info)
+{
+	if(handle == nullptr || info == nullptr)
+		return FALSE;
+	*info = *reinterpret_cast<const GESTUREINFO *>(handle);
+	return TRUE;
+}
+
+BOOL CloseGestureInfoHandle(HGESTUREINFO)
+{
+	// The information lives as long as the WM_GESTURE call.
+	return TRUE;
+}
+
 HWND GetDesktopWindow()
 {
-	return nullptr;
+	return DesktopWindow();
 }
 
 DWORD GetWindowThreadProcessId(HWND, LPDWORD processID)
@@ -1793,8 +2058,32 @@ LONG SetWindowLong(HWND hwnd, int index, LONG value)
 
 // ---- geometry -------------------------------------------------------------------------
 
+// The desktop window (GetDesktopWindow): no widget, a handle of its own that
+// GetWindowRect and GetClientRect answer with the primary screen, as
+// Windows does.
+HWND linopenmpt::qtwin::DesktopWindow()
+{
+	static char desktop;
+	return reinterpret_cast<HWND>(&desktop);
+}
+
+namespace
+{
+bool DesktopRect(HWND hwnd, LPRECT rect)
+{
+	if(hwnd != DesktopWindow() || rect == nullptr)
+		return false;
+	const QScreen *screen = QGuiApplication::primaryScreen();
+	const QRect r = screen ? screen->geometry() : QRect(0, 0, 1920, 1080);
+	*rect = RECT{r.left(), r.top(), r.left() + r.width(), r.top() + r.height()};
+	return true;
+}
+} // namespace
+
 BOOL GetClientRect(HWND hwnd, LPRECT rect)
 {
+	if(DesktopRect(hwnd, rect))
+		return TRUE;
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr || rect == nullptr)
 		return FALSE;
@@ -1805,6 +2094,8 @@ BOOL GetClientRect(HWND hwnd, LPRECT rect)
 
 BOOL GetWindowRect(HWND hwnd, LPRECT rect)
 {
+	if(DesktopRect(hwnd, rect))
+		return TRUE;
 	Win32Widget *w = FromHandle(hwnd);
 	if(w == nullptr || rect == nullptr)
 		return FALSE;

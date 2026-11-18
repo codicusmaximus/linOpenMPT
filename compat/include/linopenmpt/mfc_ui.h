@@ -748,6 +748,11 @@ public:
 	virtual BOOL OnGestureRotate(CPoint center, double radians) { return FALSE; }
 	virtual BOOL OnGestureTwoFingerTap(CPoint center) { return FALSE; }
 	virtual BOOL OnGesturePressAndTap(CPoint press, long delta) { return FALSE; }
+	// WM_GESTURE, to the OnGesture... functions above, as MFC does. Returns
+	// FALSE for DefWindowProc.
+	BOOL OnGestureMessage(LPARAM lp);
+	CPoint m_ptGestureFrom;      // the last pan or zoom point (client)
+	ULONGLONG m_ulGestureArg = 0;  // the last zoom distance
 	CWnd *SetParent(CWnd *newParent);
 	virtual BOOL Create(LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, CCreateContext *context = nullptr);
 	BOOL CreateEx(DWORD exStyle, LPCTSTR className, LPCTSTR windowName, DWORD style, const RECT &rect, CWnd *parent, UINT id, LPVOID param = nullptr);
@@ -918,7 +923,9 @@ public:
 	afx_msg void OnWindowPosChanging(WINDOWPOS *pos);
 	afx_msg void OnParentNotify(UINT message, LPARAM lParam);
 	afx_msg void OnEnable(BOOL enable);
-	// Active Accessibility hooks (no-ops on Linux; Qt provides accessibility).
+	// Active Accessibility: what a window tells screen readers about itself
+	// (through Qt's accessibility; the platform layer describes every window
+	// by its class, text and state, so enabling is not needed).
 	void EnableActiveAccessibility() { }
 	virtual HRESULT get_accName(VARIANT child, BSTR *name) { return 0; }
 	virtual HRESULT get_accValue(VARIANT child, BSTR *value) { return 0; }

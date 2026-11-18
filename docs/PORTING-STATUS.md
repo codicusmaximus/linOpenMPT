@@ -703,6 +703,37 @@ skipped without Wine (the 32-bit ones also without Wine's 32-bit part).
 `LINOPENMPT_BRIDGE_TRACE=1` prints what the plugin tells the tracker on its
 own, for debugging.
 
+### Before step 5: MFC behaviour gaps (done)
+
+Upstream's UI code compiles unchanged and links against the port, so no
+MFC or Win32 function it calls is missing. An audit of what the port
+implements as doing nothing, against what upstream relies on, found three
+gaps, now closed:
+
+- Screen readers (`platform/qtwin/accessible.cpp`). Every window was a
+  nameless area to Qt's accessibility. Now each one has a role from its
+  window class and style (button, check box, edit, list, slider, ...), a
+  name from its text (an edit or list: the label before it, as Windows
+  names them), a value and a check state. A window that describes itself
+  (`get_accName`, `get_accValue`, `get_accDescription`, which upstream
+  overrides for the pattern, sample, instrument and order editors) answers
+  through the MFC layer, and `NotifyWinEvent` tells the screen reader when
+  that changes (upstream does as the cursor moves).
+- Touch (`WM_GESTURE`). Touch screen input becomes what Windows makes of
+  it with its default gesture settings: one finger that moves pans
+  (`OnGesturePan`, which upstream's editors scroll with), two fingers zoom
+  (`OnGestureZoom`, the sample editor), a tap clicks and a long press
+  right-clicks. A window that leaves pans to `DefWindowProc` gets the drag
+  as mouse input instead. A touch pad's pinch zooms too.
+- `GetDesktopWindow` had no window: dialogs that place themselves within
+  the screen (quick channel settings) got no screen size. It now has a
+  handle of its own, whose rectangle is the primary screen.
+
+What remains empty is either MFC's own empty default (`DrawItem`,
+`OnUpdateCmdUI`, ...) or Windows-only, replaced elsewhere: the registry,
+DDE, MFC's data recovery (the port's crash rescue), HTML Help (the online
+manual) and accessibility for the items inside lists and trees.
+
 ## Step 5: the MFC to Qt6 bridge as its own project
 
 Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and

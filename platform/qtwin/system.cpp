@@ -599,11 +599,6 @@ BOOL AdjustWindowRect(LPRECT rect, DWORD style, BOOL menu)
 	return AdjustWindowRectEx(rect, style, menu, 0);
 }
 
-void NotifyWinEvent(DWORD, HWND, LONG, LONG)
-{
-	// Accessibility comes from Qt's own widgets.
-}
-
 BOOL MessageBeep(UINT)
 {
 	QApplication::beep();
