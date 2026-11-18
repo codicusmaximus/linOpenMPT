@@ -101,9 +101,9 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   # With the host side of the Wine bridge for Windows plugins (vstbridge/).
   add_library(mpt_tracker_vst OBJECT ${MPT_TRACKER_VST_SOURCES} ${CMAKE_SOURCE_DIR}/vstbridge/host.cpp)
   target_include_directories(mpt_tracker_vst PRIVATE ${CMAKE_SOURCE_DIR}/vstbridge)
-  # Where an installed tracker finds the bridge.
+  # Where an installed tracker finds the bridges.
   target_compile_definitions(mpt_tracker_vst PRIVATE
-    LINOPENMPT_VSTBRIDGE_INSTALL_PATH="${CMAKE_INSTALL_PREFIX}/lib/linopenmpt/linopenmpt-vstbridge.exe")
+    LINOPENMPT_VSTBRIDGE_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/lib/linopenmpt")
   target_compile_options(mpt_tracker_vst PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_tracker_vst PUBLIC mpt_tracker_logic)
   add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})

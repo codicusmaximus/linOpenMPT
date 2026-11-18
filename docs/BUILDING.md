@@ -56,6 +56,13 @@ leaves it out, and the tracker says so when asked to load a `.dll`:
 sudo dnf install mingw64-gcc-c++ mingw64-winpthreads-static wine 'pkgconfig(xcb)'
 ```
 
+32-bit Windows plugins need a second, 32-bit bridge, built when the 32-bit
+MinGW compiler is there, and Wine's 32-bit part to run it:
+
+```sh
+sudo dnf install mingw32-gcc-c++ mingw32-winpthreads-static wine.i686
+```
+
 `xdotool` lets the tests click a bridged plugin's editor.
 
 ### 2. Get the source
@@ -206,7 +213,9 @@ sudo apt install git cmake ninja-build pkg-config g++ python3 qt6-base-dev \
 The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
 and are skipped without them. Windows VST plugins need the Wine bridge, built
 with MinGW and run with Wine (`g++-mingw-w64-x86-64 wine64 libxcb1-dev`, and
-`xdotool` for its click test). Then follow steps 2 to 5 above.
+`xdotool` for its click test). For 32-bit Windows plugins add
+`g++-mingw-w64-i686` and, after `sudo dpkg --add-architecture i386 && sudo
+apt update`, `wine32:i386`. Then follow steps 2 to 5 above.
 
 ## Build options
 

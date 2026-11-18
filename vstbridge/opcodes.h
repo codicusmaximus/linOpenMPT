@@ -124,11 +124,13 @@ inline void SerializeEvents(std::vector<char> &out, const Vst::VstEvents &events
 		header.type = static_cast<int32_t>(event->type);
 		if(event->type == Vst::kVstSysExType)
 		{
+			// Only the VstEvent part travels: the rest holds pointers, of
+			// another size in a 32-bit bridge; the dump follows it.
 			const auto &sysex = *reinterpret_cast<const Vst::VstMidiSysexEvent *>(event);
-			header.byteSize = sizeof(Vst::VstMidiSysexEvent);
+			header.byteSize = sizeof(Vst::VstEvent);
 			header.dumpSize = std::max(sysex.dumpBytes, 0);
 			Append(out, header);
-			AppendBytes(out, &sysex, sizeof(sysex));
+			AppendBytes(out, event, sizeof(Vst::VstEvent));
 			if(header.dumpSize > 0 && sysex.sysexDump != nullptr)
 				AppendBytes(out, sysex.sysexDump, header.dumpSize);
 			else
@@ -184,11 +186,12 @@ inline Vst::VstEvents *DeserializeEvents(const char *data, std::size_t size, std
 		std::memcpy(event, data + pos, header.byteSize);
 		pos += header.byteSize;
 		out += align(std::max<std::size_t>(header.byteSize, sizeof(Vst::VstMidiSysexEvent)));
-		if(header.type == Vst::kVstSysExType && header.byteSize >= static_cast<int32_t>(sizeof(Vst::VstMidiSysexEvent)))
+		if(header.type == Vst::kVstSysExType && header.byteSize >= static_cast<int32_t>(sizeof(Vst::VstEvent)))
 		{
 			char *dump = storage.data() + out;
 			std::memcpy(dump, data + pos, header.dumpSize);
 			auto *sysex = reinterpret_cast<Vst::VstMidiSysexEvent *>(event);
+			sysex->byteSize = static_cast<int32_t>(sizeof(Vst::VstMidiSysexEvent) - sizeof(Vst::VstEvent));
 			sysex->dumpBytes = header.dumpSize;
 			sysex->sysexDump = reinterpret_cast<const std::byte *>(dump);
 		}

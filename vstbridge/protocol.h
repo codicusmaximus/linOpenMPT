@@ -15,8 +15,11 @@
 // the reply, as an in-process host would answer them on the same thread.
 //
 // Shared by the host (Linux) and the bridge (Windows, built with MinGW), so
-// it uses no OpenMPT or platform types. VST structures without pointers have
-// the same layout on both sides (both are 64-bit) and travel as they are.
+// it uses no OpenMPT or platform types. The bridge is 64-bit or 32-bit (as
+// the plugin is), the host 64-bit: messages use fixed-size fields only, and
+// VST structures travel as they are only when they hold no pointers (which
+// have the same layout on both, VstDefinitions.h packing them to 8 bytes as
+// the Windows compilers do).
 #pragma once
 
 #include <cstddef>
@@ -28,7 +31,7 @@
 namespace vstbridge
 {
 
-inline constexpr uint32_t kProtocolVersion = 1;
+inline constexpr uint32_t kProtocolVersion = 2;
 // Sent first on each connection, so a stray connection to the port is
 // refused: the token the host passed the bridge on its command line.
 inline constexpr std::size_t kTokenLength = 32;

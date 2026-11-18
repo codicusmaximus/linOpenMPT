@@ -681,8 +681,14 @@ process to a native Linux one, so the port has its own bridge (`vstbridge/`):
 - The plugin dialog, its folder scan and dropping a file take `.dll` files
   too, and the welcome dialog also looks for Wine's usual plugin folders.
   Plugins run in the user's Wine folder (`WINEPREFIX`, normally `~/.wine`).
-- 32-bit Windows plugins are refused with a message for now (they need a
-  32-bit bridge and Wine's 32-bit support).
+- 32-bit Windows plugins run in `linopenmpt-vstbridge32.exe`, the same
+  bridge built 32-bit (when the 32-bit MinGW compiler is found), which the
+  tracker picks from the plugin file's header. The protocol has fixed-size
+  fields only, and the VST structures that travel as they are hold no
+  pointers and have the same layout in both (the bridge checks their sizes
+  when it is built); SysEx events, which hold pointers, travel as their
+  header and their bytes. Without Wine's 32-bit part, the tracker says
+  which package to install.
 
 Tests: the bridge's own test plugin (`vstbridge/testplugin.cpp`, a stereo
 gain with a MIDI note counter, its state as a chunk and an editor that
@@ -691,7 +697,9 @@ headless through the bridge, checks parameters and chunks both ways, sends
 it a note and renders a module through it. `app_wine_editor` opens its
 editor in the real tracker under Xvfb, checks the editor is inside the
 window, then clicks it with `xdotool` and checks that the parameter change
-reached the tracker at the right position. All are skipped without Wine.
+reached the tracker at the right position. `vst_bridge32_test` and
+`app_wine_editor32` do the same with the plugin built 32-bit. All are
+skipped without Wine (the 32-bit ones also without Wine's 32-bit part).
 `LINOPENMPT_BRIDGE_TRACE=1` prints what the plugin tells the tracker on its
 own, for debugging.
 
