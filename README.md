@@ -31,6 +31,14 @@ sudo apt install cmake ninja-build pkg-config g++ qt6-base-dev \
 The VST tests use DISTRHO's plugins and Xvfb (`dpf-plugins-vst xvfb xauth`),
 and are skipped without them.
 
+Windows VST plugins (64-bit `.dll`) run in Wine, through a small bridge
+program built with MinGW: add `g++-mingw-w64-x86-64 wine64 libxcb1-dev`
+(and `xdotool` for its tests). Add a plugin from the plugin dialog as usual,
+or let the tracker scan a folder such as
+`~/.wine/drive_c/Program Files/Common Files/VST2`. Plugins use your Wine
+folder (`WINEPREFIX`, normally `~/.wine`), so install them there with Wine
+first.
+
 ```sh
 git clone --recurse-submodules https://github.com/codicusmaximus/linopenmpt.git
 cd linopenmpt

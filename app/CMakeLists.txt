@@ -50,6 +50,14 @@ if(TARGET openmpt AND LINOPENMPT_BUILD_TESTS)
       $<TARGET_FILE:openmpt> ${LINOPENMPT_PLUGIN_MODULES}/vst.mptm ${CMAKE_CURRENT_BINARY_DIR}/app_vst_editor)
     set_tests_properties(app_vst_editor PROPERTIES FIXTURES_REQUIRED plugin_modules SKIP_RETURN_CODE 77)
   endif()
+  if(LINOPENMPT_PLUGIN_MODULES AND LINOPENMPT_VSTBRIDGE_TEST_DLL)
+    # A Windows VST2 plugin's editor through the Wine bridge, embedded,
+    # under Xvfb. The tracker finds the bridge in the build tree.
+    add_test(NAME app_wine_editor COMMAND ${CMAKE_SOURCE_DIR}/tools/smoke/app_wine_editor_test.sh
+      $<TARGET_FILE:openmpt> ${LINOPENMPT_PLUGIN_MODULES}/wine.mptm ${LINOPENMPT_VSTBRIDGE_TEST_DLL} ${CMAKE_CURRENT_BINARY_DIR}/app_wine_editor)
+    set_tests_properties(app_wine_editor PROPERTIES FIXTURES_REQUIRED "plugin_modules;wine_prefix" SKIP_RETURN_CODE 77
+      ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+  endif()
   find_program(JACKD_EXECUTABLE jackd)
   if(LINOPENMPT_WITH_JACK AND JACKD_EXECUTABLE)
     add_executable(jack_meter ${CMAKE_SOURCE_DIR}/tools/smoke/jack_meter.c)

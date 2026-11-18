@@ -12,7 +12,9 @@
 //                          dpf-plugins-vst), the first with its own editor
 //   <opl.mptm>             sample 1 an OPL (AdLib) instrument, whose
 //                          editor the sample view shows
-// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm>]]
+//   <wine.mptm>            FX1 the Wine bridge's Windows test plugin
+//                          (vstbridge/testplugin.cpp)
+// Usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm> [<wine.mptm>]]]
 
 #include "stdafx.h"
 #include "../../platform/Platform.h"
@@ -56,7 +58,7 @@ int main(int argc, char *argv[])
 {
 	if(argc < 4)
 	{
-		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm>]]\n";
+		std::cerr << "usage: make_plugin_module <test.mptm> <output.mptm> <missing.mptm> [<vst.mptm> [<opl.mptm> [<wine.mptm>]]]\n";
 		return 2;
 	}
 	if(!linopenmpt::StartApp())
@@ -106,6 +108,8 @@ int main(int argc, char *argv[])
 		ModSample &sample = sndFile.GetSample(1);
 		sample.SetAdlib(true, OPLPatch{{0x21, 0x21, 0x1A, 0x00, 0xF3, 0xF2, 0x54, 0x56, 0x00, 0x00, 0x0C, 0x00}});
 		sndFile.m_szNames[1] = "OPL Organ";
+	})) && (argc < 7 || save(argv[6], [](CSoundFile &sndFile) {
+		SetPlugin(sndFile, 0, PlugMagic('V', 's', 't', 'P'), PlugMagic('L', 'T', 'g', 'a'), "BridgeTestGain", "BridgeTestGain");
 	}));
 	if(!ok)
 		return 1;

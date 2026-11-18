@@ -1,5 +1,5 @@
 diff --git a/mptrack/ModDocTemplate.cpp b/mptrack/ModDocTemplate.cpp
-index b6d3ec1..72b3c7d 100644
+index b6d3ec1..b2ec289 100644
 --- a/mptrack/ModDocTemplate.cpp
 +++ b/mptrack/ModDocTemplate.cpp
 @@ -132,7 +132,11 @@ CDocument *CModDocManager::OpenDocumentFile(LPCTSTR lpszFileName, BOOL bAddToMRU
@@ -9,13 +9,13 @@ index b6d3ec1..72b3c7d 100644
 +#if MPT_OS_WINDOWS
  	if(const auto fileExt = filename.GetFilenameExtension(); !mpt::PathCompareNoCase(fileExt, P_(".dll")) || !mpt::PathCompareNoCase(fileExt, P_(".vst3")))
 +#else
-+	if(filename.GetFilenameExtension() == P_(".so"))
++	if(filename.GetFilenameExtension() == P_(".so") || !mpt::PathCompareNoCase(filename.GetFilenameExtension(), P_(".dll")))
 +#endif
  	{
  		if(auto plugManager = theApp.GetPluginManager(); plugManager != nullptr)
  		{
 diff --git a/mptrack/SelectPluginDialog.cpp b/mptrack/SelectPluginDialog.cpp
-index 9b6fb1a..95a13ea 100644
+index 9b6fb1a..8c5a3e2 100644
 --- a/mptrack/SelectPluginDialog.cpp
 +++ b/mptrack/SelectPluginDialog.cpp
 @@ -685,8 +685,13 @@ void CSelectPluginDlg::OnAddPlugin()
@@ -27,7 +27,7 @@ index 9b6fb1a..95a13ea 100644
  		.ExtensionFilter(U_("VST Plugins|*.dll;*.vst3||"))
 +#else
 +		.DefaultExtension(U_("so"))
-+		.ExtensionFilter(U_("VST Plugins|*.so||"))
++		.ExtensionFilter(U_("VST Plugins|*.so;*.dll;*.DLL|Linux VST Plugins|*.so|Windows VST Plugins (Wine)|*.dll;*.DLL||"))
 +#endif
  		.WorkingDirectory(TrackerSettings::Instance().PathPlugins.GetWorkingDir());
  	if(!dlg.Show(this)) return;
@@ -39,7 +39,7 @@ index 9b6fb1a..95a13ea 100644
 +#if MPT_OS_WINDOWS
  		if(!mpt::PathCompareNoCase(fileName.GetFilenameExtension(), P_(".dll")))
 +#else
-+		if(fileName.GetFilenameExtension() == P_(".so"))
++		if(fileName.GetFilenameExtension() == P_(".so") || !mpt::PathCompareNoCase(fileName.GetFilenameExtension(), P_(".dll")))
 +#endif
  		{
  			CWnd *text = pluginScanDlg.GetDlgItem(IDC_SCANTEXT);
@@ -87,17 +87,18 @@ index 8c768e2..2d02418 100644
  		else
  			return new CDefaultVstEditor(*this);
 diff --git a/mptrack/WelcomeDialog.cpp b/mptrack/WelcomeDialog.cpp
-index 2336a93..1e6b64b 100644
+index 2336a93..5f54305 100644
 --- a/mptrack/WelcomeDialog.cpp
 +++ b/mptrack/WelcomeDialog.cpp
-@@ -49,7 +49,39 @@ BOOL WelcomeDlg::OnInitDialog()
+@@ -49,7 +49,53 @@ BOOL WelcomeDlg::OnInitDialog()
  {
  	DialogBase::OnInitDialog();
  
 -#ifdef MPT_WITH_VST
 +#if defined(MPT_WITH_VST) && !MPT_OS_WINDOWS
 +	// The usual Linux VST2 folders: $VST_PATH (a colon-separated list), then
-+	// the per-user and system folders. The first that exists is offered.
++	// the per-user and system folders, then Wine's usual Windows plugin
++	// folders. The first that exists is offered.
 +	{
 +		std::vector<mpt::PathString> candidates;
 +		if(const char *vstPath = std::getenv("VST_PATH"); vstPath && *vstPath)
@@ -117,6 +118,19 @@ index 2336a93..1e6b64b 100644
 +		candidates.push_back(P_("/usr/lib/vst"));
 +		candidates.push_back(P_("/usr/local/lib/lxvst"));
 +		candidates.push_back(P_("/usr/lib/lxvst"));
++		// Then Windows plugins installed in Wine, which the Wine bridge loads.
++		{
++			const char *winePrefix = std::getenv("WINEPREFIX");
++			const char *home = std::getenv("HOME");
++			const mpt::PathString drive = (winePrefix && *winePrefix) ? mpt::PathString::FromLocale(winePrefix) + P_("/drive_c")
++				: (home && *home) ? mpt::PathString::FromLocale(home) + P_("/.wine/drive_c") : mpt::PathString();
++			if(!drive.empty())
++			{
++				candidates.push_back(drive + P_("/Program Files/Common Files/VST2"));
++				candidates.push_back(drive + P_("/Program Files/VstPlugins"));
++				candidates.push_back(drive + P_("/Program Files/Steinberg/VstPlugins"));
++			}
++		}
 +		for(const auto &dir : candidates)
 +		{
 +			if(mpt::native_fs{}.is_directory(dir))
@@ -131,7 +145,7 @@ index 2336a93..1e6b64b 100644
  	HKEY hkEnum = NULL;
  	TCHAR str[MAX_PATH];
  	DWORD datasize = sizeof(str);
-@@ -66,10 +98,12 @@ BOOL WelcomeDlg::OnInitDialog()
+@@ -66,10 +112,12 @@ BOOL WelcomeDlg::OnInitDialog()
  			m_vstPath = mpt::PathString();
  		}
  	}

@@ -759,6 +759,15 @@ BOOL EndDeferWindowPos(HDWP info);
 // (Wayland, offscreen), which LinOpenMPTCanEmbedForeignWindows() tells first.
 BOOL LinOpenMPTCanEmbedForeignWindows();
 uintptr_t LinOpenMPTNativeWindowId(HWND hwnd);
+// Puts another process's X11 window (a Windows plugin's editor, in Wine)
+// inside the X11 window parent, at its top left. moved(context, x, y) is
+// told where on the screen that is, now and whenever it changes, until
+// LinOpenMPTUnembedX11Window(child).
+BOOL LinOpenMPTEmbedX11Window(uintptr_t parent, uintptr_t child, void (*moved)(void *context, int x, int y), void *context);
+void LinOpenMPTUnembedX11Window(uintptr_t child);
+// Runs fn(context) on the main (user interface) thread, from any thread,
+// once the event loop gets to it; nothing happens without one.
+void LinOpenMPTPostToMainThread(void (*fn)(void *context), void *context);
 
 // ---- message loop --------------------------------------------------------
 #define PM_NOREMOVE 0x0000

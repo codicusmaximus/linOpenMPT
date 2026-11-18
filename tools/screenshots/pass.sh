@@ -17,6 +17,10 @@ root=$(cd "$here/../.." && pwd)
 test=$root/upstream/test
 # Native Linux VST2 plugins for the vst-* entries.
 vst=${LINOPENMPT_VST_DIR:-/usr/lib/vst}
+# The Wine bridge's Windows test plugin for the wine-* entries, and the Wine
+# folder (the user's own, as the entries run with a temporary home).
+windll=${LINOPENMPT_VSTBRIDGE_TEST_DLL:-}
+wineprefix=${WINEPREFIX:-$HOME/.wine}
 mkdir -p "$out"
 failed=0
 
@@ -176,9 +180,16 @@ for entry in "${entries[@]}"; do
 	if [[ $name == vst-* ]]; then
 		printf '[VST Plugins]\nNumPlugins=2\nPlugin0=%s\nPlugin1=%s\n' "$vst/MVerb-vst.so" "$vst/MaFreeverb-vst.so" >>"$home/.config/OpenMPT/mptrack.ini"
 	fi
+	# wine-* entries: the Wine bridge's Windows test plugin, which takes
+	# Wine a moment to start.
+	extra=0
+	if [[ $name == wine-* ]]; then
+		printf '[VST Plugins]\nNumPlugins=1\nPlugin0=%s\n' "$windll" >>"$home/.config/OpenMPT/mptrack.ini"
+		extra=4000
+	fi
 	rm -f "$out/$name".png "$out/$name"-*.png
-	HOME=$home XDG_CONFIG_HOME= LINOPENMPT_COMMANDS=$ids \
-	LINOPENMPT_SCREENSHOT=$out/$name.png LINOPENMPT_SCREENSHOT_DELAY=$((2500 + 500 * $(echo "$ids" | tr ',' '\n' | grep -c .))) \
+	HOME=$home XDG_CONFIG_HOME= LINOPENMPT_COMMANDS=$ids WINEPREFIX=$wineprefix \
+	LINOPENMPT_SCREENSHOT=$out/$name.png LINOPENMPT_SCREENSHOT_DELAY=$((2500 + extra + 500 * $(echo "$ids" | tr ',' '\n' | grep -c .))) \
 		run timeout 60 "$openmpt" ${module:+"$module"} >"$out/$name.log" 2>&1
 	status=$?
 	rm -rf "$home"

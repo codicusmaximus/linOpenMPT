@@ -7,3 +7,16 @@ add_library(linopenmpt::qtwin ALIAS linopenmpt_qtwin)
 target_include_directories(linopenmpt_qtwin PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(linopenmpt_qtwin PUBLIC linopenmpt_compat Qt6::Core Qt6::Gui Qt6::Widgets)
 set_target_properties(linopenmpt_qtwin PROPERTIES AUTOMOC OFF)
+
+
+# xcb for Windows plugin editors (Wine windows inside ours, embed.cpp).
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(XCB IMPORTED_TARGET xcb)
+endif()
+if(XCB_FOUND)
+  target_link_libraries(linopenmpt_qtwin PRIVATE PkgConfig::XCB)
+  target_compile_definitions(linopenmpt_qtwin PRIVATE LINOPENMPT_WITH_XCB)
+else()
+  message(STATUS "linOpenMPT: no xcb development files (libxcb1-dev); Windows plugin editors may sit in the wrong place")
+endif()

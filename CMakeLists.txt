@@ -41,6 +41,9 @@ if(TARGET mpt_soundlib)
   add_subdirectory(platform)
 endif()
 
+# Windows VST2 plugins, through Wine (needs MinGW to build).
+add_subdirectory(vstbridge)
+
 if(LINOPENMPT_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tools/smoke)

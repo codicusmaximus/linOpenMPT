@@ -45,7 +45,7 @@ if(TARGET mpt_soundlib)
   target_compile_options(make_plugin_module PRIVATE -fpermissive -w)
   add_test(NAME make_plugin_module COMMAND make_plugin_module ${MPT_UPSTREAM_DIR}/test/test.mptm
     ${CMAKE_CURRENT_BINARY_DIR}/plugins.mptm ${CMAKE_CURRENT_BINARY_DIR}/missing-plugin.mptm
-    ${CMAKE_CURRENT_BINARY_DIR}/vst.mptm ${CMAKE_CURRENT_BINARY_DIR}/opl.mptm)
+    ${CMAKE_CURRENT_BINARY_DIR}/vst.mptm ${CMAKE_CURRENT_BINARY_DIR}/opl.mptm ${CMAKE_CURRENT_BINARY_DIR}/wine.mptm)
   set_tests_properties(make_plugin_module PROPERTIES FIXTURES_SETUP plugin_modules
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/make_plugin_module_config")
   set(LINOPENMPT_PLUGIN_MODULES ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
@@ -58,6 +58,18 @@ if(TARGET mpt_soundlib)
   add_test(NAME vst_host_test COMMAND vst_host_test ${LINOPENMPT_TEST_VST} ${MPT_UPSTREAM_DIR}/test/test.mod)
   set_tests_properties(vst_host_test PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_host_test_config")
+  if(LINOPENMPT_VSTBRIDGE_TEST_DLL)
+    # A Windows VST2 plugin through the Wine bridge, in a Wine folder of the
+    # build's own (made first, as the tests would race to make it).
+    set(LINOPENMPT_TEST_WINEPREFIX ${CMAKE_BINARY_DIR}/wineprefix)
+    add_test(NAME wine_prefix COMMAND sh -c "command -v wine >/dev/null || exit 77; WINEDEBUG=-all wineboot --init && wineserver --wait")
+    set_tests_properties(wine_prefix PROPERTIES FIXTURES_SETUP wine_prefix SKIP_RETURN_CODE 77 TIMEOUT 300
+      ENVIRONMENT "WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    add_test(NAME vst_bridge_test COMMAND vst_host_test ${LINOPENMPT_VSTBRIDGE_TEST_DLL} ${MPT_UPSTREAM_DIR}/test/test.mod)
+    set_tests_properties(vst_bridge_test PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED wine_prefix
+      ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/vst_bridge_test_config;LINOPENMPT_VSTBRIDGE=${LINOPENMPT_VSTBRIDGE_EXE};WINEPREFIX=${LINOPENMPT_TEST_WINEPREFIX}")
+    set(LINOPENMPT_TEST_WINEPREFIX ${LINOPENMPT_TEST_WINEPREFIX} PARENT_SCOPE)
+  endif()
   set_tests_properties(tracker_engine_mod tracker_engine_s3m PROPERTIES
     ENVIRONMENT "LINOPENMPT_CONFIG_DIR=${CMAKE_CURRENT_BINARY_DIR}/tracker_engine_config")
 endif()
