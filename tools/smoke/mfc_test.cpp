@@ -2,12 +2,15 @@
 // CWnd get their messages through message maps, notifications are reflected
 // to the child that sent them, CDC drawing reaches the window, and
 // CWinApp::Run() runs the message loop with PreTranslateMessage and idle
-// processing until WM_QUIT.
+// processing until WM_QUIT. Touch screen input reaches CWnd's gesture
+// functions (OnGesturePan, OnGestureZoom), or the mouse handlers.
 #include <afxwin.h>
 
 #include "QtWin.h"
 
 #include <QtCore/QElapsedTimer>
+#include <QtGui/QAccessible>
+#include <QtTest/QTest>
 #include <QtWidgets/QApplication>
 
 #include <cstdio>
@@ -75,6 +78,33 @@ public:
 	int eatenKeys = 0;
 	int keysSeen = 0;
 	CTestChild child;
+	// Gestures: whether the window takes pans, and what it got.
+	bool takesPans = true;
+	CPoint panned{0, 0};
+	long zoomed = 0;
+	int rightClicks = 0;
+	int clicks = 0;
+
+	BOOL OnGesturePan(CPoint from, CPoint to) override
+	{
+		if(!takesPans)
+			return FALSE;
+		panned += to - from;
+		return TRUE;
+	}
+	// What a screen reader hears for this window (as upstream's editors).
+	HRESULT get_accName(VARIANT child, BSTR *name) override
+	{
+		if(child.lVal != CHILDID_SELF)
+			return CWnd::get_accName(child, name);
+		*name = CString(_T("Row 5, Note C-5")).AllocSysString();
+		return S_OK;
+	}
+	BOOL OnGestureZoom(CPoint, long delta) override
+	{
+		zoomed += delta;
+		return TRUE;
+	}
 
 	BOOL PreTranslateMessage(MSG *msg) override
 	{
@@ -106,6 +136,12 @@ protected:
 	afx_msg void OnLButtonDown(UINT, CPoint point)
 	{
 		lastClick = point;
+		clicks++;
+	}
+	afx_msg void OnRButtonDown(UINT, CPoint point)
+	{
+		lastClick = point;
+		rightClicks++;
 	}
 	afx_msg void OnKeyDown(UINT, UINT, UINT)
 	{
@@ -138,6 +174,7 @@ BEGIN_MESSAGE_MAP(CTestWnd, CWnd)
 	ON_WM_CREATE()
 	ON_WM_PAINT()
 	ON_WM_LBUTTONDOWN()
+	ON_WM_RBUTTONDOWN()
 	ON_WM_KEYDOWN()
 	ON_WM_TIMER()
 	ON_COMMAND(ID_TEST_COMMAND, &CTestWnd::OnTestCommand)
@@ -186,6 +223,66 @@ int main(int argc, char **argv)
 	Check(wnd.SendMessage(WM_TEST_USER, 7) == 77, "ON_MESSAGE");
 	wnd.SendMessage(WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(12, 34));
 	Check(wnd.lastClick == CPoint(12, 34), "ON_WM_LBUTTONDOWN cracks the point");
+
+	// Touch: a drag pans, two fingers zoom, a tap clicks, a long press
+	// right-clicks; a window that does not take pans gets a mouse drag.
+	{
+		QWidget *widget = linopenmpt::qtwin::FromHandle(wnd.m_hWnd);
+		QPointingDevice *screen = QTest::createTouchDevice(QInputDevice::DeviceType::TouchScreen);
+		CPoint origin(0, 0);
+		wnd.ClientToScreen(&origin);
+		const QPoint client = widget->mapFromGlobal(QPoint(origin.x, origin.y));  // client (0,0) in the widget
+		const int clicks = wnd.clicks;
+		QTest::touchEvent(widget, screen).press(0, client + QPoint(20, 20));
+		QTest::touchEvent(widget, screen).move(0, client + QPoint(20, 40));
+		QTest::touchEvent(widget, screen).move(0, client + QPoint(25, 50));
+		QTest::touchEvent(widget, screen).release(0, client + QPoint(25, 50));
+		Check(wnd.panned == CPoint(5, 30) && wnd.clicks == clicks, "touch drag: OnGesturePan, no click");
+
+		QTest::touchEvent(widget, screen).press(0, client + QPoint(20, 20)).press(1, client + QPoint(60, 20));
+		QTest::touchEvent(widget, screen).move(0, client + QPoint(10, 20)).move(1, client + QPoint(70, 20));
+		QTest::touchEvent(widget, screen).release(0, client + QPoint(10, 20)).release(1, client + QPoint(70, 20));
+		Check(wnd.zoomed == 20, "two fingers: OnGestureZoom with the change in distance");
+
+		QTest::touchEvent(widget, screen).press(0, client + QPoint(30, 15));
+		QTest::touchEvent(widget, screen).release(0, client + QPoint(30, 15));
+		Check(wnd.clicks == clicks + 1 && wnd.lastClick == CPoint(30, 15), "tap: a click where the finger was");
+
+		QTest::touchEvent(widget, screen).press(0, client + QPoint(31, 16));
+		QTest::qWait(900);
+		QTest::touchEvent(widget, screen).release(0, client + QPoint(31, 16));
+		Check(wnd.rightClicks == 1 && wnd.lastClick == CPoint(31, 16), "long press: a right click");
+
+		wnd.takesPans = false;
+		const CPoint panned = wnd.panned;
+		QTest::touchEvent(widget, screen).press(0, client + QPoint(20, 20));
+		QTest::touchEvent(widget, screen).move(0, client + QPoint(20, 40));
+		QTest::touchEvent(widget, screen).release(0, client + QPoint(20, 40));
+		Check(wnd.panned == panned && wnd.clicks == clicks + 2 && wnd.lastClick == CPoint(20, 20), "pan not taken: a mouse drag instead");
+		wnd.takesPans = true;
+	}
+
+	// Screen readers: the window's own name, and for controls their role,
+	// text, label and state.
+	{
+		QAccessibleInterface *self = QAccessible::queryAccessibleInterface(linopenmpt::qtwin::FromHandle(wnd.m_hWnd));
+		Check(self != nullptr && self->text(QAccessible::Name) == QStringLiteral("Row 5, Note C-5"), "get_accName reaches the screen reader");
+		CButton check;
+		check.Create(_T("&Loop"), WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, CRect(0, 0, 60, 20), &wnd, 2001);
+		check.SetCheck(BST_CHECKED);
+		QAccessibleInterface *box = QAccessible::queryAccessibleInterface(linopenmpt::qtwin::FromHandle(check.m_hWnd));
+		Check(box != nullptr && box->role() == QAccessible::CheckBox && box->text(QAccessible::Name) == QStringLiteral("Loop") && box->state().checked, "check box: role, name without mnemonic, checked");
+		CStatic label;
+		label.Create(_T("&Tempo:"), WS_CHILD | WS_VISIBLE, CRect(0, 30, 40, 50), &wnd, 2002);
+		CEdit edit;
+		edit.Create(WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, CRect(40, 30, 90, 50), &wnd, 2003);
+		edit.SetWindowText(_T("125"));
+		QAccessibleInterface *field = QAccessible::queryAccessibleInterface(linopenmpt::qtwin::FromHandle(edit.m_hWnd));
+		Check(field != nullptr && field->role() == QAccessible::EditableText && field->text(QAccessible::Name) == QStringLiteral("Tempo:") && field->text(QAccessible::Value) == QStringLiteral("125"), "edit: named by its label, valued by its text");
+		edit.DestroyWindow();
+		label.DestroyWindow();
+		check.DestroyWindow();
+	}
 
 	NMHDR nm{};
 	nm.hwndFrom = wnd.child.m_hWnd;

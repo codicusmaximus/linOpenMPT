@@ -286,6 +286,16 @@ int main(int argc, char **argv)
 		Check(ScreenPixel(hwnd, 105, 15) == kBlue, "drawing outside WM_PAINT reaches the screen");
 	}
 
+	// The desktop window: the primary screen, as the screen metrics say
+	// (dialogs place themselves inside it).
+	{
+		RECT desktop{};
+		Check(GetWindowRect(GetDesktopWindow(), &desktop) && desktop.right - desktop.left == GetSystemMetrics(SM_CXSCREEN)
+			&& desktop.bottom - desktop.top == GetSystemMetrics(SM_CYSCREEN) && desktop.right > 0, "GetWindowRect of the desktop window");
+		RECT none{1, 2, 3, 4};
+		Check(!GetWindowRect(nullptr, &none), "GetWindowRect of no window fails");
+	}
+
 	// Scrolling moves pixels and invalidates what scrolled in.
 	{
 		const int before = g_paints;

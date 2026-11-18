@@ -39,6 +39,8 @@
 #include <vector>
 
 class QScrollBar;
+class QTouchEvent;
+class QNativeGestureEvent;
 class QMenuBar;
 
 namespace linopenmpt::qtwin
@@ -143,6 +145,23 @@ public:
 	// window's own WM_KEYDOWN / WM_CHAR / WM_KEYUP.
 	void DeliverKey(QKeyEvent *e) { if(e->type() == QEvent::KeyPress) keyPressEvent(e); else keyReleaseEvent(e); }
 
+	// Touch screen input in progress: undecided until the finger moves
+	// (a tap) or lifts (a click); then WM_GESTURE (pan, zoom), or mouse
+	// input for a window that leaves pans to DefWindowProc.
+	struct Touch
+	{
+		enum class Mode { none, undecided, gesture, mouse };
+		Mode mode = Mode::none;
+		QPointF start;          // where the first finger went down
+		qint64 startTime = 0;   // ms
+		bool panning = false;   // GID_PAN begun
+		bool zooming = false;   // GID_ZOOM begun
+		DWORD sequence = 0;
+		QPointF lastTap;        // for double taps
+		qint64 lastTapTime = -1;
+		double pinch = 0.0;     // a touch pad pinch: its distance, from 200
+	} touch;
+
 protected:
 	bool event(QEvent *e) override;
 	// Tab is a key like any other; dialogs move the focus (IsDialogMessage).
@@ -153,6 +172,10 @@ protected:
 	void mouseDoubleClickEvent(QMouseEvent *e) override;
 	void mouseMoveEvent(QMouseEvent *e) override;
 	void wheelEvent(QWheelEvent *e) override;
+	bool TouchEvent(QTouchEvent *e);
+	bool NativeGestureEvent(QNativeGestureEvent *e);
+	bool SendGesture(DWORD id, DWORD flags, const QPointF &local, ULONGLONG arguments = 0);
+	void TouchMouse(QEvent::Type type, Qt::MouseButton button, const QPointF &local);
 	void keyPressEvent(QKeyEvent *e) override;
 	void keyReleaseEvent(QKeyEvent *e) override;
 	void focusInEvent(QFocusEvent *e) override;
@@ -186,6 +209,8 @@ HDROP CreateDrop(const std::vector<std::wstring> &files, POINT point, bool inCli
 // HWND <-> widget. Returns nullptr for handles that are not (or no longer)
 // windows.
 Win32Widget *FromHandle(HWND hwnd);
+// The desktop window's handle (GetDesktopWindow), which belongs to no widget.
+HWND DesktopWindow();
 WindowData *Data(HWND hwnd);
 // The window a widget belongs to: itself, or the window around it.
 HWND WindowOf(QWidget *widget);
@@ -198,6 +223,16 @@ void PumpInputMessage(const MSG &msg);
 // dispatch (CWinThread::PreTranslateMessage).
 using PreTranslateHook = BOOL (*)(MSG *msg);
 void SetPreTranslateHook(PreTranslateHook hook);
+// Accessibility (accessible.cpp): windows described to screen readers.
+// The hook lets a window answer for itself: kind 0 its name, 1 its value,
+// 2 its description; returns false to leave it to the default.
+using AccessibleTextHook = BOOL (*)(HWND hwnd, int kind, std::wstring &text);
+void SetAccessibleTextHook(AccessibleTextHook hook);
+void InstallAccessibility();
+// A window whose focus goes to a Qt widget inside it (an edit's line edit):
+// that widget gets the window's name and description, as it is the one a
+// screen reader reads.
+void DescribeFocusProxy(Win32Widget *w);
 
 // Keyboard (keymap.cpp): Win32 virtual-key and scan codes for Qt key
 // events, and the key state GetKeyState() reports.
