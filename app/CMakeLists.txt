@@ -15,13 +15,13 @@ if(TARGET mpt_tracker_ui)
   target_link_libraries(openmpt PRIVATE
     mpt_tracker_logic
     linopenmpt_crash
-    linopenmpt_mfc
+    mfcqt_mfc
     linopenmpt_resources
-    linopenmpt_qtwin
-    linopenmpt_compat
+    mfcqt_qtwin
+    mfcqt_win32
     mpt_rtmidi)
   # The Win32 layer and the code above it call each other both ways.
-  set_property(TARGET linopenmpt_compat APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
+  set_property(TARGET mfcqt_win32 APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)
   # Symbol names in crash backtraces.
   set_target_properties(openmpt PROPERTIES OUTPUT_NAME openmpt ENABLE_EXPORTS ON)
   install(TARGETS openmpt RUNTIME DESTINATION bin)

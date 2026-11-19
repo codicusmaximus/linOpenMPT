@@ -38,3 +38,10 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      # mfc-qt builds and tests without the rest of the repository, as
+      # another application would use it.
+      - name: Build and test mfc-qt alone
+        run: |
+          cmake -S mfc-qt -B build-mfcqt -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build-mfcqt
+          QT_QPA_PLATFORM=offscreen ctest --test-dir build-mfcqt --output-on-failure

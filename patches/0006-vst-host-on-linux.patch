@@ -55,7 +55,7 @@ index d90e1ad..c3e58fa 100644
 +#if MPT_OS_WINDOWS
  	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, m_plugWindow.m_hWnd, 0);
 +#else
-+	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, reinterpret_cast<void *>(LinOpenMPTNativeWindowId(m_plugWindow.m_hWnd)), 0);
++	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, reinterpret_cast<void *>(MfcQtNativeWindowId(m_plugWindow.m_hWnd)), 0);
 +#endif
  	vstPlug.Dispatch(Vst::effEditGetRect, 0, 0, &pRect, 0);
  	if(pRect) rect = *pRect;
@@ -81,7 +81,7 @@ index 8c768e2..2d02418 100644
  		if(HasEditor())
 +#else
 +		// The plugin's own editor needs a native (X11) window to live in.
-+		if(HasEditor() && LinOpenMPTCanEmbedForeignWindows())
++		if(HasEditor() && MfcQtCanEmbedForeignWindows())
 +#endif
  			return new COwnerVstEditor(*this);
  		else

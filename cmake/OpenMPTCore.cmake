@@ -33,7 +33,10 @@ target_compile_definitions(mpt_common PUBLIC
   $<$<CONFIG:Debug>:MPT_BUILD_DEBUG>)
 target_compile_options(mpt_common PRIVATE ${MPT_WARN_OPTS})
 target_compile_options(mpt_common PUBLIC ${LINOPENMPT_FORCE_INCLUDES})
-target_link_libraries(mpt_common PUBLIC linopenmpt_compat Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(mpt_common PUBLIC mfcqt_win32 Threads::Threads ${CMAKE_DL_LIBS})
+# Upstream builds its Windows code with MFC (mfc-qt's headers here).
+target_compile_definitions(mpt_common PUBLIC MPT_WITH_MFC)
+target_include_directories(mpt_common PUBLIC ${LINOPENMPT_COMPAT_INCLUDE_DIR})
 
 # ---- mpt_soundlib (tracker configuration, step 2) -------------------------
 if(LINOPENMPT_TRACKER_SOUNDLIB)

@@ -16,7 +16,7 @@ diff --git a/mptrack/View_tre.cpp b/mptrack/View_tre.cpp
 +#else
 +			// No drive letters: the file system's root, the home folder and
 +			// mounted drives instead, as absolute paths with a trailing slash.
-+			for(const mpt::winstring &place : LinOpenMPTFileBrowserPlaces())
++			for(const mpt::winstring &place : MfcQtFileBrowserPlaces())
 +			{
 +				SHFILEINFO fileInfo{};
 +				SHGetFileInfo(place.c_str(), 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_SMALLICON);

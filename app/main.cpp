@@ -15,9 +15,12 @@
 #include "MptrackResources.h"
 
 #include "QtWin.h"
+#include "HtmlHelp.h"
 
 #include <QtCore/QTimer>
+#include <QtCore/QUrl>
 #include <QtCore/QVariant>
+#include <QtGui/QDesktopServices>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QPixmap>
 #include <QtGui/QScreen>
@@ -98,7 +101,7 @@ void CloseAll(QWidget *mainWidget, int attempt);
 // plugin editor) is taken from the screen, as Qt does not draw those.
 QPixmap Grab(QWidget *w)
 {
-	if(w->property("linopenmptForeignWindows").toBool() && w->isVisible() && w->screen() != nullptr)
+	if(w->property("mfcqtForeignWindows").toBool() && w->isVisible() && w->screen() != nullptr)
 		return w->screen()->grabWindow(w->winId());
 	return w->grab();
 }
@@ -131,9 +134,9 @@ HWND FindTestTarget(const std::string &target)
 	HWND hwnd = FindByClass(mainWnd->GetSafeHwnd(), target);
 	for(QWidget *w : QApplication::topLevelWidgets())
 	{
-		auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
+		auto *win32 = dynamic_cast<mfcqt::qtwin::Win32Widget *>(w);
 		if(hwnd == nullptr && win32 != nullptr && w->isVisible())
-			hwnd = FindByClass(linopenmpt::qtwin::WindowOf(win32), target);
+			hwnd = FindByClass(mfcqt::qtwin::WindowOf(win32), target);
 	}
 	return hwnd;
 }
@@ -267,7 +270,7 @@ void ScheduleTestHooks()
 	const QString path = QString::fromLocal8Bit(file);
 	QTimer::singleShot(delay, [path]() {
 		CWnd *mainWnd = AfxGetMainWnd();
-		QWidget *mainWidget = mainWnd != nullptr && mainWnd->GetSafeHwnd() != nullptr ? linopenmpt::qtwin::FromHandle(mainWnd->GetSafeHwnd()) : nullptr;
+		QWidget *mainWidget = mainWnd != nullptr && mainWnd->GetSafeHwnd() != nullptr ? mfcqt::qtwin::FromHandle(mainWnd->GetSafeHwnd()) : nullptr;
 		const bool dump = std::getenv("LINOPENMPT_DUMP_WINDOWS") != nullptr;
 		if(mainWidget != nullptr)
 		{
@@ -283,8 +286,8 @@ void ScheduleTestHooks()
 		for(QWidget *w : OtherWindows(mainWidget))
 		{
 			Grab(w).save(QStringLiteral("%1-%2%3").arg(base).arg(++index).arg(suffix));
-			auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
-			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
+			auto *win32 = dynamic_cast<mfcqt::qtwin::Win32Widget *>(w);
+			const HWND hwnd = win32 != nullptr ? mfcqt::qtwin::WindowOf(win32) : nullptr;
 			if(dump && hwnd != nullptr)
 				DumpWindows(hwnd, hwnd, 0);
 		}
@@ -303,8 +306,8 @@ void CloseAll(QWidget *mainWidget, int attempt)
 		{
 			// The tracker's windows are Win32 windows; the rest are Qt's own
 			// dialogs (message boxes, file dialogs).
-			auto *win32 = dynamic_cast<linopenmpt::qtwin::Win32Widget *>(w);
-			const HWND hwnd = win32 != nullptr ? linopenmpt::qtwin::WindowOf(win32) : nullptr;
+			auto *win32 = dynamic_cast<mfcqt::qtwin::Win32Widget *>(w);
+			const HWND hwnd = win32 != nullptr ? mfcqt::qtwin::WindowOf(win32) : nullptr;
 			if(hwnd == nullptr)
 			{
 				// A message box answers with its Escape button (No,
@@ -344,6 +347,29 @@ void CloseAll(QWidget *mainWidget, int attempt)
 		mainWnd->PostMessage(WM_CLOSE);
 }
 
+// OpenMPT's manual is a compiled HTML help file, which nothing reads here;
+// the same manual is on OpenMPT's wiki. "OpenMPT Manual.chm::/
+// Patterns.html>OpenMPT" opens the wiki's Patterns page.
+BOOL OpenOnlineManual(LPCWSTR file, UINT, DWORD_PTR)
+{
+	QString page;
+	if(file != nullptr)
+	{
+		const QString name = QString::fromWCharArray(file);
+		const int start = name.indexOf(QStringLiteral("::/"));
+		if(start >= 0)
+		{
+			page = name.mid(start + 3);
+			if(const int window = page.indexOf(QLatin1Char('>')); window >= 0)
+				page.truncate(window);
+			page.remove(QStringLiteral(".html"));
+			page.replace(QLatin1Char(' '), QLatin1Char('_'));
+		}
+	}
+	const QUrl url(page.isEmpty() ? QStringLiteral("https://wiki.openmpt.org/Manual") : QStringLiteral("https://wiki.openmpt.org/Manual:_") + page);
+	return QDesktopServices::openUrl(url) ? TRUE : FALSE;
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
@@ -357,6 +383,7 @@ int main(int argc, char *argv[])
 	QApplication::setApplicationName(QStringLiteral("OpenMPT"));
 	QApplication::setOrganizationName(QStringLiteral("OpenMPT"));
 	LinOpenMPTRegisterMptrackResources();
+	MfcQtSetHtmlHelpHandler(OpenOnlineManual);
 
 	CWinApp *app = AfxGetApp();
 	if(app == nullptr)

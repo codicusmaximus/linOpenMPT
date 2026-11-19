@@ -33,6 +33,11 @@ option(LINOPENMPT_BUILD_TESTS "Build smoke tests" ON)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(UpstreamPatches)
 include(OpenMPTSources)
+# MFC and Win32 on Qt (mfc-qt/, a project of its own), with MIDI input
+# through upstream's copy of RtMidi (mpt_rtmidi, OpenMPTSoundDevice.cmake).
+set(MFCQT_RTMIDI_TARGET mpt_rtmidi CACHE STRING "" FORCE)
+set(MFCQT_BUILD_TESTS ${LINOPENMPT_BUILD_TESTS} CACHE BOOL "" FORCE)
+add_subdirectory(mfc-qt)
 add_subdirectory(compat)
 include(OpenMPTCore)
 include(OpenMPTSoundDevice)

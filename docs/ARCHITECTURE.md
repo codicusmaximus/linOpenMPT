@@ -21,8 +21,9 @@ port therefore:
    compatibility layer for the MFC/Win32 types it touches (`CString`, `DWORD`,
    settings and file APIs);
 3. runs **upstream's views and dialogs too**, by implementing the Win32 API
-   they are written against on Qt6 (`platform/qtwin`) and MFC on top of that
-   Win32 API (`platform/mfc`), the way MFC is built on Windows. Only what
+   they are written against on Qt6 and MFC on top of that Win32 API, the way
+   MFC is built on Windows. That layer is [mfc-qt](../mfc-qt/README.md), a
+   library of its own that other MFC applications can use. Only what
    cannot work that way (Windows-only facilities) is rewritten in Qt.
 
 Upstream is a git submodule in `upstream/`, pinned to a release tag. Port code
@@ -35,10 +36,9 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 |------|------|
 | `upstream/` | OpenMPT (submodule, release tag); `patches/` applied at configure time |
 | `cmake/` | Build of upstream sources: source lists, core, sound device |
-| `compat/` | MFC/Win32 compatibility layer: types, `CString`, MFC class skeletons, INI files, POSIX paths |
+| `mfc-qt/` | MFC and the Win32 API on Qt6, a reusable library: Windows and MFC headers, kernel32, windows, GDI and controls on Qt widgets, MFC, the resource compiler |
+| `compat/` | What OpenMPT's shared code needs beyond mfc-qt (`mpt_extras.h`, the VST bridge's Windows-side helpers) |
 | `platform/` | Linux app object (`CTrackApp`) and the remaining headless UI boundary |
-| `platform/qtwin/` | Win32 windows, messages, GDI, keyboard, cursors and scroll bars on Qt6 widgets |
-| `platform/mfc/` | MFC (`CWnd`, message dispatch, `CDC`, `CWinApp` message loop) on the Win32 API |
 | `app/` | (step 3) the Qt6 application |
 | `tools/smoke/` | Small programs and tests that prove each layer works |
 | `scripts/` | Upstream sync script |
@@ -54,10 +54,8 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 | `mpt_soundlib` | tracker | builds; loads, renders, edits and saves modules |
 | `mpt_tracker_logic` | tracker | non-UI `mptrack/` files, `tracklib/`, audio export encoders; builds |
 | `mpt_tracker_ui` | tracker | upstream UI files (documents, dialogs) compiled against the MFC layer; compile-only until step 3 |
-| `linopenmpt_compat` | - | MFC/Win32 compat layer |
-| `linopenmpt_qtwin` | - | Win32 UI API on Qt6 Widgets |
-| `linopenmpt_mfc` | - | MFC classes on the Win32 API; links `linopenmpt_qtwin` |
-| `linopenmpt_platform` | tracker | Linux `CTrackApp`, settings, headless UI boundary; links `linopenmpt_mfc` |
+| `mfcqt::mfcqt` | - | mfc-qt: `mfcqt_win32` (types, `CString`, kernel32), `mfcqt_qtwin` (Win32 UI on Qt6 Widgets), `mfcqt_mfc` (MFC on the Win32 API) |
+| `linopenmpt_platform` | tracker | Linux `CTrackApp`, settings, headless UI boundary; links `mfcqt_mfc` |
 
 The tracker and player configurations use different C++ namespaces upstream,
 so both can coexist in one build.
@@ -66,7 +64,7 @@ How the compat layer works:
 
 - Upstream's Windows precompiled header `build/pch/PCH.h` is force-included,
   as upstream's own build does, followed by `linopenmpt/mpt_extras.h`.
-- `compat/include` provides `afx.h`, `afxwin.h` and friends. Win32 types keep
+- `mfc-qt/include` provides `afx.h`, `afxwin.h` and friends. Win32 types keep
   their Windows sizes (`LONG` and `DWORD` are 32-bit). `CString` is wide, so
   `wchar_t` strings are UTF-32 on Linux.
 - MFC UI classes are skeletons: virtual functions have empty defaults, other
@@ -96,9 +94,9 @@ How the compat layer works:
 ```
 upstream mptrack/ views and dialogs        (unchanged)
         |  MFC calls
-platform/mfc     CWnd, message maps, CDC, CWinApp::Run   (Win32 calls only)
+mfc-qt/src/mfc     CWnd, message maps, CDC, CWinApp::Run   (Win32 calls only)
         |  Win32 calls
-platform/qtwin   HWND = QWidget, WM_* from Qt events, GDI on QPainter
+mfc-qt/src/qtwin   HWND = QWidget, WM_* from Qt events, GDI on QPainter
         |
 Qt6 Widgets
 ```
@@ -135,7 +133,7 @@ rtkit (via D-Bus) gives the audio thread realtime priority without root.
    core and sound device layer, smoke tests, sync script, CI.
 2. **Tracker compiling on Linux** (done): `soundlib` and the logic half of
    `mptrack/` build and run in tracker configuration, and every UI file that
-   is not Windows-only compiles against `compat/`. See
+   is not Windows-only compiles against the compatibility layer. See
    [PORTING-STATUS.md](PORTING-STATUS.md) for the inventory.
 3. **Qt6 app shell with low-latency audio**: the Win32 and MFC layers on Qt,
    then upstream's main window, document tabs and toolbar running on them,

@@ -225,7 +225,7 @@ public:
 	~BridgedPlugin()
 	{
 		if(m_editorWindow != 0)
-			LinOpenMPTUnembedX11Window(m_editorWindow);
+			MfcQtUnembedX11Window(m_editorWindow);
 		{
 			std::lock_guard<std::mutex> lock(g_pluginsMutex);
 			g_plugins.erase(this);
@@ -520,7 +520,7 @@ private:
 			if(message.type != MsgType::notify || message.payload.size() < sizeof(DispatchPayload))
 				continue;
 			auto *copy = new std::pair<BridgedPlugin *, Message>(this, message);
-			LinOpenMPTPostToMainThread([](void *context) {
+			MfcQtPostToMainThread([](void *context) {
 				std::unique_ptr<std::pair<BridgedPlugin *, Message>> item(static_cast<std::pair<BridgedPlugin *, Message> *>(context));
 				{
 					std::lock_guard<std::mutex> lock(g_pluginsMutex);
@@ -560,7 +560,7 @@ private:
 
 		if(opcode == Vst::effEditClose && m_editorWindow != 0)
 		{
-			LinOpenMPTUnembedX11Window(m_editorWindow);
+			MfcQtUnembedX11Window(m_editorWindow);
 			m_editorWindow = 0;
 		}
 
@@ -666,7 +666,7 @@ private:
 				{
 					int64_t window = 0;
 					std::memcpy(&window, out, sizeof(window));
-					if(window == 0 || !LinOpenMPTEmbedX11Window(reinterpret_cast<uintptr_t>(ptr), static_cast<uintptr_t>(window), EditorMovedThunk, this))
+					if(window == 0 || !MfcQtEmbedX11Window(reinterpret_cast<uintptr_t>(ptr), static_cast<uintptr_t>(window), EditorMovedThunk, this))
 						return 0;
 					m_editorWindow = static_cast<uintptr_t>(window);
 				}

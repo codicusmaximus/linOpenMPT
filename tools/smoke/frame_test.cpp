@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-using namespace linopenmpt::qtwin;
+using namespace mfcqt::qtwin;
 
 namespace
 {
@@ -39,7 +39,7 @@ void Pump()
 
 void SaveShot(HWND hwnd, const char *name)
 {
-	const QByteArray dir = qgetenv("LINOPENMPT_SHOTS");
+	const QByteArray dir = qgetenv("MFCQT_SHOTS");
 	Win32Widget *w = FromHandle(hwnd);
 	if(dir.isEmpty() || w == nullptr)
 		return;
