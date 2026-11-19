@@ -69,6 +69,21 @@ scripts/update-upstream.sh                     # show current and newest release
 scripts/update-upstream.sh OpenMPT-1.32.13.00  # move to a release, rebuild, test
 ```
 
+## mfc-qt
+
+`mfc-qt/`, the MFC and Win32 layer on Qt, is a copy of the
+[mfc-qt](https://github.com/codicusmaximus/mfc-qt) repository (private),
+where it is developed. Make changes to it there, then bring them here:
+
+```sh
+scripts/update-mfc-qt.sh         # copy mfc-qt's main branch into mfc-qt/, staged
+scripts/update-mfc-qt.sh <ref>   # or a branch, tag or commit
+```
+
+The script stops if `mfc-qt/` has changes the repository does not have.
+`git format-patch --relative=mfc-qt <commits> -- mfc-qt` turns commits made
+here into patches that `git am` applies in an mfc-qt clone.
+
 ## License
 
 Port code in this repository is BSD-3-Clause (see `LICENSE`), matching
