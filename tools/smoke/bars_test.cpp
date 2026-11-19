@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-using namespace linopenmpt::qtwin;
+using namespace mfcqt::qtwin;
 
 namespace
 {
@@ -43,7 +43,7 @@ void Pump()
 
 void SaveShot(HWND hwnd, const char *name)
 {
-	const QByteArray dir = qgetenv("LINOPENMPT_SHOTS");
+	const QByteArray dir = qgetenv("MFCQT_SHOTS");
 	Win32Widget *w = FromHandle(hwnd);
 	if(dir.isEmpty() || w == nullptr)
 		return;
@@ -328,7 +328,7 @@ void Bars(CTestApp &app, const QString &ini)
 		Check(IsDockedAt(tb, AFX_IDW_DOCKBAR_TOP), "a drag from the floating bar to the top docks it there");
 		Check(!::IsWindow(floatingWnd) || !::IsWindowVisible(floatingWnd), "... and the empty mini frame goes away");
 		RECT outline{};
-		Check(!LinOpenMPTGetDragFrame(&outline), "... the drag outline gone");
+		Check(!MfcQtGetDragFrame(&outline), "... the drag outline gone");
 	}
 	// And dragged out into the middle, it floats.
 	{

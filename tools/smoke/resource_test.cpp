@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 		HGDIOBJ old = SelectObject(mem, colors.m_hObject);
 		bool same = !file.isNull();
 		for(QPoint p : {QPoint(0, 0), QPoint(87, 0), QPoint(10, 100), QPoint(44, 58)})
-			same = same && GetPixel(mem, p.x(), p.y()) == linopenmpt::qtwin::ToColorRef(file.pixelColor(p));
+			same = same && GetPixel(mem, p.x(), p.y()) == mfcqt::qtwin::ToColorRef(file.pixelColor(p));
 		Check(same, "bitmap pixels match the file");
 		SelectObject(mem, old);
 		DeleteDC(mem);
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 
 	// Icons and cursors, at the size the screen shows.
 	HICON icon = app.LoadIcon(IDR_MAINFRAME);
-	auto *iconData = reinterpret_cast<linopenmpt::qtwin::IconData *>(icon);
+	auto *iconData = reinterpret_cast<mfcqt::qtwin::IconData *>(icon);
 	Check(iconData != nullptr && !iconData->image.isNull(), "CWinApp::LoadIcon");
 	if(iconData)
 	{
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	::DestroyIcon(small);
 
 	HCURSOR dragging = app.LoadCursor(IDC_DRAGGING);
-	auto *cursorData = reinterpret_cast<linopenmpt::qtwin::IconData *>(dragging);
+	auto *cursorData = reinterpret_cast<mfcqt::qtwin::IconData *>(dragging);
 	Check(cursorData != nullptr && cursorData->isCursor && !cursorData->image.isNull(), "CWinApp::LoadCursor from the resources");
 	Check(app.LoadCursor(AFX_IDC_HSPLITBAR) != nullptr, "MFC's splitter cursor");
 	Check(app.LoadStandardCursor(IDC_ARROW) == ::LoadCursor(nullptr, IDC_ARROW), "standard cursor");

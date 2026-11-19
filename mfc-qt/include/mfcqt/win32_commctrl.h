@@ -1,0 +1,1622 @@
+// mfc-qt: Windows common controls (commctrl.h):
+// list view, tree view, toolbar, tooltip, tab, up-down, trackbar, progress
+// bar, ComboBoxEx and image lists, with Windows' values.
+//
+// The ListView_/TabCtrl_ helper macros send control messages, as on Windows;
+// the Qt controls answer those messages in plan step 3.
+
+#pragma once
+
+#include "win32_user.h"
+
+#define SNDMSG ::SendMessage
+#include <cstddef>
+
+// ---- generic notifications -------------------------------------------------
+#define NM_FIRST (0U - 0U)
+#define NM_OUTOFMEMORY (NM_FIRST - 1)
+#define NM_CLICK (NM_FIRST - 2)
+#define NM_DBLCLK (NM_FIRST - 3)
+#define NM_RETURN (NM_FIRST - 4)
+#define NM_RCLICK (NM_FIRST - 5)
+#define NM_RDBLCLK (NM_FIRST - 6)
+#define NM_SETFOCUS (NM_FIRST - 7)
+#define NM_KILLFOCUS (NM_FIRST - 8)
+#define NM_CUSTOMDRAW (NM_FIRST - 12)
+#define NM_HOVER (NM_FIRST - 13)
+#define NM_RELEASEDCAPTURE (NM_FIRST - 16)
+#define LVN_FIRST (0U - 100U)
+#define TVN_FIRST (0U - 400U)
+#define TTN_FIRST (0U - 520U)
+#define TCN_FIRST (0U - 550U)
+#define TBN_FIRST (0U - 700U)
+#define UDN_FIRST (0U - 721U)
+#define CBEN_FIRST (0U - 800U)
+
+#define CDDS_PREPAINT 0x00000001
+#define CDDS_POSTPAINT 0x00000002
+#define CDDS_PREERASE 0x00000003
+#define CDDS_ITEM 0x00010000
+#define CDDS_ITEMPREPAINT (CDDS_ITEM | CDDS_PREPAINT)
+#define CDDS_ITEMPOSTPAINT (CDDS_ITEM | CDDS_POSTPAINT)
+#define CDDS_SUBITEM 0x00020000
+#define CDRF_DODEFAULT 0x00000000
+#define CDRF_NEWFONT 0x00000002
+#define CDRF_SKIPDEFAULT 0x00000004
+#define CDRF_DOERASE 0x00000008
+#define CDRF_NOTIFYPOSTPAINT 0x00000010
+#define CDRF_NOTIFYITEMDRAW 0x00000020
+#define CDRF_NOTIFYSUBITEMDRAW 0x00000020
+#define CDIS_SELECTED 0x0001
+#define CDIS_GRAYED 0x0002
+#define CDIS_DISABLED 0x0004
+#define CDIS_CHECKED 0x0008
+#define CDIS_FOCUS 0x0010
+#define CDIS_HOT 0x0040
+struct NMCUSTOMDRAW { NMHDR hdr; DWORD dwDrawStage; HDC hdc; RECT rc; DWORD_PTR dwItemSpec; UINT uItemState; LPARAM lItemlParam; };
+using LPNMCUSTOMDRAW = NMCUSTOMDRAW *;
+
+// ---- list view -------------------------------------------------------------
+// List view column formats and styles.
+#define LVCFMT_LEFT 0x0000
+#define LVCFMT_RIGHT 0x0001
+#define LVCFMT_CENTER 0x0002
+#define LVSCW_AUTOSIZE (-1)
+#define LVSCW_AUTOSIZE_USEHEADER (-2)
+#define LVNI_ALL 0x0000
+#define LVNI_FOCUSED 0x0001
+#define LVNI_SELECTED 0x0002
+#define LVIS_FOCUSED 0x0001
+#define LVIS_SELECTED 0x0002
+#define LVIS_STATEIMAGEMASK 0xF000
+#define LVS_EX_GRIDLINES 0x00000001
+#define LVS_EX_CHECKBOXES 0x00000004
+#define LVS_EX_FULLROWSELECT 0x00000020
+#define LVS_EX_DOUBLEBUFFER 0x00010000
+#define LVIF_TEXT 0x0001
+#define LVIF_IMAGE 0x0002
+#define LVIF_PARAM 0x0004
+#define LVIF_STATE 0x0008
+#define LVIF_GROUPID 0x0100
+struct LVITEM
+{
+	UINT mask; int iItem; int iSubItem; UINT state; UINT stateMask;
+	LPTSTR pszText; int cchTextMax; int iImage; LPARAM lParam; int iIndent; int iGroupId;
+	UINT cColumns; UINT *puColumns; int *piColFmt; int iGroup;
+};
+
+#define LVS_ICON 0x0000
+#define LVS_REPORT 0x0001
+#define LVS_SMALLICON 0x0002
+#define LVS_LIST 0x0003
+#define LVS_TYPEMASK 0x0003
+#define LVS_SINGLESEL 0x0004
+#define LVS_SHOWSELALWAYS 0x0008
+#define LVS_SORTASCENDING 0x0010
+#define LVS_SORTDESCENDING 0x0020
+#define LVS_SHAREIMAGELISTS 0x0040
+#define LVS_NOLABELWRAP 0x0080
+#define LVS_AUTOARRANGE 0x0100
+#define LVS_EDITLABELS 0x0200
+#define LVS_OWNERDATA 0x1000
+#define LVS_OWNERDRAWFIXED 0x0400
+#define LVS_NOSCROLL 0x2000
+#define LVS_NOCOLUMNHEADER 0x4000
+#define LVS_NOSORTHEADER 0x8000
+#define LVS_EX_HEADERDRAGDROP 0x00000010
+#define LVS_EX_TRACKSELECT 0x00000008
+#define LVS_EX_ONECLICKACTIVATE 0x00000040
+#define LVS_EX_INFOTIP 0x00000400
+#define LVS_EX_LABELTIP 0x00004000
+#define LVSIL_NORMAL 0
+#define LVSIL_SMALL 1
+#define LVSIL_STATE 2
+#define LVIR_BOUNDS 0
+#define LVIR_ICON 1
+#define LVIR_LABEL 2
+#define LVIR_SELECTBOUNDS 3
+#define LVHT_NOWHERE 0x0001
+#define LVHT_ONITEMICON 0x0002
+#define LVHT_ONITEMLABEL 0x0004
+#define LVHT_ONITEMSTATEICON 0x0008
+#define LVHT_ONITEM (LVHT_ONITEMICON | LVHT_ONITEMLABEL | LVHT_ONITEMSTATEICON)
+#define LVIS_CUT 0x0004
+#define LVIS_DROPHILITED 0x0008
+#define LVIS_OVERLAYMASK 0x0F00
+#define LVIF_INDENT 0x0010
+#define LVIF_NORECOMPUTE 0x0800
+#define LVIF_COLUMNS 0x0200
+#define LVCF_FMT 0x0001
+#define LVCF_WIDTH 0x0002
+#define LVCF_TEXT 0x0004
+#define LVCF_SUBITEM 0x0008
+#define LVNI_ABOVE 0x0100
+#define LVNI_BELOW 0x0200
+#define LPSTR_TEXTCALLBACKW ((LPWSTR)-1L)
+#define LPSTR_TEXTCALLBACK LPSTR_TEXTCALLBACKW
+#define I_IMAGECALLBACK (-1)
+#define INDEXTOSTATEIMAGEMASK(i) ((i) << 12)
+using LVITEMW = LVITEM;
+using LV_ITEM = LVITEM;
+using LPLVITEM = LVITEM *;
+struct LVCOLUMN { UINT mask; int fmt; int cx; LPTSTR pszText; int cchTextMax; int iSubItem; int iImage; int iOrder; };
+struct NMLISTVIEW { NMHDR hdr; int iItem; int iSubItem; UINT uNewState; UINT uOldState; UINT uChanged; POINT ptAction; LPARAM lParam; };
+using LPNMLISTVIEW = NMLISTVIEW *;
+using NM_LISTVIEW = NMLISTVIEW;
+struct NMITEMACTIVATE { NMHDR hdr; int iItem; int iSubItem; UINT uNewState; UINT uOldState; UINT uChanged; POINT ptAction; LPARAM lParam; UINT uKeyFlags; };
+using LPNMITEMACTIVATE = NMITEMACTIVATE *;
+struct NMLVDISPINFO { NMHDR hdr; LVITEM item; };
+using LV_DISPINFO = NMLVDISPINFO;
+using NMLVDISPINFOW = NMLVDISPINFO;
+struct NMLVKEYDOWN { NMHDR hdr; WORD wVKey; UINT flags; };
+using LPNMLVKEYDOWN = NMLVKEYDOWN *;
+struct NMLVCUSTOMDRAW { NMCUSTOMDRAW nmcd; COLORREF clrText; COLORREF clrTextBk; int iSubItem; DWORD dwItemType; COLORREF clrFace; int iIconEffect; int iIconPhase; int iPartId; int iStateId; RECT rcText; UINT uAlign; };
+using LPNMLVCUSTOMDRAW = NMLVCUSTOMDRAW *;
+struct LVHITTESTINFO { POINT pt; UINT flags; int iItem; int iSubItem; int iGroup; };
+#define LVN_ITEMCHANGING (LVN_FIRST - 0)
+#define LVN_ITEMCHANGED (LVN_FIRST - 1)
+#define LVN_INSERTITEM (LVN_FIRST - 2)
+#define LVN_DELETEITEM (LVN_FIRST - 3)
+#define LVN_DELETEALLITEMS (LVN_FIRST - 4)
+#define LVN_COLUMNCLICK (LVN_FIRST - 8)
+#define LVN_BEGINDRAG (LVN_FIRST - 9)
+#define LVN_BEGINRDRAG (LVN_FIRST - 11)
+#define LVN_ITEMACTIVATE (LVN_FIRST - 14)
+#define LVN_KEYDOWN (LVN_FIRST - 55)
+#define LVN_GETINFOTIPW (LVN_FIRST - 58)
+#define LVN_GETINFOTIP LVN_GETINFOTIPW
+#define LVN_BEGINLABELEDITW (LVN_FIRST - 75)
+#define LVN_ENDLABELEDITW (LVN_FIRST - 76)
+#define LVN_GETDISPINFOW (LVN_FIRST - 77)
+#define LVN_BEGINLABELEDIT LVN_BEGINLABELEDITW
+#define LVN_ENDLABELEDIT LVN_ENDLABELEDITW
+#define LVN_GETDISPINFO LVN_GETDISPINFOW
+
+// Groups.
+#define LVGF_NONE 0x00000000
+#define LVGF_HEADER 0x00000001
+#define LVGF_FOOTER 0x00000002
+#define LVGF_STATE 0x00000004
+#define LVGF_ALIGN 0x00000008
+#define LVGF_GROUPID 0x00000010
+#define LVGS_NORMAL 0x00000000
+#define LVGS_COLLAPSED 0x00000001
+#define LVGS_HIDDEN 0x00000002
+#define LVGS_NOHEADER 0x00000004
+#define LVGS_COLLAPSIBLE 0x00000008
+#define LVGA_HEADER_LEFT 0x00000001
+#define LVGA_HEADER_CENTER 0x00000002
+#define LVGA_HEADER_RIGHT 0x00000004
+struct LVGROUP
+{
+	UINT cbSize; UINT mask; LPWSTR pszHeader; int cchHeader; LPWSTR pszFooter; int cchFooter;
+	int iGroupId; UINT stateMask; UINT state; UINT uAlign;
+	LPWSTR pszSubtitle; UINT cchSubtitle; LPWSTR pszTask; UINT cchTask;
+	LPWSTR pszDescriptionTop; UINT cchDescriptionTop; LPWSTR pszDescriptionBottom; UINT cchDescriptionBottom;
+	int iTitleImage; int iExtendedImage; int iFirstItem; UINT cItems; LPWSTR pszSubsetTitle; UINT cchSubsetTitle;
+};
+using PLVGROUP = LVGROUP *;
+
+#define LVM_FIRST 0x1000
+#define LVM_SETIMAGELIST (LVM_FIRST + 3)
+#define LVM_GETITEMCOUNT (LVM_FIRST + 4)
+#define LVM_DELETEITEM (LVM_FIRST + 8)
+#define LVM_DELETEALLITEMS (LVM_FIRST + 9)
+#define LVM_GETNEXTITEM (LVM_FIRST + 12)
+#define LVM_ENSUREVISIBLE (LVM_FIRST + 19)
+#define LVM_SETCOLUMNWIDTH (LVM_FIRST + 30)
+#define LVM_SETITEMSTATE (LVM_FIRST + 43)
+#define LVM_GETITEMSTATE (LVM_FIRST + 44)
+#define LVM_SETEXTENDEDLISTVIEWSTYLE (LVM_FIRST + 54)
+#define LVM_GETEXTENDEDLISTVIEWSTYLE (LVM_FIRST + 55)
+#define LVM_GETITEMW (LVM_FIRST + 75)
+#define LVM_SETITEMW (LVM_FIRST + 76)
+#define LVM_INSERTITEMW (LVM_FIRST + 77)
+#define LVM_SETITEMTEXTW (LVM_FIRST + 116)
+#define LVM_INSERTGROUP (LVM_FIRST + 145)
+#define LVM_SETGROUPINFO (LVM_FIRST + 147)
+#define LVM_GETGROUPINFO (LVM_FIRST + 149)
+#define LVM_REMOVEGROUP (LVM_FIRST + 150)
+#define LVM_ENABLEGROUPVIEW (LVM_FIRST + 157)
+#define LVM_REMOVEALLGROUPS (LVM_FIRST + 160)
+#define LVM_HASGROUP (LVM_FIRST + 161)
+#define LVM_ISGROUPVIEWENABLED (LVM_FIRST + 175)
+#define LVM_INSERTITEM LVM_INSERTITEMW
+#define LVM_SETITEM LVM_SETITEMW
+#define LVM_GETITEM LVM_GETITEMW
+
+// The rest of the list view messages and values.
+#define WC_LISTVIEW L"SysListView32"
+#define ODT_LISTVIEW 102
+#define LVM_GETBKCOLOR (LVM_FIRST + 0)
+#define LVM_SETBKCOLOR (LVM_FIRST + 1)
+#define LVM_GETIMAGELIST (LVM_FIRST + 2)
+#define LVM_GETCALLBACKMASK (LVM_FIRST + 10)
+#define LVM_SETCALLBACKMASK (LVM_FIRST + 11)
+#define LVM_GETITEMRECT (LVM_FIRST + 14)
+#define LVM_SETITEMPOSITION (LVM_FIRST + 15)
+#define LVM_GETITEMPOSITION (LVM_FIRST + 16)
+#define LVM_HITTEST (LVM_FIRST + 18)
+#define LVM_SCROLL (LVM_FIRST + 20)
+#define LVM_REDRAWITEMS (LVM_FIRST + 21)
+#define LVM_ARRANGE (LVM_FIRST + 22)
+#define LVM_GETEDITCONTROL (LVM_FIRST + 24)
+#define LVM_DELETECOLUMN (LVM_FIRST + 28)
+#define LVM_GETCOLUMNWIDTH (LVM_FIRST + 29)
+#define LVM_GETHEADER (LVM_FIRST + 31)
+#define LVM_GETVIEWRECT (LVM_FIRST + 34)
+#define LVM_GETTEXTCOLOR (LVM_FIRST + 35)
+#define LVM_SETTEXTCOLOR (LVM_FIRST + 36)
+#define LVM_GETTEXTBKCOLOR (LVM_FIRST + 37)
+#define LVM_SETTEXTBKCOLOR (LVM_FIRST + 38)
+#define LVM_GETTOPINDEX (LVM_FIRST + 39)
+#define LVM_GETCOUNTPERPAGE (LVM_FIRST + 40)
+#define LVM_GETORIGIN (LVM_FIRST + 41)
+#define LVM_UPDATE (LVM_FIRST + 42)
+#define LVM_SETITEMCOUNT (LVM_FIRST + 47)
+#define LVM_SORTITEMS (LVM_FIRST + 48)
+#define LVM_GETSELECTEDCOUNT (LVM_FIRST + 50)
+#define LVM_GETITEMSPACING (LVM_FIRST + 51)
+#define LVM_GETSUBITEMRECT (LVM_FIRST + 56)
+#define LVM_SUBITEMHITTEST (LVM_FIRST + 57)
+#define LVM_SETCOLUMNORDERARRAY (LVM_FIRST + 58)
+#define LVM_GETCOLUMNORDERARRAY (LVM_FIRST + 59)
+#define LVM_SETHOTITEM (LVM_FIRST + 60)
+#define LVM_GETHOTITEM (LVM_FIRST + 61)
+#define LVM_APPROXIMATEVIEWRECT (LVM_FIRST + 64)
+#define LVM_GETSELECTIONMARK (LVM_FIRST + 66)
+#define LVM_SETSELECTIONMARK (LVM_FIRST + 67)
+#define LVM_SETTOOLTIPS (LVM_FIRST + 74)
+#define LVM_GETTOOLTIPS (LVM_FIRST + 78)
+#define LVM_SORTITEMSEX (LVM_FIRST + 81)
+#define LVM_FINDITEMW (LVM_FIRST + 83)
+#define LVM_GETSTRINGWIDTHW (LVM_FIRST + 87)
+#define LVM_GETCOLUMNW (LVM_FIRST + 95)
+#define LVM_SETCOLUMNW (LVM_FIRST + 96)
+#define LVM_INSERTCOLUMNW (LVM_FIRST + 97)
+#define LVM_GETITEMTEXTW (LVM_FIRST + 115)
+#define LVM_EDITLABELW (LVM_FIRST + 118)
+#define LVM_SETVIEW (LVM_FIRST + 142)
+#define LVM_GETVIEW (LVM_FIRST + 143)
+#define LVM_GETGROUPCOUNT (LVM_FIRST + 152)
+#define LVM_GETGROUPINFOBYINDEX (LVM_FIRST + 153)
+#define LVM_ISITEMVISIBLE (LVM_FIRST + 182)
+#define LVM_FINDITEM LVM_FINDITEMW
+#define LVM_GETSTRINGWIDTH LVM_GETSTRINGWIDTHW
+#define LVM_GETCOLUMN LVM_GETCOLUMNW
+#define LVM_SETCOLUMN LVM_SETCOLUMNW
+#define LVM_INSERTCOLUMN LVM_INSERTCOLUMNW
+#define LVM_GETITEMTEXT LVM_GETITEMTEXTW
+#define LVM_SETITEMTEXT LVM_SETITEMTEXTW
+#define LVM_EDITLABEL LVM_EDITLABELW
+#define LV_VIEW_ICON 0x0000
+#define LV_VIEW_DETAILS 0x0001
+#define LV_VIEW_SMALLICON 0x0002
+#define LV_VIEW_LIST 0x0003
+#define LVS_EX_SUBITEMIMAGES 0x00000002
+#define LVS_EX_TWOCLICKACTIVATE 0x00000080
+#define LVS_EX_UNDERLINEHOT 0x00000800
+#define LVS_EX_BORDERSELECT 0x00008000
+#define LVS_EX_HIDELABELS 0x00020000
+#define LVS_EX_SIMPLESELECT 0x00100000
+#define LVS_EX_JUSTIFYCOLUMNS 0x00200000
+#define LVS_EX_TRANSPARENTBKGND 0x00400000
+#define LVS_EX_HEADERINALLVIEWS 0x02000000
+#define LVS_EX_AUTOCHECKSELECT 0x08000000
+#define LVS_EX_AUTOSIZECOLUMNS 0x10000000
+#define LVCFMT_JUSTIFYMASK 0x0003
+#define LVCFMT_IMAGE 0x0800
+#define LVCFMT_FIXED_WIDTH 0x0100
+#define LVCF_IMAGE 0x0010
+#define LVCF_ORDER 0x0020
+#define LVCF_MINWIDTH 0x0040
+#define LVNI_CUT 0x0004
+#define LVNI_DROPHILITED 0x0008
+#define LVNI_TOLEFT 0x0400
+#define LVNI_TORIGHT 0x0800
+#define LVHT_ABOVE 0x0008
+#define LVHT_BELOW 0x0010
+#define LVHT_TORIGHT 0x0020
+#define LVHT_TOLEFT 0x0040
+#define LVHT_EX_GROUP_HEADER 0x10000000
+#define LVSICF_NOINVALIDATEALL 0x00000001
+#define LVSICF_NOSCROLL 0x00000002
+#define LVKF_ALT 0x0001
+#define LVKF_CONTROL 0x0002
+#define LVKF_SHIFT 0x0004
+#define LVFI_PARAM 0x0001
+#define LVFI_STRING 0x0002
+#define LVFI_SUBSTRING 0x0004
+#define LVFI_PARTIAL 0x0008
+#define LVFI_WRAP 0x0020
+#define LVFI_NEARESTXY 0x0040
+struct LVFINDINFO { UINT flags; LPCTSTR psz; LPARAM lParam; POINT pt; UINT vkDirection; };
+using LPFINDINFO = LVFINDINFO *;
+using PFNLVCOMPARE = int (*)(LPARAM, LPARAM, LPARAM);
+#define LVN_ODCACHEHINT (LVN_FIRST - 13)
+#define LVN_ODSTATECHANGED (LVN_FIRST - 15)
+#define LVN_HOTTRACK (LVN_FIRST - 21)
+#define LVN_ODFINDITEMW (LVN_FIRST - 79)
+#define LVN_SETDISPINFOW (LVN_FIRST - 78)
+#define LVN_ODFINDITEM LVN_ODFINDITEMW
+#define LVN_SETDISPINFO LVN_SETDISPINFOW
+struct NMLVCACHEHINT { NMHDR hdr; int iFrom; int iTo; };
+struct NMLVODSTATECHANGE { NMHDR hdr; int iFrom; int iTo; UINT uNewState; UINT uOldState; };
+struct NMLVFINDITEM { NMHDR hdr; int iStart; LVFINDINFO lvfi; };
+#define LVCDI_ITEM 0x00000000
+#define LVCDI_GROUP 0x00000001
+#define LVCDI_ITEMSLIST 0x00000002
+#define LVGF_ITEMS 0x00004000
+#define ListView_GetItemCount(hwnd) (int)SNDMSG((hwnd), LVM_GETITEMCOUNT, 0, 0)
+#define ListView_GetNextItem(hwnd, i, flags) (int)SNDMSG((hwnd), LVM_GETNEXTITEM, (WPARAM)(int)(i), MAKELPARAM((flags), 0))
+#define ListView_SetItemState(hwnd, i, data, mask) \
+	{ LVITEM _lvi{}; _lvi.stateMask = (mask); _lvi.state = (data); SNDMSG((hwnd), LVM_SETITEMSTATE, (WPARAM)(i), (LPARAM)&_lvi); }
+#define ListView_GetItemState(hwnd, i, mask) (UINT)SNDMSG((hwnd), LVM_GETITEMSTATE, (WPARAM)(i), (LPARAM)(mask))
+#define ListView_SetCheckState(hwnd, i, check) ListView_SetItemState(hwnd, i, INDEXTOSTATEIMAGEMASK((check) ? 2 : 1), LVIS_STATEIMAGEMASK)
+#define ListView_GetCheckState(hwnd, i) ((((UINT)(SNDMSG((hwnd), LVM_GETITEMSTATE, (WPARAM)(i), LVIS_STATEIMAGEMASK))) >> 12) - 1)
+#define ListView_GetHeader(hwnd) (HWND)SNDMSG((hwnd), LVM_GETHEADER, 0, 0)
+#define ListView_EnsureVisible(hwnd, i, partial) (BOOL)SNDMSG((hwnd), LVM_ENSUREVISIBLE, (WPARAM)(int)(i), MAKELPARAM((partial), 0))
+#define ListView_DeleteAllItems(hwnd) (BOOL)SNDMSG((hwnd), LVM_DELETEALLITEMS, 0, 0)
+#define ListView_SetItemCountEx(hwnd, count, flags) SNDMSG((hwnd), LVM_SETITEMCOUNT, (WPARAM)(count), (LPARAM)(flags))
+#define ListView_GetSubItemRect(hwnd, i, sub, code, prc) (BOOL)SNDMSG((hwnd), LVM_GETSUBITEMRECT, (WPARAM)(int)(i), ((prc) ? ((((LPRECT)(prc))->top = (sub)), (((LPRECT)(prc))->left = (code)), (LPARAM)(prc)) : (LPARAM)(LPRECT)NULL))
+
+// ---- header control ----------------------------------------------------------
+#define WC_HEADER L"SysHeader32"
+#define ODT_HEADER 100
+#define HDS_HORZ 0x0000
+#define HDS_BUTTONS 0x0002
+#define HDS_HOTTRACK 0x0004
+#define HDS_HIDDEN 0x0008
+#define HDS_DRAGDROP 0x0040
+#define HDS_FULLDRAG 0x0080
+#define HDS_FILTERBAR 0x0100
+#define HDS_FLAT 0x0200
+#define HDS_CHECKBOXES 0x0400
+#define HDS_NOSIZING 0x0800
+#define HDI_WIDTH 0x0001
+#define HDI_HEIGHT HDI_WIDTH
+#define HDI_TEXT 0x0002
+#define HDI_FORMAT 0x0004
+#define HDI_LPARAM 0x0008
+#define HDI_BITMAP 0x0010
+#define HDI_IMAGE 0x0020
+#define HDI_DI_SETITEM 0x0040
+#define HDI_ORDER 0x0080
+#define HDI_FILTER 0x0100
+#define HDI_STATE 0x0200
+#define HDF_LEFT 0x0000
+#define HDF_RIGHT 0x0001
+#define HDF_CENTER 0x0002
+#define HDF_JUSTIFYMASK 0x0003
+#define HDF_RTLREADING 0x0004
+#define HDF_CHECKBOX 0x0040
+#define HDF_CHECKED 0x0080
+#define HDF_FIXEDWIDTH 0x0100
+#define HDF_SORTDOWN 0x0200
+#define HDF_SORTUP 0x0400
+#define HDF_IMAGE 0x0800
+#define HDF_BITMAP_ON_RIGHT 0x1000
+#define HDF_BITMAP 0x2000
+#define HDF_STRING 0x4000
+#define HDF_OWNERDRAW 0x8000
+struct HDITEM { UINT mask; int cxy; LPTSTR pszText; HBITMAP hbm; int cchTextMax; int fmt; LPARAM lParam; int iImage; int iOrder; UINT type; void *pvFilter; UINT state; };
+using HDITEMW = HDITEM;
+using LPHDITEM = HDITEM *;
+using HD_ITEM = HDITEM;
+struct HDLAYOUT { RECT *prc; WINDOWPOS *pwpos; };
+using LPHDLAYOUT = HDLAYOUT *;
+struct HDHITTESTINFO { POINT pt; UINT flags; int iItem; };
+using LPHDHITTESTINFO = HDHITTESTINFO *;
+#define HHT_NOWHERE 0x0001
+#define HHT_ONHEADER 0x0002
+#define HHT_ONDIVIDER 0x0004
+#define HHT_ONDIVOPEN 0x0008
+#define HHT_ABOVE 0x0100
+#define HHT_BELOW 0x0200
+#define HHT_TORIGHT 0x0400
+#define HHT_TOLEFT 0x0800
+#define HDM_FIRST 0x1200
+#define HDM_GETITEMCOUNT (HDM_FIRST + 0)
+#define HDM_DELETEITEM (HDM_FIRST + 2)
+#define HDM_LAYOUT (HDM_FIRST + 5)
+#define HDM_HITTEST (HDM_FIRST + 6)
+#define HDM_GETITEMRECT (HDM_FIRST + 7)
+#define HDM_SETIMAGELIST (HDM_FIRST + 8)
+#define HDM_GETIMAGELIST (HDM_FIRST + 9)
+#define HDM_INSERTITEMW (HDM_FIRST + 10)
+#define HDM_GETITEMW (HDM_FIRST + 11)
+#define HDM_SETITEMW (HDM_FIRST + 12)
+#define HDM_ORDERTOINDEX (HDM_FIRST + 15)
+#define HDM_GETORDERARRAY (HDM_FIRST + 17)
+#define HDM_SETORDERARRAY (HDM_FIRST + 18)
+#define HDM_SETHOTDIVIDER (HDM_FIRST + 19)
+#define HDM_INSERTITEM HDM_INSERTITEMW
+#define HDM_GETITEM HDM_GETITEMW
+#define HDM_SETITEM HDM_SETITEMW
+#define HDN_FIRST (0U - 300U)
+#define HDN_BEGINDRAG (HDN_FIRST - 10)
+#define HDN_ENDDRAG (HDN_FIRST - 11)
+#define HDN_ITEMSTATEICONCLICK (HDN_FIRST - 16)
+#define HDN_ITEMCHANGINGW (HDN_FIRST - 20)
+#define HDN_ITEMCHANGEDW (HDN_FIRST - 21)
+#define HDN_ITEMCLICKW (HDN_FIRST - 22)
+#define HDN_ITEMDBLCLICKW (HDN_FIRST - 23)
+#define HDN_DIVIDERDBLCLICKW (HDN_FIRST - 25)
+#define HDN_BEGINTRACKW (HDN_FIRST - 26)
+#define HDN_ENDTRACKW (HDN_FIRST - 27)
+#define HDN_TRACKW (HDN_FIRST - 28)
+#define HDN_GETDISPINFOW (HDN_FIRST - 29)
+#define HDN_ITEMCHANGING HDN_ITEMCHANGINGW
+#define HDN_ITEMCHANGED HDN_ITEMCHANGEDW
+#define HDN_ITEMCLICK HDN_ITEMCLICKW
+#define HDN_ITEMDBLCLICK HDN_ITEMDBLCLICKW
+#define HDN_DIVIDERDBLCLICK HDN_DIVIDERDBLCLICKW
+#define HDN_BEGINTRACK HDN_BEGINTRACKW
+#define HDN_ENDTRACK HDN_ENDTRACKW
+#define HDN_TRACK HDN_TRACKW
+struct NMHEADER { NMHDR hdr; int iItem; int iButton; HDITEM *pitem; };
+using LPNMHEADER = NMHEADER *;
+using HD_NOTIFY = NMHEADER;
+#define Header_GetItemCount(hwnd) (int)SNDMSG((hwnd), HDM_GETITEMCOUNT, 0, 0)
+#define Header_GetItemRect(hwnd, i, rc) (BOOL)SNDMSG((hwnd), HDM_GETITEMRECT, (WPARAM)(i), (LPARAM)(rc))
+#define Header_Layout(hwnd, layout) (BOOL)SNDMSG((hwnd), HDM_LAYOUT, 0, (LPARAM)(HDLAYOUT *)(layout))
+
+#define ListView_EnableGroupView(hwnd, enable) (int)SNDMSG((hwnd), LVM_ENABLEGROUPVIEW, (WPARAM)(enable), 0)
+#define ListView_InsertGroup(hwnd, index, group) SNDMSG((hwnd), LVM_INSERTGROUP, (WPARAM)(index), (LPARAM)(group))
+#define ListView_SetGroupInfo(hwnd, id, group) SNDMSG((hwnd), LVM_SETGROUPINFO, (WPARAM)(id), (LPARAM)(group))
+#define ListView_GetGroupInfo(hwnd, id, group) SNDMSG((hwnd), LVM_GETGROUPINFO, (WPARAM)(id), (LPARAM)(group))
+#define ListView_RemoveGroup(hwnd, id) SNDMSG((hwnd), LVM_REMOVEGROUP, (WPARAM)(id), 0)
+#define ListView_RemoveAllGroups(hwnd) SNDMSG((hwnd), LVM_REMOVEALLGROUPS, 0, 0)
+#define ListView_HasGroup(hwnd, id) SNDMSG((hwnd), LVM_HASGROUP, (WPARAM)(id), 0)
+#define ListView_InsertColumn(hwnd, i, col) (int)SNDMSG((hwnd), LVM_INSERTCOLUMN, (WPARAM)(int)(i), (LPARAM)(const LVCOLUMN *)(col))
+#define ListView_InsertItem(hwnd, item) (int)SNDMSG((hwnd), LVM_INSERTITEM, 0, (LPARAM)(const LVITEM *)(item))
+#define ListView_GetTopIndex(hwnd) (int)SNDMSG((hwnd), LVM_GETTOPINDEX, 0, 0)
+#define ListView_GetCountPerPage(hwnd) (int)SNDMSG((hwnd), LVM_GETCOUNTPERPAGE, 0, 0)
+inline void ListView_GetItemText(HWND hwnd, int item, int subItem, LPWSTR text, int max)
+{
+	LVITEM lvi{};
+	lvi.iSubItem = subItem;
+	lvi.cchTextMax = max;
+	lvi.pszText = text;
+	SNDMSG(hwnd, LVM_GETITEMTEXT, static_cast<WPARAM>(item), reinterpret_cast<LPARAM>(&lvi));
+}
+#define Header_GetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), HDM_GETITEM, (WPARAM)(int)(i), (LPARAM)(HDITEM *)(item))
+#define ListView_IsGroupViewEnabled(hwnd) (BOOL)SNDMSG((hwnd), LVM_ISGROUPVIEWENABLED, 0, 0)
+inline void ListView_SetGroupState(HWND hwnd, int groupID, UINT mask, UINT state)
+{
+	LVGROUP group{};
+	group.cbSize = sizeof(group);
+	group.mask = LVGF_STATE;
+	group.stateMask = mask;
+	group.state = state;
+	SNDMSG(hwnd, LVM_SETGROUPINFO, static_cast<WPARAM>(groupID), reinterpret_cast<LPARAM>(&group));
+}
+#define LVM_GETGROUPSTATE (LVM_FIRST + 92)
+#define ListView_GetGroupState(hwnd, groupID, mask) (UINT)SNDMSG((hwnd), LVM_GETGROUPSTATE, (WPARAM)(groupID), (LPARAM)(mask))
+#define ListView_SetExtendedListViewStyle(hwnd, style) (DWORD)SNDMSG((hwnd), LVM_SETEXTENDEDLISTVIEWSTYLE, 0, (LPARAM)(style))
+#define ListView_GetExtendedListViewStyle(hwnd) (DWORD)SNDMSG((hwnd), LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0)
+
+// ---- tree view -------------------------------------------------------------
+#define TVM_FIRST 0x1100
+#define TVM_DELETEITEM (TVM_FIRST + 1)
+#define TVM_EXPAND (TVM_FIRST + 2)
+#define TVM_GETITEMRECT (TVM_FIRST + 4)
+#define TVM_GETCOUNT (TVM_FIRST + 5)
+#define TVM_GETINDENT (TVM_FIRST + 6)
+#define TVM_SETINDENT (TVM_FIRST + 7)
+#define TVM_GETIMAGELIST (TVM_FIRST + 8)
+#define TVM_SETIMAGELIST (TVM_FIRST + 9)
+#define TVM_GETNEXTITEM (TVM_FIRST + 10)
+#define TVM_SELECTITEM (TVM_FIRST + 11)
+#define TVM_GETEDITCONTROL (TVM_FIRST + 15)
+#define TVM_GETVISIBLECOUNT (TVM_FIRST + 16)
+#define TVM_HITTEST (TVM_FIRST + 17)
+#define TVM_CREATEDRAGIMAGE (TVM_FIRST + 18)
+#define TVM_SORTCHILDREN (TVM_FIRST + 19)
+#define TVM_ENSUREVISIBLE (TVM_FIRST + 20)
+#define TVM_SORTCHILDRENCB (TVM_FIRST + 21)
+#define TVM_ENDEDITLABELNOW (TVM_FIRST + 22)
+#define TVM_SETEXTENDEDSTYLE (TVM_FIRST + 44)
+#define TVM_INSERTITEM (TVM_FIRST + 50)
+#define TVM_GETITEM (TVM_FIRST + 62)
+#define TVM_SETITEM (TVM_FIRST + 63)
+#define TVM_EDITLABEL (TVM_FIRST + 65)
+#define TVI_ROOT ((HTREEITEM)(ULONG_PTR)-0x10000)
+#define TVI_FIRST ((HTREEITEM)(ULONG_PTR)-0x0FFFF)
+#define TVI_LAST ((HTREEITEM)(ULONG_PTR)-0x0FFFE)
+#define TVI_SORT ((HTREEITEM)(ULONG_PTR)-0x0FFFD)
+#define TVS_HASBUTTONS 0x0001
+#define TVS_HASLINES 0x0002
+#define TVS_LINESATROOT 0x0004
+#define TVS_EDITLABELS 0x0008
+#define TVS_DISABLEDRAGDROP 0x0010
+#define TVS_SHOWSELALWAYS 0x0020
+#define TVS_RTLREADING 0x0040
+#define TVS_NOTOOLTIPS 0x0080
+#define TVS_CHECKBOXES 0x0100
+#define TVS_TRACKSELECT 0x0200
+#define TVS_SINGLEEXPAND 0x0400
+#define TVS_INFOTIP 0x0800
+#define TVS_FULLROWSELECT 0x1000
+#define TVS_NOSCROLL 0x2000
+#define TVS_NONEVENHEIGHT 0x4000
+#define TVS_NOHSCROLL 0x8000
+#define TVS_EX_DOUBLEBUFFER 0x0004
+#define TVIF_TEXT 0x0001
+#define TVIF_IMAGE 0x0002
+#define TVIF_PARAM 0x0004
+#define TVIF_STATE 0x0008
+#define TVIF_HANDLE 0x0010
+#define TVIF_SELECTEDIMAGE 0x0020
+#define TVIF_CHILDREN 0x0040
+#define TVIS_SELECTED 0x0002
+#define TVIS_CUT 0x0004
+#define TVIS_DROPHILITED 0x0008
+#define TVIS_BOLD 0x0010
+#define TVIS_EXPANDED 0x0020
+#define TVIS_EXPANDEDONCE 0x0040
+#define TVIS_OVERLAYMASK 0x0F00
+#define TVIS_STATEIMAGEMASK 0xF000
+#define TVGN_ROOT 0x0000
+#define TVGN_NEXT 0x0001
+#define TVGN_PREVIOUS 0x0002
+#define TVGN_PARENT 0x0003
+#define TVGN_CHILD 0x0004
+#define TVGN_FIRSTVISIBLE 0x0005
+#define TVGN_NEXTVISIBLE 0x0006
+#define TVGN_PREVIOUSVISIBLE 0x0007
+#define TVGN_DROPHILITE 0x0008
+#define TVGN_CARET 0x0009
+#define TVGN_LASTVISIBLE 0x000A
+#define TVE_COLLAPSE 0x0001
+#define TVE_EXPAND 0x0002
+#define TVE_TOGGLE 0x0003
+#define TVSIL_NORMAL 0
+#define TVSIL_STATE 2
+#define TVHT_NOWHERE 0x0001
+#define TVHT_ONITEMICON 0x0002
+#define TVHT_ONITEMLABEL 0x0004
+#define TVHT_ONITEMINDENT 0x0008
+#define TVHT_ONITEMBUTTON 0x0010
+#define TVHT_ONITEMRIGHT 0x0020
+#define TVHT_ONITEMSTATEICON 0x0040
+#define TVHT_ONITEM (TVHT_ONITEMICON | TVHT_ONITEMLABEL | TVHT_ONITEMSTATEICON)
+#define TVC_UNKNOWN 0x0000
+#define TVC_BYMOUSE 0x0001
+#define TVC_BYKEYBOARD 0x0002
+struct TVITEM { UINT mask; HTREEITEM hItem; UINT state; UINT stateMask; LPTSTR pszText; int cchTextMax; int iImage; int iSelectedImage; int cChildren; LPARAM lParam; };
+using TV_ITEM = TVITEM;
+using LPTVITEM = TVITEM *;
+struct TVITEMEX { UINT mask; HTREEITEM hItem; UINT state; UINT stateMask; LPTSTR pszText; int cchTextMax; int iImage; int iSelectedImage; int cChildren; LPARAM lParam; int iIntegral; };
+struct TVINSERTSTRUCT { HTREEITEM hParent; HTREEITEM hInsertAfter; union { TVITEMEX itemex; TVITEM item; }; };
+using LPTVINSERTSTRUCT = TVINSERTSTRUCT *;
+struct NMTREEVIEW { NMHDR hdr; UINT action; TVITEM itemOld; TVITEM itemNew; POINT ptDrag; };
+using LPNMTREEVIEW = NMTREEVIEW *;
+using NM_TREEVIEW = NMTREEVIEW;
+struct NMTVDISPINFO { NMHDR hdr; TVITEM item; };
+using LPNMTVDISPINFO = NMTVDISPINFO *;
+struct NMTVKEYDOWN { NMHDR hdr; WORD wVKey; UINT flags; };
+using LPNMTVKEYDOWN = NMTVKEYDOWN *;
+struct NMTVCUSTOMDRAW { NMCUSTOMDRAW nmcd; COLORREF clrText; COLORREF clrTextBk; int iLevel; };
+using LPNMTVCUSTOMDRAW = NMTVCUSTOMDRAW *;
+struct TVHITTESTINFO { POINT pt; UINT flags; HTREEITEM hItem; };
+#define TVN_SELCHANGINGW (TVN_FIRST - 50)
+#define TVN_SELCHANGEDW (TVN_FIRST - 51)
+#define TVN_GETDISPINFOW (TVN_FIRST - 52)
+#define TVN_ITEMEXPANDINGW (TVN_FIRST - 54)
+#define TVN_ITEMEXPANDEDW (TVN_FIRST - 55)
+#define TVN_BEGINDRAGW (TVN_FIRST - 56)
+#define TVN_BEGINRDRAGW (TVN_FIRST - 57)
+#define TVN_DELETEITEMW (TVN_FIRST - 58)
+#define TVN_BEGINLABELEDITW (TVN_FIRST - 59)
+#define TVN_ENDLABELEDITW (TVN_FIRST - 60)
+#define TVN_KEYDOWN (TVN_FIRST - 12)
+#define TVN_GETINFOTIPW (TVN_FIRST - 14)
+#define TVN_SELCHANGING TVN_SELCHANGINGW
+#define TVN_SELCHANGED TVN_SELCHANGEDW
+#define TVN_GETDISPINFO TVN_GETDISPINFOW
+#define TVN_ITEMEXPANDING TVN_ITEMEXPANDINGW
+#define TVN_ITEMEXPANDED TVN_ITEMEXPANDEDW
+#define TVN_BEGINDRAG TVN_BEGINDRAGW
+#define TVN_BEGINRDRAG TVN_BEGINRDRAGW
+#define TVN_DELETEITEM TVN_DELETEITEMW
+#define TVN_BEGINLABELEDIT TVN_BEGINLABELEDITW
+#define TVN_ENDLABELEDIT TVN_ENDLABELEDITW
+#define TVN_GETINFOTIP TVN_GETINFOTIPW
+#define TVN_SINGLEEXPAND (TVN_FIRST - 15)
+#define TVN_ITEMCHANGINGW (TVN_FIRST - 17)
+#define TVN_ITEMCHANGEDW (TVN_FIRST - 19)
+#define TVN_ITEMCHANGING TVN_ITEMCHANGINGW
+#define TVN_ITEMCHANGED TVN_ITEMCHANGEDW
+#define TVN_SETDISPINFOW (TVN_FIRST - 53)
+#define TVN_SETDISPINFO TVN_SETDISPINFOW
+#define TVNRET_DEFAULT 0
+#define TVNRET_SKIPOLD 1
+#define TVNRET_SKIPNEW 2
+#define WC_TREEVIEW L"SysTreeView32"
+#define TVM_SETTOOLTIPS (TVM_FIRST + 24)
+#define TVM_GETTOOLTIPS (TVM_FIRST + 25)
+#define TVM_SETINSERTMARK (TVM_FIRST + 26)
+#define TVM_SETITEMHEIGHT (TVM_FIRST + 27)
+#define TVM_GETITEMHEIGHT (TVM_FIRST + 28)
+#define TVM_SETBKCOLOR (TVM_FIRST + 29)
+#define TVM_SETTEXTCOLOR (TVM_FIRST + 30)
+#define TVM_GETBKCOLOR (TVM_FIRST + 31)
+#define TVM_GETTEXTCOLOR (TVM_FIRST + 32)
+#define TVM_SETSCROLLTIME (TVM_FIRST + 33)
+#define TVM_GETSCROLLTIME (TVM_FIRST + 34)
+#define TVM_SETINSERTMARKCOLOR (TVM_FIRST + 37)
+#define TVM_GETINSERTMARKCOLOR (TVM_FIRST + 38)
+#define TVM_GETITEMSTATE (TVM_FIRST + 39)
+#define TVM_SETLINECOLOR (TVM_FIRST + 40)
+#define TVM_GETLINECOLOR (TVM_FIRST + 41)
+#define TVM_GETEXTENDEDSTYLE (TVM_FIRST + 45)
+#define TVM_GETISEARCHSTRING (TVM_FIRST + 64)
+#define TVIF_INTEGRAL 0x0080
+#define TVIF_STATEEX 0x0100
+#define TVIF_EXPANDEDIMAGE 0x0200
+#define TVIS_USERMASK 0xF000
+#define TVE_EXPANDPARTIAL 0x4000
+#define TVE_COLLAPSERESET 0x8000
+#define TVE_ACTIONMASK 0x0003
+#define TVHT_ABOVE 0x0100
+#define TVHT_BELOW 0x0200
+#define TVHT_TORIGHT 0x0400
+#define TVHT_TOLEFT 0x0800
+#define I_CHILDRENCALLBACK (-1)
+#define I_CHILDRENAUTO (-2)
+#define TVS_EX_MULTISELECT 0x0002
+#define TVS_EX_AUTOHSCROLL 0x0020
+#define TVS_EX_FADEINOUTEXPANDOS 0x0040
+#define TVS_EX_DIMMEDCHECKBOXES 0x0200
+using LPTVHITTESTINFO = TVHITTESTINFO *;
+using TV_HITTESTINFO = TVHITTESTINFO;
+using TV_INSERTSTRUCT = TVINSERTSTRUCT;
+using LPTVITEMEX = TVITEMEX *;
+using TV_DISPINFO = NMTVDISPINFO;
+using PFNTVCOMPARE = int (CALLBACK *)(LPARAM, LPARAM, LPARAM);
+struct TVSORTCB { HTREEITEM hParent; PFNTVCOMPARE lpfnCompare; LPARAM lParam; };
+using LPTVSORTCB = TVSORTCB *;
+struct NMTVGETINFOTIP { NMHDR hdr; LPWSTR pszText; int cchTextMax; HTREEITEM hItem; LPARAM lParam; };
+using LPNMTVGETINFOTIP = NMTVGETINFOTIP *;
+#define TreeView_InsertItem(hwnd, is) (HTREEITEM)SNDMSG((hwnd), TVM_INSERTITEM, 0, (LPARAM)(LPTVINSERTSTRUCT)(is))
+#define TreeView_DeleteItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_DELETEITEM, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_DeleteAllItems(hwnd) (BOOL)SNDMSG((hwnd), TVM_DELETEITEM, 0, (LPARAM)TVI_ROOT)
+#define TreeView_Expand(hwnd, item, code) (BOOL)SNDMSG((hwnd), TVM_EXPAND, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+inline BOOL TreeView_GetItemRect(HWND hwnd, HTREEITEM item, RECT *rc, BOOL textOnly)
+{
+	*reinterpret_cast<HTREEITEM *>(rc) = item;
+	return static_cast<BOOL>(SNDMSG(hwnd, TVM_GETITEMRECT, static_cast<WPARAM>(textOnly), reinterpret_cast<LPARAM>(rc)));
+}
+#define TreeView_GetCount(hwnd) (UINT)SNDMSG((hwnd), TVM_GETCOUNT, 0, 0)
+#define TreeView_GetIndent(hwnd) (UINT)SNDMSG((hwnd), TVM_GETINDENT, 0, 0)
+#define TreeView_SetIndent(hwnd, indent) (BOOL)SNDMSG((hwnd), TVM_SETINDENT, (WPARAM)(indent), 0)
+#define TreeView_GetImageList(hwnd, type) (HIMAGELIST)SNDMSG((hwnd), TVM_GETIMAGELIST, (WPARAM)(type), 0)
+#define TreeView_SetImageList(hwnd, list, type) (HIMAGELIST)SNDMSG((hwnd), TVM_SETIMAGELIST, (WPARAM)(type), (LPARAM)(HIMAGELIST)(list))
+#define TreeView_GetNextItem(hwnd, item, code) (HTREEITEM)SNDMSG((hwnd), TVM_GETNEXTITEM, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+#define TreeView_GetChild(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_CHILD)
+#define TreeView_GetNextSibling(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_NEXT)
+#define TreeView_GetPrevSibling(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PREVIOUS)
+#define TreeView_GetParent(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PARENT)
+#define TreeView_GetFirstVisible(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_FIRSTVISIBLE)
+#define TreeView_GetNextVisible(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_NEXTVISIBLE)
+#define TreeView_GetPrevVisible(hwnd, item) TreeView_GetNextItem(hwnd, item, TVGN_PREVIOUSVISIBLE)
+#define TreeView_GetSelection(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_CARET)
+#define TreeView_GetDropHilight(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_DROPHILITE)
+#define TreeView_GetRoot(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_ROOT)
+#define TreeView_GetLastVisible(hwnd) TreeView_GetNextItem(hwnd, NULL, TVGN_LASTVISIBLE)
+#define TreeView_Select(hwnd, item, code) (BOOL)SNDMSG((hwnd), TVM_SELECTITEM, (WPARAM)(code), (LPARAM)(HTREEITEM)(item))
+#define TreeView_SelectItem(hwnd, item) TreeView_Select(hwnd, item, TVGN_CARET)
+#define TreeView_SelectDropTarget(hwnd, item) TreeView_Select(hwnd, item, TVGN_DROPHILITE)
+#define TreeView_SelectSetFirstVisible(hwnd, item) TreeView_Select(hwnd, item, TVGN_FIRSTVISIBLE)
+#define TreeView_GetItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_GETITEM, 0, (LPARAM)(TVITEM *)(item))
+#define TreeView_SetItem(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_SETITEM, 0, (LPARAM)(const TVITEM *)(item))
+#define TreeView_EditLabel(hwnd, item) (HWND)SNDMSG((hwnd), TVM_EDITLABEL, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_GetEditControl(hwnd) (HWND)SNDMSG((hwnd), TVM_GETEDITCONTROL, 0, 0)
+#define TreeView_GetVisibleCount(hwnd) (UINT)SNDMSG((hwnd), TVM_GETVISIBLECOUNT, 0, 0)
+#define TreeView_HitTest(hwnd, info) (HTREEITEM)SNDMSG((hwnd), TVM_HITTEST, 0, (LPARAM)(LPTVHITTESTINFO)(info))
+#define TreeView_CreateDragImage(hwnd, item) (HIMAGELIST)SNDMSG((hwnd), TVM_CREATEDRAGIMAGE, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_SortChildren(hwnd, item, recurse) (BOOL)SNDMSG((hwnd), TVM_SORTCHILDREN, (WPARAM)(recurse), (LPARAM)(HTREEITEM)(item))
+#define TreeView_EnsureVisible(hwnd, item) (BOOL)SNDMSG((hwnd), TVM_ENSUREVISIBLE, 0, (LPARAM)(HTREEITEM)(item))
+#define TreeView_SortChildrenCB(hwnd, sort, recurse) (BOOL)SNDMSG((hwnd), TVM_SORTCHILDRENCB, (WPARAM)(recurse), (LPARAM)(LPTVSORTCB)(sort))
+#define TreeView_EndEditLabelNow(hwnd, cancel) (BOOL)SNDMSG((hwnd), TVM_ENDEDITLABELNOW, (WPARAM)(cancel), 0)
+#define TreeView_SetItemHeight(hwnd, cy) (int)SNDMSG((hwnd), TVM_SETITEMHEIGHT, (WPARAM)(cy), 0)
+#define TreeView_GetItemHeight(hwnd) (int)SNDMSG((hwnd), TVM_GETITEMHEIGHT, 0, 0)
+#define TreeView_SetBkColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETBKCOLOR, 0, (LPARAM)(c))
+#define TreeView_GetBkColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETBKCOLOR, 0, 0)
+#define TreeView_SetTextColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETTEXTCOLOR, 0, (LPARAM)(c))
+#define TreeView_GetTextColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETTEXTCOLOR, 0, 0)
+#define TreeView_SetLineColor(hwnd, c) (COLORREF)SNDMSG((hwnd), TVM_SETLINECOLOR, 0, (LPARAM)(c))
+#define TreeView_GetLineColor(hwnd) (COLORREF)SNDMSG((hwnd), TVM_GETLINECOLOR, 0, 0)
+#define TreeView_SetInsertMark(hwnd, item, after) (BOOL)SNDMSG((hwnd), TVM_SETINSERTMARK, (WPARAM)(after), (LPARAM)(item))
+#define TreeView_GetItemState(hwnd, item, mask) (UINT)SNDMSG((hwnd), TVM_GETITEMSTATE, (WPARAM)(item), (LPARAM)(mask))
+inline BOOL TreeView_SetItemState(HWND hwnd, HTREEITEM item, UINT state, UINT mask)
+{
+	TVITEM tvi{};
+	tvi.mask = TVIF_STATE;
+	tvi.hItem = item;
+	tvi.state = state;
+	tvi.stateMask = mask;
+	return static_cast<BOOL>(SNDMSG(hwnd, TVM_SETITEM, 0, reinterpret_cast<LPARAM>(&tvi)));
+}
+#define TreeView_SetCheckState(hwnd, item, check) TreeView_SetItemState(hwnd, item, INDEXTOSTATEIMAGEMASK((check) ? 2 : 1), TVIS_STATEIMAGEMASK)
+#define TreeView_GetCheckState(hwnd, item) ((((UINT)(SNDMSG((hwnd), TVM_GETITEMSTATE, (WPARAM)(item), TVIS_STATEIMAGEMASK))) >> 12) - 1)
+#define TreeView_SetExtendedStyle(hwnd, style, mask) (DWORD)SNDMSG((hwnd), TVM_SETEXTENDEDSTYLE, (WPARAM)(mask), (LPARAM)(style))
+#define TreeView_GetExtendedStyle(hwnd) (DWORD)SNDMSG((hwnd), TVM_GETEXTENDEDSTYLE, 0, 0)
+#define TreeView_GetToolTips(hwnd) (HWND)SNDMSG((hwnd), TVM_GETTOOLTIPS, 0, 0)
+#define TreeView_SetToolTips(hwnd, tt) (HWND)SNDMSG((hwnd), TVM_SETTOOLTIPS, (WPARAM)(tt), 0)
+
+// ---- toolbar ---------------------------------------------------------------
+#define CCS_TOP 0x00000001L
+#define CCS_NOMOVEY 0x00000002L
+#define CCS_BOTTOM 0x00000003L
+#define CCS_NORESIZE 0x00000004L
+#define CCS_NOPARENTALIGN 0x00000008L
+#define CCS_ADJUSTABLE 0x00000020L
+#define CCS_NODIVIDER 0x00000040L
+#define CCS_VERT 0x00000080L
+#define CCS_NOMOVEX (CCS_VERT | CCS_NOMOVEY)
+#define TOOLBARCLASSNAME L"ToolbarWindow32"
+#define HINST_COMMCTRL ((HINSTANCE)-1)
+#define TB_ENABLEBUTTON (WM_USER + 1)
+#define TB_CHECKBUTTON (WM_USER + 2)
+#define TB_PRESSBUTTON (WM_USER + 3)
+#define TB_HIDEBUTTON (WM_USER + 4)
+#define TB_INDETERMINATE (WM_USER + 5)
+#define TB_MARKBUTTON (WM_USER + 6)
+#define TB_ISBUTTONENABLED (WM_USER + 9)
+#define TB_ISBUTTONCHECKED (WM_USER + 10)
+#define TB_ISBUTTONPRESSED (WM_USER + 11)
+#define TB_ISBUTTONHIDDEN (WM_USER + 12)
+#define TB_ISBUTTONINDETERMINATE (WM_USER + 13)
+#define TB_ISBUTTONHIGHLIGHTED (WM_USER + 14)
+#define TB_SETSTATE (WM_USER + 17)
+#define TB_GETSTATE (WM_USER + 18)
+#define TB_ADDBITMAP (WM_USER + 19)
+#define TB_DELETEBUTTON (WM_USER + 22)
+#define TB_GETBUTTON (WM_USER + 23)
+#define TB_BUTTONCOUNT (WM_USER + 24)
+#define TB_COMMANDTOINDEX (WM_USER + 25)
+#define TB_CUSTOMIZE (WM_USER + 27)
+#define TB_GETITEMRECT (WM_USER + 29)
+#define TB_BUTTONSTRUCTSIZE (WM_USER + 30)
+#define TB_SETBUTTONSIZE (WM_USER + 31)
+#define TB_SETBITMAPSIZE (WM_USER + 32)
+#define TB_AUTOSIZE (WM_USER + 33)
+#define TB_GETTOOLTIPS (WM_USER + 35)
+#define TB_SETTOOLTIPS (WM_USER + 36)
+#define TB_SETPARENT (WM_USER + 37)
+#define TB_SETROWS (WM_USER + 39)
+#define TB_GETROWS (WM_USER + 40)
+#define TB_SETCMDID (WM_USER + 42)
+#define TB_CHANGEBITMAP (WM_USER + 43)
+#define TB_GETBITMAP (WM_USER + 44)
+#define TB_REPLACEBITMAP (WM_USER + 46)
+#define TB_SETINDENT (WM_USER + 47)
+#define TB_SETIMAGELIST (WM_USER + 48)
+#define TB_GETIMAGELIST (WM_USER + 49)
+#define TB_SETDISABLEDIMAGELIST (WM_USER + 54)
+#define TB_GETRECT (WM_USER + 51)
+#define TB_SETHOTIMAGELIST (WM_USER + 52)
+#define TB_GETHOTIMAGELIST (WM_USER + 53)
+#define TB_GETDISABLEDIMAGELIST (WM_USER + 55)
+#define TB_SETSTYLE (WM_USER + 56)
+#define TB_GETSTYLE (WM_USER + 57)
+#define TB_GETBUTTONSIZE (WM_USER + 58)
+#define TB_SETBUTTONWIDTH (WM_USER + 59)
+#define TB_SETMAXTEXTROWS (WM_USER + 60)
+#define TB_GETTEXTROWS (WM_USER + 61)
+#define TB_GETHOTITEM (WM_USER + 71)
+#define TB_SETHOTITEM (WM_USER + 72)
+#define TB_SETANCHORHIGHLIGHT (WM_USER + 73)
+#define TB_GETANCHORHIGHLIGHT (WM_USER + 74)
+#define TB_GETINSERTMARK (WM_USER + 79)
+#define TB_SETINSERTMARK (WM_USER + 80)
+#define TB_GETMAXSIZE (WM_USER + 83)
+#define TB_SETEXTENDEDSTYLE (WM_USER + 84)
+#define TB_GETEXTENDEDSTYLE (WM_USER + 85)
+#define TB_GETPADDING (WM_USER + 86)
+#define TB_SETPADDING (WM_USER + 87)
+#define TB_HITTEST (WM_USER + 69)
+#define TB_SETDRAWTEXTFLAGS (WM_USER + 70)
+#define TB_GETIDEALSIZE (WM_USER + 99)
+#define TB_GETBUTTONINFOW (WM_USER + 63)
+#define TB_SETBUTTONINFOW (WM_USER + 64)
+#define TB_INSERTBUTTONW (WM_USER + 67)
+#define TB_ADDBUTTONSW (WM_USER + 68)
+#define TB_ADDSTRINGW (WM_USER + 77)
+#define TB_GETBUTTONTEXTW (WM_USER + 75)
+#define TB_GETBUTTONINFO TB_GETBUTTONINFOW
+#define TB_SETBUTTONINFO TB_SETBUTTONINFOW
+#define TB_INSERTBUTTON TB_INSERTBUTTONW
+#define TB_ADDBUTTONS TB_ADDBUTTONSW
+#define TB_ADDSTRING TB_ADDSTRINGW
+#define TB_GETBUTTONTEXT TB_GETBUTTONTEXTW
+#define HICF_OTHER 0x00000000
+#define HICF_MOUSE 0x00000001
+#define HICF_ARROWKEYS 0x00000002
+#define HICF_ACCELERATOR 0x00000004
+#define HICF_DUPACCEL 0x00000008
+#define HICF_ENTERING 0x00000010
+#define HICF_LEAVING 0x00000020
+#define HICF_RESELECT 0x00000040
+#define HICF_LMOUSE 0x00000080
+#define HICF_TOGGLEDROPDOWN 0x00000100
+struct TBADDBITMAP { HINSTANCE hInst; UINT_PTR nID; };
+using LPTBADDBITMAP = TBADDBITMAP *;
+struct TBREPLACEBITMAP { HINSTANCE hInstOld; UINT_PTR nIDOld; HINSTANCE hInstNew; UINT_PTR nIDNew; int nButtons; };
+using LPTBREPLACEBITMAP = TBREPLACEBITMAP *;
+struct NMTBHOTITEM { NMHDR hdr; int idOld; int idNew; DWORD dwFlags; };
+using LPNMTBHOTITEM = NMTBHOTITEM *;
+struct NMMOUSE { NMHDR hdr; DWORD_PTR dwItemSpec; DWORD_PTR dwItemData; POINT pt; LPARAM dwHitInfo; };
+using LPNMMOUSE = NMMOUSE *;
+using NMCLICK = NMMOUSE;
+using LPNMCLICK = NMMOUSE *;
+#define TBSTYLE_TOOLTIPS 0x0100
+#define TBSTYLE_WRAPABLE 0x0200
+#define TBSTYLE_ALTDRAG 0x0400
+#define TBSTYLE_FLAT 0x0800
+#define TBSTYLE_LIST 0x1000
+#define TBSTYLE_CUSTOMERASE 0x2000
+#define TBSTYLE_TRANSPARENT 0x8000
+#define TBSTYLE_NOPREFIX 0x0020
+#define TBSTYLE_EX_DRAWDDARROWS 0x00000001
+#define TBSTYLE_EX_MIXEDBUTTONS 0x00000008
+#define TBSTYLE_EX_HIDECLIPPEDBUTTONS 0x00000010
+#define TBSTYLE_EX_DOUBLEBUFFER 0x00000080
+#define BTNS_BUTTON TBSTYLE_BUTTON
+#define BTNS_SEP TBSTYLE_SEP
+#define BTNS_CHECK TBSTYLE_CHECK
+#define BTNS_GROUP TBSTYLE_GROUP
+#define BTNS_DROPDOWN TBSTYLE_DROPDOWN
+#define BTNS_AUTOSIZE TBSTYLE_AUTOSIZE
+#define BTNS_SHOWTEXT 0x0040
+#define BTNS_NOPREFIX TBSTYLE_NOPREFIX
+#define I_IMAGENONE (-2)
+#define BTNS_WHOLEDROPDOWN 0x0080
+#define TBSTATE_WRAP 0x20
+#define TBSTATE_ELLIPSES 0x40
+#define TBSTATE_MARKED 0x80
+#define TBIF_IMAGE 0x00000001
+#define TBIF_TEXT 0x00000002
+#define TBIF_STATE 0x00000004
+#define TBIF_STYLE 0x00000008
+#define TBIF_LPARAM 0x00000010
+#define TBIF_COMMAND 0x00000020
+#define TBIF_SIZE 0x00000040
+#define TBIF_BYINDEX 0x80000000
+#define TBDDRET_DEFAULT 0
+#define TBDDRET_NODEFAULT 1
+#define TBDDRET_TREATPRESSED 2
+// MFC CToolBar button styles.
+#define TBBS_BUTTON MAKELONG(TBSTYLE_BUTTON, 0)
+#define TBBS_SEPARATOR MAKELONG(TBSTYLE_SEP, 0)
+#define TBBS_CHECKBOX MAKELONG(TBSTYLE_CHECK, 0)
+#define TBBS_GROUP MAKELONG(TBSTYLE_GROUP, 0)
+#define TBBS_CHECKGROUP MAKELONG(TBSTYLE_GROUP | TBSTYLE_CHECK, 0)
+#define TBBS_DROPDOWN MAKELONG(TBSTYLE_DROPDOWN, 0)
+#define TBBS_AUTOSIZE MAKELONG(TBSTYLE_AUTOSIZE, 0)
+#define TBBS_NOPREFIX MAKELONG(TBSTYLE_NOPREFIX, 0)
+#define TBBS_CHECKED MAKELONG(0, TBSTATE_CHECKED)
+#define TBBS_PRESSED MAKELONG(0, TBSTATE_PRESSED)
+#define TBBS_DISABLED MAKELONG(0, TBSTATE_ENABLED)
+#define TBBS_INDETERMINATE MAKELONG(0, 0x10)
+#define TBBS_HIDDEN MAKELONG(0, TBSTATE_HIDDEN)
+#define TBBS_WRAPPED MAKELONG(0, TBSTATE_WRAP)
+#define TBBS_ELLIPSES MAKELONG(0, TBSTATE_ELLIPSES)
+#define TBBS_MARKED MAKELONG(0, TBSTATE_MARKED)
+struct TBBUTTON { int iBitmap; int idCommand; BYTE fsState; BYTE fsStyle; BYTE bReserved[6]; DWORD_PTR dwData; INT_PTR iString; };
+using LPTBBUTTON = TBBUTTON *;
+using LPCTBBUTTON = const TBBUTTON *;
+struct TBBUTTONINFO { UINT cbSize; DWORD dwMask; int idCommand; int iImage; BYTE fsState; BYTE fsStyle; WORD cx; DWORD_PTR lParam; LPTSTR pszText; int cchText; };
+using LPTBBUTTONINFO = TBBUTTONINFO *;
+struct NMTOOLBAR { NMHDR hdr; int iItem; TBBUTTON tbButton; int cchText; LPTSTR pszText; RECT rcButton; };
+using LPNMTOOLBAR = NMTOOLBAR *;
+#define TBN_GETBUTTONINFOW (TBN_FIRST - 20)
+#define TBN_DROPDOWN (TBN_FIRST - 10)
+#define TBN_HOTITEMCHANGE (TBN_FIRST - 13)
+#define TBN_GETINFOTIPW (TBN_FIRST - 19)
+#define TBN_GETINFOTIP TBN_GETINFOTIPW
+
+// ---- status bar ------------------------------------------------------------
+#define STATUSCLASSNAME L"msctls_statusbar32"
+#define SBARS_SIZEGRIP 0x0100
+#define SBARS_TOOLTIPS 0x0800
+#define SBT_TOOLTIPS 0x0800
+#define SB_SETTEXTW (WM_USER + 11)
+#define SB_GETTEXTW (WM_USER + 13)
+#define SB_GETTEXTLENGTHW (WM_USER + 12)
+#define SB_SETTEXT SB_SETTEXTW
+#define SB_GETTEXT SB_GETTEXTW
+#define SB_GETTEXTLENGTH SB_GETTEXTLENGTHW
+#define SB_SETPARTS (WM_USER + 4)
+#define SB_GETPARTS (WM_USER + 6)
+#define SB_GETBORDERS (WM_USER + 7)
+#define SB_SETMINHEIGHT (WM_USER + 8)
+#define SB_SIMPLE (WM_USER + 9)
+#define SB_GETRECT (WM_USER + 10)
+#define SB_ISSIMPLE (WM_USER + 14)
+#define SB_SETICON (WM_USER + 15)
+#define SB_SETTIPTEXTW (WM_USER + 17)
+#define SB_GETTIPTEXTW (WM_USER + 19)
+#define SB_GETICON (WM_USER + 20)
+#define SB_SETTIPTEXT SB_SETTIPTEXTW
+#define SB_GETTIPTEXT SB_GETTIPTEXTW
+#define CCM_SETBKCOLOR 0x2001
+#define SB_SETBKCOLOR CCM_SETBKCOLOR
+#define SBT_OWNERDRAW 0x1000
+#define SBT_NOBORDERS 0x0100
+#define SBT_POPOUT 0x0200
+#define SBT_RTLREADING 0x0400
+#define SBT_NOTABPARSING 0x0800
+#define SB_SIMPLEID 0x00ff
+#define SBN_FIRST (0U - 880U)
+#define SBN_SIMPLEMODECHANGE (SBN_FIRST - 0)
+
+// ---- tooltip -----------------------------------------------------------------
+#define TTS_ALWAYSTIP 0x01
+#define TTS_NOPREFIX 0x02
+#define TTS_NOANIMATE 0x10
+#define TTS_NOFADE 0x20
+#define TTS_BALLOON 0x40
+#define TTS_CLOSE 0x80
+#define TTF_IDISHWND 0x0001
+#define TTF_CENTERTIP 0x0002
+#define TTF_RTLREADING 0x0004
+#define TTF_SUBCLASS 0x0010
+#define TTF_TRACK 0x0020
+#define TTF_ABSOLUTE 0x0080
+#define TTF_TRANSPARENT 0x0100
+#define TTF_PARSELINKS 0x1000
+#define TTF_DI_SETITEM 0x8000
+#define TTI_NONE 0
+#define TTI_INFO 1
+#define TTI_WARNING 2
+#define TTI_ERROR 3
+#define TTDT_AUTOMATIC 0
+#define TTDT_RESHOW 1
+#define TTDT_AUTOPOP 2
+#define TTDT_INITIAL 3
+#define TTM_ACTIVATE (WM_USER + 1)
+#define TTM_SETDELAYTIME (WM_USER + 3)
+#define TTM_RELAYEVENT (WM_USER + 7)
+#define TTM_TRACKACTIVATE (WM_USER + 17)
+#define TTM_TRACKPOSITION (WM_USER + 18)
+#define TTM_SETTIPBKCOLOR (WM_USER + 19)
+#define TTM_SETTIPTEXTCOLOR (WM_USER + 20)
+#define TTM_SETMAXTIPWIDTH (WM_USER + 24)
+#define TTM_POP (WM_USER + 28)
+#define TTM_UPDATE (WM_USER + 29)
+#define TTM_SETTITLEW (WM_USER + 33)
+#define TTM_ADDTOOLW (WM_USER + 50)
+#define TTM_DELTOOLW (WM_USER + 51)
+#define TTM_NEWTOOLRECTW (WM_USER + 52)
+#define TTM_UPDATETIPTEXTW (WM_USER + 57)
+#define TTM_ADDTOOL TTM_ADDTOOLW
+#define TTM_DELTOOL TTM_DELTOOLW
+#define TTM_NEWTOOLRECT TTM_NEWTOOLRECTW
+#define TTM_UPDATETIPTEXT TTM_UPDATETIPTEXTW
+#define TTM_SETTITLE TTM_SETTITLEW
+#define TTTOOLINFO_V1_SIZE (offsetof(TOOLINFO, lParam))
+#define TOOLTIPS_CLASS L"tooltips_class32"
+#define TTM_GETTOOLCOUNT (WM_USER + 13)
+#define TTM_WINDOWFROMPOINT (WM_USER + 16)
+#define TTM_GETDELAYTIME (WM_USER + 21)
+#define TTM_GETTIPBKCOLOR (WM_USER + 22)
+#define TTM_GETTIPTEXTCOLOR (WM_USER + 23)
+#define TTM_GETMAXTIPWIDTH (WM_USER + 25)
+#define TTM_SETMARGIN (WM_USER + 26)
+#define TTM_GETMARGIN (WM_USER + 27)
+#define TTM_GETBUBBLESIZE (WM_USER + 30)
+#define TTM_ADJUSTRECT (WM_USER + 31)
+#define TTM_POPUP (WM_USER + 34)
+#define TTM_GETTOOLINFOW (WM_USER + 53)
+#define TTM_SETTOOLINFOW (WM_USER + 54)
+#define TTM_HITTESTW (WM_USER + 55)
+#define TTM_GETTEXTW (WM_USER + 56)
+#define TTM_ENUMTOOLSW (WM_USER + 58)
+#define TTM_GETCURRENTTOOLW (WM_USER + 59)
+#define TTM_GETTOOLINFO TTM_GETTOOLINFOW
+#define TTM_SETTOOLINFO TTM_SETTOOLINFOW
+#define TTM_HITTEST TTM_HITTESTW
+#define TTM_GETTEXT TTM_GETTEXTW
+#define TTM_ENUMTOOLS TTM_ENUMTOOLSW
+#define TTM_GETCURRENTTOOL TTM_GETCURRENTTOOLW
+#define TTF_NOTBUTTON 0x10000000
+#define TTF_ALWAYSTIP 0x20000000
+struct TTHITTESTINFO { HWND hwnd; POINT pt; TOOLINFO ti; };
+using LPTTHITTESTINFO = TTHITTESTINFO *;
+#define TTN_GETDISPINFOW (TTN_FIRST - 10)
+#define TTN_SHOW (TTN_FIRST - 1)
+#define TTN_POP (TTN_FIRST - 2)
+#define TTN_LINKCLICK (TTN_FIRST - 3)
+#define TTN_GETDISPINFO TTN_GETDISPINFOW
+#define TTN_NEEDTEXTW TTN_GETDISPINFOW
+#define TTN_NEEDTEXT TTN_NEEDTEXTW
+struct NMTTDISPINFO { NMHDR hdr; LPTSTR lpszText; TCHAR szText[80]; HINSTANCE hinst; UINT uFlags; LPARAM lParam; };
+using LPNMTTDISPINFO = NMTTDISPINFO *;
+using TOOLTIPTEXT = NMTTDISPINFO;
+using TOOLTIPTEXTW = NMTTDISPINFO;
+using LPTOOLTIPTEXT = NMTTDISPINFO *;
+
+// ---- tab control -------------------------------------------------------------
+#define TCIF_TEXT 0x0001
+#define TCIF_IMAGE 0x0002
+#define TCIF_RTLREADING 0x0004
+#define TCIF_PARAM 0x0008
+#define TCIF_STATE 0x0010
+#define TCS_SCROLLOPPOSITE 0x0001
+#define TCS_BOTTOM 0x0002
+#define TCS_RIGHT 0x0002
+#define TCS_MULTISELECT 0x0004
+#define TCS_FLATBUTTONS 0x0008
+#define TCS_FORCEICONLEFT 0x0010
+#define TCS_FORCELABELLEFT 0x0020
+#define TCS_HOTTRACK 0x0040
+#define TCS_VERTICAL 0x0080
+#define TCS_TABS 0x0000
+#define TCS_SINGLELINE 0x0000
+#define TCS_RIGHTJUSTIFY 0x0000
+#define TCS_RAGGEDRIGHT 0x0800
+#define TCS_FOCUSONBUTTONDOWN 0x1000
+#define TCS_OWNERDRAWFIXED 0x2000
+#define TCS_TOOLTIPS 0x4000
+#define TCS_BUTTONS 0x0100
+#define TCS_MULTILINE 0x0200
+#define TCS_FIXEDWIDTH 0x0400
+#define TCS_FOCUSNEVER 0x8000
+struct TCITEM { UINT mask; DWORD dwState; DWORD dwStateMask; LPTSTR pszText; int cchTextMax; int iImage; LPARAM lParam; };
+using TC_ITEM = TCITEM;
+using LPTCITEM = TCITEM *;
+#define TCN_KEYDOWN (TCN_FIRST - 0)
+#define TCN_SELCHANGE (TCN_FIRST - 1)
+#define TCN_SELCHANGING (TCN_FIRST - 2)
+#define TCN_FOCUSCHANGE (TCN_FIRST - 4)
+#define TCM_FIRST 0x1300
+#define TCM_GETIMAGELIST (TCM_FIRST + 2)
+#define TCM_SETIMAGELIST (TCM_FIRST + 3)
+#define TCM_GETITEMCOUNT (TCM_FIRST + 4)
+#define TCM_DELETEITEM (TCM_FIRST + 8)
+#define TCM_DELETEALLITEMS (TCM_FIRST + 9)
+#define TCM_GETITEMRECT (TCM_FIRST + 10)
+#define TCM_GETCURSEL (TCM_FIRST + 11)
+#define TCM_SETCURSEL (TCM_FIRST + 12)
+#define TCM_HITTEST (TCM_FIRST + 13)
+#define TCM_SETITEMEXTRA (TCM_FIRST + 14)
+#define TCM_ADJUSTRECT (TCM_FIRST + 40)
+#define TCM_SETITEMSIZE (TCM_FIRST + 41)
+#define TCM_REMOVEIMAGE (TCM_FIRST + 42)
+#define TCM_SETPADDING (TCM_FIRST + 43)
+#define TCM_GETROWCOUNT (TCM_FIRST + 44)
+#define TCM_GETTOOLTIPS (TCM_FIRST + 45)
+#define TCM_SETTOOLTIPS (TCM_FIRST + 46)
+#define TCM_GETCURFOCUS (TCM_FIRST + 47)
+#define TCM_SETCURFOCUS (TCM_FIRST + 48)
+#define TCM_SETMINTABWIDTH (TCM_FIRST + 49)
+#define TCM_DESELECTALL (TCM_FIRST + 50)
+#define TCM_HIGHLIGHTITEM (TCM_FIRST + 51)
+#define TCM_SETEXTENDEDSTYLE (TCM_FIRST + 52)
+#define TCM_GETEXTENDEDSTYLE (TCM_FIRST + 53)
+#define TCM_GETITEMW (TCM_FIRST + 60)
+#define TCM_SETITEMW (TCM_FIRST + 61)
+#define TCM_INSERTITEMW (TCM_FIRST + 62)
+#define TCM_GETITEM TCM_GETITEMW
+#define TCM_SETITEM TCM_SETITEMW
+#define TCM_INSERTITEM TCM_INSERTITEMW
+#define TCIS_BUTTONPRESSED 0x0001
+#define TCIS_HIGHLIGHTED 0x0002
+#define TCHT_NOWHERE 0x0001
+#define TCHT_ONITEMICON 0x0002
+#define TCHT_ONITEMLABEL 0x0004
+#define TCHT_ONITEM (TCHT_ONITEMICON | TCHT_ONITEMLABEL)
+struct TCHITTESTINFO { POINT pt; UINT flags; };
+using LPTCHITTESTINFO = TCHITTESTINFO *;
+using TC_HITTESTINFO = TCHITTESTINFO;
+#define WC_TABCONTROL L"SysTabControl32"
+#define ODT_TAB 101
+#pragma pack(push, 1)
+struct NMTCKEYDOWN { NMHDR hdr; WORD wVKey; UINT flags; };
+#pragma pack(pop)
+using TC_KEYDOWN = NMTCKEYDOWN;
+#define TabCtrl_GetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), TCM_GETITEMW, (WPARAM)(int)(i), (LPARAM)(TCITEM *)(item))
+#define TabCtrl_SetItem(hwnd, i, item) (BOOL)SNDMSG((hwnd), TCM_SETITEMW, (WPARAM)(int)(i), (LPARAM)(TCITEM *)(item))
+#define TabCtrl_DeleteItem(hwnd, i) (BOOL)SNDMSG((hwnd), TCM_DELETEITEM, (WPARAM)(int)(i), 0)
+#define TabCtrl_GetItemRect(hwnd, i, rc) (BOOL)SNDMSG((hwnd), TCM_GETITEMRECT, (WPARAM)(int)(i), (LPARAM)(RECT *)(rc))
+#define TabCtrl_AdjustRect(hwnd, larger, rc) (int)SNDMSG((hwnd), TCM_ADJUSTRECT, (WPARAM)(BOOL)(larger), (LPARAM)(RECT *)(rc))
+#define TabCtrl_HitTest(hwnd, info) (int)SNDMSG((hwnd), TCM_HITTEST, 0, (LPARAM)(TC_HITTESTINFO *)(info))
+#define TabCtrl_SetImageList(hwnd, list) (HIMAGELIST)SNDMSG((hwnd), TCM_SETIMAGELIST, 0, (LPARAM)(HIMAGELIST)(list))
+#define TabCtrl_GetRowCount(hwnd) (int)SNDMSG((hwnd), TCM_GETROWCOUNT, 0, 0)
+#define TabCtrl_InsertItem(hwnd, index, item) (int)SNDMSG((hwnd), TCM_INSERTITEMW, (WPARAM)(int)(index), (LPARAM)(const TCITEM *)(item))
+#define TabCtrl_GetCurFocus(hwnd) (int)SNDMSG((hwnd), TCM_GETCURFOCUS, 0, 0)
+#define TabCtrl_SetCurFocus(hwnd, i) SNDMSG((hwnd), TCM_SETCURFOCUS, (WPARAM)(i), 0)
+#define TabCtrl_GetCurSel(hwnd) (int)SNDMSG((hwnd), TCM_GETCURSEL, 0, 0)
+#define TabCtrl_SetCurSel(hwnd, i) (int)SNDMSG((hwnd), TCM_SETCURSEL, (WPARAM)(i), 0)
+#define TabCtrl_GetItemCount(hwnd) (int)SNDMSG((hwnd), TCM_GETITEMCOUNT, 0, 0)
+#define TabCtrl_DeleteAllItems(hwnd) (BOOL)SNDMSG((hwnd), TCM_DELETEALLITEMS, 0, 0)
+
+// ---- up-down (spin) control ------------------------------------------------
+#define UDS_WRAP 0x0001
+#define UDS_SETBUDDYINT 0x0002
+#define UDS_ALIGNRIGHT 0x0004
+#define UDS_ALIGNLEFT 0x0008
+#define UDS_AUTOBUDDY 0x0010
+#define UDS_ARROWKEYS 0x0020
+#define UDS_HORZ 0x0040
+#define UDS_NOTHOUSANDS 0x0080
+#define UDS_HOTTRACK 0x0100
+#define UD_MAXVAL 0x7fff
+#define UD_MINVAL (-UD_MAXVAL)
+struct UDACCEL { UINT nSec; UINT nInc; };
+struct NMUPDOWN { NMHDR hdr; int iPos; int iDelta; };
+using LPNMUPDOWN = NMUPDOWN *;
+using NM_UPDOWN = NMUPDOWN;
+#define UDN_DELTAPOS (UDN_FIRST - 1)
+#define UPDOWN_CLASS L"msctls_updown32"
+#define UDM_SETRANGE (WM_USER + 101)
+#define UDM_GETRANGE (WM_USER + 102)
+#define UDM_SETPOS (WM_USER + 103)
+#define UDM_GETPOS (WM_USER + 104)
+#define UDM_SETBUDDY (WM_USER + 105)
+#define UDM_GETBUDDY (WM_USER + 106)
+#define UDM_SETACCEL (WM_USER + 107)
+#define UDM_GETACCEL (WM_USER + 108)
+#define UDM_SETBASE (WM_USER + 109)
+#define UDM_GETBASE (WM_USER + 110)
+#define UDM_SETRANGE32 (WM_USER + 111)
+#define UDM_GETRANGE32 (WM_USER + 112)
+#define UDM_SETPOS32 (WM_USER + 113)
+#define UDM_GETPOS32 (WM_USER + 114)
+
+// ---- trackbar (slider) -------------------------------------------------------
+#define TBM_GETPOS 0x0400
+#define TBM_GETRANGEMIN 0x0401
+#define TBM_GETRANGEMAX 0x0402
+#define TBM_GETTIC 0x0403
+#define TBM_SETTIC 0x0404
+#define TBM_SETPOS 0x0405
+#define TBM_SETRANGE 0x0406
+#define TBM_SETRANGEMIN 0x0407
+#define TBM_SETRANGEMAX 0x0408
+#define TBM_CLEARTICS 0x0409
+#define TBM_SETSEL 0x040A
+#define TBM_SETSELSTART 0x040B
+#define TBM_SETSELEND 0x040C
+#define TBM_GETPTICS 0x040E
+#define TBM_GETTICPOS 0x040F
+#define TBM_GETNUMTICS 0x0410
+#define TBM_GETSELSTART 0x0411
+#define TBM_GETSELEND 0x0412
+#define TBM_CLEARSEL 0x0413
+#define TBM_SETTICFREQ 0x0414
+#define TBM_SETPAGESIZE 0x0415
+#define TBM_GETPAGESIZE 0x0416
+#define TBM_SETLINESIZE 0x0417
+#define TBM_GETLINESIZE 0x0418
+#define TBM_GETTHUMBRECT 0x0419
+#define TBM_GETCHANNELRECT 0x041A
+#define TBM_SETTHUMBLENGTH 0x041B
+#define TBM_GETTHUMBLENGTH 0x041C
+#define TBM_SETTOOLTIPS 0x041D
+#define TBM_GETTOOLTIPS 0x041E
+#define TBM_SETTIPSIDE 0x041F
+#define TBM_SETBUDDY 0x0420
+#define TBM_GETBUDDY 0x0421
+#define TBM_SETPOSNOTIFY 0x0422
+#define TRACKBAR_CLASS L"msctls_trackbar32"
+#define TBCD_TICS 0x0001
+#define TBCD_THUMB 0x0002
+#define TBCD_CHANNEL 0x0003
+#define TBTS_TOP 0
+#define TBTS_LEFT 1
+#define TBTS_BOTTOM 2
+#define TBTS_RIGHT 3
+#define TRBN_FIRST (0U - 1501U)
+#define TRBN_THUMBPOSCHANGING (TRBN_FIRST - 1)
+struct NMTRBTHUMBPOSCHANGING { NMHDR hdr; DWORD dwPos; int nReason; };
+#define TBS_AUTOTICKS 0x0001
+#define TBS_VERT 0x0002
+#define TBS_HORZ 0x0000
+#define TBS_TOP 0x0004
+#define TBS_BOTTOM 0x0000
+#define TBS_LEFT 0x0004
+#define TBS_RIGHT 0x0000
+#define TBS_BOTH 0x0008
+#define TBS_NOTICKS 0x0010
+#define TBS_ENABLESELRANGE 0x0020
+#define TBS_FIXEDLENGTH 0x0040
+#define TBS_NOTHUMB 0x0080
+#define TBS_TOOLTIPS 0x0100
+#define TBS_REVERSED 0x0200
+#define TBS_DOWNISLEFT 0x0400
+#define TB_LINEUP 0
+#define TB_LINEDOWN 1
+#define TB_PAGEUP 2
+#define TB_PAGEDOWN 3
+#define TB_THUMBPOSITION 4
+#define TB_THUMBTRACK 5
+#define TB_TOP 6
+#define TB_BOTTOM 7
+#define TB_ENDTRACK 8
+
+// ---- progress bar ----------------------------------------------------------
+#define PBS_SMOOTH 0x01
+#define PBS_VERTICAL 0x04
+#define PBS_MARQUEE 0x08
+#define PBM_SETRANGE (WM_USER + 1)
+#define PBM_SETPOS (WM_USER + 2)
+#define PBM_DELTAPOS (WM_USER + 3)
+#define PBM_SETSTEP (WM_USER + 4)
+#define PBM_STEPIT (WM_USER + 5)
+#define PBM_SETRANGE32 (WM_USER + 6)
+#define PBM_GETRANGE (WM_USER + 7)
+#define PBM_GETPOS (WM_USER + 8)
+#define PBM_SETMARQUEE (WM_USER + 10)
+#define PBM_SETSTATE (WM_USER + 16)
+#define PBM_GETSTEP (WM_USER + 13)
+#define PBM_SETBARCOLOR (WM_USER + 9)
+#define PBM_SETBKCOLOR 0x2001
+#define PBM_GETSTATE (WM_USER + 17)
+#define PBST_NORMAL 0x0001
+#define PBST_ERROR 0x0002
+#define PBST_PAUSED 0x0003
+#define PROGRESS_CLASS L"msctls_progress32"
+struct PBRANGE { int iLow; int iHigh; };
+using PPBRANGE = PBRANGE *;
+
+// ---- ComboBoxEx -------------------------------------------------------------
+#define CBEIF_TEXT 0x00000001
+#define CBEIF_IMAGE 0x00000002
+#define CBEIF_SELECTEDIMAGE 0x00000004
+#define CBEIF_OVERLAY 0x00000008
+#define CBEIF_INDENT 0x00000010
+#define CBEIF_LPARAM 0x00000020
+#define CBEIF_DI_SETITEM 0x10000000
+struct COMBOBOXEXITEM { UINT mask; INT_PTR iItem; LPTSTR pszText; int cchTextMax; int iImage; int iSelectedImage; int iOverlay; int iIndent; LPARAM lParam; };
+using PCOMBOBOXEXITEM = COMBOBOXEXITEM *;
+using PCCOMBOEXITEM = const COMBOBOXEXITEM *;
+#define WC_LINK L"SysLink"
+#define LWS_TRANSPARENT 0x0001
+#define LWS_IGNORERETURN 0x0002
+#define LWS_NOPREFIX 0x0004
+#define LWS_USEVISUALSTYLE 0x0008
+#define LWS_USECUSTOMTEXT 0x0010
+#define LWS_RIGHT 0x0020
+#define LIF_ITEMINDEX 0x00000001
+#define LIF_STATE 0x00000002
+#define LIF_ITEMID 0x00000004
+#define LIF_URL 0x00000008
+#define LIS_FOCUSED 0x00000001
+#define LIS_ENABLED 0x00000002
+#define LIS_VISITED 0x00000004
+#define LIS_HOTTRACK 0x00000008
+#define LIS_DEFAULTCOLORS 0x00000010
+#define MAX_LINKID_TEXT 48
+#define L_MAX_URL_LENGTH (2048 + 32 + sizeof("://"))
+struct LITEM { UINT mask; int iLink; UINT state; UINT stateMask; WCHAR szID[MAX_LINKID_TEXT]; WCHAR szUrl[L_MAX_URL_LENGTH]; };
+using PLITEM = LITEM *;
+struct LHITTESTINFO { POINT pt; LITEM item; };
+using PLHITTESTINFO = LHITTESTINFO *;
+struct NMLINK { NMHDR hdr; LITEM item; };
+using PNMLINK = NMLINK *;
+#define LM_HITTEST (WM_USER + 0x300)
+#define LM_GETIDEALHEIGHT (WM_USER + 0x301)
+#define LM_GETIDEALSIZE LM_GETIDEALHEIGHT
+#define LM_SETITEM (WM_USER + 0x302)
+#define LM_GETITEM (WM_USER + 0x303)
+#define WC_COMBOBOXEX L"ComboBoxEx32"
+#define I_INDENTCALLBACK (-1)
+#ifndef INDEXTOOVERLAYMASK
+#define INDEXTOOVERLAYMASK(i) ((i) << 8)
+#endif
+#ifndef CB_MSGMAX
+#define CB_MSGMAX 0x0165
+#endif
+#define CBEM_INSERTITEMW (WM_USER + 11)
+#define CBEM_INSERTITEM CBEM_INSERTITEMW
+#define CBEM_SETIMAGELIST (WM_USER + 2)
+#define CBEM_GETIMAGELIST (WM_USER + 3)
+#define CBEM_DELETEITEM CB_DELETESTRING
+#define CBEM_GETCOMBOCONTROL (WM_USER + 6)
+#define CBEM_GETEDITCONTROL (WM_USER + 7)
+#define CBEM_SETEXSTYLE (WM_USER + 8)
+#define CBEM_GETEXSTYLE (WM_USER + 9)
+#define CBEM_GETEXTENDEDSTYLE (WM_USER + 9)
+#define CBEM_HASEDITCHANGED (WM_USER + 10)
+#define CBEM_SETITEMW (WM_USER + 12)
+#define CBEM_SETITEM CBEM_SETITEMW
+#define CBEM_GETITEMW (WM_USER + 13)
+#define CBEM_GETITEM CBEM_GETITEMW
+#define CBEM_SETEXTENDEDSTYLE (WM_USER + 14)
+#define CBES_EX_NOEDITIMAGE 0x00000001
+#define CBES_EX_NOEDITIMAGEINDENT 0x00000002
+#define CBES_EX_PATHWORDBREAKPROC 0x00000004
+#define CBES_EX_NOSIZELIMIT 0x00000008
+#define CBES_EX_CASESENSITIVE 0x00000010
+#define CBES_EX_TEXTENDELLIPSIS 0x00000020
+#define CBEN_GETDISPINFOW (CBEN_FIRST - 7)
+#define CBEN_GETDISPINFO CBEN_GETDISPINFOW
+#define CBEN_INSERTITEM (CBEN_FIRST - 1)
+#define CBEN_DELETEITEM (CBEN_FIRST - 2)
+#define CBEN_BEGINEDIT (CBEN_FIRST - 4)
+#define CBEN_ENDEDITW (CBEN_FIRST - 6)
+#define CBEN_ENDEDIT CBEN_ENDEDITW
+#define CBEN_DRAGBEGINW (CBEN_FIRST - 9)
+#define CBEN_DRAGBEGIN CBEN_DRAGBEGINW
+#define CBENF_KILLFOCUS 1
+#define CBENF_RETURN 2
+#define CBENF_ESCAPE 3
+#define CBENF_DROPDOWN 4
+#define CBEMAXSTRLEN 260
+struct NMCOMBOBOXEX { NMHDR hdr; COMBOBOXEXITEM ceItem; };
+using PNMCOMBOBOXEX = NMCOMBOBOXEX *;
+struct NMCBEENDEDIT { NMHDR hdr; BOOL fChanged; int iNewSelection; WCHAR szText[CBEMAXSTRLEN]; int iWhy; };
+using PNMCBEENDEDIT = NMCBEENDEDIT *;
+struct COMBOBOXINFO { DWORD cbSize; RECT rcItem; RECT rcButton; DWORD stateButton; HWND hwndCombo; HWND hwndItem; HWND hwndList; };
+using PCOMBOBOXINFO = COMBOBOXINFO *;
+BOOL GetComboBoxInfo(HWND combo, PCOMBOBOXINFO info);
+
+// ---- edit control helpers (windowsx.h) -----------------------------------------
+#define Edit_LimitText(hwnd, max) ((void)SNDMSG((hwnd), EM_LIMITTEXT, (WPARAM)(max), 0))
+#define Edit_SetSel(hwnd, start, end) ((void)SNDMSG((hwnd), EM_SETSEL, (start), (end)))
+#define Edit_GetLineCount(hwnd) ((int)(DWORD)SNDMSG((hwnd), EM_GETLINECOUNT, 0, 0))
+
+// ---- image lists -----------------------------------------------------------
+#define ILC_MASK 0x00000001
+#define ILC_COLOR 0x00000000
+#define ILC_COLORDDB 0x000000FE
+#define ILC_COLOR4 0x00000004
+#define ILC_COLOR8 0x00000008
+#define ILC_COLOR16 0x00000010
+#define ILC_COLOR24 0x00000018
+#define ILC_COLOR32 0x00000020
+#define ILD_NORMAL 0x00000000
+#define ILD_TRANSPARENT 0x00000001
+#define ILD_MASK 0x00000010
+#define ILD_IMAGE 0x00000020
+#define ILD_BLEND25 0x00000002
+#define ILD_BLEND50 0x00000004
+#define ILD_SELECTED ILD_BLEND50
+#define ILD_FOCUS ILD_BLEND25
+#define CLR_NONE 0xFFFFFFFFL
+#define CLR_DEFAULT 0xFF000000L
+HIMAGELIST ImageList_Create(int cx, int cy, UINT flags, int initial, int grow);
+BOOL ImageList_Destroy(HIMAGELIST list);
+int ImageList_Add(HIMAGELIST list, HBITMAP image, HBITMAP mask);
+int ImageList_AddMasked(HIMAGELIST list, HBITMAP image, COLORREF mask);
+BOOL ImageList_Draw(HIMAGELIST list, int index, HDC dc, int x, int y, UINT style);
+int ImageList_GetImageCount(HIMAGELIST list);
+BOOL ImageList_Remove(HIMAGELIST list, int index);
+#define ImageList_RemoveAll(list) ImageList_Remove(list, -1)
+BOOL ImageList_SetIconSize(HIMAGELIST list, int cx, int cy);
+BOOL ImageList_GetIconSize(HIMAGELIST list, int *cx, int *cy);
+int ImageList_ReplaceIcon(HIMAGELIST list, int index, HICON icon);
+#define ImageList_AddIcon(list, icon) ImageList_ReplaceIcon(list, -1, icon)
+BOOL ImageList_Replace(HIMAGELIST list, int index, HBITMAP image, HBITMAP mask);
+BOOL ImageList_SetImageCount(HIMAGELIST list, UINT count);
+COLORREF ImageList_SetBkColor(HIMAGELIST list, COLORREF color);
+COLORREF ImageList_GetBkColor(HIMAGELIST list);
+HICON ImageList_GetIcon(HIMAGELIST list, int index, UINT flags);
+#define ImageList_ExtractIcon(instance, list, index) ImageList_GetIcon(list, index, 0)
+BOOL ImageList_DrawEx(HIMAGELIST list, int index, HDC dc, int x, int y, int dx, int dy, COLORREF bk, COLORREF fg, UINT style);
+HIMAGELIST ImageList_Duplicate(HIMAGELIST list);
+HIMAGELIST ImageList_LoadImage(HINSTANCE instance, LPCTSTR name, int cx, int grow, COLORREF mask, UINT type, UINT flags);
+#define ImageList_LoadBitmap(instance, name, cx, grow, mask) ImageList_LoadImage(instance, name, cx, grow, mask, IMAGE_BITMAP, 0)
+
+void InitCommonControls();
+struct INITCOMMONCONTROLSEX { DWORD dwSize; DWORD dwICC; };
+using LPINITCOMMONCONTROLSEX = INITCOMMONCONTROLSEX *;
+#define ICC_LISTVIEW_CLASSES 0x00000001
+#define ICC_TREEVIEW_CLASSES 0x00000002
+#define ICC_BAR_CLASSES 0x00000004
+#define ICC_TAB_CLASSES 0x00000008
+#define ICC_UPDOWN_CLASS 0x00000010
+#define ICC_PROGRESS_CLASS 0x00000020
+#define ICC_WIN95_CLASSES 0x000000FF
+#define ICC_STANDARD_CLASSES 0x00004000
+#define ICC_LINK_CLASS 0x00008000
+BOOL InitCommonControlsEx(const INITCOMMONCONTROLSEX *icc);
+
+// ---- property sheets ----------------------------------------------------------
+#define PSP_DEFAULT 0x00000000
+#define PSP_DLGINDIRECT 0x00000001
+#define PSP_USEHICON 0x00000002
+#define PSP_USEICONID 0x00000004
+#define PSP_USETITLE 0x00000008
+#define PSP_RTLREADING 0x00000010
+#define PSP_HASHELP 0x00000020
+#define PSP_USEREFPARENT 0x00000040
+#define PSP_USECALLBACK 0x00000080
+#define PSP_PREMATURE 0x00000400
+#define PSP_HIDEHEADER 0x00000800
+#define PSP_USEHEADERTITLE 0x00001000
+#define PSP_USEHEADERSUBTITLE 0x00002000
+#define PSP_USEFUSIONCONTEXT 0x00004000
+#define PSPCB_ADDREF 0
+#define PSPCB_RELEASE 1
+#define PSPCB_CREATE 2
+struct _PSP;
+using HPROPSHEETPAGE = _PSP *;
+struct PROPSHEETPAGEW;
+using LPFNPSPCALLBACKW = UINT (*)(HWND, UINT, PROPSHEETPAGEW *);
+using LPFNPSPCALLBACK = LPFNPSPCALLBACKW;
+struct PROPSHEETPAGEW
+{
+	DWORD dwSize;
+	DWORD dwFlags;
+	HINSTANCE hInstance;
+	union { LPCWSTR pszTemplate; LPCDLGTEMPLATE pResource; };
+	union { HICON hIcon; LPCWSTR pszIcon; };
+	LPCWSTR pszTitle;
+	DLGPROC pfnDlgProc;
+	LPARAM lParam;
+	LPFNPSPCALLBACKW pfnCallback;
+	UINT *pcRefParent;
+	LPCWSTR pszHeaderTitle;
+	LPCWSTR pszHeaderSubTitle;
+	HANDLE hActCtx;
+};
+using PROPSHEETPAGE = PROPSHEETPAGEW;
+using LPPROPSHEETPAGEW = PROPSHEETPAGEW *;
+using LPPROPSHEETPAGE = PROPSHEETPAGEW *;
+using LPCPROPSHEETPAGEW = const PROPSHEETPAGEW *;
+using LPCPROPSHEETPAGE = const PROPSHEETPAGEW *;
+#define PROPSHEETPAGE_V1_SIZE offsetof(PROPSHEETPAGEW, pcRefParent)
+#define PROPSHEETPAGE_V2_SIZE offsetof(PROPSHEETPAGEW, hActCtx)
+using PFNPROPSHEETCALLBACK = int (*)(HWND, UINT, LPARAM);
+struct PROPSHEETHEADERW
+{
+	DWORD dwSize;
+	DWORD dwFlags;
+	HWND hwndParent;
+	HINSTANCE hInstance;
+	union { HICON hIcon; LPCWSTR pszIcon; };
+	LPCWSTR pszCaption;
+	UINT nPages;
+	union { UINT nStartPage; LPCWSTR pStartPage; };
+	union { LPCPROPSHEETPAGEW ppsp; HPROPSHEETPAGE *phpage; };
+	PFNPROPSHEETCALLBACK pfnCallback;
+	union { HBITMAP hbmWatermark; LPCWSTR pszbmWatermark; };
+	HPALETTE hplWatermark;
+	union { HBITMAP hbmHeader; LPCWSTR pszbmHeader; };
+};
+using PROPSHEETHEADER = PROPSHEETHEADERW;
+using LPPROPSHEETHEADERW = PROPSHEETHEADERW *;
+using LPPROPSHEETHEADER = PROPSHEETHEADERW *;
+using LPCPROPSHEETHEADERW = const PROPSHEETHEADERW *;
+using LPCPROPSHEETHEADER = const PROPSHEETHEADERW *;
+#define PROPSHEETHEADER_V1_SIZE offsetof(PROPSHEETHEADERW, pfnCallback) + sizeof(PFNPROPSHEETCALLBACK)
+#define PSH_DEFAULT 0x00000000
+#define PSH_PROPTITLE 0x00000001
+#define PSH_USEHICON 0x00000002
+#define PSH_USEICONID 0x00000004
+#define PSH_PROPSHEETPAGE 0x00000008
+#define PSH_WIZARDHASFINISH 0x00000010
+#define PSH_WIZARD 0x00000020
+#define PSH_USEPSTARTPAGE 0x00000040
+#define PSH_NOAPPLYNOW 0x00000080
+#define PSH_USECALLBACK 0x00000100
+#define PSH_HASHELP 0x00000200
+#define PSH_MODELESS 0x00000400
+#define PSH_RTLREADING 0x00000800
+#define PSH_WIZARDCONTEXTHELP 0x00001000
+#define PSH_AEROWIZARD 0x00004000
+#define PSH_WATERMARK 0x00008000
+#define PSH_USEHBMWATERMARK 0x00010000
+#define PSH_USEHPLWATERMARK 0x00020000
+#define PSH_STRETCHWATERMARK 0x00040000
+#define PSH_HEADER 0x00080000
+#define PSH_USEHBMHEADER 0x00100000
+#define PSH_USEPAGELANG 0x00200000
+#define PSH_WIZARD_LITE 0x00400000
+#define PSH_WIZARD97 0x01000000
+#define PSH_NOCONTEXTHELP 0x02000000
+#define PSH_RESIZABLE 0x04000000
+#define PSH_HEADERBITMAP 0x08000000
+#define PSH_NOMARGIN 0x10000000
+#define PSCB_INITIALIZED 1
+#define PSCB_PRECREATE 2
+#define PSCB_BUTTONPRESSED 3
+#define PSN_FIRST (0U - 200U)
+#define PSN_LAST (0U - 299U)
+#define PSN_SETACTIVE (PSN_FIRST - 0)
+#define PSN_KILLACTIVE (PSN_FIRST - 1)
+#define PSN_APPLY (PSN_FIRST - 2)
+#define PSN_RESET (PSN_FIRST - 3)
+#define PSN_HELP (PSN_FIRST - 5)
+#define PSN_WIZBACK (PSN_FIRST - 6)
+#define PSN_WIZNEXT (PSN_FIRST - 7)
+#define PSN_WIZFINISH (PSN_FIRST - 8)
+#define PSN_QUERYCANCEL (PSN_FIRST - 9)
+#define PSN_GETOBJECT (PSN_FIRST - 10)
+#define PSN_TRANSLATEACCELERATOR (PSN_FIRST - 12)
+#define PSN_QUERYINITIALFOCUS (PSN_FIRST - 13)
+#define PSNRET_NOERROR 0
+#define PSNRET_INVALID 1
+#define PSNRET_INVALID_NOCHANGEPAGE 2
+#define PSNRET_MESSAGEHANDLED 3
+struct PSHNOTIFY { NMHDR hdr; LPARAM lParam; };
+using LPPSHNOTIFY = PSHNOTIFY *;
+#define PSM_SETCURSEL (WM_USER + 101)
+#define PSM_REMOVEPAGE (WM_USER + 102)
+#define PSM_ADDPAGE (WM_USER + 103)
+#define PSM_CHANGED (WM_USER + 104)
+#define PSM_RESTARTWINDOWS (WM_USER + 105)
+#define PSM_REBOOTSYSTEM (WM_USER + 106)
+#define PSM_CANCELTOCLOSE (WM_USER + 107)
+#define PSM_QUERYSIBLINGS (WM_USER + 108)
+#define PSM_UNCHANGED (WM_USER + 109)
+#define PSM_APPLY (WM_USER + 110)
+#define PSM_SETWIZBUTTONS (WM_USER + 112)
+#define PSM_PRESSBUTTON (WM_USER + 113)
+#define PSM_SETCURSELID (WM_USER + 114)
+#define PSM_GETTABCONTROL (WM_USER + 116)
+#define PSM_ISDIALOGMESSAGE (WM_USER + 117)
+#define PSM_GETCURRENTPAGEHWND (WM_USER + 118)
+#define PSM_INSERTPAGE (WM_USER + 119)
+#define PSM_SETTITLEW (WM_USER + 120)
+#define PSM_SETTITLE PSM_SETTITLEW
+#define PSM_SETFINISHTEXTW (WM_USER + 121)
+#define PSM_SETFINISHTEXT PSM_SETFINISHTEXTW
+#define PSM_SETHEADERTITLEW (WM_USER + 126)
+#define PSM_SETHEADERSUBTITLEW (WM_USER + 128)
+#define PSM_HWNDTOINDEX (WM_USER + 129)
+#define PSM_INDEXTOHWND (WM_USER + 130)
+#define PSM_PAGETOINDEX (WM_USER + 131)
+#define PSM_INDEXTOPAGE (WM_USER + 132)
+#define PSM_IDTOINDEX (WM_USER + 133)
+#define PSM_INDEXTOID (WM_USER + 134)
+#define PSM_GETRESULT (WM_USER + 135)
+#define PSM_RECALCPAGESIZES (WM_USER + 136)
+#define PSBTN_BACK 0
+#define PSBTN_NEXT 1
+#define PSBTN_FINISH 2
+#define PSBTN_OK 3
+#define PSBTN_APPLYNOW 4
+#define PSBTN_CANCEL 5
+#define PSBTN_HELP 6
+#define PSBTN_MAX 6
+#define PSWIZB_BACK 0x00000001
+#define PSWIZB_NEXT 0x00000002
+#define PSWIZB_FINISH 0x00000004
+#define PSWIZB_DISABLEDFINISH 0x00000008
+#define ID_PSRESTARTWINDOWS 0x2
+#define ID_PSREBOOTSYSTEM (ID_PSRESTARTWINDOWS | 0x1)
+#define PROP_SM_CXDLG 212
+#define PROP_SM_CYDLG 188
+#define PROP_MED_CXDLG 227
+#define PROP_MED_CYDLG 215
+#define PROP_LG_CXDLG 252
+#define PROP_LG_CYDLG 218
+#define PropSheet_SetCurSel(hDlg, hpage, index) SNDMSG(hDlg, PSM_SETCURSEL, (WPARAM)(index), (LPARAM)(hpage))
+#define PropSheet_RemovePage(hDlg, index, hpage) SNDMSG(hDlg, PSM_REMOVEPAGE, index, (LPARAM)(hpage))
+#define PropSheet_AddPage(hDlg, hpage) SNDMSG(hDlg, PSM_ADDPAGE, 0, (LPARAM)(hpage))
+#define PropSheet_InsertPage(hDlg, index, hpage) SNDMSG(hDlg, PSM_INSERTPAGE, (WPARAM)(index), (LPARAM)(hpage))
+#define PropSheet_Changed(hDlg, hwnd) SNDMSG(hDlg, PSM_CHANGED, (WPARAM)(hwnd), 0L)
+#define PropSheet_UnChanged(hDlg, hwnd) SNDMSG(hDlg, PSM_UNCHANGED, (WPARAM)(hwnd), 0L)
+#define PropSheet_RestartWindows(hDlg) SNDMSG(hDlg, PSM_RESTARTWINDOWS, 0, 0L)
+#define PropSheet_RebootSystem(hDlg) SNDMSG(hDlg, PSM_REBOOTSYSTEM, 0, 0L)
+#define PropSheet_CancelToClose(hDlg) PostMessage(hDlg, PSM_CANCELTOCLOSE, 0, 0L)
+#define PropSheet_QuerySiblings(hDlg, wParam, lParam) SNDMSG(hDlg, PSM_QUERYSIBLINGS, wParam, lParam)
+#define PropSheet_Apply(hDlg) SNDMSG(hDlg, PSM_APPLY, 0, 0L)
+#define PropSheet_SetTitle(hDlg, wStyle, lpszText) SNDMSG(hDlg, PSM_SETTITLE, wStyle, (LPARAM)(LPCTSTR)(lpszText))
+#define PropSheet_PressButton(hDlg, iButton) PostMessage(hDlg, PSM_PRESSBUTTON, (WPARAM)(iButton), 0)
+#define PropSheet_SetCurSelByID(hDlg, id) SNDMSG(hDlg, PSM_SETCURSELID, 0, (LPARAM)(id))
+#define PropSheet_GetTabControl(hDlg) (HWND)SNDMSG(hDlg, PSM_GETTABCONTROL, 0, 0)
+#define PropSheet_IsDialogMessage(hDlg, pMsg) (BOOL)SNDMSG(hDlg, PSM_ISDIALOGMESSAGE, 0, (LPARAM)(pMsg))
+#define PropSheet_GetCurrentPageHwnd(hDlg) (HWND)SNDMSG(hDlg, PSM_GETCURRENTPAGEHWND, 0, 0L)
+#define PropSheet_HwndToIndex(hDlg, hwnd) (int)SNDMSG(hDlg, PSM_HWNDTOINDEX, (WPARAM)(hwnd), 0)
+#define PropSheet_IndexToHwnd(hDlg, i) (HWND)SNDMSG(hDlg, PSM_INDEXTOHWND, (WPARAM)(i), 0)
+#define PropSheet_PageToIndex(hDlg, hpage) (int)SNDMSG(hDlg, PSM_PAGETOINDEX, 0, (LPARAM)(hpage))
+#define PropSheet_IndexToPage(hDlg, i) (HPROPSHEETPAGE)SNDMSG(hDlg, PSM_INDEXTOPAGE, (WPARAM)(i), 0)
+#define PropSheet_IdToIndex(hDlg, id) (int)SNDMSG(hDlg, PSM_IDTOINDEX, 0, (LPARAM)(id))
+#define PropSheet_IndexToId(hDlg, i) SNDMSG(hDlg, PSM_INDEXTOID, (WPARAM)(i), 0)
+#define PropSheet_GetResult(hDlg) SNDMSG(hDlg, PSM_GETRESULT, 0, 0)
+#define PropSheet_RecalcPageSizes(hDlg) SNDMSG(hDlg, PSM_RECALCPAGESIZES, 0, 0)
+#define PropSheet_SetWizButtons(hDlg, dwFlags) PostMessage(hDlg, PSM_SETWIZBUTTONS, 0, (LPARAM)(dwFlags))
+#define IDC_TABCONTROL 0x3020
+#define IDC_APPLY_BUTTON 0x3021
+HPROPSHEETPAGE CreatePropertySheetPage(LPCPROPSHEETPAGEW page);
+#define CreatePropertySheetPageW CreatePropertySheetPage
+BOOL DestroyPropertySheetPage(HPROPSHEETPAGE page);
+INT_PTR PropertySheet(LPCPROPSHEETHEADERW header);
+#define PropertySheetW PropertySheet

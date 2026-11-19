@@ -17,7 +17,7 @@
 #include <cstring>
 #include <vector>
 
-using namespace linopenmpt::qtwin;
+using namespace mfcqt::qtwin;
 
 namespace
 {
@@ -79,7 +79,7 @@ void PickInNextPopup(int pos)
 			return;
 		for(QAction *a : menu->actions())
 		{
-			if(pos >= 0 && a->property("linopenmpt_pos").toInt() == pos)
+			if(pos >= 0 && a->property("mfcqt_pos").toInt() == pos)
 				menu->setActiveAction(a);
 		}
 		QKeyEvent key(QEvent::KeyPress, pos >= 0 ? Qt::Key_Return : Qt::Key_Escape, Qt::NoModifier);
@@ -240,7 +240,7 @@ int main(int argc, char **argv)
 			return;
 		for(QAction *a : popup->actions())
 		{
-			if(a->property("linopenmpt_pos").toInt() == 1)
+			if(a->property("mfcqt_pos").toInt() == 1)
 				grayedShown = !a->isEnabled();
 		}
 		popup->close();

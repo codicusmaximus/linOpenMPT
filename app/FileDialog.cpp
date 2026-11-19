@@ -49,7 +49,7 @@ QWidget *ParentWidget(CWnd *parent)
 		parent = CMainFrame::GetMainFrame();
 	if(parent == nullptr || parent->GetSafeHwnd() == nullptr)
 		return nullptr;
-	return linopenmpt::qtwin::FromHandle(parent->GetSafeHwnd());
+	return mfcqt::qtwin::FromHandle(parent->GetSafeHwnd());
 }
 
 // "Description|*.a;*.b|All Files (*.*)|*.*||" as Qt name filters:
@@ -171,7 +171,7 @@ bool FileDialog::Show(CWnd *parent)
 	BypassInputHandler bih;
 	bool accepted;
 	{
-		linopenmpt::qtwin::ForeignModalLoop loop;
+		mfcqt::qtwin::ForeignModalLoop loop;
 		accepted = dialogPtr->exec() == QDialog::Accepted;
 	}
 	if(dialogPtr.isNull())
@@ -217,7 +217,7 @@ bool BrowseForFolder::Show(CWnd *parent)
 	BypassInputHandler bih;
 	bool accepted;
 	{
-		linopenmpt::qtwin::ForeignModalLoop loop;
+		mfcqt::qtwin::ForeignModalLoop loop;
 		accepted = dialogPtr->exec() == QDialog::Accepted;
 	}
 	if(dialogPtr.isNull())

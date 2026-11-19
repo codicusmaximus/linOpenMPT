@@ -3,10 +3,8 @@
 # object, main-frame hooks, message boxes, document hooks). Headless for now;
 # the Qt application (plan step 3) replaces the UI placeholders.
 #
-# Upstream's classes derive from MFC's, whose vtables live in linopenmpt_mfc,
+# Upstream's classes derive from MFC's, whose vtables live in mfcqt_mfc,
 # so the platform layer always links it (and through it Qt).
-add_subdirectory(qtwin)
-add_subdirectory(mfc)
 add_subdirectory(resources)
 
 # Crash and assertion reporting, shared by the application and the tools.
@@ -18,5 +16,5 @@ target_compile_options(linopenmpt_crash PRIVATE -fpermissive -w)
 add_library(linopenmpt_platform STATIC TrackApp.cpp UiBoundary.cpp ModDocHooks.cpp $<TARGET_OBJECTS:mpt_tracker_vst>)
 add_library(linopenmpt::platform ALIAS linopenmpt_platform)
 target_include_directories(linopenmpt_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic linopenmpt_crash linopenmpt_mfc linopenmpt_resources)
+target_link_libraries(linopenmpt_platform PUBLIC mpt_tracker_logic linopenmpt_crash mfcqt_mfc linopenmpt_resources)
 target_compile_options(linopenmpt_platform PRIVATE -fpermissive -w)

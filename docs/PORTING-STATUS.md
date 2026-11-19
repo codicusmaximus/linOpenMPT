@@ -62,7 +62,7 @@ cannot be linked until the MFC layer has an implementation.
 The goal is that every upstream UI file compiles unchanged, so step 3 only
 has to implement MFC and Win32 on top of Qt, not rewrite OpenMPT's UI.
 
-- MFC message maps are real (`compat/include/linopenmpt/mfc_msgmap.h`):
+- MFC message maps are real (`mfc-qt/include/mfcqt/mfc_msgmap.h`):
   `BEGIN_MESSAGE_MAP`, `ON_COMMAND`, `ON_UPDATE_COMMAND_UI`, control
   notifications, `ON_NOTIFY`, `ON_MESSAGE` and the `ON_WM_*` handlers build
   the same tables as MFC, and `CCmdTarget::OnCmdMsg` routes commands through
@@ -72,7 +72,7 @@ has to implement MFC and Win32 on top of Qt, not rewrite OpenMPT's UI.
   create frames and views through them and the tracker compares view class
   names.
 - The Win32 and MFC UI surface is declared in
-  `compat/include/linopenmpt/`: `win32_user.h` (windows, messages, menus,
+  `mfc-qt/include/mfcqt/`: `win32_user.h` (windows, messages, menus,
   keyboard, mouse, cursors, hooks), `win32_gdi.h` (GDI), `win32_commctrl.h`
   (common controls), `win32_shell.h` (COM, shell, time, file search) and
   `mfc_ui.h` (the MFC classes). Smaller headers stand in for `<afxole.h>`
@@ -118,14 +118,14 @@ Known gaps to handle in later steps:
 
 ### Step 3a: Win32 and MFC window core on Qt (done)
 
-- `platform/qtwin`: windows and window classes, sent and posted messages,
+- `mfc-qt/src/qtwin`: windows and window classes, sent and posted messages,
   timers, the message loop with idle time and modal loops, painting with
   invalid regions and a persistent backing image, the whole GDI used by
   upstream (DCs, pens, brushes, fonts, bitmaps, DIB sections, blits and
   raster ops, text, regions, clipping, `DrawEdge`/`DrawFrameControl`),
   keyboard with Windows virtual keys and scan codes, mouse and capture,
   window scroll bars, cursors and system icons, system metrics, CBT hooks.
-- `platform/mfc`: `CWnd` (handle maps, creation through the CBT hook,
+- `mfc-qt/src/mfc`: `CWnd` (handle maps, creation through the CBT hook,
   subclassing, message cracking, command and notification routing,
   reflection, every Win32 wrapper), `CDC` and the GDI object classes,
   `CPaintDC`/`CClientDC`/`CWindowDC`, `CWinApp`/`CWinThread` with `Run`,
@@ -140,7 +140,7 @@ Known gaps to handle in later steps:
 
 ### Step 3b: resources, the non-client area and menus (done)
 
-- `tools/rc`: upstream's `mptrack.rc` is compiled unchanged into a Win32
+- `mfc-qt/tools`: upstream's `mptrack.rc` is compiled unchanged into a Win32
   `.res` file (byte for byte what llvm-rc writes, where llvm-rc can read the
   script) and linked into the executable. `FindResource`, `LoadResource`,
   `LoadString`, `LoadBitmap`, `LoadImage`, `LoadIcon` and `LoadCursor` read
@@ -285,7 +285,7 @@ Known gaps to handle in later steps:
 
 ### Step 3f part 1: MDI, frames and document/view (done)
 
-- user32's multiple-document interface (`platform/qtwin/mdi.cpp`): the
+- user32's multiple-document interface (`mfc-qt/src/qtwin/mdi.cpp`): the
   `MDIClient` class, `DefFrameProc`, `DefMDIChildProc`, `CreateMDIWindow`
   and every `WM_MDI*` message. Children activate on click (now with
   `WM_MOUSEACTIVATE`), maximize into the client with minimize, restore and
@@ -551,15 +551,15 @@ tracker's process, as Windows plugins of the tracker's own architecture do
 upstream.
 
 - `LoadLibrary`, `GetProcAddress` and `FreeLibrary` are `dlopen`, `dlsym`
-  and `dlclose` (`compat/src/win32.cpp`). A plugin that does not load
+  and `dlclose` (`mfc-qt/src/win32/win32.cpp`). A plugin that does not load
   prints `dlerror()` (a missing library, usually) to stderr.
 - Upstream's plugin bridge, which runs plugins in a separate Windows
   process, is not built. `compat/src/vst_bridge.cpp` tells native plugins
   (ELF shared objects of this architecture) from the rest, which go to the
   port's own Wine bridge (step 4h).
 - The plugin's own editor is an X11 window, which the plugin opens inside
-  the editor dialog's plugin area (`LinOpenMPTNativeWindowId`,
-  `platform/qtwin/embed.cpp`). For that the tracker runs on X11: on a
+  the editor dialog's plugin area (`MfcQtNativeWindowId`,
+  `mfc-qt/src/qtwin/embed.cpp`). For that the tracker runs on X11: on a
   Wayland desktop it starts through XWayland (`QT_QPA_PLATFORM=xcb` when
   `DISPLAY` is set and no platform is chosen). Without X11 (offscreen, pure
   Wayland) plugins get the generic editor, as plugins without an editor
@@ -673,7 +673,7 @@ process to a native Linux one, so the port has its own bridge (`vstbridge/`):
   (`vstbridge/host.cpp`) starts the bridge and returns a stand-in plugin
   whose calls travel to it, and upstream's VST host uses it like any other.
 - The editor is a Wine window, which the tracker puts inside its editor
-  window (`LinOpenMPTEmbedX11Window`). Wine translates mouse positions with
+  window (`MfcQtEmbedX11Window`). Wine translates mouse positions with
   where it believes its window is on the screen, so whenever the tracker's
   window moves, the bridge moves its window to that screen position (which
   Wine believes) and the tracker puts the X window back in place (which
@@ -710,7 +710,7 @@ MFC or Win32 function it calls is missing. An audit of what the port
 implements as doing nothing, against what upstream relies on, found three
 gaps, now closed:
 
-- Screen readers (`platform/qtwin/accessible.cpp`). Every window was a
+- Screen readers (`mfc-qt/src/qtwin/accessible.cpp`). Every window was a
   nameless area to Qt's accessibility. Now each one has a role from its
   window class and style (button, check box, edit, list, slider, ...), a
   name from its text (an edit or list: the label before it, as Windows
@@ -734,22 +734,32 @@ What remains empty is either MFC's own empty default (`DrawItem`,
 DDE, MFC's data recovery (the port's crash rescue), HTML Help (the online
 manual) and accessibility for the items inside lists and trees.
 
-## Step 5: the MFC to Qt6 bridge as its own project
+## Step 5: the MFC to Qt6 bridge as its own project (in progress)
 
-Once OpenMPT runs at parity, `compat/`, `platform/qtwin/` and
-`platform/mfc/` move into a standalone, reusable project for porting other
-MFC applications to Linux:
+The Win32 and MFC layers are now [mfc-qt](../mfc-qt/README.md), a CMake
+project of its own in `mfc-qt/`, which linOpenMPT builds with
+`add_subdirectory` and links as `mfcqt::mfcqt`:
 
-- Move the OpenMPT-specific parts out of the headers (`afxwin.h`,
-  `mfc_ui.h` and friends) into this repository, behind hooks the bridge
-  calls.
-- A reusable CMake function that compiles an application's `.rc` file into
-  its resources (what `tools/rc` does for `mptrack.rc` today).
-- Its own tests and test resources, so it no longer depends on upstream's
-  `mptrack.rc`; the smoke tests here become the start of that suite.
-- Packaged as a CMake library (`find_package` and `add_subdirectory`), with
-  a license, a README and a short porting guide. This repository then uses
-  it as a dependency.
+- Its Windows and MFC headers (`mfc-qt/include`), kernel32 and the base
+  types (`src/win32`, from `compat/`), Win32 on Qt (`src/qtwin`, from
+  `platform/qtwin`) and MFC (`src/mfc`, from `platform/mfc`).
+- Names of its own: the `mfcqt::` namespaces, `MfcQt...` extension
+  functions, `MFCQT_...` macros and `mfcqt_...` targets.
+- `mfcqt_add_resources()` compiles an application's `.rc` script and links
+  it in (what `tools/rc` did for `mptrack.rc`). OpenMPT's resources use it
+  in `platform/resources`.
+- Its own tests (`mfcqt_qtwin_test`, `mfcqt_mfc_test`, `mfcqt_msgmap_test`,
+  `mfcqt_commctrl_test`) and a resource script of its own
+  (`mfcqt_resource_test`), so it builds and tests without OpenMPT. The tests
+  that use `mptrack.rc` stay in `tools/smoke`.
+- OpenMPT-specific behaviour moved out behind hooks: the online manual
+  (`MfcQtSetHtmlHelpHandler`, set in `app/main.cpp`). RtMidi is optional;
+  linOpenMPT passes its bundled copy.
+- A README, a BSD 3-clause license and a porting guide
+  (`mfc-qt/docs/PORTING.md`).
+
+Next: move `mfc-qt/` to a repository of its own, with its history, and use
+it here as a git submodule.
 
 It covers what OpenMPT uses of MFC and Win32, which is a large part of both
 but not all: another application may need pieces added.

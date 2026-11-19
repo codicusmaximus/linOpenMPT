@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-using namespace linopenmpt::qtwin;
+using namespace mfcqt::qtwin;
 
 namespace
 {
@@ -334,10 +334,10 @@ bool IsStandard(const std::wstring &cls)
 	return false;
 }
 
-// With LINOPENMPT_SHOTS=<dir>, pictures of the dialogs, to look at.
+// With MFCQT_SHOTS=<dir>, pictures of the dialogs, to look at.
 void SaveShot(HWND dlg, int id)
 {
-	const QByteArray dir = qgetenv("LINOPENMPT_SHOTS");
+	const QByteArray dir = qgetenv("MFCQT_SHOTS");
 	if(dir.isEmpty())
 		return;
 	Win32Widget *w = FromHandle(dlg);

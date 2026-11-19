@@ -8,9 +8,9 @@ dir=${1:-build-tracker}
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 objs=$(find "$dir/CMakeFiles/mpt_tracker_ui.dir" -name '*.o' | sort)
-libs="$dir/platform/liblinopenmpt_platform.a $dir/platform/mfc/liblinopenmpt_mfc.a \
-$dir/platform/resources/liblinopenmpt_resources.a $dir/platform/qtwin/liblinopenmpt_qtwin.a \
-$dir/compat/liblinopenmpt_compat.a $dir/libmpt_tracker_logic.a $dir/libmpt_soundlib.a \
+libs="$dir/platform/liblinopenmpt_platform.a $dir/mfc-qt/src/mfc/libmfcqt_mfc.a \
+$dir/platform/resources/liblinopenmpt_resources.a $dir/mfc-qt/src/qtwin/libmfcqt_qtwin.a \
+$dir/mfc-qt/src/win32/libmfcqt_win32.a $dir/libmpt_tracker_logic.a $dir/libmpt_soundlib.a \
 $dir/libmpt_sounddevice.a $dir/libmpt_rtaudio.a $dir/libmpt_common.a"
 pkgs="Qt6Widgets Qt6Gui Qt6Core dbus-1"
 for p in jack libpulse-simple libpulse alsa vorbisfile vorbis ogg flac libmpg123 zlib portaudio-2.0 sndfile opus opusfile; do
