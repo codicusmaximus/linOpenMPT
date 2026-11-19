@@ -36,12 +36,12 @@ patches in `patches/`, re-applied by `scripts/update-upstream.sh`.
 |------|------|
 | `upstream/` | OpenMPT (submodule, release tag); `patches/` applied at configure time |
 | `cmake/` | Build of upstream sources: source lists, core, sound device |
-| `mfc-qt/` | MFC and the Win32 API on Qt6, a reusable library: Windows and MFC headers, kernel32, windows, GDI and controls on Qt widgets, MFC, the resource compiler |
+| `mfc-qt/` | A copy of the [mfc-qt](https://github.com/codicusmaximus/mfc-qt) repository (`scripts/update-mfc-qt.sh`). MFC and the Win32 API on Qt6, a reusable library: Windows and MFC headers, kernel32, windows, GDI and controls on Qt widgets, MFC, the resource compiler |
 | `compat/` | What OpenMPT's shared code needs beyond mfc-qt (`mpt_extras.h`, the VST bridge's Windows-side helpers) |
 | `platform/` | Linux app object (`CTrackApp`) and the remaining headless UI boundary |
 | `app/` | (step 3) the Qt6 application |
 | `tools/smoke/` | Small programs and tests that prove each layer works |
-| `scripts/` | Upstream sync script |
+| `scripts/` | Upstream and mfc-qt sync scripts |
 | `patches/` | Upstream patches, ideally none |
 
 ## Build targets

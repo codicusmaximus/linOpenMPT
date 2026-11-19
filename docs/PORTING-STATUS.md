@@ -734,7 +734,7 @@ What remains empty is either MFC's own empty default (`DrawItem`,
 DDE, MFC's data recovery (the port's crash rescue), HTML Help (the online
 manual) and accessibility for the items inside lists and trees.
 
-## Step 5: the MFC to Qt6 bridge as its own project (in progress)
+## Step 5: the MFC to Qt6 bridge as its own project (done)
 
 The Win32 and MFC layers are now [mfc-qt](../mfc-qt/README.md), a CMake
 project of its own in `mfc-qt/`, which linOpenMPT builds with
@@ -758,8 +758,12 @@ project of its own in `mfc-qt/`, which linOpenMPT builds with
 - A README, a BSD 3-clause license and a porting guide
   (`mfc-qt/docs/PORTING.md`).
 
-Next: move `mfc-qt/` to a repository of its own, with its history, and use
-it here as a git submodule.
+- Its own repository, [codicusmaximus/mfc-qt](https://github.com/codicusmaximus/mfc-qt),
+  with the history of its files from this one (from `compat/`,
+  `platform/qtwin` and `platform/mfc`) and CI of its own. The repository is
+  private, and a public repository cannot use a private submodule, so
+  `mfc-qt/` here stays a copy: `scripts/update-mfc-qt.sh` refreshes it (see
+  the README).
 
 It covers what OpenMPT uses of MFC and Win32, which is a large part of both
 but not all: another application may need pieces added.
