@@ -9,7 +9,8 @@ target_link_libraries(mfcqt_qtwin PUBLIC mfcqt_win32 Qt6::Core Qt6::Gui Qt6::Wid
 set_target_properties(mfcqt_qtwin PROPERTIES AUTOMOC OFF)
 
 
-# xcb for Windows plugin editors (Wine windows inside ours, embed.cpp).
+# xcb, optional: other programs' X11 windows inside ours (embed.cpp), such as
+# plugin editors running in Wine.
 find_package(PkgConfig QUIET)
 if(PKG_CONFIG_FOUND)
   pkg_check_modules(XCB IMPORTED_TARGET xcb)
@@ -18,5 +19,5 @@ if(XCB_FOUND)
   target_link_libraries(mfcqt_qtwin PRIVATE PkgConfig::XCB)
   target_compile_definitions(mfcqt_qtwin PRIVATE MFCQT_WITH_XCB)
 else()
-  message(STATUS "mfc-qt: no xcb development files (libxcb1-dev); Windows plugin editors may sit in the wrong place")
+  message(STATUS "mfc-qt: no xcb development files (libxcb1-dev); embedded X11 windows may sit in the wrong place")
 endif()

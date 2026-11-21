@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config g++ python3 qt6-base-dev librtmidi-dev libxcb1-dev
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      # Without the optional dependencies: no MIDI input, no X11 embedding.
+      - name: Build and test without RtMidi and xcb
+        run: |
+          sudo apt-get remove -y librtmidi-dev libxcb1-dev
+          cmake -S . -B build-minimal -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build-minimal
+          ctest --test-dir build-minimal --output-on-failure
