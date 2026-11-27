@@ -267,7 +267,7 @@ bool CAboutDlg::OnInitDialog()
 		+ Build::GetURL(Build::Url::Website) + UL_("\r\n");
 	SetItemText(IDC_EDIT3, mpt::ToUnicode(app));
 
-	m_bmp->SubclassDlgItem(IDC_BITMAP1, this);
+	SubclassDlgItem(IDC_BITMAP1, m_bmp);
 
 	m_Tab->InsertItem(TCIF_TEXT, 0, UL_("OpenMPT"), 0, 0, 0, 0);
 	m_Tab->InsertItem(TCIF_TEXT, 1, UL_("Components"), 0, 0, 0, 0);

@@ -21,7 +21,6 @@
 #include <numeric>
 #if defined(MPT_WANT_ARCH_INTRINSICS_X86_SSE2) && defined(MPT_ARCH_INTRINSICS_X86_SSE2)
 #if MPT_COMPILER_MSVC
-#include <intrin.h>
 #endif
 #include <emmintrin.h>
 #endif

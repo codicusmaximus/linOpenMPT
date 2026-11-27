@@ -377,7 +377,7 @@ public:
 		CheckRadio(IDC_RADIO4, IDC_RADIO5, m_subSongs.size() <= 1 ? IDC_RADIO4 : IDC_RADIO5);
 
 		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, static_cast<int>(m_subSongs.size()));
-		m_EditSubSong.SubclassDlgItem(IDC_EDIT1, this);
+		SubclassDlgItem(IDC_EDIT1, m_EditSubSong);
 		m_EditSubSong.SetAccessibleName(UL_("Sub Song"));
 		SetItemInt(IDC_EDIT1, static_cast<uint32>(m_selectedSong + 1));
 		if(m_subSongs.size() <= 1)

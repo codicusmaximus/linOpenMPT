@@ -117,7 +117,7 @@ bool CCtrlGeneral::OnInitDialog()
 	m_SpinTempo->SetRange(-10, 10);
 	m_SliderTempo->setSingleStep(1);
 	m_SliderTempo->setPageStep(10);
-	m_EditTempo->SubclassDlgItem(IDC_EDIT_TEMPO, this);
+	SubclassDlgItem(IDC_EDIT_TEMPO, m_EditTempo);
 	m_EditTempo->AllowNegative(false);
 	
 	m_editsLocked = false;
@@ -349,7 +349,7 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 	{
 		// Set max valid restart position
 		m_SpinRestartPos->SetRange(0, std::max(m_sndFile.Order().GetRestartPos(), static_cast<ORDERINDEX>(m_sndFile.Order().GetLengthTailTrimmed() - 1)));
-		SetDlgItemInt(IDC_EDIT_RESTARTPOS, m_sndFile.Order().GetRestartPos(), false);
+		SetItemInt(IDC_EDIT_RESTARTPOS, m_sndFile.Order().GetRestartPos());
 	}
 
 	if(updateAll || (hint.GetCategory() == HINTCAT_GENERAL && hintType[HINT_MODGENERAL]) || (hint.GetCategory() == HINTCAT_SEQUENCE && hint.ToType<SequenceHint>().GetSequence() == SEQUENCEINDEX_INVALID))
@@ -357,7 +357,7 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 		if(!m_editsLocked)
 		{
 			m_EditTempo->SetTempoValue(m_sndFile.Order().GetDefaultTempo());
-			SetDlgItemInt(IDC_EDIT_SPEED, m_sndFile.Order().GetDefaultSpeed(), false);
+			SetItemInt(IDC_EDIT_SPEED, m_sndFile.Order().GetDefaultSpeed());
 		}
 		m_SliderTempo->setValue(TempoToSlider(m_sndFile.Order().GetDefaultTempo()));
 	}
@@ -668,7 +668,7 @@ void CCtrlGeneral::OnRestartPosChanged()
 void CCtrlGeneral::OnRestartPosDone()
 {
 	if(m_initialized)
-		SetDlgItemInt(IDC_EDIT_RESTARTPOS, m_sndFile.Order().GetRestartPos());
+		SetItemInt(IDC_EDIT_RESTARTPOS, m_sndFile.Order().GetRestartPos());
 }
 
 

@@ -300,7 +300,7 @@ bool CCtrlSamples::OnInitDialog()
 	m_ComboPitch->setCurrentIndex(12);
 	m_ComboGrainSize->setCurrentIndex(3);
 	OnToggleTimestretchQuality();
-	m_EditTimeStretchRatio->SubclassDlgItem(IDC_EDIT6, this);
+	SubclassDlgItem(IDC_EDIT6, m_EditTimeStretchRatio);
 	m_EditTimeStretchRatio->AllowNegative(false);
 	m_EditTimeStretchRatio->SetDecimalValue(100.0);
 	m_SpinTimeStretchRatio->SetRange(1, 100000);

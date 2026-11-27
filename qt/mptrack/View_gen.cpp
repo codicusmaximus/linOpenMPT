@@ -31,7 +31,6 @@
 
 // This is used for retrieving the correct background colour for the
 // frames on the general tab when using WinXP Luna or Vista/Win7 Aero.
-#include <uxtheme.h>
 
 
 OPENMPT_NAMESPACE_BEGIN
@@ -198,7 +197,7 @@ void CViewGlobals::OnInitialUpdate()
 	for(int ichn = 0; ichn < CHANNELS_IN_TAB; ichn++)
 	{
 		// Color select
-		m_channelColor[ichn].SubclassDlgItem(IDC_BUTTON9 + ichn, this);
+		SubclassDlgItem(IDC_BUTTON9 + ichn, m_channelColor[ichn]);
 		// Volume Slider
 		m_sbVolume[ichn].SetRange(0, 64);
 		m_sbVolume[ichn].SetTicFreq(8);

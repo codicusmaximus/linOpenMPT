@@ -320,6 +320,7 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		e->setReadOnly(s & 0x800);
 		if(s & 0x20)
 			e->setEchoMode(QLineEdit::Password);
+		e->setProperty("mfclessNumber", (s & 0x2000) != 0);
 		if(s & 0x2000)  // ES_NUMBER
 			e->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[0-9]*")), e));
 		if(!(item.exStyle & 0x200) && !(s & Style::Border))
@@ -620,6 +621,16 @@ bool DialogLayout::eventFilter(QObject *watched, QEvent *e)
 		Apply();
 	return false;
 }
+
+void DialogLayout::Replace(QWidget *old, QWidget *now)
+{
+	for(auto &entry : m_entries)
+	{
+		if(entry.widget == old)
+			entry.widget = now;
+	}
+}
+
 
 void DialogLayout::Rebase(QWidget *control)
 {

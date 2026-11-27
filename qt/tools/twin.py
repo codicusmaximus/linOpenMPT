@@ -172,6 +172,14 @@ LATE = [
 	(r'\bSendMessage\(WM_COMMAND,\s*', 'mfcless::SendCommand(this, '),
 	(r'(\w+)->PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(\1, '),
 	(r'(\w+)->SendMessage\(WM_COMMAND,\s*', r'mfcless::SendCommand(\1, '),
+	# The dialog makes the control again as the member's class.
+	(r'(?<![\w.>])(\w+(?:\[[^\]\[]*\])?)(?:->|\.)SubclassDlgItem\(([^,()]+),\s*this\)', r'SubclassDlgItem(\2, \1)'),
+	(r'\bSetDlgItemInt\((\w+),\s*([^;]*?),\s*(?:false|FALSE|true|TRUE)\);', r'SetItemInt(\1, \2);'),
+	(r'\bSetDlgItemInt\(', 'SetItemInt('),
+	(r'\bGetDlgItemInt\((\w+)\)', r'GetItemInt(\1)'),
+	(r'\bGetDlgItemInt\((\w+),\s*(?:nullptr|NULL),\s*(?:false|FALSE)\)', r'static_cast<uint32>(GetItemInt(\1))'),
+	(r'\bGetDlgItemInt\((\w+),\s*(?:nullptr|NULL),\s*(?:true|TRUE)\)', r'static_cast<int32>(GetItemInt(\1))'),
+	(r'\bGetDlgItemInt\((\w+),\s*&(\w+),\s*(?:false|FALSE|true|TRUE)\)', r'GetItemInt(\1, &\2)'),
 ]
 
 # Controls become pointers to Qt widgets that the dialog template creates.
@@ -533,6 +541,8 @@ def member_access(text, types):
 def twin_cpp(text, header):
 	text = pointer_handles(text)
 	text = re.sub(r'^#include "stdafx.h"\n', '', text, flags=re.M)
+	# Windows' and MFC's own headers.
+	text = re.sub(r'^#include <(?:Dbt|HtmlHelp|afx\w*|atlbase|crtdbg|gdiplus|intrin|mmsystem|uxtheme|winioctl|windows|commctrl|shlobj|shellapi)\.h>\n', '', text, flags=re.M)
 	text = re.sub(r'^BEGIN_MESSAGE_MAP\((\w+),\s*(\w+)\)\n(.*?)^END_MESSAGE_MAP\(\)', message_map, text, flags=re.M | re.S)
 	text = re.sub(r'^IMPLEMENT_DYNCREATE\((\w+),\s*\w+\)\s*\n', r'const mfcless::ViewClass \1::class\1{"\1", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new \1(); if(parent) view->setParent(parent); return view; }};\n', text, flags=re.M)
 	text = re.sub(r'^IMPLEMENT_(DYNAMIC|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)

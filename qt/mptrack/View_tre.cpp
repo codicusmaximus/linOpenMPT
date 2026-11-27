@@ -41,7 +41,6 @@
 #include "mpt/io_file_read/inputfile_filecursor.hpp"
 #include "mpt/parse/parse.hpp"
 
-#include <winioctl.h>
 
 
 OPENMPT_NAMESPACE_BEGIN

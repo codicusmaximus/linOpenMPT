@@ -74,6 +74,8 @@ public:
 	// Call after moving a control by hand, so that later resizes start from
 	// its new place.
 	void Rebase(QWidget *control);
+	// A control made again in the place of another (SubclassDlgItem).
+	void Replace(QWidget *old, QWidget *now);
 
 private:
 	void Apply();

@@ -182,7 +182,7 @@ bool CCtrlPatterns::OnInitDialog()
 	m_SpinInstrument->SetRange(-1, 1);
 	m_SpinInstrument->SetPos(0);
 
-	SetDlgItemInt(IDC_EDIT_SPACING, TrackerSettings::Instance().gnPatternSpacing);
+	SetItemInt(IDC_EDIT_SPACING, TrackerSettings::Instance().gnPatternSpacing);
 	SetChecked(IDC_PATTERN_FOLLOWSONG, (TrackerSettings::Instance().patternSetup & PatternSetup::FollowSongOffByDefault) ? 0 : 1);
 
 	m_SpinSequence->SetRange(1, m_sndFile.Order.GetNumSequences());
@@ -725,7 +725,7 @@ void CCtrlPatterns::OnSpacingChanged()
 		if(TrackerSettings::Instance().gnPatternSpacing > MAX_SPACING)
 		{
 			TrackerSettings::Instance().gnPatternSpacing = MAX_SPACING;
-			SetDlgItemInt(IDC_EDIT_SPACING, TrackerSettings::Instance().gnPatternSpacing, false);
+			SetItemInt(IDC_EDIT_SPACING, TrackerSettings::Instance().gnPatternSpacing);
 		}
 		SendViewMessage(VIEWMSG_SETSPACING, TrackerSettings::Instance().gnPatternSpacing);
 	}

@@ -1526,9 +1526,9 @@ void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Po
 	if(!this)
 	{
 		Create(IDD_CHANNELSETTINGS, nullptr);
-		m_colorBtn->SubclassDlgItem(IDC_BUTTON4, this);
-		m_colorBtnPrev->SubclassDlgItem(IDC_BUTTON5, this);
-		m_colorBtnNext->SubclassDlgItem(IDC_BUTTON6, this);
+		SubclassDlgItem(IDC_BUTTON4, m_colorBtn);
+		SubclassDlgItem(IDC_BUTTON5, m_colorBtnPrev);
+		SubclassDlgItem(IDC_BUTTON6, m_colorBtnNext);
 
 		m_volSlider->setRange(0, 64);
 		m_volSlider->setTickInterval(8);

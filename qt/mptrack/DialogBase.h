@@ -134,6 +134,33 @@ protected:
 			}
 		};
 	}
+	// SubclassDlgItem: makes the control with this ID again as the dialog's
+	// own class (T), in the same place, after the template was built.
+	template <typename T>
+	bool SubclassDlgItem(uint32 id, T *&member)
+	{
+		QWidget *old = GetDlgItem(id);
+		if(auto *t = dynamic_cast<T *>(old))
+		{
+			member = t;
+			return true;
+		}
+		if constexpr(std::is_base_of_v<QWidget, T> && std::is_constructible_v<T, QWidget *> && !std::is_abstract_v<T>)
+		{
+			if(old)
+			{
+				T *t = new T(old->parentWidget());
+				if(ReplaceItem(id, t))
+				{
+					member = t;
+					return true;
+				}
+				delete t;
+			}
+		}
+		member = nullptr;
+		return false;
+	}
 	// The same for a control that is a member of the dialog.
 	template <typename T>
 	void ExchangeControl(DataExchange &dx, uint32 id, T &member)
@@ -167,6 +194,9 @@ protected:
 private:
 	friend class PropertySheet;
 	void CreateFromTemplate();
+	// Sets up replacement as the template's control id and puts it in the
+	// place of the control made before, which is deleted.
+	bool ReplaceItem(uint32 id, QWidget *replacement);
 
 	uint32 m_templateID = 0;
 	std::map<uint32, QWidget *> m_items;

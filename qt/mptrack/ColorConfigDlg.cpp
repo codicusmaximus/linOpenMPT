@@ -196,8 +196,8 @@ bool COptionsColors::OnInitDialog()
 	CheckRadio(IDC_RADIO3, IDC_RADIO5, IDC_RADIO3 + static_cast<int>(TrackerSettings::Instance().defaultRainbowChannelColors.Get()));
 	EnableItem(IDC_CHECK3, (IsChecked(IDC_CHECK1) || IsChecked(IDC_CHECK4)) ? true : false);
 
-	SetDlgItemInt(IDC_PRIMARYHILITE, TrackerSettings::Instance().m_nRowHighlightMeasures);
-	SetDlgItemInt(IDC_SECONDARYHILITE, TrackerSettings::Instance().m_nRowHighlightBeats);
+	SetItemInt(IDC_PRIMARYHILITE, TrackerSettings::Instance().m_nRowHighlightMeasures);
+	SetItemInt(IDC_SECONDARYHILITE, TrackerSettings::Instance().m_nRowHighlightBeats);
 	m_spinRowsPerMeasure->SetRange(0, MAX_ROWS_PER_MEASURE);
 	m_spinRowsPerBeat->SetRange(0, MAX_ROWS_PER_BEAT);
 

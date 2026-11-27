@@ -64,8 +64,8 @@ COptionsSampleEditor::COptionsSampleEditor() : CPropertyPage{IDD_OPTIONS_SAMPLEE
 bool COptionsSampleEditor::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
-	SetDlgItemInt(IDC_EDIT_UNDOSIZE, TrackerSettings::Instance().m_SampleUndoBufferSize.Get().GetSizeInPercent());
-	SetDlgItemInt(IDC_EDIT_FINETUNE, TrackerSettings::Instance().m_nFinetuneStep);
+	SetItemInt(IDC_EDIT_UNDOSIZE, TrackerSettings::Instance().m_SampleUndoBufferSize.Get().GetSizeInPercent());
+	SetItemInt(IDC_EDIT_FINETUNE, TrackerSettings::Instance().m_nFinetuneStep);
 	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(0, 100);
 	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, 200);
 	RecalcUndoSize();

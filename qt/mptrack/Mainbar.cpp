@@ -1022,9 +1022,9 @@ intptr_t CModTreeBar::OnInitDialog(uintptr_t wParam, intptr_t lParam)
 {
 	intptr_t l = mfcless::Window<QWidget>::HandleInitDialog(wParam, lParam);
 	m_pModTreeData = new CModTree(nullptr);
-	m_pModTreeData->SubclassDlgItem(IDC_TREEDATA, this);
+	SubclassDlgItem(IDC_TREEDATA, m_pModTreeData);
 	m_pModTree = new CModTree(m_pModTreeData);
-	m_pModTree->SubclassDlgItem(IDC_TREEVIEW, this);
+	SubclassDlgItem(IDC_TREEVIEW, m_pModTree);
 	m_status.reset();
 	m_sizeDefault.cx = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this) + Padding();
 	m_sizeDefault.cy = 32767;

@@ -1825,14 +1825,14 @@ bool CMidiSetupDlg::OnInitDialog()
 	}
 
 	// Note Velocity amp
-	SetDlgItemInt(IDC_EDIT3, TrackerSettings::Instance().midiVelocityAmp);
+	SetItemInt(IDC_EDIT3, TrackerSettings::Instance().midiVelocityAmp);
 	m_SpinAmp->SetRange(1, 10000);
 
 	SetItemText(IDC_EDIT4, mpt::ToUnicode(IgnoredCCsToString(TrackerSettings::Instance().midiIgnoreCCs)));
 
 	// Midi Import settings
-	SetDlgItemInt(IDC_EDIT1, TrackerSettings::Instance().midiImportTicks);
-	SetDlgItemInt(IDC_EDIT2, TrackerSettings::Instance().midiImportPatternLen);
+	SetItemInt(IDC_EDIT1, TrackerSettings::Instance().midiImportTicks);
+	SetItemInt(IDC_EDIT2, TrackerSettings::Instance().midiImportPatternLen);
 
 	// Note quantization
 	m_Quantize->clear();

@@ -67,13 +67,13 @@ bool CAmpDlg::OnInitDialog()
 	SetItemInt(IDC_EDIT1, m_settings.factor);
 	SetItemInt(IDC_EDIT2, m_settings.fadeInStart);
 	SetItemInt(IDC_EDIT3, m_settings.fadeOutEnd);
-	m_edit->SubclassDlgItem(IDC_EDIT1, this);
+	SubclassDlgItem(IDC_EDIT1, m_edit);
 	m_edit->AllowFractions(false);
 	m_edit->AllowNegative(m_nFactorMin < 0);
-	m_editFadeIn->SubclassDlgItem(IDC_EDIT2, this);
+	SubclassDlgItem(IDC_EDIT2, m_editFadeIn);
 	m_editFadeIn->AllowFractions(false);
 	m_editFadeIn->AllowNegative(m_nFactorMin < 0);
-	m_editFadeOut->SubclassDlgItem(IDC_EDIT3, this);
+	SubclassDlgItem(IDC_EDIT3, m_editFadeOut);
 	m_editFadeOut->AllowFractions(false);
 	m_editFadeOut->AllowNegative(m_nFactorMin < 0);
 
@@ -533,11 +533,11 @@ bool AddSilenceDlg::OnInitDialog()
 	}
 	SetChecked(buttonID, 1);
 
-	m_EditAmount->SubclassDlgItem(IDC_EDIT_ADDSILENCE, this);
+	SubclassDlgItem(IDC_EDIT_ADDSILENCE, m_EditAmount);
 	m_EditAmount->AllowNegative(false);
 	m_EditAmount->AllowFractions(m_unit == kMilliseconds);
 	m_EditAmount->SetAccessibleSuffix((m_unit == kSamples) ? UL_("samples") : UL_("ms"));
-	SetDlgItemInt(IDC_EDIT_ADDSILENCE, (m_editOption == kResize) ? m_length : m_numSamples, false);
+	SetItemInt(IDC_EDIT_ADDSILENCE, (m_editOption == kResize) ? m_length : m_numSamples);
 	EnableItem(IDC_RADIO1, m_allowOPL ? true : false);
 
 	return true;
@@ -981,9 +981,9 @@ bool CMixSampleDlg::OnInitDialog()
 	m_SpinVolOriginal->SetRange(-10000, 10000);
 	m_SpinVolMix->SetRange(-10000, 10000);
 
-	m_EditVolOriginal->SubclassDlgItem(IDC_EDIT_SAMPVOL1, this);
+	SubclassDlgItem(IDC_EDIT_SAMPVOL1, m_EditVolOriginal);
 	m_EditVolOriginal->AllowNegative(true);
-	m_EditVolMix->SubclassDlgItem(IDC_EDIT_SAMPVOL2, this);
+	SubclassDlgItem(IDC_EDIT_SAMPVOL2, m_EditVolMix);
 	m_EditVolMix->AllowNegative(true);
 
 	SetItemInt(IDC_EDIT_SAMPVOL1, amplifyOriginal);

@@ -1070,7 +1070,7 @@ bool CCtrlInstruments::OnInitDialog()
 	// Midi Bank
 	m_SpinMidiBK->SetRange(0, 16384);
 	// MIDI Pitch Wheel Depth
-	m_EditPWD->SubclassDlgItem(IDC_PITCHWHEELDEPTH, this);
+	SubclassDlgItem(IDC_PITCHWHEELDEPTH, m_EditPWD);
 	m_EditPWD->AllowFractions(false);
 
 	const auto resamplingModes = Resampling::AllModes();
@@ -1098,7 +1098,7 @@ bool CCtrlInstruments::OnInitDialog()
 	m_SliderCutOff->setRange(0x00, 0x7F);
 	m_SliderResonance->setRange(0x00, 0x7F);
 	// Pitch/Pan Separation
-	m_EditPPS->SubclassDlgItem(IDC_EDIT15, this);
+	SubclassDlgItem(IDC_EDIT15, m_EditPPS);
 	m_EditPPS->AllowFractions(false);
 	m_SpinPPS->SetRange(-32, +32);
 	// Pitch/Pan Center
@@ -1115,7 +1115,7 @@ bool CCtrlInstruments::OnInitDialog()
 	BuildTuningComboBox();
 
 	SetChecked(IDC_CHECK_PITCHTEMPOLOCK, 0);
-	m_EditPitchTempoLock->SubclassDlgItem(IDC_EDIT_PITCHTEMPOLOCK, this);
+	SubclassDlgItem(IDC_EDIT_PITCHTEMPOLOCK, m_EditPitchTempoLock);
 	m_EditPitchTempoLock->AllowNegative(false);
 	m_EditPitchTempoLock->SetLimitText(9);
 
@@ -1466,7 +1466,7 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			// Global Volume
 			SetItemInt(IDC_EDIT8, pIns->nGlobalVol);
 			// Panning
-			SetDlgItemInt(IDC_EDIT9, (m_modDoc.GetModType() & MOD_TYPE_IT) ? (pIns->nPan / 4) : pIns->nPan);
+			SetItemInt(IDC_EDIT9, (m_modDoc.GetModType() & MOD_TYPE_IT) ? (pIns->nPan / 4) : pIns->nPan);
 			m_CheckPanning->setChecked(pIns->dwFlags[INS_SETPANNING] ? true : false);
 			// Midi
 			if (pIns->nMidiProgram>0 && pIns->nMidiProgram<=128)

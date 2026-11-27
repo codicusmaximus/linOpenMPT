@@ -26,7 +26,7 @@ class CDecimalSupport
 protected:
 	bool m_allowNegative = true, m_allowFractions = true;
 
-	QLineEdit *Edit() const { return static_cast<const T *>(this)->get(); }
+	QLineEdit *Edit() const { return const_cast<T *>(static_cast<const T *>(this)); }
 
 public:
 	/// Read the edit's text as a number, with the locale's decimal separator.
@@ -48,10 +48,15 @@ protected:
 class CNumberEdit : public AccessibleEdit, public CDecimalSupport<CNumberEdit>
 {
 public:
-	void Attach(QLineEdit *widget) { AccessibleEdit::Attach(widget); UpdateValidator(); }
+	explicit CNumberEdit(QWidget *parent = nullptr) : AccessibleEdit(parent) { }
 
 	void SetTempoValue(const TEMPO &t);
 	TEMPO GetTempoValue();
+
+protected:
+	// As upstream, only a number field (ES_NUMBER) filters what is typed,
+	// and then lets through decimals and signs as allowed.
+	void showEvent(QShowEvent *e) override { UpdateValidator(); AccessibleEdit::showEvent(e); }
 };
 
 extern template class CDecimalSupport<CNumberEdit>;

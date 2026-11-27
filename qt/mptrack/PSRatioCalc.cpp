@@ -65,11 +65,11 @@ bool CPSRatioCalc::OnInitDialog()
 	};
 	for(auto [editCtrl, dlgID] : NumberControls)
 	{
-		editCtrl.SubclassDlgItem(dlgID, this);
+		SubclassDlgItem(dlgID, editCtrl);
 		editCtrl.AllowNegative(false);
 	}
 
-	SetDlgItemInt(IDC_SAMPLE_LENGTH_ORIGINAL, m_sndFile.GetSample(m_sampleIndex).nLength, false);
+	SetItemInt(IDC_SAMPLE_LENGTH_ORIGINAL, m_sndFile.GetSample(m_sampleIndex).nLength);
 	SetItemInt(IDC_SAMPLE_LENGTH_NEW, m_sampleLengthNew);
 	SetItemInt(IDC_SPEED, m_speed);
 	m_EditTempo->SetTempoValue(m_tempo);

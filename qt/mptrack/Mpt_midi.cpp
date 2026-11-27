@@ -18,7 +18,6 @@
 #include "WindowMessages.h"
 #include "../soundlib/MIDIEvents.h"
 
-#include <mmsystem.h>
 
 
 OPENMPT_NAMESPACE_BEGIN

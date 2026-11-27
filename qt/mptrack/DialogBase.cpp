@@ -19,6 +19,9 @@
 #include "mfcless/DialogBuilder.h"
 #include "mfcless/ModMessage.h"
 #include "mfcless/QtString.h"
+#include "mfcless/Resources.h"
+
+#include <algorithm>
 
 #include <QtGui/QHelpEvent>
 #include <QtGui/QKeyEvent>
@@ -90,6 +93,44 @@ void DialogBase::CreateFromTemplate()
 		w->installEventFilter(this);
 	}
 	RegisterMessageMap();
+}
+
+
+bool DialogBase::ReplaceItem(uint32 id, QWidget *replacement)
+{
+	auto it = m_items.find(id);
+	if(it == m_items.end() || !m_templateID)
+		return false;
+	const auto tmpl = mfcless::res::Dialog(m_templateID);
+	if(!tmpl)
+		return false;
+	const mfcless::res::DialogItem *item = nullptr;
+	for(const auto &i : tmpl->items)
+	{
+		if(i.id == id)
+		{
+			item = &i;
+			break;
+		}
+	}
+	if(!item || mfcless::CreateControl(*item, replacement->parentWidget(), replacement) != replacement)
+		return false;
+	QWidget *old = it->second;
+	replacement->setGeometry(old->geometry());
+	replacement->setVisible(old->isVisibleTo(old->parentWidget()));
+	replacement->setEnabled(old->isEnabled());
+	replacement->setFont(old->font());
+	replacement->stackUnder(old);
+	QWidget::setTabOrder(old, replacement);
+	it->second = replacement;
+	std::replace(m_templateOrder.begin(), m_templateOrder.end(), old, replacement);
+	mfcless::ConnectNotifications(replacement, id, this);
+	replacement->installEventFilter(this);
+	for(auto *layout : findChildren<mfcless::DialogLayout *>(Qt::FindDirectChildrenOnly))
+		layout->Replace(old, replacement);
+	old->hide();
+	old->deleteLater();
+	return true;
 }
 
 

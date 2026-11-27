@@ -27,7 +27,6 @@
 #include "../soundlib/plugins/PlugInterface.h"
 
 #if MPT_WINNT_AT_LEAST(MPT_WIN_VISTA) && defined(UNICODE)
-#include <afxtaskdialog.h>
 #endif
 
 
@@ -1530,7 +1529,7 @@ bool CInputDlg::OnInitDialog()
 	{
 		// Numeric (int)
 		m_spin->SetRange(m_minValueInt, m_maxValueInt);
-		m_edit->SubclassDlgItem(IDC_EDIT1, this);
+		SubclassDlgItem(IDC_EDIT1, m_edit);
 		m_edit->ModifyStyle(0, ES_NUMBER);
 		m_edit->AllowNegative(m_minValueInt < 0);
 		m_edit->AllowFractions(false);
@@ -1540,7 +1539,7 @@ bool CInputDlg::OnInitDialog()
 	{
 		// Numeric (double)
 		m_spin->SetRange(static_cast<int32>(m_minValueDbl), static_cast<int32>(m_maxValueDbl));
-		m_edit->SubclassDlgItem(IDC_EDIT1, this);
+		SubclassDlgItem(IDC_EDIT1, m_edit);
 		m_edit->ModifyStyle(0, ES_NUMBER);
 		m_edit->AllowNegative(m_minValueDbl < 0);
 		m_edit->AllowFractions(true);

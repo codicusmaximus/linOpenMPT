@@ -31,9 +31,9 @@ CScaleEnvPointsDlg::CScaleEnvPointsDlg(QWidget *pParent, InstrumentEnvelope &env
 bool CScaleEnvPointsDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
-	m_EditX->SubclassDlgItem(IDC_EDIT_FACTORX, this);
-	m_EditY->SubclassDlgItem(IDC_EDIT_FACTORY, this);
-	m_EditOffset->SubclassDlgItem(IDC_EDIT3, this);
+	SubclassDlgItem(IDC_EDIT_FACTORX, m_EditX);
+	SubclassDlgItem(IDC_EDIT_FACTORY, m_EditY);
+	SubclassDlgItem(IDC_EDIT3, m_EditOffset);
 	m_EditX->AllowNegative(false);
 	m_EditX->SetDecimalValue(m_factorX);
 	m_EditY->SetDecimalValue(m_factorY);

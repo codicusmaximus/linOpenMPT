@@ -156,8 +156,8 @@ bool CTuningDialog::OnInitDialog()
 {
 	ResizableDialog::OnInitDialog();
 
-	m_EditRatioPeriod->SubclassDlgItem(IDC_EDIT_RATIOPERIOD, this);
-	m_EditRatio->SubclassDlgItem(IDC_EDIT_RATIOVALUE, this);
+	SubclassDlgItem(IDC_EDIT_RATIOPERIOD, m_EditRatioPeriod);
+	SubclassDlgItem(IDC_EDIT_RATIOVALUE, m_EditRatio);
 	m_EditRatioPeriod->AllowNegative(false);
 	m_EditRatioPeriod->AllowFractions(true);
 	m_EditRatio->AllowNegative(false);
