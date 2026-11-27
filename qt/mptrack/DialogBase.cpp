@@ -76,6 +76,7 @@ void DialogBase::CreateFromTemplate()
 	m_items.insert(built.items.begin(), built.items.end());
 	m_templateOrder = built.all;
 	const uint32 style = built.dlgTemplate.style;
+	m_templateStyle = style;
 	if(style & mfcless::Style::Child)
 	{
 		setWindowFlags(Qt::Widget);
@@ -215,6 +216,9 @@ bool DialogBase::Create(QWidget *parent)
 		m_initialized = true;
 		if(OnInitDialog())
 			SetFocusToFirstControl();
+		// CreateDialog shows a dialog whose template has WS_VISIBLE.
+		if((m_templateStyle & 0x10000000) && !isVisible())
+			show();
 	}
 	return true;
 }

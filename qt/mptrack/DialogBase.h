@@ -230,6 +230,7 @@ private:
 	std::vector<QWidget *> m_templateOrder;
 	bool m_initialized = false;
 	bool m_controlsBuilt = false;
+	uint32 m_templateStyle = 0;
 	QFrame *m_childFrame = nullptr;  // the frame of a child dialog that has one
 	// A modal dialog that ends while OnInitDialog runs (EndDialog there) is never shown.
 	bool m_inModalInit = false;

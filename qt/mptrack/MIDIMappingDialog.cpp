@@ -28,6 +28,20 @@
 OPENMPT_NAMESPACE_BEGIN
 
 
+// mfcless: IsDefault compares the bytes of the directive, padding included,
+// which is only reliable when the memory started out zeroed; this compares
+// the fields.
+static bool IsDefaultDirective(const CMIDIMappingDirective &d)
+{
+	const CMIDIMappingDirective def;
+	return d.IsActive() == def.IsActive() && d.GetCaptureMIDI() == def.GetCaptureMIDI()
+		&& d.GetAllowPatternEdit() == def.GetAllowPatternEdit() && d.GetAnyChannel() == def.GetAnyChannel()
+		&& d.GetChannel() == def.GetChannel() && d.GetEvent() == def.GetEvent()
+		&& d.GetController() == def.GetController() && d.GetPlugIndex() == def.GetPlugIndex()
+		&& d.GetParamIndex() == def.GetParamIndex();
+}
+
+
 CMIDIMappingDialog::CMIDIMappingDialog(QWidget *pParent, CSoundFile &sndfile)
 	: ResizableDialog{IDD_MIDIPARAMCONTROL, pParent}
 	, m_sndFile{sndfile}
@@ -151,7 +165,7 @@ bool CMIDIMappingDialog::OnInitDialog()
 		InsertItem(m_rMIDIMapper.GetDirective(i), int(i));
 	}
 
-	if(m_rMIDIMapper.GetCount() > 0 && m_Setting.IsDefault())
+	if(m_rMIDIMapper.GetCount() > 0 && IsDefaultDirective(m_Setting))
 	{
 		SelectItem(0);
 		OnSelectionChanged();
