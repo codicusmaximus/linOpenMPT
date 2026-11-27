@@ -23,6 +23,7 @@
 #include "../common/mptPathString.h"
 
 #include <unordered_set>
+#include <vector>
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -33,6 +34,7 @@ class CModDocTemplate: public QObject
 {
 	Q_OBJECT
 	std::unordered_set<CModDoc *> m_documents;	// Allow faster lookup of open documents than MFC's linear search allows for
+	std::vector<CModDoc *> m_documentList;	// mfcless: MFC's list, in the order the documents were made
 
 public:
 	// mfcless: the resource ID names the frame's menu and icon; the view
@@ -48,6 +50,8 @@ public:
 	void AddDocument(CModDoc *doc);
 	void RemoveDocument(CModDoc *doc);
 	bool DocumentExists(const CModDoc *doc) const;
+	// The documents in the order they were made (CDocTemplate::GetNextDoc).
+	const std::vector<CModDoc *> &GetDocumentList() const { return m_documentList; }
 
 	size_t size() const { return m_documents.size(); }
 	bool empty() const { return m_documents.empty(); }

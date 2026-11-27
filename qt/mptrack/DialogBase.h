@@ -57,6 +57,7 @@ public:
 	// mfcless: CDialog::DoModal and Create.
 	int DoModal();
 	bool Create(QWidget *parent = nullptr);
+	bool Create(uint32 nIDTemplate, QWidget *parent) { m_templateID = nIDTemplate; return Create(parent); }
 
 	virtual bool OnInitDialog();
 

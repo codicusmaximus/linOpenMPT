@@ -66,6 +66,8 @@ class Context;
 }  // namespace Wine
 }  // namespace mpt
 class GdiplusRAII;
+class CModDocManager;
+class CMainFrame;
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -164,6 +166,11 @@ protected:
 	ComponentManagerSettings *m_pComponentManagerSettings = nullptr;
 	IniFileSettingsContainer *m_pPluginCache = nullptr;
 	CModDocTemplate *m_pModTemplate = nullptr;
+	// mfcless: CWinApp's document manager and main window.
+	CModDocManager *m_pDocManager = nullptr;
+public:
+	CMainFrame *m_pMainWnd = nullptr;
+protected:
 	CVstPluginManager *m_pPluginManager = nullptr;
 	mpt::log::GlobalLogger m_GlobalLogger{};
 	std::unique_ptr<AllSoundDeviceComponents> m_pAllSoundDeviceComponents;
@@ -379,7 +386,7 @@ public:
 	void OnAppAbout();
 
 	void OnFileCloseAll();
-	bool OnUpdateAnyDocsOpen() const;
+	void OnUpdateAnyDocsOpen(mfcless::CommandState &state);
 
 protected:
 	size_t AddScannedDLSBanks();

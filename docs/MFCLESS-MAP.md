@@ -67,7 +67,7 @@ Upstream: 8bc4cd9
 | `MoveFXSlotDialog.cpp` | 92 | twin | todo |
 | `Mpdlgs.cpp` | 2048 | twin | todo |
 | `Mpt_midi.cpp` | 216 | twin | todo |
-| `Mptrack.cpp` | 2761 | twin | todo |
+| `Mptrack.cpp` | 2761 | twin | done |
 | `OPLExport.cpp` | 629 | twin | todo |
 | `OPLInstrDlg.cpp` | 290 | twin | todo |
 | `PSRatioCalc.cpp` | 177 | twin | todo |

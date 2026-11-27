@@ -427,8 +427,8 @@ public:
 protected:
 	// ClassWizard generated virtual function overrides
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
-	bool DestroyWindow() override;
 public:
+	bool DestroyWindow() override;
 	void OnUpdateFrameTitle(bool bAddToTitle);
 protected:
 	/// Opens either template or example menu item.
@@ -462,8 +462,9 @@ public:
 	void OnImportMidiLib();
 	void OnViewOptions();
 	void OnHelp();
-protected:
+public:
 	int OnCreate();
+protected:
 	void closeEvent(class QCloseEvent *e) override;
 	void OnRButtonDown(uint32, mfcless::Point);
 	void OnClose();

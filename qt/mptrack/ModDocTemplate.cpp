@@ -136,6 +136,7 @@ void CModDocTemplate::AddDocument(CModDoc *doc)
 {
 	doc->SetDocTemplate(this);
 	m_documents.insert(doc);
+	m_documentList.push_back(doc);
 	// At this point we don't know yet if opening the document is going to be successful, so don't call UpdateDocumentCount()
 }
 
@@ -145,6 +146,7 @@ void CModDocTemplate::RemoveDocument(CModDoc *doc)
 	if(doc->GetDocTemplate() == this)
 		doc->SetDocTemplate(nullptr);
 	m_documents.erase(doc);
+	m_documentList.erase(std::remove(m_documentList.begin(), m_documentList.end(), doc), m_documentList.end());
 	if(CMainFrame::GetMainFrame())
 		CMainFrame::GetMainFrame()->UpdateDocumentCount();
 }
@@ -198,7 +200,7 @@ void CModDocTemplate::InitialUpdateFrame(CChildFrame *frame, CModDoc *doc, bool 
 void CModDocTemplate::CloseAllDocuments(bool)
 {
 	// A copy: closing a document removes it from the set.
-	const std::vector<CModDoc *> docs(m_documents.begin(), m_documents.end());
+	const std::vector<CModDoc *> docs = m_documentList;
 	for(CModDoc *doc : docs)
 	{
 		if(DocumentExists(doc))
@@ -209,7 +211,7 @@ void CModDocTemplate::CloseAllDocuments(bool)
 
 bool CModDocTemplate::SaveAllModified()
 {
-	const std::vector<CModDoc *> docs(m_documents.begin(), m_documents.end());
+	const std::vector<CModDoc *> docs = m_documentList;
 	for(CModDoc *doc : docs)
 	{
 		if(DocumentExists(doc) && !doc->SaveModified())
@@ -260,7 +262,7 @@ CModDoc *CModDocManager::OpenDocumentFile(const mpt::PathString &filename, bool 
 	{
 		if(!filename.empty())
 		{
-			for(CModDoc *doc : *m_template)
+			for(CModDoc *doc : m_template->GetDocumentList())
 			{
 				if(!doc->GetPathNameMpt().empty() && !mpt::PathCompareNoCase(doc->GetPathNameMpt(), filename))
 				{

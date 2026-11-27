@@ -3,7 +3,7 @@
  * -----------
  * Purpose: OpenMPT core application class.
  * Notes  : mfcless twin of upstream's mptrack/Mptrack.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -26,14 +26,12 @@
 #include "Moddoc.h"
 #include "ModDocTemplate.h"
 #include "MPTrackUtil.h"
-#include "MPTrackWine.h"
 #include "PlugNotFoundDlg.h"
 #include "Reporting.h"
 #include "resource.h"
 #include "TrackerSettings.h"
 #include "UpdateCheck.h"
 #include "WelcomeDialog.h"
-#include "WineSoundDeviceStub.h"
 #include "../common/ComponentManager.h"
 #include "../common/mptStringBuffer.h"
 #include "../common/version.h"
@@ -51,50 +49,30 @@
 
 #include <thread>
 
-#if MPT_MSVC_AT_LEAST(2022, 2) && MPT_MSVC_BEFORE(2022, 3)
-// Work-around <https://developercommunity.visualstudio.com/t/warning-C4311-in-MFC-header-afxrecovery/10041328>,
-// see <https://developercommunity.visualstudio.com/t/Compiler-warnings-after-upgrading-to-17/10036311#T-N10061908>.
-template <class ARG_KEY>
-AFX_INLINE uint32 AFXAPI HashKey(ARG_KEY key);
-template <>
-AFX_INLINE uint32 AFXAPI HashKey<CDocument*>(CDocument *key)
-{
-	// (algorithm copied from STL hash in xfunctional)
-#pragma warning(suppress: 4302) // 'type cast' : truncation
-#pragma warning(suppress: 4311) // pointer truncation
-	ldiv_t HashVal = ldiv((long)(CDocument*)key, 127773);
-	HashVal.rem = 16807 * HashVal.rem - 2836 * HashVal.quot;
-	if(HashVal.rem < 0)
-		HashVal.rem += 2147483647;
-	return ((uint32)HashVal.rem);
-}
-#endif
-#include <afxdatarecovery.h>
+#include "mfcless/ModMessage.h"
+#include "mfcless/QtString.h"
+#include "mfcless/Resources.h"
 
-// GDI+
-#include <atlbase.h>
-#if MPT_MSVC_BEFORE(2019, 11)  // really < Windows 10 SDK 2104 (10.0.20348.0)
-#define max(a, b) (((a) > (b)) ? (a) : (b))
-#define min(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-#if MPT_COMPILER_MSVC
-#pragma warning(push)
-#pragma warning(disable : 4458)  // declaration of 'x' hides class member
-#endif
-#include <gdiplus.h>
-#if MPT_COMPILER_MSVC
-#pragma warning(pop)
-#endif
-#if MPT_MSVC_BEFORE(2019, 11)  // really < Windows 10 SDK 2104 (10.0.20348.0)
-#undef min
-#undef max
-#endif
-
-#if MPT_COMPILER_MSVC
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-#endif
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QFileInfo>
+#include <QtCore/QTimer>
+#include <QtCore/QStandardPaths>
+#include <QtGui/QDesktopServices>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QMdiArea>
+#include <QtWidgets/QAbstractButton>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QTextEdit>
+#include <QtGui/QPainter>
+#include <QtGui/QPaintEvent>
+#include <QtCore/QUrl>
+#include "mfcless/System.h"
+#include "mfcless/Graphics.h"
 
 
 OPENMPT_NAMESPACE_BEGIN
@@ -104,8 +82,8 @@ OPENMPT_NAMESPACE_BEGIN
 
 CTrackApp theApp;
 
-const mpt::uchar *szSpecialNoteNamesMPT[] = {U_("PCs"), U_("PC"), U_("~~ (Note Fade)"), U_("^^ (Note Cut)"), U_("== (Note Off)")};
-const mpt::uchar *szSpecialNoteShortDesc[] = {U_("Param Control (Smooth)"), U_("Param Control"), U_("Note Fade"), U_("Note Cut"), U_("Note Off")};
+const mpt::uchar *szSpecialNoteNamesMPT[] = {UL_("PCs"), UL_("PC"), UL_("~~ (Note Fade)"), UL_("^^ (Note Cut)"), UL_("== (Note Off)")};
+const mpt::uchar *szSpecialNoteShortDesc[] = {UL_("Param Control (Smooth)"), UL_("Param Control"), UL_("Note Fade"), UL_("Note Cut"), UL_("Note Off")};
 
 // Make sure that special note arrays include string for every note.
 static_assert(NOTE_MAX_SPECIAL - NOTE_MIN_SPECIAL + 1 == mpt::array_size<decltype(szSpecialNoteNamesMPT)>::size);
@@ -264,7 +242,7 @@ void CTrackApp::OnFileCloseAll()
 
 void CTrackApp::OnUpdateAnyDocsOpen(mfcless::CommandState &state)
 {
-	cmd->Enable(!GetModDocTemplate()->empty());
+	state.Enable(!GetModDocTemplate()->empty());
 }
 
 
@@ -280,12 +258,7 @@ std::vector<CModDoc *> CTrackApp::GetOpenDocuments() const
 	std::vector<CModDoc *> documents;
 	if(auto *pDocTmpl = GetModDocTemplate())
 	{
-		POSITION pos = pDocTmpl->GetFirstDocPosition();
-		CDocument *pDoc;
-		while((pos != nullptr) && ((pDoc = pDocTmpl->GetNextDoc(pos)) != nullptr))
-		{
-			documents.push_back(dynamic_cast<CModDoc *>(pDoc));
-		}
+		documents = pDocTmpl->GetDocumentList();
 	}
 
 	return documents;
@@ -319,9 +292,16 @@ void CTrackApp::PostMessageToAllViews(uint32 uMsg, uintptr_t wParam, intptr_t lP
 /////////////////////////////////////////////////////////////////////////////
 // Command Line options
 
-class CMPTCommandLineInfo: public CCommandLineInfo
+// mfcless: what CCommandLineInfo and CWinApp::ParseCommandLine did: flags
+// start with '-' or '/', anything else is a file to open.
+class CMPTCommandLineInfo
 {
 public:
+	enum ShellCommand { FileNew, FileOpen, FileNothing };
+	ShellCommand m_nShellCommand = FileNew;
+	bool m_bShowSplash = true;
+	mpt::ustring m_strFileName;
+
 	std::vector<mpt::PathString> m_fileNames;
 	bool m_noDls = false, m_noPlugins = false, m_noAssembly = false, m_noSysCheck = false, m_noWine = false,
 		m_portable = false, m_noCrashHandler = false, m_debugCrashHandler = false, m_sharedInstance = false,
@@ -333,36 +313,48 @@ public:
 public:
 	CMPTCommandLineInfo()
 	{
-		std::vector<mpt::uchar> curDir(::GetCurrentDirectory(0, nullptr), u8'\0');
-		::GetCurrentDirectory(static_cast<uint32>(curDir.size()), curDir.data());
-		m_workingDir = mpt::PathString::FromUnicode(curDir.data());
+		m_workingDir = mpt::PathString::FromUnicode(mfcless::FromQString(QDir::currentPath())).WithTrailingSlash();
 	}
 
-	void ParseParam(const mpt::uchar * param, bool isFlag, bool isLast) override
+	void Parse(const QStringList &args)
 	{
+		for(qsizetype i = 1; i < args.size(); i++)
+		{
+			QString param = args[i];
+			const bool isFlag = param.size() > 1 && (param[0] == QLatin1Char('-') || param[0] == QLatin1Char('/')) && !QFileInfo::exists(param);
+			if(isFlag)
+				param = param.mid(param.startsWith(QLatin1String("--")) ? 2 : 1);
+			ParseParam(param, isFlag, i == args.size() - 1);
+		}
+	}
+
+	void ParseParam(const QString &param, bool isFlag, bool /*isLast*/)
+	{
+		const auto is = [&param](const char *name) { return !param.compare(QLatin1String(name), Qt::CaseInsensitive); };
 		if(isFlag)
 		{
-			if(!lstrcmpi(param, U_("nologo"))) { m_bShowSplash = false; return; }
-			if(!lstrcmpi(param, U_("nodls"))) { m_noDls = true; return; }
-			if(!lstrcmpi(param, U_("noplugs"))) { m_noPlugins = true; return; }
-			if(!lstrcmpi(param, U_("portable"))) { m_portable = true; return; }
-			if(!lstrcmpi(param, U_("fullMemDump"))) { ExceptionHandler::fullMemDump = true; return; }
-			if(!lstrcmpi(param, U_("noAssembly"))) { m_noAssembly = true; return; }
-			if(!lstrcmpi(param, U_("noSysCheck"))) { m_noSysCheck = true; return; }
-			if(!lstrcmpi(param, U_("noWine"))) { m_noWine = true; return; }
-			if(!lstrcmpi(param, U_("noCrashHandler"))) { m_noCrashHandler = true; return; }
-			if(!lstrcmpi(param, U_("DebugCrashHandler"))) { m_debugCrashHandler = true; return; }
-			if(!lstrcmpi(param, U_("shared"))) { m_sharedInstance = true; return; }
-			if(!lstrcmpi(param, U_("play"))) { m_autoPlay = true; return; }
+			if(is("nologo")) { m_bShowSplash = false; return; }
+			if(is("nodls")) { m_noDls = true; return; }
+			if(is("noplugs")) { m_noPlugins = true; return; }
+			if(is("portable")) { m_portable = true; return; }
+			if(is("fullMemDump")) { ExceptionHandler::fullMemDump = true; return; }
+			if(is("noAssembly")) { m_noAssembly = true; return; }
+			if(is("noSysCheck")) { m_noSysCheck = true; return; }
+			if(is("noWine")) { m_noWine = true; return; }
+			if(is("noCrashHandler")) { m_noCrashHandler = true; return; }
+			if(is("DebugCrashHandler")) { m_debugCrashHandler = true; return; }
+			if(is("shared")) { m_sharedInstance = true; return; }
+			if(is("play")) { m_autoPlay = true; return; }
 #ifdef ENABLE_TESTS
-			if (!lstrcmpi(param, U_("noTests"))) { m_noTests = true; return; }
+			if(is("noTests")) { m_noTests = true; return; }
 #endif
 		} else
 		{
-			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromUnicode(param), m_workingDir));
+			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromUnicode(mfcless::FromQString(param)), m_workingDir));
 			if(m_nShellCommand == FileNew) m_nShellCommand = FileOpen;
+			if(m_strFileName.empty())
+				m_strFileName = mfcless::FromQString(param);
 		}
-		CCommandLineInfo::ParseParam(param, isFlag, isLast);
 	}
 
 protected:
@@ -426,7 +418,7 @@ static mpt::PathString GetUltraSoundPatchDir(SettingsContainer &file, const mpt:
 	mpt::PathString patchDir = file.Read<mpt::PathString>(iniSection, U_("PatchDir"), {});
 	if(forgetSettings)
 		file.Forget(U_("Ultrasound"), U_("PatchDir"));
-	if(patchDir.empty() || patchDir == P_(".\\"))
+	if(patchDir.empty() || patchDir == P_("./"))
 		patchDir = path;
 	if(!patchDir.empty())
 		patchDir = patchDir.WithTrailingSlash();
@@ -522,26 +514,7 @@ std::future<std::vector<std::unique_ptr<CDLSBank>>> CTrackApp::LoadDefaultDLSBan
 		paths.insert(theApp.PathInstallRelativeToAbsolute(path));
 	}
 
-	HKEY key;
-	if(RegOpenKeyEx(HKEY_LOCAL_MACHINE, U_("Software\\Microsoft\\DirectMusic"), 0, KEY_READ, &key) == ERROR_SUCCESS)
-	{
-		uint32 dwRegType = REG_SZ;
-		uint32 dwSize = 0;
-		if(RegQueryValueEx(key, U_("GMFilePath"), NULL, &dwRegType, nullptr, &dwSize) == ERROR_SUCCESS && dwSize > 0)
-		{
-			std::vector<mpt::uchar> filenameT(dwSize / sizeof(mpt::uchar));
-			if(RegQueryValueEx(key, U_("GMFilePath"), NULL, &dwRegType, reinterpret_cast<LPBYTE>(filenameT.data()), &dwSize) == ERROR_SUCCESS)
-			{
-				mpt::ustring filenamestr = ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::ustring>(filenameT.data(), dwSize);
-				std::vector<mpt::uchar> filenameExpanded(::ExpandEnvironmentStrings(filenamestr.c_str(), nullptr, 0));
-				::ExpandEnvironmentStrings(filenamestr.c_str(), filenameExpanded.data(), static_cast<uint32>(filenameExpanded.size()));
-				auto filename = mpt::PathString::FromUnicode(filenameExpanded.data());
-				ImportMidiConfig(filename, true);
-				paths.insert(std::move(filename));
-			}
-		}
-		RegCloseKey(key);
-	}
+	// mfcless: Windows' DirectMusic GM bank (from the registry) does not exist here.
 
 	if(paths.empty())
 		return {};
@@ -661,7 +634,6 @@ MODTYPE CTrackApp::m_nDefaultDocType = MOD_TYPE_IT;
 
 void CTrackApp::RegisterMessageMap()
 {
-	CWinApp::RegisterMessageMap();
 	AddCommand(ID_FILE_NEW, &CTrackApp::OnFileNew);
 	AddCommand(ID_FILE_NEWMOD, &CTrackApp::OnFileNewMOD_Amiga);
 	AddCommand(ID_FILE_NEWMOD_PC, &CTrackApp::OnFileNewMOD_PC);
@@ -680,7 +652,8 @@ void CTrackApp::RegisterMessageMap()
 
 CTrackApp::CTrackApp()
 {
-	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART | AFX_RESTART_MANAGER_REOPEN_PREVIOUS_FILES;
+	// mfcless: Windows' Restart Manager has no equivalent here; a crash
+	// rescue saves modified modules instead (ExceptionHandler).
 }
 
 
@@ -709,127 +682,9 @@ CTrackApp::~CTrackApp()
 }
 
 
-class OpenMPTDataRecoveryHandler
-	: public CDataRecoveryHandler
-{
-public:
-	OpenMPTDataRecoveryHandler(_In_ uint32 dwRestartManagerSupportFlags, _In_ int nAutosaveInterval)
-		: CDataRecoveryHandler(dwRestartManagerSupportFlags, nAutosaveInterval)
-	{
-		return;
-	}
-	~OpenMPTDataRecoveryHandler() override = default;
-
-	bool SaveOpenDocumentList() override
-	{
-		bool bRet = true;  // return false if document list non-empty and not saved
-
-		POSITION posAutosave = m_mapDocNameToAutosaveName.GetStartPosition();
-		if (posAutosave != NULL)
-		{
-			bRet = false;
-
-			// Save the open document list and associated autosave info to the registry
-			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini"));
-			ini.ConvertToUnicode();
-			int32 count = 0;
-			while (posAutosave != NULL)
-			{
-				mpt::ustring strDocument, strAutosave;
-				m_mapDocNameToAutosaveName.GetNextAssoc(posAutosave, strDocument, strAutosave);
-
-				ini.WriteSetting({ U_("RestartDocument"), mpt::ufmt::val(count) }, SettingValue(mpt::ToUnicode(strDocument)));
-				ini.WriteSetting({ U_("RestartAutosave"), mpt::ufmt::val(count) }, SettingValue(mpt::ToUnicode(strAutosave)));
-				count++;
-			}
-			ini.WriteSetting({ U_("Restart"), U_("Count") }, SettingValue(count));
-
-			return true;
-		}
-
-		return bRet;
-	}
-
-	bool ReopenPreviousDocuments() override
-	{
-		// In case no previously open documents are to be re-opened,
-		// MFC RestartManager integration assumes the default action to be
-		// opening a new empty document (see CWinApp::ProcessShellCommand()
-		// and CWinApp::RestartInstance().
-		// We do not want that, so we always return true.
-		CDataRecoveryHandler::ReopenPreviousDocuments();
-		return true;
-	}
-
-	bool ReadOpenDocumentList() override
-	{
-		{
-			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini"));
-			int32 count = ini.ReadSetting({ U_("Restart"), U_("Count") }, SettingValue(0));
-
-			for(int32 index = 0; index < count; ++index)
-			{
-				mpt::ustring document = ini.ReadSetting({ U_("RestartDocument"), mpt::ufmt::val(index) }, SettingValue(U_("")));
-				mpt::ustring autosave = ini.ReadSetting({ U_("RestartAutosave"), mpt::ufmt::val(index) }, SettingValue(U_("")));
-				if(!document.empty())
-				{
-					m_mapDocNameToAutosaveName[mpt::ToUnicode(document)] = mpt::ToUnicode(autosave);
-				}
-			}
-
-			ini.RemoveSection(U_("Restart"));
-			ini.RemoveSection(U_("RestartDocument"));
-			ini.RemoveSection(U_("RestartAutosave"));
-
-		}
-
-		DeleteFile((theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini")).AsNative().c_str());
-
-		// In case no previously open documents are found,
-		// MFC RestartManager integration assumes the default action to be
-		// opening a new empty document (see CWinApp::RestartInstance() and
-		// after the call to RestartInstance()).
-		// We do not want that, so we always return true.
-		return true;
-
-	}
-
-};
-
-
-CDataRecoveryHandler *CTrackApp::GetDataRecoveryHandler()
-{
-	static bool bTriedOnce = false;
-
-	// Since the application restart and application recovery are supported only on Windows
-	// Vista and above, we don't need a recovery handler on Windows versions less than Vista.
-	if (SupportsRestartManager() || SupportsApplicationRecovery())
-	{
-		if (!bTriedOnce && m_pDataRecoveryHandler == NULL)
-		{
-			m_pDataRecoveryHandler = new OpenMPTDataRecoveryHandler(m_dwRestartManagerSupportFlags, m_nAutosaveInterval);
-			if (!m_pDataRecoveryHandler->Initialize())
-			{
-				delete m_pDataRecoveryHandler;
-				m_pDataRecoveryHandler = NULL;
-			}
-		}
-	}
-
-	bTriedOnce = true;
-	return m_pDataRecoveryHandler;
-}
-
-
-CDocument *CTrackApp::OpenTemplateFile(const mpt::PathString &file) const
+CModDoc *CTrackApp::OpenTemplateFile(const mpt::PathString &file) const
 {
 	return GetModDocTemplate()->OpenTemplateFile(file);
-}
-
-
-void CTrackApp::AddToRecentFileList(const mpt::uchar * lpszPathName)
-{
-	AddToRecentFileList(mpt::PathString::FromUnicode(lpszPathName));
 }
 
 
@@ -944,7 +799,7 @@ bool CTrackApp::MoveConfigFile(const mpt::PathString &fileName, mpt::PathString 
 
 	if(!mpt::native_fs{}.is_file(newPath) && mpt::native_fs{}.is_file(oldPath))
 	{
-		return MoveFile(oldPath.AsNative().c_str(), newPath.AsNative().c_str()) != 0;
+		return QFile::rename(mfcless::ToQString(oldPath.ToUnicode()), mfcless::ToQString(newPath.ToUnicode()));
 	}
 	return false;
 }
@@ -958,7 +813,7 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	bool modeMultiArch = false;
 	bool modeSourceProject = false;
 	const mpt::PathString exePath = mpt::common_directories::get_application_directory();
-	auto exePathComponents = mpt::split(exePath.GetDirectory().WithoutTrailingSlash().ToUnicode(), P_("\\").ToUnicode());
+	auto exePathComponents = mpt::split(exePath.GetDirectory().WithoutTrailingSlash().ToUnicode(), P_("/").ToUnicode());
 	if(exePathComponents.size() >= 2)
 	{
 		if(exePathComponents[exePathComponents.size()-1] == mpt::OS::Windows::Name(mpt::OS::Windows::GetProcessArchitecture()))
@@ -983,17 +838,17 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	if(modeSourceProject)
 	{
 		mpt::native_fs fs;
-		m_InstallPath = fs.absolute(exePath + P_("..\\") + P_("..\\") + P_("..\\") + P_("..\\"));
-		m_InstallBinPath = fs.absolute(exePath + P_("..\\"));
+		m_InstallPath = fs.absolute(exePath + P_("../") + P_("../") + P_("../") + P_("../"));
+		m_InstallBinPath = fs.absolute(exePath + P_("../"));
 		m_InstallBinArchPath = exePath;
-		m_InstallPkgPath = fs.absolute(exePath + P_("..\\") + P_("..\\") + P_("..\\") + P_("..\\packageTemplate\\"));
+		m_InstallPkgPath = fs.absolute(exePath + P_("../") + P_("../") + P_("../") + P_("../packageTemplate/"));
 	} else if(modeMultiArch)
 	{
 		mpt::native_fs fs;
-		m_InstallPath = fs.absolute(exePath + P_("..\\") + P_("..\\"));
-		m_InstallBinPath = fs.absolute(exePath + P_("..\\"));
+		m_InstallPath = fs.absolute(exePath + P_("../") + P_("../"));
+		m_InstallBinPath = fs.absolute(exePath + P_("../"));
 		m_InstallBinArchPath = exePath;
-		m_InstallPkgPath = fs.absolute(exePath + P_("..\\") + P_("..\\"));
+		m_InstallPkgPath = fs.absolute(exePath + P_("../") + P_("../"));
 	} else
 	{
 		m_InstallPath = exePath;
@@ -1007,12 +862,15 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	mpt::PathString configPathUser; // config path in default non-portable mode
 	{
 		// Try to find a nice directory where we should store our settings (default: %APPDATA%)
-		mpt::uchar dir[MAX_PATH] = { 0 };
-		if((SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK)
-			|| (SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK))
+		// mfcless: $XDG_CONFIG_HOME (~/.config), as the MFC build on Linux has it.
+		QString dir = qEnvironmentVariable("XDG_CONFIG_HOME");
+		if(dir.isEmpty() && !QDir::homePath().isEmpty())
+			dir = QDir::homePath() + QStringLiteral("/.config");
+		if(!dir.isEmpty())
 		{
+			QDir().mkpath(dir);
 			// Store our app settings in %APPDATA% or "My Documents"
-			configPathUser = mpt::PathString::FromUnicode(dir) + P_("\\OpenMPT\\");
+			configPathUser = mpt::PathString::FromUnicode(mfcless::FromQString(dir)) + P_("/OpenMPT/");
 		}
 	}
 
@@ -1022,7 +880,11 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	bool configPortableFlag = mpt::native_fs{}.is_file(portableFlagFilename);
 	configInstallPortable = configInstallPortable || configPortableFlag;
 	// before 1.29.00.13:
-	configInstallPortable = configInstallPortable || (GetPrivateProfileInt(U_("Paths"), U_("UseAppDataDirectory"), 1, (configPathPortable + P_("mptrack.ini")).AsNative().c_str()) == 0);
+	if(mpt::native_fs{}.is_file(configPathPortable + P_("mptrack.ini")))
+	{
+		IniFileSettingsBackend oldIni(configPathPortable + P_("mptrack.ini"));
+		configInstallPortable = configInstallPortable || (oldIni.ReadSetting({U_("Paths"), U_("UseAppDataDirectory")}, SettingValue(int32(1))).as<int32>() == 0);
+	}
 	// convert to new style
 	if(configInstallPortable && !configPortableFlag)
 	{
@@ -1039,13 +901,6 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	m_szConfigFileName = m_ConfigPath + P_("mptrack.ini"); // config file
 	m_szPluginCacheFileName = m_ConfigPath + P_("plugin.cache"); // plugin cache
 
-	// Force use of custom ini file rather than windowsDir\executableName.ini
-	if(m_pszProfileName)
-	{
-		free((void *)m_pszProfileName);
-	}
-	m_pszProfileName = _tcsdup(m_szConfigFileName.ToUnicode());
-
 	m_bInstallerMode = !modeSourceProject && !portableMode;
 	m_bPortableMode = portableMode;
 	m_bSourceTreeMode = modeSourceProject;
@@ -1060,7 +915,7 @@ void CTrackApp::CreatePaths()
 	{
 		if(!mpt::native_fs{}.is_directory(m_ConfigPath))
 		{
-			CreateDirectory(m_ConfigPath.AsNative().c_str(), 0);
+			QDir().mkpath(mfcless::ToQString(m_ConfigPath.ToUnicode()));
 		}
 	}
 
@@ -1072,7 +927,7 @@ void CTrackApp::CreatePaths()
 		MoveConfigFile(P_("plugin.cache"));
 	
 		// Import old tunings
-		const mpt::PathString oldTunings = GetInstallPath() + P_("tunings\\");
+		const mpt::PathString oldTunings = GetInstallPath() + P_("tunings/");
 
 		if(mpt::native_fs{}.is_directory(oldTunings))
 		{
@@ -1080,9 +935,9 @@ void CTrackApp::CreatePaths()
 			mpt::PathString fileName;
 			while(scanner.Next(fileName))
 			{
-				MoveConfigFile(fileName.GetFilename(), P_("tunings\\"));
+				MoveConfigFile(fileName.GetFilename(), P_("tunings/"));
 			}
-			RemoveDirectory(oldTunings.AsNative().c_str());
+			QDir().rmdir(mfcless::ToQString(oldTunings.ToUnicode()));
 		}
 	}
 }
@@ -1090,13 +945,13 @@ void CTrackApp::CreatePaths()
 
 mpt::PathString CTrackApp::GetUserTemplatesPath() const
 {
-	return GetConfigPath() + P_("TemplateModules\\");
+	return GetConfigPath() + P_("TemplateModules/");
 }
 
 
 mpt::PathString CTrackApp::GetExampleSongsPath() const
 {
-	return GetInstallPath() + P_("ExampleSongs\\");
+	return GetInstallPath() + P_("ExampleSongs/");
 }
 
 
@@ -1170,54 +1025,41 @@ bool CTrackApp::CheckSystemSupport()
 #endif // !MPT_BUILD_RETRO
 
 
+// mfcless: Windows' IsDebuggerPresent (a tracer is attached).
+static bool IsDebuggerPresent()
+{
+	QFile status(QStringLiteral("/proc/self/status"));
+	if(!status.open(QIODevice::ReadOnly))
+		return false;
+	for(const QByteArray &line : status.readAll().split('\n'))
+	{
+		if(line.startsWith("TracerPid:"))
+			return line.mid(10).trimmed().toInt() != 0;
+	}
+	return false;
+}
+
+
 bool CTrackApp::InitInstanceEarly(CMPTCommandLineInfo &cmdInfo)
 {
 	// The first step of InitInstance, always executed without any crash handler.
 
-	#ifndef UNICODE
-		if(MessageBox(NULL,
-			U_("STOP!!!") U_("\n")
-			U_("This is an ANSI (as opposed to a UNICODE) build of OpenMPT.") U_("\n")
-			U_("\n")
-			U_("ANSI builds are NOT SUPPORTED and WILL CAUSE CORRUPTION of the OpenMPT configuration and exhibit other unintended behaviour.") U_("\n")
-			U_("\n")
-			U_("Please use an official build of OpenMPT or compile 'OpenMPT.sln' instead of 'OpenMPT-ANSI.sln'.") U_("\n")
-			U_("\n")
-			U_("Continue starting OpenMPT anyway?") U_("\n"),
-			U_("OpenMPT"), MB_ICONSTOP | MB_YESNO| MB_DEFBUTTON2)
-			!= IDYES)
-		{
-			ExitProcess(1);
-		}
-	#endif
-
-	// Call the base class.
-	// This is required for MFC RestartManager integration.
-	if(!CWinApp::InitInstance())
-	{
-		return false;
-	}
-
-	#if MPT_COMPILER_MSVC
-		_CrtSetDebugFillThreshold(0); // Disable buffer filling in secure enhanced CRT functions.
-	#endif
-
 	// Avoid e.g. audio APIs trying to load wdmaud.drv from arbitrary working directory
-	::SetCurrentDirectory(mpt::common_directories::get_application_directory().AsNative().c_str());
-
-	// Initialize OLE MFC support
-	[[maybe_unused]] bool oleinit = AfxOleInit();
-	MPT_ASSERT(oleinit != false); // no MPT_ASSERT here!
+	// mfcless: as upstream (and the MFC build), after the command line's
+	// working directory is taken.
+	CMPTCommandLineInfo parsed;
+	cmdInfo = std::move(parsed);
+	QDir::setCurrent(mfcless::ToQString(mpt::common_directories::get_application_directory().ToUnicode()));
 
 	// Parse command line for standard shell commands, DDE, file open
-	ParseCommandLine(cmdInfo);
+	cmdInfo.Parse(QCoreApplication::arguments());
 
 	// Set up paths to store configuration in
 	SetupPaths(cmdInfo.m_portable);
 
 	if(cmdInfo.m_sharedInstance && IPCWindow::SendToIPC(cmdInfo.m_fileNames, cmdInfo.m_autoPlay))
 	{
-		ExitProcess(0);
+		std::exit(0);
 	}
 
 	// Initialize DocManager (for DDE)
@@ -1258,9 +1100,9 @@ bool CTrackApp::InitInstanceEarly(CMPTCommandLineInfo &cmdInfo)
 bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 {
 
-	m_GuiThreadId = mfcless::CurrentThreadId();
+	m_GuiThreadId = std::this_thread::get_id();
 
-	mpt::log::Trace::SetThreadId(mpt::log::Trace::ThreadKindGUI, m_GuiThreadId);
+	mpt::log::Trace::SetThreadId(mpt::log::Trace::ThreadKindGUI, mfcless::CurrentThreadId());
 
 	if(ExceptionHandler::useAnyCrashHandler)
 	{
@@ -1268,7 +1110,7 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	}
 
 	// Start loading
-	BeginWaitCursor();
+	QApplication::setOverrideCursor(Qt::WaitCursor);
 
 	MPT_LOG_GLOBAL(LogInformation, "", U_("OpenMPT Start"));
 
@@ -1283,24 +1125,12 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	// additionally, seed the C rand() PRNG, just in case any third party library calls rand()
 	mpt::crand::reseed(RandomDevice());
 
-	m_Gdiplus = std::make_unique<GdiplusRAII>();
-
-	if(cmdInfo.m_noWine)
-	{
-		mpt::OS::Windows::PreventWineDetection();
-	}
-
 	#ifdef MPT_ENABLE_ARCH_INTRINSICS
 		if(!cmdInfo.m_noAssembly)
 		{
 			CPU::EnableAvailableFeatures();
 		}
 	#endif // MPT_ENABLE_ARCH_INTRINSICS
-
-	if(mpt::OS::Windows::IsWine())
-	{
-		SetWineVersion(std::make_shared<mpt::OS::Wine::VersionContext>());
-	}
 
 	// Create paths to store configuration in
 	CreatePaths();
@@ -1321,10 +1151,10 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 
 	if(TrackerSettings::Instance().MiscUseSingleInstance && IPCWindow::SendToIPC(cmdInfo.m_fileNames, cmdInfo.m_autoPlay))
 	{
-		ExitProcess(0);
+		std::exit(0);
 	}
 
-	IPCWindow::Open(m_hInstance);
+	IPCWindow::Open();
 
 	m_pSongSettingsIniFile = new IniFileSettingsBackend(GetConfigPath() + P_("SongSettings.ini"));
 	m_pSongSettings = new SettingsContainer(m_pSongSettingsIniFile);
@@ -1335,14 +1165,13 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 
 	// Load standard INI file options (without MRU)
 	// requires SetupPaths+CreatePaths called
-	LoadStdProfileSettings(0);
+	// mfcless: MFC's own settings (the MRU list it kept) are not used.
 
 // Set process priority class
-#ifndef _DEBUG
-	SetPriorityClass(GetCurrentProcess(), TrackerSettings::Instance().MiscProcessPriorityClass);
-#endif
+	// mfcless: the class is a Windows one; the sound thread's priority is set by the sound device.
 
 	// Dynamic DPI-awareness. Some users might want to disable DPI-awareness because of their DPI-unaware VST plugins.
+	// mfcless: Qt scales the windows itself; the setting is kept for the MFC build.
 	switch(TrackerSettings::Instance().dpiAwareness)
 	{
 	case DPIAwarenessMode::NoDPIAwareness:
@@ -1366,8 +1195,6 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 
 	// create main MDI Frame window
 	CMainFrame *pMainFrame = new CMainFrame();
-	if(!pMainFrame->LoadFrame(IDR_MAINFRAME))
-		return false;
 	m_pMainWnd = pMainFrame;
 
 	// Show splash screen
@@ -1382,45 +1209,28 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	// load components
 	ComponentManager::Instance()->Startup();
 
-	// Wine Support
-	if(mpt::OS::Windows::IsWine())
-	{
-		WineIntegration::Initialize();
-		WineIntegration::Load();
-	}
-
 	// Register document templates
 	m_pModTemplate = new CModDocTemplate(
 		IDR_MODULETYPE,
-		(&CModDoc::classCModDoc),
-		(&CChildFrame::classCChildFrame), // custom MDI child frame
 		(&CModControlView::classCModControlView));
-	AddDocTemplate(m_pModTemplate);
+	m_pDocManager->AddDocTemplate(m_pModTemplate);
 
 	// Enable DDE Execute open
 	// requires m_pDocManager
-	EnableShellOpen();
+	// mfcless: other instances send their files through IPCWindow.
+
+	// mfcless: the main frame's window (CFrameWnd::LoadFrame): its menu, bars and views.
+	pMainFrame->OnCreate();
 
 	// Enable drag/drop open
-	m_pMainWnd->DragAcceptFiles();
+	pMainFrame->DragAcceptFiles();
 
 	// Load sound APIs
 	// requires TrackerSettings
 	m_pAllSoundDeviceComponents = std::make_unique<AllSoundDeviceComponents>();
-	auto GetSysInfo = [&]()
-	{
-		if(mpt::OS::Windows::IsWine())
-		{
-			return SoundDevice::SysInfo(mpt::osinfo::get_class(), mpt::osinfo::windows::Version::Current(), mpt::OS::Windows::IsWine(), GetWineVersion()->HostClass(), GetWineVersion()->Version());
-		}
-		return SoundDevice::SysInfo(mpt::osinfo::get_class(), mpt::osinfo::windows::Version::Current(), mpt::OS::Windows::IsWine(), mpt::osinfo::osclass::Unknown, mpt::osinfo::windows::wine::version());
-	};
-	SoundDevice::SysInfo sysInfo = GetSysInfo();
+	SoundDevice::SysInfo sysInfo(mpt::osinfo::get_class());
 	SoundDevice::AppInfo appInfo;
 	appInfo.SetName(U_("OpenMPT"));
-#if MPT_OS_WINDOWS
-	appInfo.SetHWND(*m_pMainWnd);
-#endif // MPT_OS_WINDOWS
 	appInfo.BoostedThreadPriorityXP = TrackerSettings::Instance().SoundBoostedThreadPriority;
 	appInfo.BoostedThreadMMCSSClassVista = TrackerSettings::Instance().SoundBoostedThreadMMCSSClass;
 	appInfo.BoostedThreadRealtimePosix = TrackerSettings::Instance().SoundBoostedThreadRealtimePosix;
@@ -1429,24 +1239,8 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	appInfo.MaskDriverCrashes = TrackerSettings::Instance().SoundMaskDriverCrashes;
 	appInfo.AllowDeferredProcessing = TrackerSettings::Instance().SoundAllowDeferredProcessing;
 	std::vector<std::shared_ptr<SoundDevice::IDevicesEnumerator>> deviceEnumerators = SoundDevice::Manager::GetEnabledEnumerators(*m_pAllSoundDeviceComponents);
-	deviceEnumerators.push_back(std::static_pointer_cast<SoundDevice::IDevicesEnumerator>(std::make_shared<SoundDevice::DevicesEnumerator<SoundDevice::SoundDeviceStub>>()));
 	m_pSoundDevicesManager = std::make_unique<SoundDevice::Manager>(m_GlobalLogger, sysInfo, appInfo, std::move(deviceEnumerators));
 	m_pTrackerSettings->MigrateOldSoundDeviceSettings(*m_pSoundDevicesManager);
-
-	// Windows 11 lazily initializes its MIDI service on first use, which can
-	// take several seconds as it scans for Bluetooth and Network MIDI devices.
-	// Once the service is running, the delay / hang when trying to use any
-	// MIDI APIs effectively disappears.
-	// To work around that, force some MIDI API usage on a separate thread to
-	// force-initialize MidiSrv. Adding an instance of the MIDI I/O plugin,
-	// reviewing MIDI settings or turning on MIDI recording should no longer
-	// hang on first use then.
-	// Note that this can still block the OpenMPT UI if the main thread
-	// enumerates MME audio devices at the same time, e.g. because the user
-	// opened the settings dialog, as there appears to be shared internal lock
-	// between these two APIs.
-	// See https://github.com/microsoft/MIDI/issues/1076
-	std::thread{midiInGetNumDevs}.detach();
 
 	// Set default note names
 	CSoundFile::SetDefaultNoteNames();
@@ -1464,39 +1258,33 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	pMainFrame->Initialize();
 
 	// Dispatch commands specified on the command line
-	if(cmdInfo.m_nShellCommand == CCommandLineInfo::FileNew)
+	// mfcless: CWinApp::ProcessShellCommand: open the files given; a new
+	// document is not made when none is.
+	bool shellSuccess = true;
+	if(!cmdInfo.m_fileNames.empty())
 	{
-		// When not asked to open any existing file,
-		// we do not want to open an empty new one on startup.
-		cmdInfo.m_nShellCommand = CCommandLineInfo::FileNothing;
-	}
-	bool shellSuccess = false;
-	if(cmdInfo.m_fileNames.empty())
-	{
-		shellSuccess = ProcessShellCommand(cmdInfo) != false;
-	} else
-	{
-		cmdInfo.m_nShellCommand = CCommandLineInfo::FileOpen;
+		shellSuccess = false;
 		for(const auto &filename : cmdInfo.m_fileNames)
 		{
 			cmdInfo.m_strFileName = filename.ToUnicode();
-			shellSuccess |= ProcessShellCommand(cmdInfo) != false;
+			shellSuccess |= (OpenDocumentFile(filename) != nullptr);
 		}
 	}
 	if(!shellSuccess)
 	{
-		EndWaitCursor();
+		QApplication::restoreOverrideCursor();
 		StopSplashScreen();
-		m_pMainWnd->DestroyWindow();
+		pMainFrame->DestroyWindow();
+		delete pMainFrame;
 		m_pMainWnd = nullptr;
 		return false;
 	}
 
 	pMainFrame->UpdateDocumentCount();
-	pMainFrame->ShowWindow(m_nCmdShow);
+	pMainFrame->show();
 	pMainFrame->UpdateWindow();
 
-	EndWaitCursor();
+	QApplication::restoreOverrideCursor();
 
 
 	// Perform startup tasks.
@@ -1516,22 +1304,6 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 	if(TrackerSettings::Instance().FirstRun)
 	{
 		new WelcomeDlg(m_pMainWnd);
-	} else
-	{
-#if !defined(MPT_BUILD_RETRO)
-		bool deprecatedSoundDevice = GetSoundDevicesManager()->FindDeviceInfo(TrackerSettings::Instance().GetSoundDeviceIdentifier()).IsDeprecated();
-		bool showSettings = deprecatedSoundDevice && !TrackerSettings::Instance().m_SoundDeprecatedDeviceWarningShown && (Reporting::Confirm(
-			U_("You have currently selected a sound device which is deprecated. MME/WaveOut support will be removed in a future OpenMPT version.\n") +
-			U_("The recommended sound device type is WASAPI.\n") +
-			U_("Do you want to change your sound device settings now?"),
-			U_("OpenMPT - Deprecated sound device")
-			) == cnfYes);
-		if(showSettings)
-		{
-			TrackerSettings::Instance().m_SoundDeprecatedDeviceWarningShown = true;
-			m_pMainWnd->PostMessage(WM_COMMAND, ID_VIEW_OPTIONS);
-		}
-#endif // !MPT_BUILD_RETRO
 	}
 
 #ifdef ENABLE_TESTS
@@ -1578,92 +1350,31 @@ bool CTrackApp::InitInstance()
 
 bool CTrackApp::InitInstanceLate(CMPTCommandLineInfo &cmdInfo)
 {
-	bool result = false;
-	if(ExceptionHandler::useExplicitSEH)
-	{
-		// https://support.microsoft.com/en-us/kb/173652
-		__try
-		{
-			result = InitInstanceImpl(cmdInfo);
-		} __except(ExceptionHandler::ExceptionFilter(GetExceptionInformation()))
-		{
-			std::abort();
-		}
-	} else
-	{
-		result = InitInstanceImpl(cmdInfo);
-	}
-	return result;
+	// mfcless: no structured exception handling; the crash handler catches signals.
+	return InitInstanceImpl(cmdInfo);
 }
 
 
 int CTrackApp::Run()
 {
-	int result = 255;
-	if(ExceptionHandler::useExplicitSEH)
+	// mfcless: CWinApp::Run's message loop, with OnIdle when it is idle.
+	QTimer idleTimer;
+	int32 idleCount = 0;
+	QObject::connect(&idleTimer, &QTimer::timeout, [this, &idleCount]()
 	{
-		// https://support.microsoft.com/en-us/kb/173652
-		__try
-		{
-			result = CWinApp::Run();
-		} __except(ExceptionHandler::ExceptionFilter(GetExceptionInformation()))
-		{
-			std::abort();
-		}
-	} else
-	{
-		result = CWinApp::Run();
-	}
+		if(!OnIdle(idleCount++))
+			idleCount = 0;
+	});
+	idleTimer.start(10);
+	const int result = QApplication::exec();
+	idleTimer.stop();
 	return result;
-}
-
-
-intptr_t CTrackApp::ProcessWndProcException(CException * e, const mfcless::Message *pMsg)
-{
-	if(ExceptionHandler::handleMfcExceptions)
-	{
-		intptr_t result = 0L; // as per documentation
-		if(pMsg)
-		{
-			if(pMsg->message == WM_COMMAND)
-			{
-				result = (intptr_t)true; // as per documentation
-			}
-		}
-		if(dynamic_cast<CMemoryException*>(e))
-		{
-			e->ReportError();
-			//ExceptionHandler::UnhandledMFCException(e, pMsg);
-		} else
-		{
-			ExceptionHandler::UnhandledMFCException(e, pMsg);
-		}
-		return result;
-	} else
-	{
-		return CWinApp::ProcessWndProcException(e, pMsg);
-	}
 }
 
 
 int CTrackApp::ExitInstance()
 {
-	int result = 0;
-	if(ExceptionHandler::useExplicitSEH)
-	{
-		// https://support.microsoft.com/en-us/kb/173652
-		__try
-		{
-			result = ExitInstanceImpl();
-		} __except(ExceptionHandler::ExceptionFilter(GetExceptionInformation()))
-		{
-			std::abort();
-		}
-	} else
-	{
-		result = ExitInstanceImpl();
-	}
-	return result;
+	return ExitInstanceImpl();
 }
 
 
@@ -1673,15 +1384,28 @@ int CTrackApp::ExitInstanceImpl()
 
 	m_pSoundDevicesManager = nullptr;
 	m_pAllSoundDeviceComponents = nullptr;
-	ExportMidiConfig(theApp.GetSettings());
+	if(m_pSettings)
+	{
+		ExportMidiConfig(theApp.GetSettings());
+	}
 	AddScannedDLSBanks();
-	SaveDefaultDLSBanks();
+	if(m_pSettings)
+	{
+		SaveDefaultDLSBanks();
+	}
 	gpDLSBanks.clear();
 
 	// Uninitialize Plugins
 	UninitializeDXPlugins();
 
 	ComponentManager::Release();
+
+	delete m_pMainWnd;
+	m_pMainWnd = nullptr;
+	delete m_pModTemplate;
+	m_pModTemplate = nullptr;
+	delete m_pDocManager;
+	m_pDocManager = nullptr;
 
 	delete m_pPluginCache;
 	m_pPluginCache = nullptr;
@@ -1700,13 +1424,6 @@ int CTrackApp::ExitInstanceImpl()
 	delete m_pSongSettingsIniFile;
 	m_pSongSettingsIniFile = nullptr;
 
-	if(mpt::OS::Windows::IsWine())
-	{
-		SetWineVersion(nullptr);
-	}
-
-	m_Gdiplus.reset();
-
 	mpt::set_global_prng(nullptr);
 	m_PRNG.reset();
 	mpt::set_global_random_device(nullptr);
@@ -1718,7 +1435,14 @@ int CTrackApp::ExitInstanceImpl()
 		ExceptionHandler::Unregister();
 	}
 
-	return CWinApp::ExitInstance();
+	return 0;
+}
+
+
+CModDoc *CTrackApp::OpenDocumentFile(const mpt::PathString &file, bool addToMru)
+{
+	// mfcless: CWinApp::OpenDocumentFile passes it to the document manager.
+	return m_pDocManager ? m_pDocManager->OpenDocumentFile(file, addToMru) : nullptr;
 }
 
 
@@ -1735,7 +1459,7 @@ CModDoc *CTrackApp::NewDocument(MODTYPE newType)
 		if(TrackerSettings::Instance().defaultNewFileAction == nfDefaultTemplate && !templateFile.empty())
 		{
 			// Template file can be either a filename inside one of the preset and user TemplateModules folders, or a full path.
-			const mpt::PathString dirs[] = { GetUserTemplatesPath(), GetInstallPath() + P_("TemplateModules\\"), mpt::PathString() };
+			const mpt::PathString dirs[] = { GetUserTemplatesPath(), GetInstallPath() + P_("TemplateModules/"), mpt::PathString() };
 			for(const auto &dir : dirs)
 			{
 				if(mpt::native_fs{}.is_file(dir + templateFile))
@@ -1761,7 +1485,7 @@ CModDoc *CTrackApp::NewDocument(MODTYPE newType)
 	}
 
 	SetDefaultDocType(newType);
-	return static_cast<CModDoc *>(m_pModTemplate->OpenDocumentFile(U_("")));
+	return static_cast<CModDoc *>(m_pModTemplate->OpenDocumentFile(mpt::PathString()));
 }
 
 
@@ -1812,7 +1536,7 @@ void CTrackApp::OnFileOpen()
 	OpenModulesDialog(files);
 	for(const auto &file : files)
 	{
-		OpenDocumentFile(file.ToUnicode());
+		OpenDocumentFile(file);
 	}
 }
 
@@ -1832,29 +1556,23 @@ void CTrackApp::OnAppAbout()
 class CSplashScreen : public DialogBase
 {
 protected:
-	std::unique_ptr<Gdiplus::Image> m_Image;
+	QImage m_Image;
 
 public:
+	CSplashScreen() : DialogBase(IDD_SPLASHSCREEN) {}
 	~CSplashScreen();
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnCancel() override { OnOK(); }
-	void OnPaint();
-	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 
-	DECLARE_MESSAGE_MAP()
+protected:
+	void paintEvent(QPaintEvent *) override;
+	void mousePressEvent(QMouseEvent *) override { OnOK(); }
 };
-
-void CSplashScreen::RegisterMessageMap()
-{
-	DialogBase::RegisterMessageMap();
-	// ON_WM_PAINT() (mfcless::Window)
-	// ON_WM_ERASEBKGND(): by hand (Qt event override)
-}
 
 static CSplashScreen *gpSplashScreen = nullptr;
 
-static DWORD64 gSplashScreenStartTime = 0;
+static uint64 gSplashScreenStartTime = 0;
 
 
 CSplashScreen::~CSplashScreen()
@@ -1863,18 +1581,12 @@ CSplashScreen::~CSplashScreen()
 }
 
 
-void CSplashScreen::OnPaint()
+void CSplashScreen::paintEvent(QPaintEvent *)
 {
-	mfcless::PaintDC dc(this);
-	Gdiplus::Graphics gfx(dc);
-
-	mfcless::Rect rect;
-	GetClientRect(&rect);
-	gfx.SetInterpolationMode(Gdiplus::InterpolationModeHighQuality);
-	gfx.SetSmoothingMode(Gdiplus::SmoothingModeHighQuality);
-	gfx.DrawImage(m_Image.get(), 0, 0, rect.right, rect.bottom);
-
-	DialogBase::OnPaint();
+	QPainter painter(this);
+	painter.setRenderHint(QPainter::SmoothPixmapTransform);
+	painter.setRenderHint(QPainter::Antialiasing);
+	painter.drawImage(rect(), m_Image);
 }
 
 
@@ -1882,24 +1594,19 @@ bool CSplashScreen::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 
-	try
-	{
-		m_Image = GDIP::LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_SPLASHNOFOLDFIN), U_("PNG")));
-	} catch(const bad_image &)
-	{
+	m_Image = mfcless::res::Image(u"PNG", IDB_SPLASHNOFOLDFIN);
+	if(m_Image.isNull())
 		return false;
-	}
 
-	mfcless::Rect rect;
-	GetWindowRect(&rect);
-	const int width = HighDPISupport::ScalePixels(m_Image->GetWidth(), m_hWnd) / 2;
-	const int height = HighDPISupport::ScalePixels(m_Image->GetHeight(), m_hWnd) / 2;
-	SetWindowPos(nullptr,
-		rect.left - ((width - rect.Width()) / 2),
-		rect.top - ((height - rect.Height()) / 2),
-		width,
-		height,
-		SWP_NOZORDER | SWP_NOCOPYBITS);
+	// mfcless: a frameless window of half the image's size (it is drawn at
+	// twice the resolution), centred where the dialog was.
+	setWindowFlags(Qt::SplashScreen | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+	const QRect old = geometry();
+	const int width = m_Image.width() / 2;
+	const int height = m_Image.height() / 2;
+	setMinimumSize(0, 0);
+	setFixedSize(width, height);
+	move(old.center() - QPoint(width / 2, height / 2));
 
 	return true;
 }
@@ -1916,10 +1623,12 @@ static void StartSplashScreen()
 	if(!gpSplashScreen)
 	{
 		gpSplashScreen = new CSplashScreen();
-		gpSplashScreen->Create(IDD_SPLASHSCREEN, theApp.m_pMainWnd);
-		gpSplashScreen->ShowWindow(true);
-		gpSplashScreen->UpdateWindow();
-		gpSplashScreen->BeginWaitCursor();
+		gpSplashScreen->Create(theApp.m_pMainWnd);
+		gpSplashScreen->CenterWindow();
+		gpSplashScreen->show();
+		gpSplashScreen->repaint();
+		QApplication::setOverrideCursor(Qt::WaitCursor);
+		QCoreApplication::processEvents();
 		gSplashScreenStartTime = Util::GetTickCount64();
 	}
 }
@@ -1929,8 +1638,8 @@ static void StopSplashScreen()
 {
 	if(gpSplashScreen)
 	{
-		gpSplashScreen->EndWaitCursor();
-		gpSplashScreen->DestroyWindow();
+		QApplication::restoreOverrideCursor();
+		gpSplashScreen->hide();
 		delete gpSplashScreen;
 		gpSplashScreen = nullptr;
 	}
@@ -1954,7 +1663,8 @@ static void TimeoutSplashScreen()
 
 bool CTrackApp::OnIdle(int32 lCount)
 {
-	bool b = CWinApp::OnIdle(lCount);
+	MPT_UNUSED(lCount);
+	bool b = false;
 
 	TimeoutSplashScreen();
 
@@ -1989,9 +1699,9 @@ bool CTrackApp::OnIdle(int32 lCount)
 // DIB
 
 
-RGBQUAD rgb2quad(uint32 c)
+mfcless::DibColor rgb2quad(uint32 c)
 {
-	RGBQUAD r;
+	mfcless::DibColor r;
 	r.rgbBlue = mfcless::BlueOf(c);
 	r.rgbGreen = mfcless::GreenOf(c);
 	r.rgbRed = mfcless::RedOf(c);
@@ -2003,70 +1713,48 @@ RGBQUAD rgb2quad(uint32 c)
 void DibBlt(mfcless::DC * hdc, int x, int y, int sizex, int sizey, int srcx, int srcy, MODPLUGDIB *lpdib)
 {
 	if (!lpdib) return;
-	SetDIBitsToDevice(	hdc,
-						x,
-						y,
-						sizex,
-						sizey,
-						srcx,
-						lpdib->bmiHeader.biHeight - srcy - sizey,
-						0,
-						lpdib->bmiHeader.biHeight,
-						lpdib->lpDibBits,
-						(LPBITMAPINFO)lpdib,
-						DIB_RGB_COLORS);
+	hdc->DrawDib(x,
+		y,
+		sizex,
+		sizey,
+		srcx,
+		lpdib->bmiHeader.biHeight - srcy - sizey,
+		0,
+		lpdib->bmiHeader.biHeight,
+		lpdib->lpDibBits,
+		lpdib->bmiHeader,
+		lpdib->bmiColors);
 }
 
 
-MODPLUGDIB *LoadDib(const mpt::uchar * lpszName)
+MODPLUGDIB *LoadDib(uint32 resourceID)
 {
-	mpt::const_byte_span data = GetResource(lpszName, RT_BITMAP);
-	if(!data.data())
+	const mfcless::res::ResourceData data = mfcless::res::FindData(mfcless::res::ResourceType::Bitmap, static_cast<uint16>(resourceID));
+	if(!data || data.size < sizeof(mfcless::DibHeader) + 16 * sizeof(mfcless::DibColor))
 	{
 		return nullptr;
 	}
-	LPBITMAPINFO p = (LPBITMAPINFO)data.data();
 	MODPLUGDIB *pmd = new MODPLUGDIB;
-	pmd->bmiHeader = p->bmiHeader;
-	for (int i=0; i<16; i++) pmd->bmiColors[i] = p->bmiColors[i];
-	LPBYTE lpDibBits = (LPBYTE)p;
-	lpDibBits += p->bmiHeader.biSize + 16 * sizeof(RGBQUAD);
-	pmd->lpDibBits = lpDibBits;
+	std::memcpy(&pmd->bmiHeader, data.data, sizeof(mfcless::DibHeader));
+	std::memcpy(pmd->bmiColors, data.data + pmd->bmiHeader.biSize, 16 * sizeof(mfcless::DibColor));
+	pmd->lpDibBits = data.data + pmd->bmiHeader.biSize + 16 * sizeof(mfcless::DibColor);
 	return pmd;
-}
-
-int DrawTextT(mfcless::DC * hdc, const wchar_t *lpchText, int cchText, mfcless::Rect * lprc, uint32 format)
-{
-	return ::DrawTextW(hdc, lpchText, cchText, lprc, format);
-}
-
-int DrawTextT(mfcless::DC * hdc, const char *lpchText, int cchText, mfcless::Rect * lprc, uint32 format)
-{
-	return ::DrawTextA(hdc, lpchText, cchText, lprc, format);
 }
 
 template<typename Tchar>
 static void DrawButtonRectImpl(mfcless::DC * hdc, int lineWidth, QFont font, mfcless::Rect rect, const Tchar *text, bool disabled, bool pushed, uint32 textFlags, uint32 topMargin)
 {
+	const auto colorHighlight = mfcless::SystemColor(mfcless::SysColor::ButtonHighlight), colorShadow = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
+	// mfcless: Hi-DPI buttons (DrawFrameControl) are drawn as a raised or sunken edge.
+	hdc->FillSolidRect(rect, mfcless::SystemColor(mfcless::SysColor::ButtonFace));
 	if(lineWidth != 1)
 	{
-		// Draw "real" buttons in Hi-DPI mode
-		DrawFrameControl(hdc, rect, DFC_BUTTON, pushed ? (DFCS_PUSHED | DFCS_BUTTONPUSH) : DFCS_BUTTONPUSH);
+		hdc->DrawEdge(rect, pushed ? mfcless::edge::Sunken : mfcless::edge::Raised, mfcless::edge::Rect);
 	} else
 	{
-		const auto colorHighlight = GetSysColor(COLOR_BTNHIGHLIGHT), colorShadow = GetSysColor(COLOR_BTNSHADOW);
-		auto oldpen = SelectPen(hdc, GetStockObject(DC_PEN));
-		::SetDCPenColor(hdc, pushed ? colorShadow : colorHighlight);
-		::FillRect(hdc, rect, GetSysColorBrush(COLOR_BTNFACE));
-		::MoveToEx(hdc, rect.left, rect.bottom - 1, nullptr);
-		::LineTo(hdc, rect.left, rect.top);
-		::LineTo(hdc, rect.right - 1, rect.top);
-		::SetDCPenColor(hdc, pushed ? colorHighlight : colorShadow);
-		::LineTo(hdc, rect.right - 1, rect.bottom - 1);
-		::LineTo(hdc, rect.left, rect.bottom - 1);
-		SelectPen(hdc, oldpen);
+		hdc->Draw3dRect(rect, pushed ? colorShadow : colorHighlight, pushed ? colorHighlight : colorShadow);
 	}
-	
+
 	if(text && text[0])
 	{
 		rect.DeflateRect(lineWidth, lineWidth);
@@ -2075,12 +1763,12 @@ static void DrawButtonRectImpl(mfcless::DC * hdc, int lineWidth, QFont font, mfc
 			rect.top += lineWidth;
 			rect.left += lineWidth;
 		}
-		::SetTextColor(hdc, GetSysColor(disabled ? COLOR_GRAYTEXT : COLOR_BTNTEXT));
-		::SetBkMode(hdc, TRANSPARENT);
+		hdc->SetTextColor(mfcless::SystemColor(disabled ? mfcless::SysColor::GrayText : mfcless::SysColor::ButtonText));
+		hdc->SetBkMode(mfcless::bk::Transparent);
 		rect.top += topMargin;
-		auto oldFont = SelectFont(hdc, font);
-		DrawTextT(hdc, text, -1, &rect, textFlags | mfcless::dt::SingleLine | mfcless::dt::NoPrefix);
-		SelectFont(hdc, oldFont);
+		auto oldFont = hdc->SelectObject(font);
+		hdc->DrawText(mfcless::Text(text), &rect, textFlags | mfcless::dt::SingleLine | mfcless::dt::NoPrefix);
+		hdc->SelectObject(oldFont);
 	}
 }
 
@@ -2097,13 +1785,13 @@ void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const mfcless::Rect &rect,
 }
 
 
-void DrawButtonRect(mfcless::DC * hdc, int lineWidth, QFont font, const mfcless::Rect &rect, const char *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
+void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const char *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
 {
 	DrawButtonRectImpl(hdc, lineWidth, font, rect, text, disabled, pushed, dwFlags, topMargin);
 }
 
 
-void DrawButtonRect(mfcless::DC * hdc, int lineWidth, QFont font, const mfcless::Rect &rect, const wchar_t *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
+void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const wchar_t *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
 {
 	DrawButtonRectImpl(hdc, lineWidth, font, rect, text, disabled, pushed, dwFlags, topMargin);
 }
@@ -2115,34 +1803,42 @@ void DrawButtonRect(mfcless::DC * hdc, int lineWidth, QFont font, const mfcless:
 
 void ErrorBox(uint32 nStringID, QWidget *parent)
 {
-	mpt::ustring str;
-	bool resourceLoaded = str.LoadString(nStringID);
+	mpt::ustring str = mpt::ToUnicode(mfcless::res::String(nStringID));
+	const bool resourceLoaded = !str.empty();
 	if(!resourceLoaded)
 	{
-		str = mfcless::PrintF(UL_("Resource string %u not found."), nStringID);
+		str = MPT_UFORMAT("Resource string {} not found.")(nStringID);
 	}
 	MPT_ASSERT(resourceLoaded);
-	Reporting::CustomNotification(str, U_("Error!"), MB_OK | MB_ICONERROR, parent);
-}
-
-
-mpt::ustring GetWindowTextString(const QWidget &wnd)
-{
-	mpt::ustring result;
-	wnd.GetWindowText(result);
-	return result;
+	Reporting::CustomNotification(str, U_("Error!"), nfOk | nfIconError, parent);
 }
 
 
 mpt::ustring GetWindowTextUnicode(const QWidget &wnd)
 {
-	return mpt::ToUnicode(GetWindowTextString(wnd));
+	// mfcless: the text a control shows, or a window's title.
+	QString text;
+	if(auto *edit = qobject_cast<const QLineEdit *>(&wnd))
+		text = edit->text();
+	else if(auto *combo = qobject_cast<const QComboBox *>(&wnd))
+		text = combo->currentText();
+	else if(auto *button = qobject_cast<const QAbstractButton *>(&wnd))
+		text = button->text();
+	else if(auto *label = qobject_cast<const QLabel *>(&wnd))
+		text = label->text();
+	else if(auto *plain = qobject_cast<const QPlainTextEdit *>(&wnd))
+		text = plain->toPlainText();
+	else if(auto *rich = qobject_cast<const QTextEdit *>(&wnd))
+		text = rich->toPlainText();
+	else
+		text = wnd.windowTitle();
+	return mfcless::FromQString(text);
 }
 
 
 mpt::ustring FormatFileSize(uint64 fileSize)
 {
-	static constexpr std::array<const mpt::uchar *, 4> Unit = {U_(" B"), U_(" KB"), U_(" MB"), U_(" GB")};
+	static constexpr std::array<const mpt::uchar *, 4> Unit = {UL_(" B"), UL_(" KB"), UL_(" MB"), UL_(" GB")};
 	double size = static_cast<double>(fileSize);
 	for(int i = 0; i < 4; i++)
 	{
@@ -2152,8 +1848,8 @@ mpt::ustring FormatFileSize(uint64 fileSize)
 			mpt::ustring s = mpt::ufmt::fix(size, 2);
 			if(i == 0)
 			{
-				if(int pos = s.ReverseFind(u8'.'); pos >= 0)
-					s.Delete(pos, s.GetLength() - pos);
+				if(auto pos = s.rfind(u8'.'); pos != mpt::ustring::npos)
+					s.erase(pos);
 			}
 			return s + Unit[i];
 		}
@@ -2182,15 +1878,15 @@ void CFastBitmap::Init(MODPLUGDIB *lpTextDib)
 {
 	m_nBlendOffset = 0;
 	m_pTextDib = lpTextDib;
-	MemsetZero(m_Dib.bmiHeader);
+	m_Dib.bmiHeader = {};
 	m_nTextColor = 0;
 	m_nBkColor = 1;
-	m_Dib.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	m_Dib.bmiHeader.biSize = sizeof(mfcless::DibHeader);
 	m_Dib.bmiHeader.biWidth = 0;	// Set later
 	m_Dib.bmiHeader.biHeight = 0;	// Ditto
 	m_Dib.bmiHeader.biPlanes = 1;
 	m_Dib.bmiHeader.biBitCount = 8;
-	m_Dib.bmiHeader.biCompression = BI_RGB;
+	m_Dib.bmiHeader.biCompression = 0;  // BI_RGB
 	m_Dib.bmiHeader.biSizeImage = 0;
 	m_Dib.bmiHeader.biXPelsPerMeter = 96;
 	m_Dib.bmiHeader.biYPelsPerMeter = 96;
@@ -2206,18 +1902,17 @@ void CFastBitmap::Init(MODPLUGDIB *lpTextDib)
 
 void CFastBitmap::Blit(mfcless::DC * hdc, int x, int y, int cx, int cy)
 {
-	SetDIBitsToDevice(	hdc,
-						x,
-						y,
-						cx,
-						cy,
-						0,
-						m_Dib.bmiHeader.biHeight - cy,
-						0,
-						m_Dib.bmiHeader.biHeight,
-						&m_Dib.DibBits[0],
-						(LPBITMAPINFO)&m_Dib,
-						DIB_RGB_COLORS);
+	hdc->DrawDib(x,
+		y,
+		cx,
+		cy,
+		0,
+		m_Dib.bmiHeader.biHeight - cy,
+		0,
+		m_Dib.bmiHeader.biHeight,
+		m_Dib.DibBits.data(),
+		m_Dib.bmiHeader,
+		m_Dib.bmiColors);
 }
 
 
@@ -2369,9 +2064,10 @@ void CTrackApp::InitializeDXPlugins()
 	const mpt::PathString failedPlugin = GetSettings().Read<mpt::PathString>(U_("VST Plugins"), U_("FailedPlugin"));
 	ConfirmAnswer skipFailed = cnfCancel;
 
-	CDialog pluginScanDlg;
+	DialogBase pluginScanDlg(IDD_SCANPLUGINS);
+	bool scanDlgShown = false;
 	QWidget *textWnd = nullptr;
-	DWORD64 scanStart = Util::GetTickCount64();
+	uint64 scanStart = Util::GetTickCount64();
 
 	// Read tags for built-in plugins
 	for(auto &plug : *m_pPluginManager)
@@ -2382,7 +2078,7 @@ void CTrackApp::InitializeDXPlugins()
 	// Restructured plugin cache
 	if(TrackerSettings::Instance().PreviousSettingsVersion < MPT_V("1.27.00.15"))
 	{
-		DeleteFile(m_szPluginCacheFileName.AsNative().c_str());
+		QFile::remove(mfcless::ToQString(m_szPluginCacheFileName.ToUnicode()));
 		GetPluginCache().ForgetAll();
 	}
 
@@ -2394,22 +2090,19 @@ void CTrackApp::InitializeDXPlugins()
 		if(plugPath.empty())
 			continue;
 
-		if(!pluginScanDlg.m_hWnd && Util::GetTickCount64() >= scanStart + 2000)
+		if(!scanDlgShown && Util::GetTickCount64() >= scanStart + 2000)
 		{
 			// If this is taking too long, show the user what they're waiting for.
+			scanDlgShown = true;
 			pluginScanDlg.Create(IDD_SCANPLUGINS, gpSplashScreen);
 			pluginScanDlg.ShowWindow(true);
 			pluginScanDlg.CenterWindow(gpSplashScreen);
 			textWnd = pluginScanDlg.GetDlgItem(IDC_SCANTEXT);
-		} else if(pluginScanDlg.m_hWnd && Util::GetTickCount64() >= scanStart + 30)
+		} else if(scanDlgShown && Util::GetTickCount64() >= scanStart + 30)
 		{
-			textWnd->SetWindowText(scanFormat(plug + 1, numPlugins + 1, plugPath));
-			MSG msg;
-			while(::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-			{
-				::TranslateMessage(&msg);
-				::DispatchMessage(&msg);
-			}
+			if(auto *label = qobject_cast<QLabel *>(textWnd))
+				label->setText(mfcless::ToQString(scanFormat(plug + 1, numPlugins + 1, plugPath.ToUnicode())));
+			QCoreApplication::processEvents();
 			scanStart = Util::GetTickCount64();
 		}
 
@@ -2452,7 +2145,7 @@ void CTrackApp::InitializeDXPlugins()
 		}
 	}
 	GetPluginCache().Flush();
-	if(pluginScanDlg.m_hWnd)
+	if(scanDlgShown)
 	{
 		pluginScanDlg.DestroyWindow();
 	}
@@ -2524,36 +2217,25 @@ bool CTrackApp::OpenURL(const std::string &url)
 
 bool CTrackApp::OpenURL(const mpt::ustring &url)
 {
-	return OpenURL(mpt::ToUnicode(url));
-}
-
-bool CTrackApp::OpenURL(const mpt::ustring &url)
-{
 	return OpenURL(mpt::PathString::FromUnicode(url));
 }
 
 bool CTrackApp::OpenURL(const mpt::PathString &lpszURL, const mpt::ustring &param)
 {
-	if(!lpszURL.empty() && theApp.m_pMainWnd)
-	{
-		if(reinterpret_cast<intptr_t>(ShellExecute(
-			theApp.m_pMainWnd->m_hWnd,
-			U_("open"),
-			lpszURL.ToUnicode(),
-			param.empty() ? nullptr : param.c_str(),
-			nullptr,
-			mfcless::show::Show)) >= 32)
-		{
-			return true;
-		}
-	}
-	return false;
+	// mfcless: the desktop's handler for the URL or file (ShellExecute "open").
+	MPT_UNUSED(param);
+	if(lpszURL.empty())
+		return false;
+	const QString str = mfcless::ToQString(lpszURL.ToUnicode());
+	const QUrl url = str.contains(QStringLiteral("://")) || str.startsWith(QStringLiteral("mailto:")) ? QUrl(str) : QUrl::fromLocalFile(str);
+	return QDesktopServices::openUrl(url);
 }
 
 bool CTrackApp::OpenDirectory(const mpt::PathString &directory)
 {
+	// mfcless: for a file, its folder (there is no portable way to select it there).
 	if(mpt::native_fs{}.is_file(directory))
-		return OpenURL(P_("explorer.exe"), MPT_UFORMAT("/select,\"{}\"")(directory.AsNative()));
+		return OpenURL(directory.GetDirectoryWithDrive());
 	else
 		return OpenURL(directory);
 }
@@ -2607,16 +2289,9 @@ mpt::ustring CTrackApp::GetFriendlyMIDIPortName(const mpt::ustring &deviceName, 
 }
 
 
-mpt::ustring CTrackApp::GetFriendlyMIDIPortName(const mpt::ustring &deviceName, bool isInputPort, bool addDeviceName)
+bool ValidateMacroString(QLineEdit &wnd, const std::string_view prevMacro, bool isParametric, bool allowVariables, bool allowMultiline)
 {
-	return mpt::ToUnicode(GetFriendlyMIDIPortName(mpt::ToUnicode(deviceName), isInputPort, addDeviceName));
-}
-
-
-bool ValidateMacroString(CEdit &wnd, const std::string_view prevMacro, bool isParametric, bool allowVariables, bool allowMultiline)
-{
-	mpt::ustring macroStrT;
-	wnd.GetWindowText(macroStrT);
+	const mpt::ustring macroStrT = mfcless::FromQString(wnd.text());
 	std::string macroStr = mpt::ToCharset(mpt::Charset::ASCII, macroStrT);
 
 	bool allowed = true, caseChange = false;
@@ -2673,11 +2348,10 @@ bool ValidateMacroString(CEdit &wnd, const std::string_view prevMacro, bool isPa
 		// Replace text and keep cursor position if we just typed in an invalid character
 		if(prevMacro != std::string_view{macroStr})
 		{
-			int start, end;
-			wnd.GetSel(start, end);
-			wnd.SetWindowText(mpt::ToUnicode(mpt::Charset::ASCII, static_cast<std::string>(prevMacro)));
-			wnd.SetSel(start - 1, end - 1, true);
-			MessageBeep(MB_OK);
+			const int start = wnd.hasSelectedText() ? wnd.selectionStart() : wnd.cursorPosition();
+			wnd.setText(QString::fromLatin1(prevMacro.data(), static_cast<qsizetype>(prevMacro.size())));
+			wnd.setCursorPosition(std::max(start - 1, 0));
+			QApplication::beep();
 		}
 		return false;
 	} else
@@ -2685,10 +2359,13 @@ bool ValidateMacroString(CEdit &wnd, const std::string_view prevMacro, bool isPa
 		if(caseChange)
 		{
 			// Replace text and keep cursor position if there was a case conversion
-			int start, end;
-			wnd.GetSel(start, end);
-			wnd.SetWindowText(mpt::ToUnicode(mpt::Charset::ASCII, static_cast<std::string>(macroStr)));
-			wnd.SetSel(start, end, true);
+			const int start = wnd.hasSelectedText() ? wnd.selectionStart() : wnd.cursorPosition();
+			const int length = wnd.selectedText().length();
+			wnd.setText(QString::fromLatin1(macroStr.data(), static_cast<qsizetype>(macroStr.size())));
+			if(length)
+				wnd.setSelection(start, length);
+			else
+				wnd.setCursorPosition(start);
 		}
 		return true;
 	}
