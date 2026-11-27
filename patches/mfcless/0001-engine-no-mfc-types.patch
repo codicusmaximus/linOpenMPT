@@ -355,6 +355,28 @@ index efb2cfb..b042661 100644
  			MPT_MF_CHECKED(buffer->Lock(&data, NULL, &dataSize));
  			mpt::append(rawData, mpt::byte_cast<char*>(data), mpt::byte_cast<char*>(data + dataSize));
  			MPT_MF_CHECKED(buffer->Unlock());
+diff --git a/soundlib/SampleFormatSFZ.cpp b/soundlib/SampleFormatSFZ.cpp
+index 6a07531..a8ba44e 100644
+--- a/soundlib/SampleFormatSFZ.cpp
++++ b/soundlib/SampleFormatSFZ.cpp
+@@ -443,7 +443,7 @@ struct SFZRegion
+ 		else if(key == "loop_end" || key == "loopend")
+ 			Read(value, loopEnd, SmpLength(0), MAX_SAMPLE_LENGTH);
+ 		else if(key == "loop_crossfade" || key == "loopcrossfade")
+-			Read(value, loopCrossfade, 0.0, DBL_MAX);
++			Read(value, loopCrossfade, 0.0, std::numeric_limits<double>::max());
+ 		else if(key == "loop_mode" || key == "loopmode")
+ 		{
+ 			if(value == "loop_continuous")
+@@ -1126,7 +1126,7 @@ bool CSoundFile::SaveSFZInstrument(INSTRUMENTINDEX nInstr, std::ostream &f, cons
+ 	const mpt::PathString sampleBaseName = mpt::PathString::FromNative(mpt::trim(filename.GetFilenameBase().AsNative(), whitespaceDirName));
+ 	const mpt::PathString sampleDirName = (sampleBaseName.empty() ? P_("Samples") : sampleBaseName)  + P_("/");
+ 	const mpt::PathString sampleBasePath = filename.GetDirectoryWithDrive() + sampleDirName;
+-	if(!mpt::native_fs{}.is_directory(sampleBasePath) && !::CreateDirectory(sampleBasePath.AsNative().c_str(), nullptr))
++	if(!mpt::native_fs{}.is_directory(sampleBasePath) && !mpt::native_fs{}.create_directory(sampleBasePath))
+ 		return false;
+ 
+ 	const double tickDuration = m_PlayState.m_nSamplesPerTick / static_cast<double>(m_MixerSettings.gdwMixingFreq);
 diff --git a/soundlib/Sndfile.cpp b/soundlib/Sndfile.cpp
 index bcb5db2..0f3ea39 100644
 --- a/soundlib/Sndfile.cpp

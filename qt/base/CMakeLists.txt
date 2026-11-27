@@ -11,5 +11,12 @@ set(LINOPENMPT_FORCE_INCLUDES
   PARENT_SCOPE)
 set(LINOPENMPT_COMPAT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include PARENT_SCOPE)
 
-add_library(mfcless_base INTERFACE)
-target_include_directories(mfcless_base INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# The engine includes the tracker's headers ("../mptrack/Moddoc.h"), whose
+# twins are Qt classes, so everything built in the tracker configuration
+# sees Qt. MPT_MFCLESS marks the few spots in patched upstream files that
+# differ from the MFC build.
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+add_library(mfcless_base STATIC src/IniFile.cpp)
+target_include_directories(mfcless_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_definitions(mfcless_base PUBLIC MPT_MFCLESS)
+target_link_libraries(mfcless_base PUBLIC Qt6::Widgets)

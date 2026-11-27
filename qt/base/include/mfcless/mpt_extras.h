@@ -72,6 +72,11 @@ public:
 		auto abs = std::filesystem::absolute(p(path), ec);
 		return ec ? path : mpt::native_path::FromNative(mpt::RawPathString(abs.string().c_str()));
 	}
+	bool create_directory(const mpt::native_path &path)
+	{
+		std::error_code ec;
+		return std::filesystem::create_directory(p(path), ec) || std::filesystem::is_directory(p(path), ec);
+	}
 	bool delete_tree(mpt::native_path path)
 	{
 		std::error_code ec;

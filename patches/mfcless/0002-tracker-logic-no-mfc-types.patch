@@ -1,0 +1,714 @@
+diff --git a/mptrack/MIDIMapping.cpp b/mptrack/MIDIMapping.cpp
+index d649d6f..e74e6d6 100644
+--- a/mptrack/MIDIMapping.cpp
++++ b/mptrack/MIDIMapping.cpp
+@@ -100,7 +100,7 @@ bool CMIDIMapper::Deserialize(FileReader &file)
+ }
+ 
+ 
+-bool CMIDIMapper::OnMIDImsg(const DWORD midimsg, PLUGINDEX &mappedIndex, PlugParamIndex &paramindex, uint16 &paramval)
++bool CMIDIMapper::OnMIDImsg(const uint32 midimsg, PLUGINDEX &mappedIndex, PlugParamIndex &paramindex, uint16 &paramval)
+ {
+ 	const MIDIEvents::EventType eventType = MIDIEvents::GetTypeFromEvent(midimsg);
+ 	const uint8 controller = MIDIEvents::GetDataByte1FromEvent(midimsg);
+diff --git a/mptrack/MIDIMapping.h b/mptrack/MIDIMapping.h
+index 2fddaaa..f5afcad 100644
+--- a/mptrack/MIDIMapping.h
++++ b/mptrack/MIDIMapping.h
+@@ -91,7 +91,7 @@ public:
+ 	// - paramvalue to parameter value.
+ 	// In case of multiple mappings, these get the values from the last mapping found.
+ 	// Returns true if MIDI was 'captured' by some directive, false otherwise.
+-	bool OnMIDImsg(const DWORD midimsg, PLUGINDEX &mappedIndex, PlugParamIndex &paramindex, uint16 &paramvalue);
++	bool OnMIDImsg(const uint32 midimsg, PLUGINDEX &mappedIndex, PlugParamIndex &paramindex, uint16 &paramvalue);
+ 
+ 	// Swaps the positions of two elements.
+ 	void Swap(const size_t a, const size_t b);
+diff --git a/mptrack/Settings.cpp b/mptrack/Settings.cpp
+index febb79f..cd1f303 100644
+--- a/mptrack/Settings.cpp
++++ b/mptrack/Settings.cpp
+@@ -142,8 +142,8 @@ void SettingsContainer::BackendsRemoveSection(const mpt::ustring &section)
+ 
+ SettingValue SettingsContainer::ReadSetting(const SettingPath &path, const SettingValue &def) const
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	auto entry = map.find(path);
+ 	if(entry == map.end())
+ 	{
+@@ -154,8 +154,8 @@ SettingValue SettingsContainer::ReadSetting(const SettingPath &path, const Setti
+ 
+ bool SettingsContainer::IsDefaultSetting(const SettingPath &path) const
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	auto entry = map.find(path);
+ 	if(entry == map.end())
+ 	{
+@@ -166,8 +166,8 @@ bool SettingsContainer::IsDefaultSetting(const SettingPath &path) const
+ 
+ void SettingsContainer::WriteSetting(const SettingPath &path, const SettingValue &val, SettingFlushMode flushMode)
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	auto entry = map.find(path);
+ 	if(entry == map.end())
+ 	{
+@@ -187,30 +187,30 @@ void SettingsContainer::WriteSetting(const SettingPath &path, const SettingValue
+ 
+ void SettingsContainer::ForgetSetting(const SettingPath &path)
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	map.erase(path);
+ }
+ 
+ void SettingsContainer::ForgetAll()
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	map.clear();
+ }
+ 
+ void SettingsContainer::RemoveSetting(const SettingPath &path)
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	map.erase(path);
+ 	BackendsRemoveSetting(path);
+ }
+ 
+ void SettingsContainer::RemoveSection(const mpt::ustring &section)
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	std::vector<SettingPath> pathsToRemove;
+ 	for(const auto &entry : map)
+ 	{
+@@ -240,8 +240,8 @@ void SettingsContainer::NotifyListeners(const SettingPath &path)
+ 
+ void SettingsContainer::WriteSettings()
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	for(auto &[path, value] : map)
+ 	{
+ 		if(value.IsDirty())
+@@ -254,8 +254,8 @@ void SettingsContainer::WriteSettings()
+ 
+ void SettingsContainer::Flush()
+ {
+-	ASSERT(theApp.InGuiThread());
+-	ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
++	MPT_ASSERT(theApp.InGuiThread());
++	MPT_ASSERT(!CMainFrame::GetMainFrame() || (CMainFrame::GetMainFrame() && !CMainFrame::GetMainFrame()->InNotifyHandler())); // This is a slow path, use CachedSetting for stuff that is accessed in notify handler.
+ 	WriteSettings();
+ }
+ 
+@@ -293,27 +293,29 @@ SettingsContainer::SettingsContainer(ISettingsBackend *backend)
+ 
+ 
+ 
++#if !defined(MPT_MFCLESS) // mfcless: qt/logic/IniFileSettingsBackend.cpp
++
+ std::vector<std::byte> IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, const std::vector<std::byte> &def) const
+ {
+ 	std::vector<std::byte> result = def;
+-	if(!mpt::in_range<UINT>(result.size()))
++	if(!mpt::in_range<uint32>(result.size()))
+ 	{
+ 		return result;
+ 	}
+-	::GetPrivateProfileStruct(GetSection(path).c_str(), GetKey(path).c_str(), result.data(), static_cast<UINT>(result.size()), filename.AsNative().c_str());
++	::GetPrivateProfileStruct(GetSection(path).c_str(), GetKey(path).c_str(), result.data(), static_cast<uint32>(result.size()), filename.AsNative().c_str());
+ 	return result;
+ }
+ 
+ mpt::ustring IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, const mpt::ustring &def) const
+ {
+ 	std::vector<TCHAR> buf(128);
+-	while(::GetPrivateProfileString(GetSection(path).c_str(), GetKey(path).c_str(), mpt::ToWin(def).c_str(), buf.data(), static_cast<DWORD>(buf.size()), filename.AsNative().c_str()) == buf.size() - 1)
++	while(::GetPrivateProfileString(GetSection(path).c_str(), GetKey(path).c_str(), mpt::ToWin(def).c_str(), buf.data(), static_cast<uint32>(buf.size()), filename.AsNative().c_str()) == buf.size() - 1)
+ 	{
+-		if(buf.size() == std::numeric_limits<DWORD>::max())
++		if(buf.size() == std::numeric_limits<uint32>::max())
+ 		{
+ 			return def;
+ 		}
+-		buf.resize(mpt::exponential_grow(buf.size(), std::numeric_limits<DWORD>::max()));
++		buf.resize(mpt::exponential_grow(buf.size(), std::numeric_limits<uint32>::max()));
+ 	}
+ 	return mpt::ToUnicode(mpt::winstring(buf.data()));
+ }
+@@ -321,20 +323,20 @@ mpt::ustring IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, con
+ double IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, double def) const
+ {
+ 	std::vector<TCHAR> buf(128);
+-	while(::GetPrivateProfileString(GetSection(path).c_str(), GetKey(path).c_str(), mpt::tfmt::val(def).c_str(), buf.data(), static_cast<DWORD>(buf.size()), filename.AsNative().c_str()) == buf.size() - 1)
++	while(::GetPrivateProfileString(GetSection(path).c_str(), GetKey(path).c_str(), mpt::tfmt::val(def).c_str(), buf.data(), static_cast<uint32>(buf.size()), filename.AsNative().c_str()) == buf.size() - 1)
+ 	{
+-		if(buf.size() == std::numeric_limits<DWORD>::max())
++		if(buf.size() == std::numeric_limits<uint32>::max())
+ 		{
+ 			return def;
+ 		}
+-		buf.resize(mpt::exponential_grow(buf.size(), std::numeric_limits<DWORD>::max()));
++		buf.resize(mpt::exponential_grow(buf.size(), std::numeric_limits<uint32>::max()));
+ 	}
+ 	return mpt::parse<double>(mpt::winstring(buf.data()));
+ }
+ 
+ int32 IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, int32 def) const
+ {
+-	return (int32)::GetPrivateProfileInt(GetSection(path).c_str(), GetKey(path).c_str(), (UINT)def, filename.AsNative().c_str());
++	return (int32)::GetPrivateProfileInt(GetSection(path).c_str(), GetKey(path).c_str(), (uint32)def, filename.AsNative().c_str());
+ }
+ 
+ bool IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, bool def) const
+@@ -345,8 +347,8 @@ bool IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, bool def) c
+ 
+ void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, const std::vector<std::byte> &val)
+ {
+-	MPT_ASSERT(mpt::in_range<UINT>(val.size()));
+-	::WritePrivateProfileStruct(GetSection(path).c_str(), GetKey(path).c_str(), (LPVOID)val.data(), static_cast<UINT>(val.size()), filename.AsNative().c_str());
++	MPT_ASSERT(mpt::in_range<uint32>(val.size()));
++	::WritePrivateProfileStruct(GetSection(path).c_str(), GetKey(path).c_str(), (LPVOID)val.data(), static_cast<uint32>(val.size()), filename.AsNative().c_str());
+ }
+ 
+ void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, const mpt::ustring &val)
+@@ -389,7 +391,7 @@ void IniFileSettingsBackend::RemoveSettingRaw(const SettingPath &path)
+ 
+ void IniFileSettingsBackend::RemoveSectionRaw(const mpt::ustring &section)
+ {
+-	::WritePrivateProfileSection(mpt::ToWin(section).c_str(), _T("\0"), filename.AsNative().c_str());
++	::WritePrivateProfileSection(mpt::ToWin(section).c_str(), U_("\0"), filename.AsNative().c_str());
+ }
+ 
+ 
+@@ -458,6 +460,8 @@ void IniFileSettingsBackend::ConvertToUnicode(const mpt::ustring &backupTag)
+ 	WriteFileUTF16LE(filename, mpt::ToWide(mpt::Charset::Locale, mpt::buffer_cast<std::string>(data)));
+ }
+ 
++#endif // !MPT_MFCLESS
++
+ SettingValue IniFileSettingsBackend::ReadSetting(const SettingPath &path, const SettingValue &def) const
+ {
+ 	switch(def.GetType())
+@@ -473,7 +477,7 @@ SettingValue IniFileSettingsBackend::ReadSetting(const SettingPath &path, const
+ 
+ void IniFileSettingsBackend::WriteSetting(const SettingPath &path, const SettingValue &val)
+ {
+-	ASSERT(val.GetType() != SettingTypeNone);
++	MPT_ASSERT(val.GetType() != SettingTypeNone);
+ 	switch(val.GetType())
+ 	{
+ 	case SettingTypeBool: WriteSettingRaw(path, val.as<bool>()); break;
+diff --git a/mptrack/Settings.h b/mptrack/Settings.h
+index a875a5c..283b50e 100644
+--- a/mptrack/Settings.h
++++ b/mptrack/Settings.h
+@@ -237,8 +237,8 @@ template<> inline SettingValue ToSettingValue(const std::wstring &val) { return
+ template<> inline std::wstring FromSettingValue(const SettingValue &val) { return mpt::ToWide(val.as<mpt::ustring>()); }
+ #endif
+ 
+-template<> inline SettingValue ToSettingValue(const CString &val) { return SettingValue(mpt::ToUnicode(val)); }
+-template<> inline CString FromSettingValue(const SettingValue &val) { return mpt::ToCString(val.as<mpt::ustring>()); }
++template<> inline SettingValue ToSettingValue(const mpt::ustring &val) { return SettingValue(mpt::ToUnicode(val)); }
++template<> inline mpt::ustring FromSettingValue(const SettingValue &val) { return mpt::ToUnicode(val.as<mpt::ustring>()); }
+ 
+ template<> inline SettingValue ToSettingValue(const mpt::PathString &val) { return SettingValue(val.ToUnicode()); }
+ template<> inline mpt::PathString FromSettingValue(const SettingValue &val) { return mpt::PathString::FromUnicode(val); }
+@@ -261,8 +261,8 @@ template<> inline uint16 FromSettingValue(const SettingValue &val) { return uint
+ template<> inline SettingValue ToSettingValue(const uint8 &val) { return SettingValue(int32(val)); }
+ template<> inline uint8 FromSettingValue(const SettingValue &val) { return uint8(val.as<int32>()); }
+ 
+-template<> inline SettingValue ToSettingValue(const LONG &val) { return SettingValue(int32(val)); }
+-template<> inline LONG FromSettingValue(const SettingValue &val) { return LONG(val.as<int32>()); }
++template<> inline SettingValue ToSettingValue(const int32 &val) { return SettingValue(int32(val)); }
++template<> inline int32 FromSettingValue(const SettingValue &val) { return int32(val.as<int32>()); }
+ 
+ 
+ // An instance of SetttingState represents the cached on-disk state of a certain SettingPath.
+@@ -701,8 +701,10 @@ private:
+ 	void WriteSettingRaw(const SettingPath &path, bool val);
+ 	void RemoveSettingRaw(const SettingPath &path);
+ 	void RemoveSectionRaw(const mpt::ustring &section);
++#if !defined(MPT_MFCLESS)
+ 	static mpt::winstring GetSection(const SettingPath &path);
+ 	static mpt::winstring GetKey(const SettingPath &path);
++#endif // !MPT_MFCLESS
+ public:
+ 	IniFileSettingsBackend(const mpt::PathString &filename);
+ 	~IniFileSettingsBackend() override;
+diff --git a/mptrack/StreamEncoderSettings.h b/mptrack/StreamEncoderSettings.h
+index 6cad226..7ce8112 100644
+--- a/mptrack/StreamEncoderSettings.h
++++ b/mptrack/StreamEncoderSettings.h
+@@ -34,7 +34,7 @@ template<> inline SettingValue ToSettingValue(const Encoder::Mode &val)
+ }
+ template<> inline Encoder::Mode FromSettingValue(const SettingValue &val)
+ {
+-	ASSERT(val.GetTypeTag() == "Encoder::Mode");
++	MPT_ASSERT(val.GetTypeTag() == "Encoder::Mode");
+ 	if(val.as<mpt::ustring>() == U_("")) { return Encoder::ModeInvalid; }
+ 	else if(val.as<mpt::ustring>() == U_("CBR")) { return Encoder::ModeCBR; }
+ 	else if(val.as<mpt::ustring>() == U_("ABR")) { return Encoder::ModeABR; }
+diff --git a/mptrack/TrackerSettings.cpp b/mptrack/TrackerSettings.cpp
+index 679d3fe..0e226e0 100644
+--- a/mptrack/TrackerSettings.cpp
++++ b/mptrack/TrackerSettings.cpp
+@@ -247,7 +247,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+ 	, SoundAllowDeferredProcessing(conf, UL_("Sound Settings"), UL_("AllowDeferredProcessing"), SoundDevice::AppInfo().AllowDeferredProcessing)
+ 	// MIDI Settings
+ 	, m_nMidiDevice(conf, UL_("MIDI Settings"), UL_("MidiDevice"), 0)
+-	, midiDeviceName(conf, UL_("MIDI Settings"), UL_("MidiDeviceName"), _T(""))
++	, midiDeviceName(conf, UL_("MIDI Settings"), UL_("MidiDeviceName"), U_(""))
+ 	, midiSetup(conf, UL_("MIDI Settings"), UL_("MidiSetup"), MidiSetup::Default)
+ 	, aftertouchBehaviour(conf, UL_("MIDI Settings"), UL_("AftertouchBehaviour"), RecordAftertouch::DoNotRecord)
+ 	, pitchBendBehaviour(conf, UL_("MIDI Settings"), UL_("PitchBendBehaviour"), RecordPitchBend::RecordAsFinetune)
+@@ -279,7 +279,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+ 	, effectVisHeight(conf, UL_("Pattern Editor"), UL_("EffectVisHeight"), -1)
+ 	, effectVisX(conf, UL_("Pattern Editor"), UL_("EffectVisX"), int32_min)
+ 	, effectVisY(conf, UL_("Pattern Editor"), UL_("EffectVisY"), int32_min)
+-	, patternAccessibilityFormat(conf, UL_("Pattern Editor"), UL_("AccessibilityFormat"), _T("Row %row%, Channel %channel%, %column_type%: %column_description%"))
++	, patternAccessibilityFormat(conf, UL_("Pattern Editor"), UL_("AccessibilityFormat"), U_("Row %row%, Channel %channel%, %column_type%: %column_description%"))
+ 	, patternAlwaysDrawWholePatternOnScrollSlow(conf, UL_("Pattern Editor"), UL_("AlwaysDrawWholePatternOnScrollSlow"), false)
+ 	, orderListOldDropBehaviour(conf, UL_("Pattern Editor"), UL_("OrderListOldDropBehaviour"), false)
+ 	, autoHideVolumeColumnForMOD(conf, UL_("Pattern Editor"), UL_("AutoHideVolumeColumnForMOD"), false)
+@@ -356,7 +356,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+ 	, UpdateStatistics(conf, UL_("Update"), UL_("Statistis"), false)
+ 	, UpdateSendGUID_DEPRECATED(conf, UL_("Update"), UL_("SendGUID"), false)
+ 	, UpdateShowUpdateHint(conf, UL_("Update"), UL_("ShowUpdateHint"), true)
+-	, UpdateIgnoreVersion(conf, UL_("Update"), UL_("IgnoreVersion"), _T(""))
++	, UpdateIgnoreVersion(conf, UL_("Update"), UL_("IgnoreVersion"), U_(""))
+ 	, UpdateSkipSignatureVerificationUNSECURE(conf, UL_("Update"), UL_("SkipSignatureVerification"), false)
+ 	, UpdateSigningKeysRootAnchors(conf, UL_("Update"), UL_("SigningKeysRootAnchors"), CUpdateCheck::GetDefaultUpdateSigningKeysRootAnchors())
+ #endif // MPT_ENABLE_UPDATE
+@@ -1259,7 +1259,7 @@ void TrackerSettings::SetResamplerSettings(const CResamplerSettings &settings)
+ }
+ 
+ 
+-void TrackerSettings::GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS> &colours)
++void TrackerSettings::GetDefaultColourScheme(std::array<uint32, MAX_MODCOLORS> &colours)
+ {
+ 	colours[MODCOLOR_BACKNORMAL] = RGB(0xFF, 0xFF, 0xFF);
+ 	colours[MODCOLOR_TEXTNORMAL] = RGB(0x00, 0x00, 0x00);
+@@ -1310,7 +1310,7 @@ void TrackerSettings::GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS>
+ 
+ void TrackerSettings::FixupEQ(EQPreset &eqSettings)
+ {
+-	for(UINT i = 0; i < MAX_EQ_BANDS; i++)
++	for(uint32 i = 0; i < MAX_EQ_BANDS; i++)
+ 	{
+ 		if(eqSettings.Gains[i] > 32)
+ 			eqSettings.Gains[i] = 16;
+@@ -1510,7 +1510,7 @@ void TrackerSettings::SaveChords(MPTChords &chords)
+ }
+ 
+ 
+-void TrackerSettings::SetMIDIDevice(UINT id)
++void TrackerSettings::SetMIDIDevice(uint32 id)
+ {
+ 	m_nMidiDevice = id;
+ 	MIDIINCAPS mic;
+@@ -1522,17 +1522,17 @@ void TrackerSettings::SetMIDIDevice(UINT id)
+ }
+ 
+ 
+-UINT TrackerSettings::GetCurrentMIDIDevice()
++uint32 TrackerSettings::GetCurrentMIDIDevice()
+ {
+ 	if(midiDeviceName.Get().IsEmpty())
+ 		return m_nMidiDevice;
+ 
+-	CString deviceName = midiDeviceName;
++	mpt::ustring deviceName = midiDeviceName;
+ 	deviceName.TrimRight();
+ 
+ 	MIDIINCAPS mic;
+-	UINT candidate = m_nMidiDevice, numDevs = midiInGetNumDevs();
+-	for(UINT i = 0; i < numDevs; i++)
++	uint32 candidate = m_nMidiDevice, numDevs = midiInGetNumDevs();
++	for(uint32 i = 0; i < numDevs; i++)
+ 	{
+ 		mic.szPname[0] = 0;
+ 		if(midiInGetDevCaps(i, &mic, sizeof(mic)) != MMSYSERR_NOERROR)
+@@ -1548,7 +1548,7 @@ UINT TrackerSettings::GetCurrentMIDIDevice()
+ 			else
+ 				break;
+ 		}
+-		if(CString(mic.szPname) == deviceName)
++		if(mpt::ustring(mic.szPname) == deviceName)
+ 		{
+ 			candidate = i;
+ 			numDevs = m_nMidiDevice + 1;
+@@ -1585,17 +1585,17 @@ mpt::ustring IgnoredCCsToString(const std::bitset<128> &midiIgnoreCCs)
+ 
+ std::bitset<128> StringToIgnoredCCs(const mpt::ustring &in)
+ {
+-	CString cc = mpt::ToCString(in);
++	mpt::ustring cc = mpt::ToUnicode(in);
+ 	std::bitset<128> midiIgnoreCCs;
+ 	midiIgnoreCCs.reset();
+ 	int curPos = 0;
+-	CString ccToken = cc.Tokenize(_T(", "), curPos);
+-	while(ccToken != _T(""))
++	mpt::ustring ccToken = cc.Tokenize(U_(", "), curPos);
++	while(ccToken != U_(""))
+ 	{
+ 		int ccNumber = mpt::parse<int>(ccToken);
+ 		if(ccNumber >= 0 && ccNumber <= 127)
+ 			midiIgnoreCCs.set(ccNumber);
+-		ccToken = cc.Tokenize(_T(", "), curPos);
++		ccToken = cc.Tokenize(U_(", "), curPos);
+ 	}
+ 	return midiIgnoreCCs;
+ }
+diff --git a/mptrack/TrackerSettings.h b/mptrack/TrackerSettings.h
+index 488daca..d882837 100644
+--- a/mptrack/TrackerSettings.h
++++ b/mptrack/TrackerSettings.h
+@@ -195,7 +195,7 @@ template<> inline SettingValue ToSettingValue(const EQPreset &val)
+ }
+ template<> inline EQPreset FromSettingValue(const SettingValue &val)
+ {
+-	ASSERT(val.GetTypeTag() == "EQPreset");
++	MPT_ASSERT(val.GetTypeTag() == "EQPreset");
+ 	EQPresetPacked valpacked = DecodeBinarySetting<EQPresetPacked>(val.as<std::vector<std::byte>>());
+ 	EQPreset valresult;
+ 	std::memcpy(valresult.szName, valpacked.szName, std::size(valresult.szName));
+@@ -369,7 +369,7 @@ template<> inline SettingValue ToSettingValue(const FlagSet<MidiSetup> &val) { r
+ template<> inline FlagSet<MidiSetup> FromSettingValue(const SettingValue &val) { return MidiSetup(val.as<int32>()); }
+ 
+ template<> inline SettingValue ToSettingValue(const MODTYPE &val) { return SettingValue(SettingsModTypeToString(val), "MODTYPE"); }
+-template<> inline MODTYPE FromSettingValue(const SettingValue &val) { ASSERT(val.GetTypeTag() == "MODTYPE"); return SettingsStringToModType(val.as<mpt::ustring>()); }
++template<> inline MODTYPE FromSettingValue(const SettingValue &val) { MPT_ASSERT(val.GetTypeTag() == "MODTYPE"); return SettingsStringToModType(val.as<mpt::ustring>()); }
+ 
+ template<> inline SettingValue ToSettingValue(const PlugVolumeHandling &val)
+ {
+@@ -377,7 +377,7 @@ template<> inline SettingValue ToSettingValue(const PlugVolumeHandling &val)
+ }
+ template<> inline PlugVolumeHandling FromSettingValue(const SettingValue &val)
+ {
+-	ASSERT(val.GetTypeTag() == "PlugVolumeHandling");
++	MPT_ASSERT(val.GetTypeTag() == "PlugVolumeHandling");
+ 	if((uint32)val.as<int32>() > PLUGIN_VOLUMEHANDLING_MAX)
+ 	{
+ 		return PLUGIN_VOLUMEHANDLING_IGNORE;
+@@ -395,7 +395,7 @@ template<> inline SettingValue ToSettingValue(const SampleFormat &val) { return
+ template<> inline SampleFormat FromSettingValue(const SettingValue &val) { return SampleFormat::FromInt(val.as<int32>()); }
+ 
+ template<> inline SettingValue ToSettingValue(const SoundDevice::ChannelMapping &val) { return SettingValue(val.ToUString(), "ChannelMapping"); }
+-template<> inline SoundDevice::ChannelMapping FromSettingValue(const SettingValue &val) { ASSERT(val.GetTypeTag() == "ChannelMapping"); return SoundDevice::ChannelMapping::FromString(val.as<mpt::ustring>()); }
++template<> inline SoundDevice::ChannelMapping FromSettingValue(const SettingValue &val) { MPT_ASSERT(val.GetTypeTag() == "ChannelMapping"); return SoundDevice::ChannelMapping::FromString(val.as<mpt::ustring>()); }
+ 
+ template<> inline SettingValue ToSettingValue(const ResamplingMode &val) { return SettingValue(int32(val)); }
+ template<> inline ResamplingMode FromSettingValue(const SettingValue &val) { return ResamplingMode(val.as<int32>()); }
+@@ -433,7 +433,7 @@ template<> inline SettingValue ToSettingValue(const std::bitset<128> &val)
+ }
+ template<> inline std::bitset<128> FromSettingValue(const SettingValue &val)
+ {
+-	ASSERT(val.GetTypeTag() == "IgnoredCCs");
++	MPT_ASSERT(val.GetTypeTag() == "IgnoredCCs");
+ 	return StringToIgnoredCCs(val.as<mpt::ustring>());
+ }
+ 
+@@ -493,6 +493,18 @@ template<> inline SoundDeviceStopMode FromSettingValue(const SettingValue &val)
+ }
+ 
+ 
++#if defined(MPT_MFCLESS)
++// mfcless: Windows' values, so settings files stay interchangeable.
++enum ProcessPriorityClass
++{
++	ProcessPriorityClassIDLE     = 0x00000040,
++	ProcessPriorityClassBELOW    = 0x00004000,
++	ProcessPriorityClassNORMAL   = 0x00000020,
++	ProcessPriorityClassABOVE    = 0x00008000,
++	ProcessPriorityClassHIGH     = 0x00000080,
++	ProcessPriorityClassREALTIME = 0x00000100
++};
++#else
+ enum ProcessPriorityClass
+ {
+ 	ProcessPriorityClassIDLE     = IDLE_PRIORITY_CLASS,
+@@ -502,6 +514,7 @@ enum ProcessPriorityClass
+ 	ProcessPriorityClassHIGH     = HIGH_PRIORITY_CLASS,
+ 	ProcessPriorityClassREALTIME = REALTIME_PRIORITY_CLASS
+ };
++#endif // MPT_MFCLESS
+ template<> inline SettingValue ToSettingValue(const ProcessPriorityClass &val)
+ {
+ 	mpt::ustring s;
+@@ -735,14 +748,14 @@ public:
+ 	Setting<bool> m_ShowSplashScreen;
+ 	Setting<bool> gbMdiMaximize;
+ 	Setting<DPIAwarenessMode> dpiAwareness;
+-	Setting<LONG> glTreeSplitRatio;
+-	Setting<LONG> glTreeWindowWidth;
+-	Setting<LONG> glGeneralWindowHeight;
+-	Setting<LONG> glPatternWindowHeight;
+-	Setting<LONG> glSampleWindowHeight;
+-	Setting<LONG> glInstrumentWindowHeight;
+-	Setting<LONG> glCommentsWindowHeight;
+-	Setting<LONG> glGraphWindowHeight;
++	Setting<int32> glTreeSplitRatio;
++	Setting<int32> glTreeWindowWidth;
++	Setting<int32> glGeneralWindowHeight;
++	Setting<int32> glPatternWindowHeight;
++	Setting<int32> glSampleWindowHeight;
++	Setting<int32> glInstrumentWindowHeight;
++	Setting<int32> glCommentsWindowHeight;
++	Setting<int32> glGraphWindowHeight;
+ 
+ 	Setting<int32> gnPlugWindowX;
+ 	Setting<int32> gnPlugWindowY;
+@@ -837,8 +850,8 @@ public:
+ 
+ 	// MIDI Settings
+ 
+-	Setting<UINT> m_nMidiDevice;
+-	Setting<CString> midiDeviceName;
++	Setting<uint32> m_nMidiDevice;
++	Setting<mpt::ustring> midiDeviceName;
+ 	// FIXME: MIDI recording is currently done in its own callback/thread and
+ 	// accesses settings framework from in there. Work-around the ASSERTs for
+ 	// now by using cached settings.
+@@ -855,7 +868,7 @@ public:
+ 	// Pattern Editor
+ 
+ 	CachedSetting<bool> gbLoopSong;
+-	CachedSetting<UINT> gnPatternSpacing;
++	CachedSetting<uint32> gnPatternSpacing;
+ 	CachedSetting<bool> gbPatternVUMeters;
+ 	CachedSetting<bool> gbPatternPluginNames;
+ 	CachedSetting<bool> gbPatternRecord;
+@@ -867,7 +880,7 @@ public:
+ 	CachedSetting<uint32> m_nRowHighlightBeats;	// primary (measures) and secondary (beats) highlight
+ 	CachedSetting<bool> patternIgnoreSongTimeSignature;
+ 	CachedSetting<ROWINDEX> recordQuantizeRows;
+-	CachedSetting<UINT> gnAutoChordWaitTime;
++	CachedSetting<uint32> gnAutoChordWaitTime;
+ 	CachedSetting<int32> orderlistMargins;
+ 	CachedSetting<int32> rowDisplayOffset;
+ 	Setting<FontSetting> patternFont;
+@@ -876,7 +889,7 @@ public:
+ 	Setting<int32> effectVisHeight;
+ 	Setting<int32> effectVisX;
+ 	Setting<int32> effectVisY;
+-	Setting<CString> patternAccessibilityFormat;
++	Setting<mpt::ustring> patternAccessibilityFormat;
+ 	CachedSetting<bool> patternAlwaysDrawWholePatternOnScrollSlow;
+ 	CachedSetting<bool> orderListOldDropBehaviour;
+ 	Setting<bool> autoHideVolumeColumnForMOD;
+@@ -935,7 +948,7 @@ public:
+ 
+ 	// Display (Colors)
+ 
+-	std::array<COLORREF, MAX_MODCOLORS> rgbCustomColors;
++	std::array<uint32, MAX_MODCOLORS> rgbCustomColors;
+ 
+ 	// AutoSave
+ 	CachedSetting<bool> CreateBackupFiles;
+@@ -1005,7 +1018,7 @@ public:
+ 	Setting<bool> UpdateStatistics;
+ 	Setting<bool> UpdateSendGUID_DEPRECATED;
+ 	Setting<bool> UpdateShowUpdateHint;
+-	Setting<CString> UpdateIgnoreVersion;
++	Setting<mpt::ustring> UpdateIgnoreVersion;
+ 	Setting<bool> UpdateSkipSignatureVerificationUNSECURE;
+ 	Setting<std::vector<mpt::ustring>> UpdateSigningKeysRootAnchors;
+ 
+@@ -1038,7 +1051,7 @@ public:
+ 
+ 	void SaveSettings();
+ 
+-	static void GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS> &colours);
++	static void GetDefaultColourScheme(std::array<uint32, MAX_MODCOLORS> &colours);
+ 
+ 	std::vector<uint32> GetSampleRates() const;
+ 
+@@ -1047,8 +1060,8 @@ public:
+ 	// Get settings object singleton
+ 	static TrackerSettings &Instance();
+ 
+-	void SetMIDIDevice(UINT id);
+-	UINT GetCurrentMIDIDevice();
++	void SetMIDIDevice(uint32 id);
++	uint32 GetCurrentMIDIDevice();
+ 
+ 	static mpt::PathString GetDefaultAutosavePath();
+ 
+diff --git a/mptrack/Undo.cpp b/mptrack/Undo.cpp
+index 3848284..40d8933 100644
+--- a/mptrack/Undo.cpp
++++ b/mptrack/Undo.cpp
+@@ -312,21 +312,21 @@ void CPatternUndo::RemoveLastUndoStep()
+ }
+ 
+ 
+-CString CPatternUndo::GetName(const undobuf_t &buffer)
++mpt::ustring CPatternUndo::GetName(const undobuf_t &buffer)
+ {
+ 	if(buffer.empty())
+-		return CString();
++		return mpt::ustring();
+ 	
+ 	const UndoInfo &info = buffer.back();
+-	CString desc = mpt::ToCString(mpt::Charset::Locale, info.description);
++	mpt::ustring desc = mpt::ToUnicode(mpt::Charset::Locale, info.description);
+ 	if(info.linkToPrevious)
+-		desc += _T(" (Multiple Patterns)");
++		desc += U_(" (Multiple Patterns)");
+ 	else if(info.OnlyChannelSettings() && info.numChannels > 1)
+-		desc += _T(" (Multiple Channels)");
++		desc += U_(" (Multiple Channels)");
+ 	else if(info.OnlyChannelSettings())
+-		desc += MPT_CFORMAT(" (Channel {})")(info.firstChannel + 1);
++		desc += MPT_UFORMAT(" (Channel {})")(info.firstChannel + 1);
+ 	else
+-		desc += MPT_CFORMAT(" (Pat {} Row {} Chn {})")(info.pattern, info.firstRow, info.firstChannel + 1);
++		desc += MPT_UFORMAT(" (Pat {} Row {} Chn {})")(info.pattern, info.firstRow, info.firstChannel + 1);
+ 	return desc;
+ }
+ 
+diff --git a/mptrack/Undo.h b/mptrack/Undo.h
+index 9183394..8d1b3aa 100644
+--- a/mptrack/Undo.h
++++ b/mptrack/Undo.h
+@@ -40,7 +40,7 @@ protected:
+ 
+ 	bool PrepareBuffer(undobuf_t &buffer, PATTERNINDEX pattern, CHANNELINDEX firstChn, ROWINDEX firstRow, CHANNELINDEX numChns, ROWINDEX numRows, const char *description, bool linkToPrevious, bool storeChannelInfo) const;
+ 
+-	static CString GetName(const undobuf_t &buffer);
++	static mpt::ustring GetName(const undobuf_t &buffer);
+ 	static void RearrangePatterns(undobuf_t &buffer, const std::vector<PATTERNINDEX> &newIndex);
+ 
+ public:
+@@ -68,9 +68,9 @@ public:
+ 	// Remove the latest added undo step from the undo buffer
+ 	void RemoveLastUndoStep();
+ 	// Get name of next undo item
+-	CString GetUndoName() const { return GetName(UndoBuffer); }
++	mpt::ustring GetUndoName() const { return GetName(UndoBuffer); }
+ 	// Get name of next redo item
+-	CString GetRedoName() const { return GetName(RedoBuffer); }
++	mpt::ustring GetRedoName() const { return GetName(RedoBuffer); }
+ 	// Adjust undo buffers for rearranged patterns
+ 	void RearrangePatterns(const std::vector<PATTERNINDEX> &newIndex);
+ };
+diff --git a/mptrack/VstPresets.cpp b/mptrack/VstPresets.cpp
+index 6ad5a07..04be63c 100644
+--- a/mptrack/VstPresets.cpp
++++ b/mptrack/VstPresets.cpp
+@@ -79,7 +79,7 @@ VSTPresets::ErrorCode VSTPresets::LoadFile(FileReader &file, IMixPlugin &plugin)
+ 
+ 		std::string prgName;
+ 		file.ReadString<mpt::String::maybeNullTerminated>(prgName, 28);
+-		plugin.SetCurrentProgramName(mpt::ToCString(mpt::Charset::Locale, prgName));
++		plugin.SetCurrentProgramName(mpt::ToUnicode(mpt::Charset::Locale, prgName));
+ 
+ 		if(!memcmp(header.fxMagic, "FxCk", 4))
+ 		{
+diff --git a/mptrack/Vstplug.h b/mptrack/Vstplug.h
+index c8aef89..5b0c66e 100644
+--- a/mptrack/Vstplug.h
++++ b/mptrack/Vstplug.h
+@@ -38,7 +38,7 @@ class CVstPlugin final : public IMidiPlugin
+ protected:
+ 
+ 	const bool m_maskCrashes;
+-	HMODULE m_hLibrary = nullptr;
++	void * m_hLibrary = nullptr;
+ 	Vst::AEffect &m_Effect;
+ 	Vst::ProcessProc m_pProcessFP = nullptr;  // Function pointer to AEffect processReplacing if supported, else process.
+ 
+@@ -69,13 +69,13 @@ public:
+ 	bool MaskCrashes() noexcept;
+ 
+ public:
+-	template <typename Tfn> static DWORD SETryOrError(bool maskCrashes, Tfn fn);
++	template <typename Tfn> static uint32 SETryOrError(bool maskCrashes, Tfn fn);
+ 
+ private:
+-	template <typename Tfn> DWORD SETryOrError(Tfn fn);
++	template <typename Tfn> uint32 SETryOrError(Tfn fn);
+ 
+ public:
+-	CVstPlugin(bool maskCrashes, HMODULE hLibrary, VSTPluginLib &factory, SNDMIXPLUGIN &mixPlugin, Vst::AEffect &effect, CSoundFile &sndFile);
++	CVstPlugin(bool maskCrashes, void * hLibrary, VSTPluginLib &factory, SNDMIXPLUGIN &mixPlugin, Vst::AEffect &effect, CSoundFile &sndFile);
+ 	~CVstPlugin();
+ 
+ 	CVstPlugin(const CVstPlugin &) = delete;
+@@ -98,7 +98,7 @@ public:
+ 
+ 		Vst::AEffect *effect = nullptr;
+ 		Vst::MainProc mainProc = nullptr;
+-		HMODULE library = nullptr;
++		void * library = nullptr;
+ 		int32 magic = 0, uniqueID = 0;
+ 		std::vector<ShellPlugin> shellPlugins;
+ 	};
+@@ -108,7 +108,7 @@ public:
+ 	static void GetPluginMetadata(bool maskCrashes, LoadResult &loadResult, VSTPluginLib &plugin);
+ 
+ protected:
+-	static std::pair<Vst::AEffect *, Vst::MainProc> LoadPluginInternal(bool maskCrashes, VSTPluginLib &plugin, HMODULE &library, BridgeMode bridgeMode);
++	static std::pair<Vst::AEffect *, Vst::MainProc> LoadPluginInternal(bool maskCrashes, VSTPluginLib &plugin, void * &library, BridgeMode bridgeMode);
+ 
+ 	void Initialize();
+ 
+@@ -133,20 +133,20 @@ public:
+ 	PlugParamValue GetParameter(PlugParamIndex nIndex) override;
+ 	void SetParameter(PlugParamIndex nIndex, PlugParamValue fValue, PlayState * = nullptr, CHANNELINDEX = CHANNELINDEX_INVALID) override;
+ 
+-	CString GetCurrentProgramName() override;
+-	void SetCurrentProgramName(const CString &name) override;
+-	CString GetProgramName(int32 program) override;
++	mpt::ustring GetCurrentProgramName() override;
++	void SetCurrentProgramName(const mpt::ustring &name) override;
++	mpt::ustring GetProgramName(int32 program) override;
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex param) override { return GetParamPropertyString(param, Vst::effGetParamLabel); };
+-	CString GetParamDisplay(PlugParamIndex param) override { return GetParamPropertyString(param, Vst::effGetParamDisplay); };
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex param) override { return GetParamPropertyString(param, Vst::effGetParamLabel); };
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override { return GetParamPropertyString(param, Vst::effGetParamDisplay); };
+ 
+ 	static intptr_t DispatchSEH(bool maskCrashes, Vst::AEffect &effect, Vst::VstOpcodeToPlugin opCode, int32 index, intptr_t value, void *ptr, float opt, unsigned long &exception);
+ 	intptr_t Dispatch(Vst::VstOpcodeToPlugin opCode, int32 index, intptr_t value, void *ptr, float opt);
+ 
+ 	bool HasEditor() const override { return (m_Effect.flags & Vst::effFlagsHasEditor) != 0; }
+ 	CAbstractVstEditor *OpenEditor() override;
+-	CString GetDefaultEffectName() override;
++	mpt::ustring GetDefaultEffectName() override;
+ 
+ 	void Bypass(bool bypass = true) override;
+ 
+@@ -183,7 +183,7 @@ public:
+ 
+ protected:
+ 	// Helper function for retreiving parameter name / label / display
+-	CString GetParamPropertyString(PlugParamIndex param, Vst::VstOpcodeToPlugin opcode);
++	mpt::ustring GetParamPropertyString(PlugParamIndex param, Vst::VstOpcodeToPlugin opcode);
+ 
+ 	// Set up input / output buffers.
+ 	bool InitializeIOBuffers();

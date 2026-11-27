@@ -67,7 +67,18 @@ if(LINOPENMPT_UI STREQUAL "qt")
   file(GLOB LINOPENMPT_MFCLESS_PATCHES ${CMAKE_CURRENT_SOURCE_DIR}/patches/mfcless/*.patch)
   list(SORT LINOPENMPT_MFCLESS_PATCHES)
   linopenmpt_apply_patches(${tree} ${LINOPENMPT_MFCLESS_PATCHES})
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LINOPENMPT_MFCLESS_PATCHES} ${LINOPENMPT_PATCHES})
+  # The Qt twins of upstream's mptrack/ files (qt/mptrack/) take the place
+  # of upstream's in the worktree, as links, so that upstream code including
+  # "../mptrack/Moddoc.h" gets the twin.
+  file(GLOB_RECURSE LINOPENMPT_TWINS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/qt/mptrack
+    ${CMAKE_CURRENT_SOURCE_DIR}/qt/mptrack/*)
+  foreach(twin ${LINOPENMPT_TWINS})
+    get_filename_component(twin_dir ${tree}/mptrack/${twin} DIRECTORY)
+    file(MAKE_DIRECTORY ${twin_dir})
+    file(REMOVE ${tree}/mptrack/${twin})
+    file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/qt/mptrack/${twin} ${tree}/mptrack/${twin} SYMBOLIC)
+  endforeach()
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LINOPENMPT_MFCLESS_PATCHES} ${LINOPENMPT_PATCHES} ${CMAKE_CURRENT_SOURCE_DIR}/qt/mptrack)
   set(MPT_UPSTREAM_DIR ${tree})
 else()
   linopenmpt_apply_patches(${MPT_UPSTREAM_DIR} ${LINOPENMPT_PATCHES})
