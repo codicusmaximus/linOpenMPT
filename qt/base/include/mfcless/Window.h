@@ -403,6 +403,9 @@ public:
 
 	// WM_ACTIVATE, for top-level windows: state is an activate:: value.
 	virtual void OnActivate(uint32_t /*state*/, QWidget * /*other*/, bool /*minimized*/) {}
+	// ON_WM_SETCURSOR: EnableSetCursor in RegisterMessageMap
+	virtual bool OnSetCursor(QWidget * /*wnd*/, uint32_t /*hitTest*/, uint32_t /*message*/) { return false; }
+	void EnableSetCursor() { m_wantSetCursor = true; this->setMouseTracking(true); ClientWidget()->setMouseTracking(true); }
 	virtual void OnSetFocus(QWidget *) { Default(); }
 	virtual void OnKillFocus(QWidget *) { Default(); }
 	virtual void OnPaint() { Default(); }
@@ -490,6 +493,7 @@ protected:
 	void mouseMoveEvent(QMouseEvent *e) override
 	{
 		Handling h(this, e);
+		SetCursorFor(msg::MouseMove);
 		OnMouseMove(MouseKeyFlags(e->buttons(), e->modifiers()), e->position().toPoint());
 	}
 	void leaveEvent(QEvent *e) override
@@ -658,10 +662,24 @@ private:
 			static_cast<QContextMenuEvent *>(m_event)->ignore();
 	}
 
+	// WM_SETCURSOR, for windows whose message map has it: false (the
+	// default) sets the class cursor again.
+	void SetCursorFor(uint32_t message)
+	{
+		if(!m_wantSetCursor)
+			return;
+		if(!OnSetCursor(this, static_cast<uint32_t>(hit::Client), message))
+		{
+			this->unsetCursor();
+			ClientWidget()->unsetCursor();
+		}
+	}
 	void Mouse(QMouseEvent *e, bool dblClk)
 	{
 		Handling h(this, e);
 		const bool down = (e->type() != QEvent::MouseButtonRelease);
+		if(down && e->button() == Qt::LeftButton && !dblClk)
+			SetCursorFor(msg::LButtonDown);
 		const uint32_t flags = MouseKeyFlags(e->buttons(), e->modifiers());
 		const Point pt = e->position().toPoint();
 		switch(e->button())
@@ -729,6 +747,7 @@ private:
 	QEvent *m_event = nullptr;
 	bool m_defaultDone = false;
 	bool m_contextSent = true;
+	bool m_wantSetCursor = false;
 	std::map<uintptr_t, QBasicTimer> m_timers;
 };
 

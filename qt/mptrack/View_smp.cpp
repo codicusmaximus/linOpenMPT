@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Sample tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/View_smp.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -11,6 +11,8 @@
 
 
 #include "View_smp.h"
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QScrollBar>
 #include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Clipboard.h"
@@ -91,26 +93,26 @@ const mfcless::ViewClass CViewSample::classCViewSample{"CViewSample", [](QWidget
 void CViewSample::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();
-	// ON_WM_ERASEBKGND(): by hand (Qt event override)
+	// ON_WM_ERASEBKGND(): OnInitialUpdate sets the viewport opaque
 	// ON_WM_SETFOCUS() (mfcless::Window)
 	// ON_WM_SIZE() (mfcless::Window)
-	// ON_WM_NCCALCSIZE(): by hand (Qt event override)
-	// ON_WM_NCHITTEST(): by hand (Qt event override)
-	// ON_WM_NCPAINT(): by hand (Qt event override)
+	// ON_WM_NCCALCSIZE() (CModScrollView)
+	// ON_WM_NCHITTEST() (CModScrollView)
+	// ON_WM_NCPAINT() (CModScrollView)
 	// ON_WM_MOUSEMOVE() (mfcless::Window)
-	// ON_WM_NCMOUSEMOVE(): by hand (Qt event override)
+	// ON_WM_NCMOUSEMOVE() (CModScrollView)
 	// ON_WM_LBUTTONDOWN() (mfcless::Window)
 	// ON_WM_LBUTTONUP() (mfcless::Window)
 	// ON_WM_LBUTTONDBLCLK() (mfcless::Window)
-	// ON_WM_NCLBUTTONDOWN(): by hand (Qt event override)
-	// ON_WM_NCLBUTTONUP(): by hand (Qt event override)
-	// ON_WM_NCLBUTTONDBLCLK(): by hand (Qt event override)
+	// ON_WM_NCLBUTTONDOWN() (CModScrollView)
+	// ON_WM_NCLBUTTONUP() (CModScrollView)
+	// ON_WM_NCLBUTTONDBLCLK() (CModScrollView)
 	// ON_WM_RBUTTONUP() (mfcless::Window)
 	// ON_WM_CHAR() (mfcless::Window)
 	// ON_WM_DROPFILES() (mfcless::Window)
 	// ON_WM_MOUSEWHEEL() (mfcless::Window)
 	// ON_WM_XBUTTONUP() (mfcless::Window)
-	// ON_WM_SETCURSOR(): by hand (Qt event override)
+	EnableSetCursor();  // ON_WM_SETCURSOR()
 	AddCommand(ID_EDIT_UNDO, &CViewSample::OnEditUndo);
 	AddCommand(ID_EDIT_REDO, &CViewSample::OnEditRedo);
 	AddCommand(ID_EDIT_SELECT_ALL, &CViewSample::OnEditSelectAll);
@@ -177,7 +179,9 @@ void CViewSample::OnInitialUpdate()
 	CModScrollView::OnInitialUpdate();
 	m_dwBeginSel = m_dwEndSel = 0;
 	m_dwStatus.reset(SMPSTATUS_DRAWING);
-	ModifyStyleEx(0, WS_EX_ACCEPTFILES);
+	DragAcceptFiles(true);
+	// ON_WM_ERASEBKGND (no erasing): OnDraw paints all of the view
+	viewport()->setAttribute(Qt::WA_OpaquePaintEvent);
 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
 	if (pMainFrm)
 	{
@@ -332,10 +336,10 @@ void CViewSample::ScrollToSample(SmpLength sample, bool refresh, ScrollTarget ta
 int CViewSample::CalcScroll(int &currentPos, int amount, int style, int bar)
 {
 	// Don't scroll if there is no valid scroll range (ie. no scroll bar)
-	const CScrollBar *pBar = GetScrollBarCtrl(bar);
-	uint32 dwStyle = GetStyle();
-	if((pBar != nullptr && !pBar->isEnabled())
-		|| (pBar == nullptr && !(dwStyle & style)))
+	// mfcless: Qt's scroll bars always exist (as bars of their own)
+	MPT_UNUSED(style);
+	const QScrollBar *pBar = (bar == Qt::Horizontal) ? horizontalScrollBar() : verticalScrollBar();
+	if(!pBar->isEnabled() || pBar->maximum() <= pBar->minimum())
 	{
 		// Scroll bar not enabled
 		amount = 0;
@@ -352,8 +356,8 @@ int CViewSample::CalcScroll(int &currentPos, int amount, int style, int bar)
 bool CViewSample::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 {
 	int x = 0, y = 0;
-	int scrollByX = CalcScroll(x, sizeScroll.cx, WS_HSCROLL, Qt::Horizontal);
-	int scrollByY = CalcScroll(y, sizeScroll.cy, WS_VSCROLL, Qt::Vertical);
+	int scrollByX = CalcScroll(x, sizeScroll.cx, 0, Qt::Horizontal);
+	int scrollByY = CalcScroll(y, sizeScroll.cy, 0, Qt::Vertical);
 
 	if(!scrollByX && !scrollByY)
 	{
@@ -860,7 +864,7 @@ void CViewSample::DrawSampleData1(mfcless::DC * hdc, int ymed, int cx, int cy, S
 	LimitMax(numDrawSamples, len);
 
 	const int x0 = loopDiv ? -static_cast<int>(cx / loopDiv) : (-1 << loopShift);
-	::MoveToEx(hdc, x0, y0, nullptr);
+	MoveToEx(hdc, x0, y0, nullptr);
 
 	if (uFlags & CHN_16BIT)
 	{
@@ -870,7 +874,7 @@ void CViewSample::DrawSampleData1(mfcless::DC * hdc, int ymed, int cx, int cy, S
 			int x = loopDiv ? ((n * cx) / loopDiv) : (n << loopShift);
 			// cppcheck-suppress dangerousTypeCast
 			int y = *(const int16 *)psample;
-			::LineTo(hdc, x, YCVT(y, 15));
+			LineTo(hdc, x, YCVT(y, 15));
 			psample += smplsize;
 		}
 	} else
@@ -880,7 +884,7 @@ void CViewSample::DrawSampleData1(mfcless::DC * hdc, int ymed, int cx, int cy, S
 		{
 			int x = loopDiv ? ((n * cx) / loopDiv) : (n << loopShift);
 			int y = *psample;
-			::LineTo(hdc, x, YCVT(y, 7));
+			LineTo(hdc, x, YCVT(y, 7));
 			psample += smplsize;
 		}
 	}
@@ -921,7 +925,7 @@ void CViewSample::DrawSampleData2(mfcless::DC * hdc, int ymed, int cx, int cy, S
 		//posincr = Util::muldiv(len, 0x10000, cx);
 		posincr = uint64(len) * uint64(0x10000) / uint64(cx);
 	}
-	::MoveToEx(hdc, 0, ymed, nullptr);
+	MoveToEx(hdc, 0, ymed, nullptr);
 	posfrac = 0;
 	poshi = 0;
 	for (int x=0; x<xmax; x++)
@@ -952,16 +956,16 @@ void CViewSample::DrawSampleData2(mfcless::DC * hdc, int ymed, int cx, int cy, S
 		}
 		if (smin > oldsmax)
 		{
-			::MoveToEx(hdc, x-1, oldsmax - 1, NULL);
-			::LineTo(hdc, x, smin);
+			MoveToEx(hdc, x-1, oldsmax - 1, NULL);
+			LineTo(hdc, x, smin);
 		}
 		if (smax < oldsmin)
 		{
-			::MoveToEx(hdc, x-1, oldsmin, NULL);
-			::LineTo(hdc, x, smax);
+			MoveToEx(hdc, x-1, oldsmin, NULL);
+			LineTo(hdc, x, smax);
 		}
-		::MoveToEx(hdc, x, smax-1, NULL);
-		::LineTo(hdc, x, smin);
+		MoveToEx(hdc, x, smax-1, NULL);
+		LineTo(hdc, x, smin);
 		oldsmin = smin;
 		oldsmax = smax;
 		poshi += static_cast<int32>(posfrac>>16);
@@ -1017,22 +1021,21 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 	LimitMax(m_dwEndSel, sample.nLength);
 
 	// Create off-screen image and timeline font
-	if(!m_offScreenDC.m_hDC)
+	if(!m_offScreenDC)
 	{
 		m_offScreenDC.CreateCompatibleDC(pDC);
 		m_offScreenBitmap.CreateCompatibleBitmap(pDC, m_rcClient.Width(), m_rcClient.Height());
 		m_offScreenDC.SelectObject(m_offScreenBitmap);
 
-		NONCLIENTMETRICS metrics;
-		metrics.cbSize = sizeof(metrics);
-		metrics.cbSize = sizeof(metrics);
-		HighDPISupport::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, this);
-		metrics.lfMessageFont.lfHeight = mpt::saturate_round<int>(metrics.lfMessageFont.lfHeight * 0.8);
-		metrics.lfMessageFont.lfWidth = mpt::saturate_round<int>(metrics.lfMessageFont.lfWidth * 0.8);
-		m_timelineFont.DeleteObject();
-		m_timelineFont.CreateFontIndirect(&metrics.lfMessageFont);
+		// mfcless: the message font (the application's), at 80%
+		QFont font = QApplication::font();
+		if(font.pointSizeF() > 0)
+			font.setPointSizeF(font.pointSizeF() * 0.8);
+		else
+			font.setPixelSize(std::max(1, mpt::saturate_round<int>(font.pixelSize() * 0.8)));
+		m_timelineFont = font;
 	}
-	if(!m_waveformDC.m_hDC)
+	if(!m_waveformDC)
 	{
 		m_waveformDC.CreateCompatibleDC(pDC);
 		m_waveformBitmap.CreateCompatibleBitmap(pDC, m_rcClient.Width(), m_rcClient.Height());
@@ -1041,7 +1044,8 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 	}
 
 	const auto oldPen = m_offScreenDC.SelectObject(CMainFrame::penDarkGray);
-	const auto oldBrush = m_offScreenDC.SelectStockObject(mfcless::Stock::DCBrush);
+	const auto oldBrush = m_offScreenDC.GetCurrentBrush();
+	m_offScreenDC.SelectStockObject(mfcless::Stock::DCBrush);
 	const auto oldFont = m_offScreenDC.SelectObject(m_timelineFont);
 
 	// Draw timeline
@@ -1279,11 +1283,11 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 					const std::byte *psample = sample.sampleb() + smpScrollPos * smplsize;
 					if(sample.uFlags[CHN_STEREO])
 					{
-						DrawSampleData1(m_waveformDC, ymed - yrange / 2, rect.right, yrange, len, sample.uFlags, psample);
-						DrawSampleData1(m_waveformDC, ymed + yrange / 2, rect.right, yrange, len, sample.uFlags, psample + smplsize / 2);
+						DrawSampleData1(&m_waveformDC, ymed - yrange / 2, rect.right, yrange, len, sample.uFlags, psample);
+						DrawSampleData1(&m_waveformDC, ymed + yrange / 2, rect.right, yrange, len, sample.uFlags, psample + smplsize / 2);
 					} else
 					{
-						DrawSampleData1(m_waveformDC, ymed, rect.right, yrange * 2, len, sample.uFlags, psample);
+						DrawSampleData1(&m_waveformDC, ymed, rect.right, yrange * 2, len, sample.uFlags, psample);
 					}
 				} else
 				{
@@ -1298,11 +1302,11 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 					const std::byte *psample = sample.sampleb() + xscroll * smplsize;
 					if(sample.uFlags[CHN_STEREO])
 					{
-						DrawSampleData2(m_waveformDC, ymed - yrange / 2, rect.right, yrange, len, sample.uFlags, psample);
-						DrawSampleData2(m_waveformDC, ymed + yrange / 2, rect.right, yrange, len, sample.uFlags, psample + smplsize / 2);
+						DrawSampleData2(&m_waveformDC, ymed - yrange / 2, rect.right, yrange, len, sample.uFlags, psample);
+						DrawSampleData2(&m_waveformDC, ymed + yrange / 2, rect.right, yrange, len, sample.uFlags, psample + smplsize / 2);
 					} else
 					{
-						DrawSampleData2(m_waveformDC, ymed, rect.right, yrange * 2, len, sample.uFlags, psample);
+						DrawSampleData2(&m_waveformDC, ymed, rect.right, yrange * 2, len, sample.uFlags, psample);
 					}
 				}
 			}
@@ -1329,14 +1333,11 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 
 	DrawPositionMarks();
 
-	BitBlt(pDC->m_hDC, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
+	BitBlt(pDC, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
 
-	if(oldFont)
-		m_offScreenDC.SelectObject(oldFont);
-	if(oldBrush)
-		m_offScreenDC.SelectObject(oldBrush);
-	if(oldPen)
-		m_offScreenDC.SelectObject(oldPen);
+	m_offScreenDC.SelectObject(oldFont);
+	m_offScreenDC.SelectObject(oldBrush);
+	m_offScreenDC.SelectObject(oldPen);
 }
 
 
@@ -1380,7 +1381,7 @@ intptr_t CViewSample::OnPlayerNotify(Notification *pnotify)
 	{
 		if(m_dwNotifyPos != pnotify->pos)
 		{
-			mfcless::DC * hdc = ::GetDC(this);
+			mfcless::DC * hdc = GetDC();
 			DrawPositionMarks();	// Erase old marks...
 			m_dwNotifyPos = pnotify->pos;
 
@@ -1407,7 +1408,7 @@ intptr_t CViewSample::OnPlayerNotify(Notification *pnotify)
 
 			DrawPositionMarks();	// ...and draw new ones
 			BitBlt(hdc, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
-			::ReleaseDC(this, hdc);
+			ReleaseDC(hdc);
 		}
 	}
 	return 0;
@@ -1541,8 +1542,8 @@ void CViewSample::DrawNcButton(mfcless::DC *pDC, uint32 nBtn)
 		rect.left += xofs;
 		rect.top += yofs;
 		if(dwStyle & NCBTNS_CHECKED)
-			CMainFrame::GetMainFrame()->m_SampleIcons.Draw(pDC, SIMAGE_CHECKED, rect.TopLeft(), ILD_NORMAL);
-		CMainFrame::GetMainFrame()->m_SampleIcons.Draw(pDC, nImage, rect.TopLeft(), ILD_NORMAL);
+			CMainFrame::GetMainFrame()->m_SampleIcons.Draw(pDC, SIMAGE_CHECKED, rect.TopLeft());
+		CMainFrame::GetMainFrame()->m_SampleIcons.Draw(pDC, nImage, rect.TopLeft());
 	} else
 	{
 		c1 = c2 = crFc;
@@ -1653,7 +1654,7 @@ void CViewSample::OnSize(uint32 nType, int cx, int cy)
 }
 
 
-void CViewSample::OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp)
+void CViewSample::OnNcCalcSize(bool bCalcValidRects, mfcless::NcCalcSizeParams *lpncsp)
 {
 	CModScrollView::OnNcCalcSize(bCalcValidRects, lpncsp);
 	if (lpncsp)
@@ -1675,7 +1676,7 @@ void CViewSample::ScrollToPosition(int x)    // logical coordinates
 		pt.x = 0;
 	else if (pt.x > xMax)
 		pt.x = xMax;
-	ScrollToDevicePosition(pt);
+	CModScrollView::ScrollToPosition(QPoint(pt.x, pt.y));  // ScrollToDevicePosition
 }
 
 
@@ -1995,7 +1996,7 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 bool CViewSample::OnSetCursor(QWidget *pWnd, uint32 nHitTest, uint32 message)
 {
 	// Update mouse cursor if we are close to a selection point
-	if(nHitTest == HTCLIENT && (message == mfcless::msg::MouseMove || message == mfcless::msg::LButtonDown))
+	if(nHitTest == mfcless::hit::Client && (message == mfcless::msg::MouseMove || message == mfcless::msg::LButtonDown))
 	{
 		mfcless::Point point;
 		mfcless::GetCursorPos(&point);
@@ -2429,7 +2430,7 @@ intptr_t CViewSample::OnNcHitTest(mfcless::Point point)
 	rect.bottom = rect.top + SMP_LEFTBAR_CY;
 	if (rect.PtInRect(point))
 	{
-		return HTBORDER;
+		return mfcless::hit::Border;
 	}
 	return CModScrollView::OnNcHitTest(point);
 }
@@ -3120,17 +3121,14 @@ void CViewSample::NoteOff(ModCommand::NOTE note)
 
 
 // Drop files from Windows
-void CViewSample::OnDropFiles(HDROP hDropInfo)
+void CViewSample::OnDropFiles(const QStringList &files)
 {
-	const uint32 nFiles = ::DragQueryFile(hDropInfo, (uint32)-1, NULL, 0);
-	CMainFrame::GetMainFrame()->SetForegroundWindow();
+	const uint32 nFiles = static_cast<uint32>(files.size());
+	CMainFrame::GetMainFrame()->activateWindow();
 	for(uint32 f = 0; f < nFiles; f++)
 	{
-		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, u8'\0');
-		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(mfcless::FromQString(files[f]));
 			if(SendCtrlMessage(CTRLMSG_SMP_OPENFILE, (intptr_t)&file) && f < nFiles - 1)
 			{
 				// Insert more sample slots
@@ -3139,7 +3137,6 @@ void CViewSample::OnDropFiles(HDROP hDropInfo)
 			}
 		}
 	}
-	::DragFinish(hDropInfo);
 }
 
 
@@ -4167,7 +4164,7 @@ void CViewSample::SetTimelineFormat(TimelineFormat fmt)
 void CViewSample::OnUpdateUndo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if ((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetSampleUndo().CanUndo(m_nSample));
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetUndoName(m_nSample))));
@@ -4178,7 +4175,7 @@ void CViewSample::OnUpdateUndo(mfcless::CommandState &state)
 void CViewSample::OnUpdateRedo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if ((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetSampleUndo().CanRedo(m_nSample));
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetRedoName(m_nSample))));
@@ -4249,11 +4246,7 @@ intptr_t CViewSample::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI
 	pTI->uId = buttonID;
 	pTI->rect = ncRect;
 
-	// MFC will free() the text
-	auto size = text.GetLength() + 1;
-	mpt::uchar *textP = static_cast<mpt::uchar *>(calloc(size, sizeof(mpt::uchar)));
-	std::copy(text.c_str(), text.c_str() + size, textP);
-	pTI->lpszText = textP;
+	pTI->text = mfcless::ToQString(text);
 
 	return buttonID;
 }

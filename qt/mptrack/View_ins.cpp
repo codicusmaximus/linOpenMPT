@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Instrument tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/View_ins.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -82,14 +82,14 @@ const mfcless::ViewClass CViewInstrument::classCViewInstrument{"CViewInstrument"
 void CViewInstrument::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();
-	// ON_WM_ERASEBKGND(): by hand (Qt event override)
+	// ON_WM_ERASEBKGND(): OnInitialUpdate sets the viewport opaque
 	// ON_WM_SETFOCUS() (mfcless::Window)
 	// ON_WM_SIZE() (mfcless::Window)
-	// ON_WM_NCCALCSIZE(): by hand (Qt event override)
-	// ON_WM_NCPAINT(): by hand (Qt event override)
-	// ON_WM_NCHITTEST(): by hand (Qt event override)
+	// ON_WM_NCCALCSIZE() (CModScrollView)
+	// ON_WM_NCPAINT() (CModScrollView)
+	// ON_WM_NCHITTEST() (CModScrollView)
 	// ON_WM_MOUSEMOVE() (mfcless::Window)
-	// ON_WM_NCMOUSEMOVE(): by hand (Qt event override)
+	// ON_WM_NCMOUSEMOVE() (CModScrollView)
 	// ON_WM_LBUTTONDOWN() (mfcless::Window)
 	// ON_WM_LBUTTONUP() (mfcless::Window)
 	// ON_WM_LBUTTONDBLCLK() (mfcless::Window)
@@ -97,9 +97,9 @@ void CViewInstrument::RegisterMessageMap()
 	// ON_WM_MBUTTONUP() (mfcless::Window)
 	// ON_WM_XBUTTONUP() (mfcless::Window)
 	// ON_WM_MOUSEWHEEL() (mfcless::Window)
-	// ON_WM_NCLBUTTONDOWN(): by hand (Qt event override)
-	// ON_WM_NCLBUTTONUP(): by hand (Qt event override)
-	// ON_WM_NCLBUTTONDBLCLK(): by hand (Qt event override)
+	// ON_WM_NCLBUTTONDOWN() (CModScrollView)
+	// ON_WM_NCLBUTTONUP() (CModScrollView)
+	// ON_WM_NCLBUTTONDBLCLK() (CModScrollView)
 	// ON_WM_DROPFILES() (mfcless::Window)
 	AddCommand(ID_PREVINSTRUMENT, &CViewInstrument::OnPrevInstrument);
 	AddCommand(ID_NEXTINSTRUMENT, &CViewInstrument::OnNextInstrument);
@@ -150,7 +150,9 @@ CViewInstrument::CViewInstrument()
 void CViewInstrument::OnInitialUpdate()
 {
 	CModScrollView::OnInitialUpdate();
-	ModifyStyleEx(0, WS_EX_ACCEPTFILES);
+	DragAcceptFiles(true);
+	// ON_WM_ERASEBKGND (no erasing): OnDraw paints all of the view
+	viewport()->setAttribute(Qt::WA_OpaquePaintEvent);
 	m_zoom = (ENV_POINT_SIZE * m_dpi) / 96.0f;
 	m_envPointSize = HighDPISupport::ScalePixels(ENV_POINT_SIZE, this);
 	UpdateScrollSize();
@@ -876,7 +878,7 @@ void CViewInstrument::DrawGrid(mfcless::DC *pDC, uint32 speed)
 {
 	bool windowResized = false;
 
-	if(m_dcGrid.m_hDC)
+	if(m_dcGrid)
 	{
 		m_dcGrid.SelectObject(m_pbmpOldGrid);
 		m_dcGrid.DeleteDC();
@@ -893,7 +895,7 @@ void CViewInstrument::DrawGrid(mfcless::DC *pDC, uint32 speed)
 		// create a memory based dc for drawing the grid
 		m_dcGrid.CreateCompatibleDC(pDC);
 		m_bmpGrid.CreateCompatibleBitmap(pDC, m_rcClient.Width(), m_rcClient.Height());
-		m_pbmpOldGrid = *m_dcGrid.SelectObject(&m_bmpGrid);
+		m_pbmpOldGrid = m_dcGrid.SelectObject(&m_bmpGrid);
 
 		// Do draw
 		const int width = m_rcClient.Width();
@@ -911,7 +913,8 @@ void CViewInstrument::DrawGrid(mfcless::DC *pDC, uint32 speed)
 		const uint32 startTick = (ScreenToTick(0) / speed) * speed;
 		const uint32 endTick = (ScreenToTick(width) / speed) * speed;
 
-		auto oldPen = m_dcGrid.SelectStockObject(mfcless::Stock::DCPen);
+		const auto oldPen = m_dcGrid.GetCurrentPen();
+		m_dcGrid.SelectStockObject(mfcless::Stock::DCPen);
 		for(uint32 tick = startTick, row = startTick / speed; tick <= endTick; tick += speed, row++)
 		{
 			if(rowsPerMeasure > 0 && row % rowsPerMeasure == 0)
@@ -925,8 +928,7 @@ void CViewInstrument::DrawGrid(mfcless::DC *pDC, uint32 speed)
 			m_dcGrid.MoveTo(x, 0);
 			m_dcGrid.LineTo(x, m_rcClient.bottom);
 		}
-		if(oldPen)
-			m_dcGrid.SelectObject(oldPen);
+		m_dcGrid.SelectObject(oldPen);
 	}
 
 	pDC->BitBlt(m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), &m_dcGrid, 0, 0, mfcless::rop::SrcCopy);
@@ -943,27 +945,27 @@ void CViewInstrument::OnDraw(mfcless::DC *pDC)
 	// and then BitBlt it to the destination "pDC"
 
 	//check for window resize
-	if(m_dcMemMain.GetSafeHdc() && m_rcOldClient != m_rcClient)
+	if(m_dcMemMain.IsValid() && m_rcOldClient != m_rcClient)
 	{
 		m_dcMemMain.SelectObject(oldBitmap);
 		m_dcMemMain.DeleteDC();
 		m_bmpMemMain.DeleteObject();
 	}
 
-	if(!m_dcMemMain.m_hDC)
+	if(!m_dcMemMain)
 	{
 		m_dcMemMain.CreateCompatibleDC(pDC);
-		if(!m_dcMemMain.m_hDC)
+		if(!m_dcMemMain)
 			return;
 	}
-	if(!m_bmpMemMain.m_hObject)
+	if(m_bmpMemMain.IsNull())
 	{
 		m_bmpMemMain.CreateCompatibleBitmap(pDC, m_rcClient.Width(), m_rcClient.Height());
 	}
 	m_rcOldClient = m_rcClient;
-	oldBitmap = *m_dcMemMain.SelectObject(&m_bmpMemMain);
+	oldBitmap = m_dcMemMain.SelectObject(&m_bmpMemMain);
 
-	auto stockBrush = mfcless::Brush::FromHandle(GetStockBrush(DC_BRUSH));
+	auto stockBrush = mfcless::Brush::DCColor();
 	if(m_bGrid)
 	{
 		DrawGrid(&m_dcMemMain, pModDoc->GetSoundFile().m_PlayState.m_nMusicSpeed);
@@ -1012,7 +1014,7 @@ void CViewInstrument::OnDraw(mfcless::DC *pDC)
 	// Drawing Envelope
 	if(numPoints)
 	{
-		m_dcMemMain.SelectObject(GetStockObject(DC_PEN));
+		m_dcMemMain.SelectStockObject(mfcless::Stock::DCPen);
 		m_dcMemMain.SetDCPenColor(TrackerSettings::Instance().rgbCustomColors[MODCOLOR_ENVELOPES]);
 		uint32 releaseNode = EnvGetReleaseNode();
 		mfcless::Rect rect;
@@ -1047,8 +1049,7 @@ void CViewInstrument::OnDraw(mfcless::DC *pDC)
 		}
 	}
 	DrawPositionMarks();
-	if(oldPen)
-		m_dcMemMain.SelectObject(oldPen);
+	m_dcMemMain.SelectObject(oldPen);
 
 	pDC->BitBlt(m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), &m_dcMemMain, 0, 0, mfcless::rop::SrcCopy);
 }
@@ -1181,7 +1182,7 @@ void CViewInstrument::DrawPositionMarks()
 		rect.left = TickToScreen(pos);
 		rect.right = rect.left + 1;
 		rect.bottom = m_rcClient.bottom + 1;
-		InvertRect(m_dcMemMain.m_hDC, &rect);
+		InvertRect(m_dcMemMain, &rect);
 	}
 }
 
@@ -1228,7 +1229,7 @@ intptr_t CViewInstrument::OnPlayerNotify(Notification *pnotify)
 		}
 		if(update)
 		{
-			mfcless::DC * hdc = ::GetDC(this);
+			mfcless::DC * hdc = GetDC();
 			DrawPositionMarks();
 			for(CHANNELINDEX j = 0; j < MAX_CHANNELS; j++)
 			{
@@ -1236,8 +1237,8 @@ intptr_t CViewInstrument::OnPlayerNotify(Notification *pnotify)
 				m_dwNotifyPos[j] = newpos;
 			}
 			DrawPositionMarks();
-			BitBlt(hdc, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_dcMemMain.GetSafeHdc(), 0, 0, mfcless::rop::SrcCopy);
-			::ReleaseDC(this, hdc);
+			BitBlt(hdc, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_dcMemMain, 0, 0, mfcless::rop::SrcCopy);
+			ReleaseDC(hdc);
 		}
 	}
 	return 0;
@@ -1307,8 +1308,8 @@ void CViewInstrument::DrawNcButton(mfcless::DC *pDC, uint32 nBtn)
 		rect.left += xofs;
 		rect.top += yofs;
 		if(dwStyle & NCBTNS_CHECKED)
-			CMainFrame::GetMainFrame()->m_EnvelopeIcons.Draw(pDC, IIMAGE_CHECKED, rect.TopLeft(), ILD_NORMAL);
-		CMainFrame::GetMainFrame()->m_EnvelopeIcons.Draw(pDC, nImage, rect.TopLeft(), ILD_NORMAL);
+			CMainFrame::GetMainFrame()->m_EnvelopeIcons.Draw(pDC, IIMAGE_CHECKED, rect.TopLeft());
+		CMainFrame::GetMainFrame()->m_EnvelopeIcons.Draw(pDC, nImage, rect.TopLeft());
 	} else
 	{
 		c1 = c2 = crFc;
@@ -1371,7 +1372,7 @@ void CViewInstrument::OnSize(uint32 nType, int cx, int cy)
 }
 
 
-void CViewInstrument::OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp)
+void CViewInstrument::OnNcCalcSize(bool bCalcValidRects, mfcless::NcCalcSizeParams *lpncsp)
 {
 	CModScrollView::OnNcCalcSize(bCalcValidRects, lpncsp);
 	if(lpncsp)
@@ -1444,7 +1445,7 @@ intptr_t CViewInstrument::OnNcHitTest(mfcless::Point point)
 	rect.bottom = rect.top + ENV_LEFTBAR_CY;
 	if(rect.PtInRect(point))
 	{
-		return HTBORDER;
+		return mfcless::hit::Border;
 	}
 	return CModScrollView::OnNcHitTest(point);
 }
@@ -1612,7 +1613,7 @@ void CViewInstrument::UpdateIndicator(int tick, int val)
 		return;
 
 	mpt::ustring s;
-	s.Format(TrackerSettings::Instance().cursorPositionInHex ? UL_("Tick %X, [%s]") : UL_("Tick %d, [%s]"), tick, EnvValueToString(tick, val).c_str());
+	s = mfcless::PrintF(TrackerSettings::Instance().cursorPositionInHex ? UL_("Tick %X, [%s]") : UL_("Tick %d, [%s]"), tick, EnvValueToString(tick, val).c_str());
 	CModScrollView::UpdateIndicator(s);
 	CMainFrame::GetMainFrame()->NotifyAccessibilityUpdate(*this);
 }
@@ -2059,17 +2060,14 @@ void CViewInstrument::PlayNote(ModCommand::NOTE note)
 
 
 // Drop files from Windows
-void CViewInstrument::OnDropFiles(HDROP hDropInfo)
+void CViewInstrument::OnDropFiles(const QStringList &files)
 {
-	const uint32 nFiles = ::DragQueryFile(hDropInfo, (uint32)-1, NULL, 0);
-	CMainFrame::GetMainFrame()->SetForegroundWindow();
+	const uint32 nFiles = static_cast<uint32>(files.size());
+	CMainFrame::GetMainFrame()->activateWindow();
 	for(uint32 f = 0; f < nFiles; f++)
 	{
-		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, u8'\0');
-		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(mfcless::FromQString(files[f]));
 			PrepareUndo("Replace Envelope");
 			if(GetDocument()->LoadEnvelope(m_nInstrument, m_nEnv, file))
 			{
@@ -2086,7 +2084,6 @@ void CViewInstrument::OnDropFiles(HDROP hDropInfo)
 			}
 		}
 	}
-	::DragFinish(hDropInfo);
 }
 
 
@@ -2807,7 +2804,7 @@ void CViewInstrument::OnEnvSave()
 void CViewInstrument::OnUpdateUndo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetInstrumentUndo().CanUndo(m_nInstrument));
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetUndoName(m_nInstrument))));
@@ -2818,7 +2815,7 @@ void CViewInstrument::OnUpdateUndo(mfcless::CommandState &state)
 void CViewInstrument::OnUpdateRedo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetInstrumentUndo().CanRedo(m_nInstrument));
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetRedoName(m_nInstrument))));
@@ -2896,22 +2893,18 @@ intptr_t CViewInstrument::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo 
 			text += MPT_UFORMAT(" ({})")(keyText);
 	}
 
-	// MFC will free() the text
-	auto size = text.GetLength() + 1;
-	mpt::uchar *textP = static_cast<mpt::uchar *>(calloc(size, sizeof(mpt::uchar)));
-	std::copy(text.c_str(), text.c_str() + size, textP);
-	pTI->lpszText = textP;
+	pTI->text = mfcless::ToQString(text);
 
 	return buttonID;
 }
 
 
 // Accessible description for screen readers
-HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
+QString CViewInstrument::GetAccessibleName()
 {
 	const InstrumentEnvelope *env = GetEnvelopePtr();
 	if(env == nullptr)
-		return CModScrollView::get_accName(varChild, pszName);
+		return CModScrollView::GetAccessibleName();
 
 	const mpt::uchar *typeStr = UL_("");
 	switch(m_nEnv)
@@ -2968,8 +2961,7 @@ HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
 		}
 	}
 
-	*pszName = str.AllocSysString();
-	return S_OK;
+	return mfcless::ToQString(str);
 }
 
 OPENMPT_NAMESPACE_END

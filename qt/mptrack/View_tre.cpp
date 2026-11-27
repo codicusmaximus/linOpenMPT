@@ -218,7 +218,7 @@ void CModTree::Init()
 		m_dwStatus |= TREESTATUS_SINGLEEXPAND;
 	}
 	ModifyStyle(dwRemove, dwAdd);
-	ModifyStyleEx(0, WS_EX_ACCEPTFILES);
+	DragAcceptFiles(true);
 
 	if(!IsSampleBrowser())
 	{

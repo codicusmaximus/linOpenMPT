@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Instrument tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/View_ins.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -206,9 +206,9 @@ protected:
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnSize(uint32 nType, int cx, int cy);
 	// cppcheck-suppress duplInheritedMember
-	void OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp);
-	intptr_t OnNcHitTest(mfcless::Point point);
-	void OnNcPaint();
+	void OnNcCalcSize(bool bCalcValidRects, mfcless::NcCalcSizeParams *lpncsp) override;
+	intptr_t OnNcHitTest(mfcless::Point point) override;
+	void OnNcPaint() override;
 	void OnPrevInstrument();
 	void OnNextInstrument();
 	void OnMouseMove(uint32, mfcless::Point);
@@ -217,10 +217,10 @@ protected:
 	void OnLButtonDblClk(uint32 /*nFlags*/, mfcless::Point point) { InsertAtPoint(point); }
 	void OnRButtonUp(uint32, mfcless::Point);
 	void OnMButtonUp(uint32, mfcless::Point);
-	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
-	void OnNcLButtonDown(uint32, mfcless::Point);
-	void OnNcLButtonUp(uint32, mfcless::Point);
-	void OnNcLButtonDblClk(uint32, mfcless::Point);
+	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point) override;
+	void OnNcLButtonDown(uint32, mfcless::Point) override;
+	void OnNcLButtonUp(uint32, mfcless::Point) override;
+	void OnNcLButtonDblClk(uint32, mfcless::Point) override;
 	void OnEnvLoopChanged();
 	void OnEnvSustainChanged();
 	void OnEnvCarryChanged();

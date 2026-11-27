@@ -18,6 +18,8 @@
 
 #include <vector>
 
+#include "mfcless/Graphics.h"
+
 OPENMPT_NAMESPACE_BEGIN
 
 class CImageListEx
@@ -30,6 +32,12 @@ public:
 	QPixmap GetImage(int index) const { return (index >= 0 && index < GetImageCount()) ? m_images[index] : QPixmap(); }
 	QIcon GetIcon(int index) const { return QIcon(GetImage(index)); }
 	QSize GetImageSize() const { return m_size; }
+	// ImageList_Draw (ILD_NORMAL)
+	void Draw(mfcless::DC *dc, int index, mfcless::Point pt) const
+	{
+		if(dc && dc->GetPainter() && index >= 0 && index < GetImageCount())
+			dc->GetPainter()->drawPixmap(QPoint(pt.x, pt.y), m_images[index]);
+	}
 	std::vector<QIcon> GetIcons() const
 	{
 		std::vector<QIcon> icons;

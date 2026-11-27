@@ -197,9 +197,27 @@ LATE = [
 	(r'\b(\w+)->m_hWnd\b', r'\1'),
 	# Device contexts and GDI objects: the objects themselves.
 	(r'(?:->|\.)m_hDC\b', ''),
+	(r'\bModifyStyleEx\(0,\s*WS_EX_ACCEPTFILES\);', 'DragAcceptFiles(true);'),
+	# Dropped files (WM_DROPFILES) come as a list of names.
+	(r'void (\w+)::OnDropFiles\(HDROP hDropInfo\)', r'void \1::OnDropFiles(const QStringList &files)'),
+	(r'const uint32 nFiles = ::DragQueryFile\(hDropInfo, \(uint32\)-1, NULL, 0\);', 'const uint32 nFiles = static_cast<uint32>(files.size());'),
+	(r'CMainFrame::GetMainFrame\(\)->SetForegroundWindow\(\);', 'CMainFrame::GetMainFrame()->activateWindow();'),
+	(r'(?m)^([ \t]*)uint32 size = ::DragQueryFile\(hDropInfo, f, nullptr, 0\) \+ 1;\n\1std::vector<mpt::uchar> fileName\(size, u8\'\\0\'\);\n\1if\(::DragQueryFile\(hDropInfo, f, fileName\.data\(\), size\)\)\n(\1\{\n\1\t)const mpt::PathString file = mpt::PathString::FromUnicode\(fileName\.data\(\)\);', r'\2const mpt::PathString file = mpt::PathString::FromUnicode(mfcless::FromQString(files[f]));'),
+	(r'(?m)^[ \t]*::DragFinish\(hDropInfo\);\n', ''),
+	(r'::(MoveToEx|LineTo)\(', r'\1('),
+	(r',\s*ILD_NORMAL\)', ')'),
+	(r'if\s*\(\(pCmdUI\) && \((\w+)\)\)', r'if(\1)'),
+	(r'::GetDC\(m_hWnd\)', 'GetDC()'),
+	(r'::ReleaseDC\(m_hWnd,\s*(\w+)\)', r'ReleaseDC(\1)'),
+	# Accessibility names and tooltip texts.
+	(r'HRESULT (\w+)::get_accName\(VARIANT \w+, BSTR \*\w+\)', r'QString \1::GetAccessibleName()'),
+	(r'return ([\w:<>]+)::get_accName\(\w+, \w+\);', r'return \1::GetAccessibleName();'),
+	(r'\*pszName = (\w+)\.AllocSysString\(\);\s*return S_OK;', r'return mfcless::ToQString(\1);'),
+	(r'(?m)^([ \t]*)// MFC will free\(\) the text\n(?:\1.*\n)*?\1pTI->lpszText = textP;\n', r'\1pTI->text = mfcless::ToQString(text);\n'),
 	(r'::GetDC\(this\)', 'GetDC()'),
 	(r'::ReleaseDC\(this,\s*(\w+)\)', r'ReleaseDC(\1)'),
-	(r'\.GetSafeHdc\(\)', '.IsValid()'),
+	(r'(\bif\s*\(\s*|!\s*|&&\s*|\|\|\s*)(\w+)\.GetSafeHdc\(\)', r'\1\2.IsValid()'),
+	(r'\.GetSafeHdc\(\)', ''),
 	(r'!\s*(\w+)\.m_hObject\b', r'\1.IsNull()'),
 	(r'\b(\w+)\.m_hObject\b', r'!\1.IsNull()'),
 	(r'\)->m_hWnd\b', ')'),
@@ -570,6 +588,8 @@ def message_map(m):
 			out.append('\t// %s (mfcless::Window)%s' % (t, comment))
 		elif macro in ('ON_WM_NCCALCSIZE', 'ON_WM_NCPAINT', 'ON_WM_NCHITTEST', 'ON_WM_NCMOUSEMOVE', 'ON_WM_NCLBUTTONDOWN', 'ON_WM_NCLBUTTONUP', 'ON_WM_NCLBUTTONDBLCLK') and base == 'CModScrollView':
 			out.append('\t// %s (CModScrollView)%s' % (t, comment))
+		elif macro == 'ON_WM_SETCURSOR':
+			out.append('\tEnableSetCursor();  // %s%s' % (t, comment))
 		elif macro == 'ON_WM_ACTIVATE':
 			out.append('\t// %s (mfcless::Window)%s' % (t, comment))
 		elif macro in ('ON_MESSAGE', 'ON_REGISTERED_MESSAGE'):

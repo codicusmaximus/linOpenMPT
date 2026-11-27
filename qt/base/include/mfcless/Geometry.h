@@ -42,6 +42,8 @@ struct Size
 
 struct Point
 {
+	// CPoint converts to CSize (an offset).
+	operator Size() const { return Size(x, y); }
 	int x = 0, y = 0;
 
 	constexpr Point() = default;

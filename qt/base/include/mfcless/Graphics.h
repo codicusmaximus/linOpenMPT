@@ -184,6 +184,7 @@ public:
 	// Selects a bitmap into a memory DC and draws on it from then on.
 	// Returns the bitmap selected before.
 	Bitmap *SelectObject(Bitmap *bitmap);
+	Bitmap *SelectObject(Bitmap &bitmap) { return SelectObject(&bitmap); }
 	Bitmap *GetSelectedBitmap() const { return m_bitmap; }
 
 	Pen SelectObject(const Pen &p);
@@ -232,6 +233,8 @@ public:
 	void FillRect(const Rect *r, const Brush *brush) { FillRect(*r, brush); }
 	void FrameRect(const Rect &r, const Brush *brush);
 	void FrameRect(const Rect &r, const Brush &brush) { FrameRect(r, &brush); }
+	void FrameRect(const Rect *r, const Brush &brush) { FrameRect(*r, &brush); }
+	void FrameRect(const Rect *r, const Brush *brush) { FrameRect(*r, brush); }
 	void Draw3dRect(const Rect &r, uint32_t topLeft, uint32_t bottomRight);
 	void Draw3dRect(int x, int y, int cx, int cy, uint32_t topLeft, uint32_t bottomRight) { Draw3dRect(Rect(x, y, x + cx, y + cy), topLeft, bottomRight); }
 	bool DrawEdge(Rect *r, uint32_t edgeType, uint32_t flags);
@@ -239,6 +242,7 @@ public:
 	void DrawFocusRect(const Rect &r);
 	void DrawFocusRect(const Rect *r) { DrawFocusRect(*r); }
 	void InvertRect(const Rect &r);
+	void InvertRect(const Rect *r) { InvertRect(*r); }
 	bool PatBlt(int x, int y, int width, int height, uint32_t rasterOp);
 
 	bool BitBlt(int x, int y, int width, int height, DC *source, int xSrc, int ySrc, uint32_t rasterOp = rop::SrcCopy);
@@ -327,6 +331,8 @@ template <typename D> void FrameRect(D &&dc, const Rect *r, const Brush &b) { DC
 template <typename D> void InvertRect(D &&dc, const Rect *r) { DCRef(dc).InvertRect(*r); }
 template <typename D> bool DrawEdge(D &&dc, Rect &r, uint32_t edgeType, uint32_t flags) { return DCRef(dc).DrawEdge(&r, edgeType, flags); }
 template <typename D> bool DrawEdge(D &&dc, Rect *r, uint32_t edgeType, uint32_t flags) { return DCRef(dc).DrawEdge(r, edgeType, flags); }
+template <typename D> bool MoveToEx(D &&dc, int x, int y, Point *old) { const Point p = DCRef(dc).MoveTo(x, y); if(old) *old = p; return true; }
+template <typename D> bool LineTo(D &&dc, int x, int y) { return DCRef(dc).LineTo(x, y); }
 template <typename D> bool PatBlt(D &&dc, int x, int y, int w, int h, uint32_t rasterOp) { return DCRef(dc).PatBlt(x, y, w, h, rasterOp); }
 template <typename D, typename S> bool BitBlt(D &&dc, int x, int y, int w, int h, S &&src, int xs, int ys, uint32_t rasterOp) { return DCRef(dc).BitBlt(x, y, w, h, &DCRef(src), xs, ys, rasterOp); }
 template <typename D> Bitmap *SelectBitmap(D &&dc, Bitmap &bmp) { return DCRef(dc).SelectObject(&bmp); }
