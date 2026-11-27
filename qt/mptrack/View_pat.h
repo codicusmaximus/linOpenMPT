@@ -382,7 +382,7 @@ protected:
 	void OnLButtonDown(uint32, mfcless::Point);
 	void OnLButtonDblClk(uint32, mfcless::Point);
 	void OnRButtonDown(uint32, mfcless::Point);
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	// cppcheck-suppress duplInheritedMember
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnKillFocus(QWidget *pNewWnd);

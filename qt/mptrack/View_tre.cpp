@@ -297,7 +297,7 @@ bool CModTree::PreTranslateMessage(mfcless::Message *pMsg)
 		switch(pMsg->wParam)
 		{
 		case mfcless::vk::ESCAPE:
-			GetParent()->mfcless::PostCommand(this, ID_CLOSE_LIBRARY_FILTER);
+			mfcless::PostCommand(GetParent(), ID_CLOSE_LIBRARY_FILTER);
 			break;
 		}
 	} else if(pMsg->message == mfcless::msg::Char)
@@ -792,7 +792,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 	{
 		// Module folder + sub folders
 		mpt::ustring name = modDoc.GetPathNameMpt().GetFilename().ToUnicode();
-		if(name.IsEmpty())
+		if(name.empty())
 			name = mpt::SanitizePathComponent(modDoc.GetTitle());
 
 		if(!info.hSong)
@@ -946,7 +946,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 		if((seqHint.GetType()[HINT_SEQNAMES] && sndFile.Order.GetNumSequences() == 1) || adjustParentNode)
 		{
 			mpt::ustring seqName = mpt::ToUnicode(sndFile.Order(0).GetName());
-			if(seqName.IsEmpty() || sndFile.Order.GetNumSequences() > 1)
+			if(seqName.empty() || sndFile.Order.GetNumSequences() > 1)
 				seqName = UL_("Sequence");
 			else
 				seqName = UL_("Sequence: ") + seqName;
@@ -1014,7 +1014,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				{
 					patName = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Patterns[sndFile.Order(seq)[iOrd]].GetName());
 					const bool hexOrders = (TrackerSettings::Instance().patternSetup & PatternSetup::RowAndOrderNumbersHex);
-					if(!patName.IsEmpty())
+					if(!patName.empty())
 					{
 						wsprintf(s, hexOrders ? UL_("[%02Xh] %u: ") : UL_("[%02u] %u: "),
 							iOrd, sndFile.Order(seq)[iOrd]);
@@ -2423,7 +2423,7 @@ void CModTree::InstrumentLibraryChDir(mpt::PathString dir, bool isSong)
 		return;
 	}
 
-	GetParent()->mfcless::PostCommand(this, ID_CLOSE_LIBRARY_FILTER);
+	mfcless::PostCommand(GetParent(), ID_CLOSE_LIBRARY_FILTER);
 	m_filterString.clear();
 	m_pDataTree->m_filterString.clear();
 
@@ -3419,7 +3419,7 @@ void CModTree::OnSelChanged()
 				m_HelpText += MPT_UFORMAT(", last modified: {}")(CTime(modtime).Format(UL_("%d %b %Y, %H:%M:%S")));
 			} else if(type != MODITEM_INSLIB_SAMPLE)
 			{
-				m_HelpText.Empty();
+				m_HelpText.clear();
 			}
 			CMainFrame::GetMainFrame()->SetHelpText(m_HelpText);
 		}
@@ -3429,7 +3429,7 @@ void CModTree::OnSelChanged()
 		if(CMainFrame::GetMainFrame()->GetHelpText() == m_HelpText)
 		{
 			CMainFrame::GetMainFrame()->SetHelpText(UL_(""));
-			m_HelpText.Empty();
+			m_HelpText.clear();
 		}
 		break;
 	}
@@ -3574,7 +3574,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 				}
 			}
 
-			if((point.x >= -1) && (point.x <= rect.right + HighDPISupport::GetSystemMetrics(SM_CXVSCROLL, this)))
+			if((point.x >= -1) && (point.x <= rect.right + HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CxVScroll, this)))
 			{
 				if(point.y <= 0)
 				{
@@ -4391,7 +4391,7 @@ void CModTree::OnKillFocus(QWidget *pNewWnd)
 	if(CMainFrame::GetMainFrame()->GetHelpText() == m_HelpText)
 	{
 		CMainFrame::GetMainFrame()->SetHelpText(UL_(""));
-		m_HelpText.Empty();
+		m_HelpText.clear();
 	}
 	Window::OnKillFocus(pNewWnd);
 	CMainFrame::GetMainFrame()->m_bModTreeHasFocus = false;
@@ -4435,7 +4435,7 @@ void CModTree::OnCloseItem()
 		return;
 	mfcless::DocumentView *pView = pModDoc->GetNextView(pos);
 	if(pView)
-		pView->mfcless::PostCommand(this, ID_FILE_CLOSE);
+		mfcless::PostCommand(pView, ID_FILE_CLOSE);
 }
 
 
@@ -4494,7 +4494,7 @@ void CModTree::OnRenameItem()
 void CModTree::OnBeginLabelEdit()
 {
 	NMTVDISPINFO *info = reinterpret_cast<NMTVDISPINFO *>(nmhdr);
-	CEdit *editCtrl = GetEditControl();
+	QLineEdit *editCtrl = GetEditControl();
 	if(editCtrl == nullptr)
 		return;
 
@@ -4647,7 +4647,7 @@ void CModTree::OnEndLabelEdit()
 				}
 			} else
 			{
-				mfcless::MessageBeep(nfIconWarning);
+				mfcless::MessageBeep();
 			}
 			break;
 

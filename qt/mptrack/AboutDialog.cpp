@@ -275,7 +275,7 @@ bool CAboutDlg::OnInitDialog()
 	m_Tab->InsertItem(TCIF_TEXT, 3, UL_("License"), 0, 0, 0, 0);
 	m_Tab->InsertItem(TCIF_TEXT, 4, UL_("Resources"), 0, 0, 0, 0);
 	if(mpt::OS::Windows::IsWine()) m_Tab->InsertItem(TCIF_TEXT, 5, UL_("Wine"), 0, 0, 0, 0);
-	m_Tab->SetCurSel(0);
+	m_Tab->setCurrentIndex(0);
 
 	OnTabChange(nullptr, nullptr);
 
@@ -301,7 +301,7 @@ void CAboutDlg::OnTimer(uintptr_t nIDEvent)
 
 void CAboutDlg::OnTabChange()
 {
-	mfcless::SetWindowText(m_TabEdit, mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->GetCurSel()), U_("\n"), U_("\r\n"))));
+	mfcless::SetWindowText(m_TabEdit, mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->currentIndex()), U_("\n"), U_("\r\n"))));
 }
 
 

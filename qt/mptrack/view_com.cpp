@@ -61,24 +61,24 @@ enum
 
 static constexpr CListCtrlEx::Header SampleHeaders[SMPLIST_COLUMNS] =
 {
-	{ UL_("Sample Name"), 212, LVCFMT_LEFT },
-	{ UL_("Num"),         45,  LVCFMT_RIGHT },
-	{ UL_("Size"),        72,  LVCFMT_RIGHT },
-	{ UL_("Type"),        80,  LVCFMT_RIGHT },
-	{ UL_("C-5 Freq"),    80,  LVCFMT_RIGHT },
-	{ UL_("Instr"),       64,  LVCFMT_RIGHT },
-	{ UL_("File Name"),   160, LVCFMT_RIGHT },
-	{ UL_("Path"),        256, LVCFMT_LEFT },
+	{ UL_("Sample Name"), 212, mfcless::list::AlignLeft },
+	{ UL_("Num"),         45,  mfcless::list::AlignRight },
+	{ UL_("Size"),        72,  mfcless::list::AlignRight },
+	{ UL_("Type"),        80,  mfcless::list::AlignRight },
+	{ UL_("C-5 Freq"),    80,  mfcless::list::AlignRight },
+	{ UL_("Instr"),       64,  mfcless::list::AlignRight },
+	{ UL_("File Name"),   160, mfcless::list::AlignRight },
+	{ UL_("Path"),        256, mfcless::list::AlignLeft },
 };
 
 static constexpr CListCtrlEx::Header InstrumentHeaders[INSLIST_COLUMNS] =
 {
-	{ UL_("Instrument Name"), 212, LVCFMT_LEFT },
-	{ UL_("Num"),             45,  LVCFMT_RIGHT },
-	{ UL_("Samples"),         64,  LVCFMT_RIGHT },
-	{ UL_("Envelopes"),       128, LVCFMT_RIGHT },
-	{ UL_("File Name"),       160, LVCFMT_RIGHT },
-	{ UL_("Plugin"),          128, LVCFMT_RIGHT },
+	{ UL_("Instrument Name"), 212, mfcless::list::AlignLeft },
+	{ UL_("Num"),             45,  mfcless::list::AlignRight },
+	{ UL_("Samples"),         64,  mfcless::list::AlignRight },
+	{ UL_("Envelopes"),       128, mfcless::list::AlignRight },
+	{ UL_("File Name"),       160, mfcless::list::AlignRight },
+	{ UL_("Plugin"),          128, mfcless::list::AlignRight },
 };
 
 
@@ -133,7 +133,7 @@ void CViewComments::OnInitialUpdate()
 	m_ToolBar->Init(CMainFrame::GetMainFrame()->m_MiscIcons, CMainFrame::GetMainFrame()->m_MiscIconsDisabled);
 	m_ItemList->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL | LVS_EDITLABELS | LVS_NOSORTHEADER, rect, this, IDC_LIST_DETAILS);
 	m_ItemList->ModifyStyleEx(0, WS_EX_STATICEDGE);
-	m_ItemList->SetExtendedStyle(m_ItemList->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
+	m_ItemList->SetExtendedStyle(m_ItemList->GetExtendedStyle() | mfcless::list::FullRowSelect);
 
 	// Add ToolBar Buttons
 	m_ToolBar->AddButton(IDC_LIST_SAMPLES, IMAGE_SAMPLES);
@@ -255,7 +255,7 @@ intptr_t CViewComments::OnCustomKeyMsg(uintptr_t wParam, intptr_t)
 					newItem = ins - 1;
 				break;
 			}
-			m_ItemList->SetItemState(newItem, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+			m_ItemList->SetItemState(newItem, mfcless::list::Selected | mfcless::list::Focused, mfcless::list::Selected | mfcless::list::Focused);
 			m_ItemList->SetSelectionMark(newItem);
 			m_ItemList->EnsureVisible(newItem, false);
 			m_ItemList->setFocus();
@@ -334,7 +334,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 		m_fixedFont.DeleteObject();
 		m_fixedFont.CreateFontIndirect(&lf);
 
-		m_ItemList->update(false);
+		m_ItemList->update();
 	}
 	const SampleHint sampleHint = hint.ToType<SampleHint>();
 	const InstrumentHint instrHint = hint.ToType<InstrumentHint>();
@@ -384,7 +384,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 				for (uint32 iCol=0; iCol<SMPLIST_COLUMNS; iCol++)
 				{
 					const ModSample &sample = sndFile.GetSample(iSmp + 1);
-					s.Empty();
+					s.clear();
 					switch(iCol)
 					{
 					case SMPLIST_SAMPLENAME:
@@ -471,7 +471,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 				for (uint32 iCol=0; iCol<INSLIST_COLUMNS; iCol++)
 				{
 					ModInstrument *pIns = sndFile.Instruments[iIns+1];
-					s.Empty();
+					s.clear();
 					switch(iCol)
 					{
 					case INSLIST_INSTRUMENTNAME:
@@ -496,8 +496,8 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						if (pIns)
 						{
 							if (pIns->VolEnv.dwFlags[ENV_ENABLED]) s += UL_("Vol");
-							if (pIns->PanEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += UL_(", "); s += UL_("Pan"); }
-							if (pIns->PitchEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += UL_(", "); s += (pIns->PitchEnv.dwFlags[ENV_FILTER] ? UL_("Filter") : UL_("Pitch")); }
+							if (pIns->PanEnv.dwFlags[ENV_ENABLED]) { if (!s.empty()) s += UL_(", "); s += UL_("Pan"); }
+							if (pIns->PitchEnv.dwFlags[ENV_ENABLED]) { if (!s.empty()) s += UL_(", "); s += (pIns->PitchEnv.dwFlags[ENV_FILTER] ? UL_("Filter") : UL_("Pitch")); }
 						}
 						break;
 					case INSLIST_FILENAME:
@@ -574,7 +574,7 @@ void CViewComments::UpdateButtonState()
 
 void CViewComments::OnBeginLabelEdit()
 {
-	CEdit *editCtrl = m_ItemList->GetEditControl();
+	QLineEdit *editCtrl = m_ItemList->GetEditControl();
 	if(editCtrl)
 	{
 		m_editLabel = true;

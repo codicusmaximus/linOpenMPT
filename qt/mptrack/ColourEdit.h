@@ -22,22 +22,20 @@ class CColourEdit : public mfcless::Window<QLineEdit>
 {
 	Q_OBJECT
 public:
-	CColourEdit();
-	~CColourEdit();
+	explicit CColourEdit(QWidget *parent = nullptr);
 
 public:
 	void SetTextColor(uint32 rgb);
 	void SetBackColor(uint32 rgb);
 
 private:
+	// mfcless: upstream answers WM_CTLCOLOR; here the colours go into the
+	// widget's palette.
+	void ApplyColors();
+
 	uint32 m_crText;
 	uint32 m_crBackGnd;
-	mfcless::Brush m_brBackGnd;
-
-protected:
-	mfcless::Brush CtlColor(mfcless::DC* pDC, uint32 nCtlColor);
-	void RegisterMessageMap() override;
-
+	bool m_hasBackColor = false;
 };
 
 OPENMPT_NAMESPACE_END

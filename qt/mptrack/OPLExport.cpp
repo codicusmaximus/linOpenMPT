@@ -3,7 +3,7 @@
  * -------------
  * Purpose: Export of OPL register dumps as VGM/VGZ or DRO files
  * Notes  : mfcless twin of upstream's mptrack/OPLExport.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -347,7 +347,7 @@ private:
 
 	static ExportFormat s_format;
 
-	AccessibleEdit m_EditSubSong;
+	AccessibleEdit *m_EditSubSong = nullptr;
 
 	OPLCapture m_oplLogger;
 	CSoundFile &m_sndFile;
@@ -376,9 +376,9 @@ public:
 		CheckRadio(IDC_RADIO1, IDC_RADIO3, static_cast<int>(s_format));
 		CheckRadio(IDC_RADIO4, IDC_RADIO5, m_subSongs.size() <= 1 ? IDC_RADIO4 : IDC_RADIO5);
 
-		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, static_cast<int>(m_subSongs.size()));
+		static_cast<mfcless::UpDown *>(GetDlgItem(IDC_SPIN1))->SetRange(1, static_cast<int>(m_subSongs.size()));
 		SubclassDlgItem(IDC_EDIT1, m_EditSubSong);
-		m_EditSubSong.SetAccessibleName(UL_("Sub Song"));
+		m_EditSubSong->SetAccessibleName(UL_("Sub Song"));
 		SetItemInt(IDC_EDIT1, static_cast<uint32>(m_selectedSong + 1));
 		if(m_subSongs.size() <= 1)
 		{
@@ -436,14 +436,14 @@ public:
 
 	void Run() override {}
 
-	afx_msg void OnFormatChanged()
+	void OnFormatChanged()
 	{
 		const int controls[] = {IDC_EDIT2, IDC_EDIT3, IDC_EDIT4, IDC_EDIT5};
 		for(int control : controls)
 			EnableItem(control, GetCheckedRadio(IDC_RADIO1, IDC_RADIO3) == static_cast<int>(ExportFormat::DRO) ? false : true);
 	}
 
-	afx_msg void OnSubsongChanged()
+	void OnSubsongChanged()
 	{
 		if(m_locked)
 			return;
@@ -590,7 +590,7 @@ public:
 		m_sndFile.m_bIsRendering = false;
 	}
 
-	DECLARE_MESSAGE_MAP()
+	void RegisterMessageMap() override;
 };
 
 OPLExportDlg::ExportFormat OPLExportDlg::s_format = OPLExportDlg::ExportFormat::VGZ;

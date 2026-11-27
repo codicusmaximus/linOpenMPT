@@ -2785,7 +2785,7 @@ void CViewInstrument::OnEnvSave()
 	const InstrumentEnvelope *env = GetEnvelopePtr();
 	if(env == nullptr || env->empty())
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		return;
 	}
 
@@ -2891,7 +2891,7 @@ intptr_t CViewInstrument::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo 
 	if(cmd != kcNull && !(m_NcButtonState[ncButton] & NCBTNS_DISABLED))
 	{
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-		if(!keyText.IsEmpty())
+		if(!keyText.empty())
 			text += MPT_UFORMAT(" ({})")(keyText);
 	}
 

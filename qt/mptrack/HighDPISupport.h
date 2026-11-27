@@ -34,17 +34,40 @@ namespace HighDPISupport
 	inline void SetDPIAwareness(Mode) { }
 
 	inline uint32 GetDpiForWindow(const QWidget *) { return 96; }
+	inline uint32 GetDpiForWindow(const QWidget &) { return 96; }
 
 	void CreateGUIFont(QFont &font, const QWidget *hwnd);
+
+	// Sizes of parts of windows (GetSystemMetrics: SM_CXBORDER, ...), from
+	// the Qt style.
+	enum class SystemMetric
+	{
+		CxBorder,
+		CyBorder,
+		CxVScroll,
+		CyHScroll,
+		CxEdge,
+		CyEdge,
+	};
+	int GetSystemMetrics(SystemMetric index, uint32 dpi = 96);
+	inline int GetSystemMetrics(SystemMetric index, const QWidget *) { return GetSystemMetrics(index, 96u); }
 
 	// Applies DPI scaling factor to some given size
 	MPT_FORCEINLINE int ScalePixels(int pixels, const QWidget *)
 	{
 		return pixels;
 	}
+	MPT_FORCEINLINE int ScalePixels(int pixels, const QWidget &)
+	{
+		return pixels;
+	}
 
 	// Removes DPI scaling factor from some given size
 	MPT_FORCEINLINE int ScalePixelsInv(int pixels, const QWidget *)
+	{
+		return pixels;
+	}
+	MPT_FORCEINLINE int ScalePixelsInv(int pixels, const QWidget &)
 	{
 		return pixels;
 	}

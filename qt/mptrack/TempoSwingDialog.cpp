@@ -197,7 +197,7 @@ bool CTempoSwingDlg::OnInitDialog()
 		rect.MoveToY(rect.top + m.rowHeight);
 	}
 
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, static_cast<int>(m_tempoSwing.size()));
+	Item<mfcless::UpDown>(IDC_SPIN1)->SetRange(1, static_cast<int>(m_tempoSwing.size()));
 	SetItemInt(IDC_EDIT1, m_groupSize);
 	OnToggleGroup();
 
@@ -205,7 +205,7 @@ bool CTempoSwingDlg::OnInitDialog()
 	rect.MoveToY(m.paddingTop + containerRect.bottom + m.paddingY);
 	{
 		// Buttons at dialog bottom
-		const int cxEdge = HighDPISupport::GetSystemMetrics(SM_CYHSCROLL, GetDPI());
+		const int cxEdge = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
 		mfcless::Rect buttonRect;
 		for(auto i : { IDOK, IDCANCEL, IDC_BUTTON2 })
 		{
@@ -332,7 +332,7 @@ void CTempoSwingDlg::OnGroupChanged()
 }
 
 
-void CTempoSwingDlg::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CTempoSwingDlg::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	if(pScrollBar == &m_scrollBar)
 	{
@@ -350,47 +350,47 @@ void CTempoSwingDlg::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScro
 		// Determine the new position of scroll box.
 		switch(nSBCode)
 		{
-		case SB_LEFT:			// Scroll to far left.
+		case mfcless::ScrollCode::Top:			// Scroll to far left.
 			curpos = minpos;
 			break;
 
-		case SB_RIGHT:			// Scroll to far right.
+		case mfcless::ScrollCode::Bottom:			// Scroll to far right.
 			curpos = maxpos;
 			break;
 
-		case SB_ENDSCROLL:		// End scroll.
+		case mfcless::ScrollCode::EndScroll:		// End scroll.
 			m_container.Invalidate();
 			break;
 
-		case SB_LINELEFT:		// Scroll left.
+		case mfcless::ScrollCode::LineUp:		// Scroll left.
 			if(curpos > minpos)
 				curpos--;
 			break;
 
-		case SB_LINERIGHT:		// Scroll right.
+		case mfcless::ScrollCode::LineDown:		// Scroll right.
 			if(curpos < maxpos)
 				curpos++;
 			break;
 
-		case SB_PAGELEFT:		// Scroll one page left.
+		case mfcless::ScrollCode::PageUp:		// Scroll one page left.
 			if(curpos > minpos)
 			{
 				curpos = std::max(minpos, curpos - static_cast<int>(sbInfo.nPage));
 			}
 			break;
 
-		case SB_PAGERIGHT:		// Scroll one page right.
+		case mfcless::ScrollCode::PageDown:		// Scroll one page right.
 			if(curpos < maxpos)
 			{
 				curpos = std::min(maxpos, curpos + static_cast<int>(sbInfo.nPage));
 			}
 			break;
 
-		case SB_THUMBPOSITION:	// Scroll to absolute position. nPos is the position
+		case mfcless::ScrollCode::ThumbPosition:	// Scroll to absolute position. nPos is the position
 			curpos = nPos;		// of the scroll box at the end of the drag operation.
 			break;
 
-		case SB_THUMBTRACK:		// Drag scroll box to specified position. nPos is the
+		case mfcless::ScrollCode::ThumbTrack:		// Drag scroll box to specified position. nPos is the
 			curpos = nPos;		// position that the scroll box has been dragged to.
 			break;
 		}
@@ -421,7 +421,7 @@ void CTempoSwingDlg::SliderContainer::OnHScroll(uint32 nSBCode, uint32 nPos, CSc
 	{
 		// Edit groups
 		size_t editedGroup = 0;
-		int editedValue = reinterpret_cast<CSliderCtrl *>(pScrollBar)->GetPos();
+		int editedValue = reinterpret_cast<QSlider *>(pScrollBar)->GetPos();
 		for(size_t i = 0; i < m_parent.m_controls.size(); i++)
 		{
 			if(m_parent.m_controls[i]->valueSlider.m_hWnd == pScrollBar)
@@ -469,7 +469,7 @@ bool CTempoSwingDlg::SliderContainer::OnToolTipNotify(uint32 )
 	TOOLTIPTEXT *pTTT = reinterpret_cast<TOOLTIPTEXT *>(pNMHDR);
 	if(!(pTTT->uFlags & TTF_IDISHWND))
 		return false;
-	CSliderCtrl *slider = dynamic_cast<CSliderCtrl *>(mfcless::Window<QWidget>::FromHandlePermanent(reinterpret_cast<QWidget *>(pNMHDR->idFrom)));
+	QSlider *slider = dynamic_cast<QSlider *>(mfcless::Window<QWidget>::FromHandlePermanent(reinterpret_cast<QWidget *>(pNMHDR->idFrom)));
 	if(slider != nullptr)
 	{
 		int32 val = Util::muldivr(m_parent.m_tempoSwing[GetWindowLongPtr(*slider, GWLP_USERDATA)], 100, TempoSwing::Unity) - 100;

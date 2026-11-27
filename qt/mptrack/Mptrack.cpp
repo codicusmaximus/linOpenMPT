@@ -1797,6 +1797,18 @@ void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const QFont &font, const m
 }
 
 
+void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const mfcless::Rect &rect, const char8_t *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
+{
+	DrawButtonRectImpl(hdc, lineWidth, CMainFrame::GetGUIFont(), rect, text, disabled, pushed, dwFlags, topMargin);
+}
+
+
+void DrawButtonRect(mfcless::DC * hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const char8_t *text, bool disabled, bool pushed, uint32 dwFlags, uint32 topMargin)
+{
+	DrawButtonRectImpl(hdc, lineWidth, font, rect, text, disabled, pushed, dwFlags, topMargin);
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////
 // Misc functions
 

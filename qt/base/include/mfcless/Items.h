@@ -10,7 +10,9 @@
 
 #include "mfcless/QtString.h"
 
+#include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
 
 namespace mfcless
@@ -95,6 +97,103 @@ inline ::mpt::ustring ItemText(const QListWidget *list, int index)
 {
 	const QListWidgetItem *item = list->item(index);
 	return item ? FromQString(item->text()) : ::mpt::ustring();
+}
+
+// String literals (UL_) pick the ustring forms.
+inline int AddItem(QComboBox *combo, const char8_t *text, uintptr_t data = 0) { return AddItem(combo, ::mpt::ustring(text), data); }
+inline int AddItem(QListWidget *list, const char8_t *text, uintptr_t data = 0) { return AddItem(list, ::mpt::ustring(text), data); }
+inline int AddItem(QComboBox *combo, const char *text, uintptr_t data = 0) { return AddItem(combo, QString::fromUtf8(text), data); }
+inline int AddItem(QListWidget *list, const char *text, uintptr_t data = 0) { return AddItem(list, QString::fromUtf8(text), data); }
+
+// A pointer attached to an item.
+inline void SetItemDataPtr(QComboBox *combo, int index, const void *p) { SetItemData(combo, index, reinterpret_cast<uintptr_t>(p)); }
+inline void *GetItemDataPtr(const QComboBox *combo, int index) { return reinterpret_cast<void *>(GetItemData(combo, index)); }
+inline void SetItemDataPtr(QListWidget *list, int index, const void *p) { SetItemData(list, index, reinterpret_cast<uintptr_t>(p)); }
+inline void *GetItemDataPtr(const QListWidget *list, int index) { return reinterpret_cast<void *>(GetItemData(list, index)); }
+
+// The selection of a list box with several selected items.
+inline void SetSel(QListWidget *list, int index, bool select = true)
+{
+	if(index < 0)
+	{
+		for(int i = 0; i < list->count(); i++)
+			list->item(i)->setSelected(select);
+	} else if(QListWidgetItem *item = list->item(index))
+	{
+		item->setSelected(select);
+	}
+}
+inline bool GetSel(const QListWidget *list, int index)
+{
+	const QListWidgetItem *item = list->item(index);
+	return item && item->isSelected();
+}
+inline void SelItemRange(QListWidget *list, bool select, int first, int last)
+{
+	for(int i = first; i <= last && i < list->count(); i++)
+		SetSel(list, i, select);
+}
+inline int GetSelCount(const QListWidget *list) { return static_cast<int>(list->selectedItems().size()); }
+inline void DeleteString(QListWidget *list, int index) { delete list->takeItem(index); }
+
+// An edit field's selection (from start to before end; end -1: to the end).
+inline void SetSel(QLineEdit *edit, int start, int end, bool /*noScroll*/ = false)
+{
+	const int length = static_cast<int>(edit->text().size());
+	if(start < 0)
+	{
+		edit->deselect();
+		return;
+	}
+	if(end < 0 || end > length)
+		end = length;
+	edit->setSelection(start, end - start);
+}
+inline void GetSel(const QLineEdit *edit, int &start, int &end)
+{
+	if(edit->hasSelectedText())
+	{
+		start = edit->selectionStart();
+		end = start + static_cast<int>(edit->selectedText().size());
+	} else
+	{
+		start = end = edit->cursorPosition();
+	}
+}
+
+// Check marks: of a list box's items (a check list box) or of a button
+// (0 unchecked, 1 checked, 2 indeterminate).
+inline void SetCheck(QListWidget *list, int index, int check)
+{
+	if(QListWidgetItem *item = list->item(index))
+	{
+		item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+		item->setCheckState(check == 2 ? Qt::PartiallyChecked : (check ? Qt::Checked : Qt::Unchecked));
+	}
+}
+inline int GetCheck(const QListWidget *list, int index)
+{
+	const QListWidgetItem *item = list->item(index);
+	if(!item)
+		return 0;
+	return item->checkState() == Qt::Checked ? 1 : (item->checkState() == Qt::PartiallyChecked ? 2 : 0);
+}
+inline void SetCheck(QAbstractButton *button, int check)
+{
+	if(auto *box = qobject_cast<QCheckBox *>(button); box && check == 2)
+	{
+		box->setTristate(true);
+		box->setCheckState(Qt::PartiallyChecked);
+	} else
+	{
+		button->setChecked(check != 0);
+	}
+}
+inline int GetCheck(const QAbstractButton *button)
+{
+	if(auto *box = qobject_cast<const QCheckBox *>(button); box && box->checkState() == Qt::PartiallyChecked)
+		return 2;
+	return button->isChecked() ? 1 : 0;
 }
 
 } // namespace mfcless

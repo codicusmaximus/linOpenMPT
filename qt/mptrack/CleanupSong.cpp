@@ -3,7 +3,7 @@
  * ---------------
  * Purpose: Dialog for cleaning up modules (rearranging, removing unused items).
  * Notes  : mfcless twin of upstream's mptrack/CleanupSong.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -184,11 +184,11 @@ void CModCleanupDlg::OnOK()
 
 void CModCleanupDlg::OnVerifyMutualExclusive()
 {
-	QWidget * hFocus = mfcless::GetFocus()->m_hWnd;
+	QWidget * hFocus = mfcless::GetFocus();
 	for(int i = 0; i < kMaxCleanupOptions; i++)	
 	{
 		// if this item is focussed, we have just (un)checked it.
-		if(hFocus == GetDlgItem(m_CleanupIDtoDlgID[i])->m_hWnd)
+		if(hFocus == GetDlgItem(m_CleanupIDtoDlgID[i]))
 		{
 			// if we just unchecked it, there's nothing to verify.
 			if(IsChecked(m_CleanupIDtoDlgID[i]) == 0)

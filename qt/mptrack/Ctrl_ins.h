@@ -163,8 +163,8 @@ public:
 protected:
 	void PrepareUndo(const char *description);
 	void OnEditFocus();
-	void OnVScroll(uint32 nCode, uint32 nPos, QScrollBar *pSB);
-	void OnHScroll(uint32 nCode, uint32 nPos, QScrollBar *pSB);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnTbnDropDownToolBar();
 	void OnInstrumentChanged();
 	void OnPrevInstrument();

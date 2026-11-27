@@ -35,6 +35,8 @@
 #include "mfcless/QtString.h"
 
 #include <QtCore/QTimer>
+#include <QtGui/QPixmap>
+#include <QtGui/QScreen>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
@@ -184,6 +186,15 @@ int RescueModifiedModules(const mpt::PathString &folder)
 
 void CloseAll(QWidget *mainWidget, int attempt);
 
+// A window's picture. A window with another toolkit's windows inside (a
+// plugin editor) is taken from the screen, as Qt does not draw those.
+QPixmap Grab(QWidget *w)
+{
+	if(w->property("mfclessForeignWindows").toBool() && w->isVisible() && w->screen() != nullptr)
+		return w->screen()->grabWindow(w->winId());
+	return w->grab();
+}
+
 void ScheduleTestHooks()
 {
 	const char *file = std::getenv("LINOPENMPT_SCREENSHOT");
@@ -261,7 +272,7 @@ void ScheduleTestHooks()
 		const bool dump = std::getenv("LINOPENMPT_DUMP_WINDOWS") != nullptr;
 		if(mainWidget != nullptr)
 		{
-			mainWidget->grab().save(path);
+			Grab(mainWidget).save(path);
 			if(dump)
 				DumpWidgets(mainWidget, mainWidget, 0);
 		}
@@ -271,7 +282,7 @@ void ScheduleTestHooks()
 		int index = 0;
 		for(QWidget *w : OtherWindows(mainWidget))
 		{
-			w->grab().save(QStringLiteral("%1-%2%3").arg(base).arg(++index).arg(suffix));
+			Grab(w).save(QStringLiteral("%1-%2%3").arg(base).arg(++index).arg(suffix));
 			if(dump)
 				DumpWidgets(w, w, 0);
 		}

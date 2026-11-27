@@ -3,7 +3,7 @@
  * ---------------------
  * Purpose: Alternative sample tuning configuration dialog - ratio map edit control.
  * Notes  : mfcless twin of upstream's mptrack/tuningRatioMapWnd.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -50,17 +50,14 @@ void CTuningRatioMapWnd::OnPaint()
 	
 	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText);
 	const auto colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
-	const auto highlightBrush = GetSysColorBrush(COLOR_HIGHLIGHT), windowBrush = GetSysColorBrush(COLOR_WINDOW);
+	const auto highlightBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Highlight)), windowBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Window));
 	const int lineWidth = HighDPISupport::ScalePixels(1, *this);
 
-	if(int dpi = HighDPISupport::GetDpiForWindow(this); m_dpi != dpi)
+	if(int dpi = HighDPISupport::GetDpiForWindow(this); m_dpi != dpi || !m_fontCreated)
 	{
-		m_font.DeleteObject();
 		m_dpi = dpi;
-	}
-	if(!m_font.m_hObject)
-	{
 		HighDPISupport::CreateGUIFont(m_font, this);
+		m_fontCreated = true;
 		m_cxFont = m_cyFont = 0;
 	}
 
@@ -98,7 +95,7 @@ void CTuningRatioMapWnd::OnPaint()
 			const bool highLight = focus && (nPos == (int)m_nNote);
 			rect.left = rect.right;
 			rect.right = m_cxFont*4-1;
-			FillRect(dc, &rect, highLight ? highlightBrush : windowBrush);
+			mfcless::FillRect(dc, &rect, highLight ? highlightBrush : windowBrush);
 			if(nPos == (int)m_nNote)
 			{
 				rect.InflateRect(-1, -1);
@@ -122,7 +119,7 @@ void CTuningRatioMapWnd::OnPaint()
 		if (ypaint < rcClient.bottom)
 		{
 			rect.SetRect(rcClient.left, ypaint, rcClient.right, rcClient.bottom);
-			FillRect(dc, &rect, GetSysColorBrush(COLOR_BTNFACE));
+			mfcless::FillRect(dc, &rect, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)));
 		}
 	}
 	dc.SelectObject(oldFont);

@@ -625,8 +625,8 @@ void CChannelManagerDlg::OnPaint()
 	// Draw background
 	{
 		const auto bgIntersected = client & pDC.rcPaint;  // In case of partial redraws, FillRect may still draw into areas that are not part of the redraw area and thus make some buttons disappear
-		::FillRect(dc, &pDC.rcPaint, GetSysColorBrush(COLOR_BTNFACE));
-		::FillRect(dc, &bgIntersected, GetSysColorBrush(COLOR_HIGHLIGHT));
+		mfcless::FillRect(dc, &pDC.rcPaint, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)));
+		mfcless::FillRect(dc, &bgIntersected, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Highlight)));
 		::SetDCBrushColor(dc, mfcless::Rgb(20, 20, 20));
 		::FrameRect(dc, &client, dcBrush);
 	}
@@ -673,7 +673,7 @@ void CChannelManagerDlg::OnPaint()
 		auto btnAdjusted = btn;  // Without border
 		::DrawEdge(dc, btnAdjusted, enable ? mfcless::edge::Raised : mfcless::edge::Sunken, mfcless::edge::Rect | mfcless::edge::Middle | mfcless::edge::Adjust);
 		if(activate)
-			::FillRect(dc, btnAdjusted, GetSysColorBrush(COLOR_WINDOW));
+			mfcless::FillRect(dc, btnAdjusted, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Window)));
 
 		if(chnSettings.color != ModChannelSettings::INVALID_COLOR)
 		{
@@ -691,7 +691,7 @@ void CChannelManagerDlg::OnPaint()
 				                      mpt::saturate_round<uint8>(mfcless::GreenOf(startColor) * blend + mfcless::GreenOf(endColor) * blendInv),
 				                      mpt::saturate_round<uint8>(mfcless::BlueOf(startColor) * blend + mfcless::BlueOf(endColor) * blendInv));
 				::SetDCBrushColor(dc, blendColor);
-				::FillRect(dc, &rect, dcBrush);
+				mfcless::FillRect(dc, &rect, dcBrush);
 				rect.left++;
 				rect.right++;
 			}
@@ -736,7 +736,7 @@ void CChannelManagerDlg::OnPaint()
 				break;
 			}
 			::SetDCBrushColor(dc, color);
-			::FillRect(dc, rect, dcBrush);
+			mfcless::FillRect(dc, rect, dcBrush);
 			// Draw border around marker
 			::SetDCBrushColor(dc, mfcless::Rgb(20, 20, 20));
 			::FrameRect(dc, rect, dcBrush);

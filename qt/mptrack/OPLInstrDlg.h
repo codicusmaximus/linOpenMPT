@@ -54,7 +54,7 @@ protected:
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 	void OnOK() override { }
 	void OnCancel() override { }
-	void OnHScroll(uint32, uint32, QScrollBar *) { ParamsChanged(); }
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar) { ParamsChanged(); }
 	intptr_t OnDragonDropping(uintptr_t wParam, intptr_t lParam);
 	void RegisterMessageMap() override;
 };

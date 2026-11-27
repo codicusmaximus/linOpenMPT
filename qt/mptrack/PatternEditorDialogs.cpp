@@ -182,7 +182,7 @@ bool CPatternPropertiesDlg::OnInitDialog()
 	m_spinPattern->SetRange(-1, 1);
 	SetItemInt(IDC_EDIT1, m_nPattern);
 	CheckRadio(IDC_RADIO1, IDC_RADIO2, IDC_RADIO2);
-	static_cast<CEdit *>(GetDlgItem(IDC_EDIT2))->SetLimitText(MAX_PATTERNNAME - 1);
+	Item<QLineEdit>(IDC_EDIT2)->SetLimitText(MAX_PATTERNNAME - 1);
 
 	m_locked = false;
 	SetCurrentPattern(m_nPattern);
@@ -214,7 +214,7 @@ void CPatternPropertiesDlg::SetCurrentPattern(PATTERNINDEX pat)
 		const mpt::ustring patternName = mpt::ToUnicode(sndFile.GetCharsetInternal(), prop.name);
 		SetItemText(IDC_EDIT2, patternName);
 		mpt::ustring s = MPT_UFORMAT("Pattern Properties for Pattern #{}")(m_nPattern);
-		if(!patternName.IsEmpty())
+		if(!patternName.empty())
 		{
 			s += UL_(" (");
 			s += patternName;
@@ -237,7 +237,7 @@ void CPatternPropertiesDlg::SetCurrentPattern(PATTERNINDEX pat)
 		OnOverrideSignature();
 	} else
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 	}
 }
 
@@ -322,7 +322,7 @@ void CPatternPropertiesDlg::OnPatternChanged()
 }
 
 
-void CPatternPropertiesDlg::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CPatternPropertiesDlg::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	DialogBase::OnVScroll(nSBCode, nPos, pScrollBar);
 
@@ -1070,7 +1070,7 @@ void CEditCommand::PrepareUndo(const char *description)
 }
 
 
-void CEditCommand::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *bar)
+void CEditCommand::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *bar)
 {
 	if(bar == static_cast<QWidget *>(&sldVolParam))
 	{
@@ -1619,7 +1619,7 @@ void QuickChannelProperties::UpdateDisplay()
 	for(int button : PrevNextButtons)
 	{
 		const QWidget *wnd = GetDlgItem(button);
-		if (oldFocusWnd == wnd && !wnd->IsWindowEnabled())
+		if (oldFocusWnd == wnd && !wnd->isEnabled())
 		{
 			SetFocusToFirstControl();
 			break;
@@ -1676,7 +1676,7 @@ void QuickChannelProperties::OnPanChanged()
 }
 
 
-void QuickChannelProperties::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *bar)
+void QuickChannelProperties::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *bar)
 {
 	if(!m_visible)
 	{
@@ -1908,7 +1908,7 @@ mpt::ustring QuickChannelProperties::GetToolTipText(uint32 id, QWidget *) const
 	if(cmd != kcNull)
 	{
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-		if(!keyText.IsEmpty())
+		if(!keyText.empty())
 			text += MPT_UFORMAT(" ({})")(keyText);
 	}
 
@@ -1952,7 +1952,7 @@ MetronomeSettingsDlg::MetronomeSettingsDlg(QWidget *parent)
 { }
 
 
-void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, CComboBox &combo, CEdit &edit, CButton &browseButton)
+void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, QComboBox &combo, QLineEdit &edit, CButton &browseButton)
 {
 	bool enable = false;
 	if(path.empty())
@@ -2000,7 +2000,7 @@ mpt::ustring MetronomeSettingsDlg::GetVolumeString() const
 }
 
 
-void MetronomeSettingsDlg::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *bar)
+void MetronomeSettingsDlg::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *bar)
 {
 	if(bar == static_cast<QWidget *>(m_volumeSlider))
 	{
@@ -2018,7 +2018,7 @@ void MetronomeSettingsDlg::OnToggleMetronome()
 }
 
 
-bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, CComboBox &combo, CEdit &edit, CButton &browseButton)
+bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, QComboBox &combo, QLineEdit &edit, CButton &browseButton)
 {
 	mpt::ustring s;
 	bool modified = false;

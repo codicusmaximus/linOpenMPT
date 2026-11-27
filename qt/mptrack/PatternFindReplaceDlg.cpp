@@ -34,7 +34,7 @@ public:
 		kNotes,
 	};
 protected:
-	CComboBox m_cbnMin, m_cbnMax;
+	QComboBox *m_cbnMin = nullptr, *m_cbnMax = nullptr;
 	int m_minVal, m_minDefault;
 	int m_maxVal, m_maxDefault;
 	DisplayMode m_displayMode;
@@ -71,8 +71,8 @@ protected:
 		{
 			const int numItems = m_minVal - m_maxVal + 1;
 			const uint32 strSize = static_cast<uint32>(numItems * 4 * sizeof(mpt::uchar));
-			m_cbnMin.InitStorage(numItems, strSize);
-			m_cbnMax.InitStorage(numItems, strSize);
+			m_cbnMin->InitStorage(numItems, strSize);
+			m_cbnMax->InitStorage(numItems, strSize);
 			const mpt::uchar *formatString;
 			if(m_displayMode == kHex && m_maxVal <= 0x0F)
 				formatString = UL_("%01X");
@@ -84,8 +84,8 @@ protected:
 			{
 				mpt::uchar s[16];
 				wsprintf(s, formatString, i);
-				m_cbnMin.SetItemData(m_cbnMin.AddString(s), i);
-				m_cbnMax.SetItemData(m_cbnMax.AddString(s), i);
+				mfcless::SetItemData(m_cbnMin, mfcless::AddItem(m_cbnMin, s), i);
+				mfcless::SetItemData(m_cbnMax, mfcless::AddItem(m_cbnMax, s), i);
 			}
 		}
 		if(m_minDefault < m_minVal || m_minDefault > m_maxDefault)
@@ -93,8 +93,8 @@ protected:
 			m_minDefault = m_minVal;
 			m_maxDefault = m_maxVal;
 		}
-		m_cbnMin.SetCurSel(m_minDefault - m_minVal);
-		m_cbnMax.SetCurSel(m_maxDefault - m_minVal);
+		m_cbnMin->setCurrentIndex(m_minDefault - m_minVal);
+		m_cbnMax->setCurrentIndex(m_maxDefault - m_minVal);
 
 		return true;
 	}
@@ -102,8 +102,8 @@ protected:
 	void OnOK() override
 	{
 		DialogBase::OnOK();
-		m_minVal = static_cast<int>(m_cbnMin.GetItemData(m_cbnMin.GetCurSel()));
-		m_maxVal = static_cast<int>(m_cbnMax.GetItemData(m_cbnMax.GetCurSel()));
+		m_minVal = static_cast<int>(mfcless::GetItemData(m_cbnMin, m_cbnMin->currentIndex()));
+		m_maxVal = static_cast<int>(mfcless::GetItemData(m_cbnMax, m_cbnMax->currentIndex()));
 		if(m_maxVal < m_minVal)
 			std::swap(m_minVal, m_maxVal);
 	}
@@ -190,8 +190,8 @@ bool CFindReplaceTab::OnInitDialog()
 		EnableItem(IDC_RADIO3, flags[FindReplace::InPatSelection] ? true : false);
 		SetItemInt(IDC_EDIT1, m_settings.findChnMin + 1);
 		SetItemInt(IDC_EDIT2, m_settings.findChnMax + 1);
-		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, m_sndFile.GetNumChannels());
-		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, m_sndFile.GetNumChannels());
+		Item<mfcless::UpDown>(IDC_SPIN1)->SetRange(1, m_sndFile.GetNumChannels());
+		Item<mfcless::UpDown>(IDC_SPIN2)->SetRange(1, m_sndFile.GetNumChannels());
 
 		// Pre-fill with selected pattern data
 		if(!flags[FindReplace::Note] && m_initialValues.note != NOTE_NONE)
@@ -277,7 +277,7 @@ bool CFindReplaceTab::OnInitDialog()
 	mfcless::SetItemData(m_cbnVolCmd, mfcless::AddItem(m_cbnVolCmd, UL_(" None")), (uintptr_t)-1);
 	for (uint32 n = 0; n < count; n++)
 	{
-		if(m_effectInfo.GetVolCmdInfo(n, &s) && !s.IsEmpty())
+		if(m_effectInfo.GetVolCmdInfo(n, &s) && !s.empty())
 		{
 			mfcless::SetItemData(m_cbnVolCmd, mfcless::AddItem(m_cbnVolCmd, s), n);
 		}
@@ -301,7 +301,7 @@ bool CFindReplaceTab::OnInitDialog()
 		mfcless::SetItemData(m_cbnCommand, mfcless::AddItem(m_cbnCommand, UL_(" None")), (uintptr_t)-1);
 		for (uint32 n = 0; n < count; n++)
 		{
-			if(m_effectInfo.GetEffectInfo(n, &s, true) && !s.IsEmpty())
+			if(m_effectInfo.GetEffectInfo(n, &s, true) && !s.empty())
 			{
 				mfcless::SetItemData(m_cbnCommand, mfcless::AddItem(m_cbnCommand, s), n);
 			}
@@ -344,15 +344,15 @@ void CFindReplaceTab::UpdateInstrumentList()
 	int oldSelection = (m_isReplaceTab ? m_settings.replaceInstr : m_settings.findInstrMin);
 	int sel = (oldSelection == 0) ? 0 : -1;
 	m_cbnInstr->setUpdatesEnabled(false);
-	m_cbnInstr->ResetContent();
+	m_cbnInstr->clear();
 	const int numItems = (isPCEvent ? MAX_MIXPLUGINS : MAX_INSTRUMENTS) + 3;
 	m_cbnInstr->InitStorage(numItems, static_cast<uint32>(numItems * 32 * sizeof(mpt::uchar)));
-	m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("..")), 0);
+	mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, UL_("..")), 0);
 	if (m_isReplaceTab)
 	{
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? UL_("Plugin -1") : UL_("Instrument -1")), kReplaceInstrumentMinusOne);
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? UL_("Plugin +1") : UL_("Instrument +1")), kReplaceInstrumentPlusOne);
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("Other...")), kReplaceRelative);
+		mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, isPCEvent ? UL_("Plugin -1") : UL_("Instrument -1")), kReplaceInstrumentMinusOne);
+		mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, isPCEvent ? UL_("Plugin +1") : UL_("Instrument +1")), kReplaceInstrumentPlusOne);
+		mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, UL_("Other...")), kReplaceRelative);
 		if(m_settings.replaceInstrAction == FindReplace::ReplaceRelative)
 		{
 			switch(m_settings.replaceInstr)
@@ -364,7 +364,7 @@ void CFindReplaceTab::UpdateInstrumentList()
 		}
 	} else
 	{
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("Range...")), kFindRange);
+		mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, UL_("Range...")), kFindRange);
 		if(m_settings.findInstrMin < m_settings.findInstrMax)
 			sel = 1;
 	}
@@ -386,12 +386,12 @@ void CFindReplaceTab::UpdateInstrumentList()
 				s += mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetInstrumentName(n));
 			else
 				s += mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[n]);
-			m_cbnInstr->SetItemData(m_cbnInstr->AddString(s), n);
+			mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, s), n);
 		}
 	}
 	m_cbnInstr->SetRawSelection(sel);
 	m_cbnInstr->setUpdatesEnabled(true);
-	m_cbnInstr->update(false);
+	m_cbnInstr->update();
 	if(updateInstr)
 		OnInstrChanged();
 }
@@ -482,7 +482,7 @@ void CFindReplaceTab::UpdateParamList()
 		}
 		m_cbnParam->setCurrentIndex(sel);
 		m_cbnParam->setUpdatesEnabled(true);
-		m_cbnParam->update(false);
+		m_cbnParam->update();
 	}
 }
 
@@ -501,7 +501,7 @@ void CFindReplaceTab::UpdateVolumeList()
 	// Update plugin parameter list
 	PLUGINDEX plug = PLUGINDEX_INVALID;
 	int plugData = 0;
-	if(int sel = m_cbnInstr->GetRawSelection(); sel >= 0 && m_cbnInstr->GetItemData(sel) < kBeginSpecial)
+	if(int sel = m_cbnInstr->GetRawSelection(); sel >= 0 && mfcless::GetItemData(m_cbnInstr, sel) < kBeginSpecial)
 	{
 		plug = m_cbnInstr->GetSelection().value_or(PLUGINDEX_INVALID);
 		plugData = (plug != PLUGINDEX_INVALID) ? plug + 1 : 0;
@@ -531,7 +531,7 @@ void CFindReplaceTab::UpdateVolumeList()
 		}
 		m_cbnPCParam->setCurrentIndex(sel);
 		m_cbnPCParam->setUpdatesEnabled(true);
-		m_cbnPCParam->update(false);
+		m_cbnPCParam->update();
 	}
 
 	m_cbnVolCmd->setVisible(isPCEvent ? mfcless::show::Hide : mfcless::show::Show);
@@ -606,7 +606,7 @@ void CFindReplaceTab::UpdateVolumeList()
 		}
 		m_cbnVolume->setCurrentIndex(sel);
 		m_cbnVolume->setUpdatesEnabled(true);
-		m_cbnVolume->update(false);
+		m_cbnVolume->update();
 	}
 }
 
@@ -669,7 +669,7 @@ void CFindReplaceTab::OnNoteChanged()
 void CFindReplaceTab::OnInstrChanged()
 {
 	CheckOnChange(IDC_CHECK2);
-	int item = static_cast<int>(m_cbnInstr->GetItemData(m_cbnInstr->GetRawSelection()));
+	int item = static_cast<int>(mfcless::GetItemData(m_cbnInstr, m_cbnInstr->GetRawSelection()));
 	if(item < kBeginSpecial && IsPCEvent())
 	{
 		if(auto sel = m_cbnInstr->GetSelection(); sel)
@@ -732,7 +732,7 @@ void CFindReplaceTab::OnVolCmdChanged()
 };
 
 
-void CFindReplaceTab::RelativeOrMultiplyPrompt(CComboBox &comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex)
+void CFindReplaceTab::RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex)
 {
 	int sel = comboBox.GetCurSel();
 	int item = static_cast<int>(comboBox.GetItemData(sel));

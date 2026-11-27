@@ -3,7 +3,7 @@
  * ------------------
  * Purpose: An abortable, progress-indicating dialog, e.g. for showing conversion progress.
  * Notes  : mfcless twin of upstream's mptrack/ProgressDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -29,13 +29,7 @@ CProgressDialog::CProgressDialog(QWidget *parent, uint32 resourceID)
 
 CProgressDialog::~CProgressDialog()
 {
-	if(m_taskBarList)
-	{
-		m_taskBarList->SetProgressState(*theApp.m_pMainWnd, TBPF_NOPROGRESS);
-		m_taskBarList->Release();
-	}
-
-	if(IsWindow(this))
+	if(isVisible())
 	{
 		// This should only happen if this dialog gets destroyed as part of stack unwinding
 		EndDialog(IDCANCEL);
@@ -52,20 +46,20 @@ bool CProgressDialog::OnInitDialog()
 }
 
 
-void CProgressDialog::SetTitle(const mpt::uchar *title)
+void CProgressDialog::SetTitle(const mpt::ustring &title)
 {
 	SetWindowText(title);
 }
 
 
 
-void CProgressDialog::SetAbortText(const mpt::uchar *abort)
+void CProgressDialog::SetAbortText(const mpt::ustring &abort)
 {
 	SetItemText(IDCANCEL, abort);
 }
 
 
-void CProgressDialog::SetText(const mpt::uchar *text)
+void CProgressDialog::SetText(const mpt::ustring &text)
 {
 	SetItemText(IDC_TEXT1, text);
 }
@@ -83,41 +77,30 @@ void CProgressDialog::SetRange(uint64 min, uint64 max)
 		m_shift++;
 		max >>= 1;
 	}
-	::SendMessage(::GetDlgItem(this, IDC_PROGRESS1), PBM_SETRANGE32, static_cast<uint32>(m_min >> m_shift), static_cast<uint32>(m_max >> m_shift));
+	if(auto *bar = Item<QProgressBar>(IDC_PROGRESS1))
+		bar->setRange(static_cast<int>(m_min >> m_shift), static_cast<int>(m_max >> m_shift));
 }
 
 
 void CProgressDialog::SetProgress(uint64 progress)
 {
-	::SendMessage(::GetDlgItem(this, IDC_PROGRESS1), PBM_SETPOS, static_cast<uint32>(progress >> m_shift), 0);
-	if(m_taskBarList != nullptr)
-	{
-		m_taskBarList->SetProgressValue(*theApp.m_pMainWnd, progress - m_min, m_max - m_min);
-	}
+	if(auto *bar = Item<QProgressBar>(IDC_PROGRESS1))
+		bar->setValue(static_cast<int>(progress >> m_shift));
 }
 
 
 void CProgressDialog::EnableTaskbarProgress()
 {
-	if(CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_ALL, IID_ITaskbarList3, (void**)&m_taskBarList) != S_OK)
-	{
-		return;
-	}
-	if(m_taskBarList != nullptr)
-	{
-		m_taskBarList->SetProgressState(*theApp.m_pMainWnd, TBPF_NORMAL);
-	}
+	// mfcless: Windows' taskbar progress (ITaskbarList3) has no portable
+	// counterpart on Linux desktops.
+	m_taskBarProgress = true;
 }
 
 
 void CProgressDialog::ProcessMessages()
 {
-	MSG msg;
-	while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-	{
-		::TranslateMessage(&msg);
-		::DispatchMessage(&msg);
-	}
+	QCoreApplication::processEvents();
 }
+
 
 OPENMPT_NAMESPACE_END

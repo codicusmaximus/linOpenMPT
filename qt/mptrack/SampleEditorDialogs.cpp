@@ -54,14 +54,14 @@ CAmpDlg::CAmpDlg(QWidget *parent, AmpSettings &settings, int16 factorMin, int16 
 bool CAmpDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
-	CSpinButtonCtrl *spin = (CSpinButtonCtrl *)GetDlgItem(IDC_SPIN1);
-	spin->SetRange32(m_nFactorMin, m_nFactorMax);
+	mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN1);
+	spin->SetRange(m_nFactorMin, m_nFactorMax);
 	spin->SetPos32(m_settings.factor);
-	spin = (CSpinButtonCtrl *)GetDlgItem(IDC_SPIN2);
-	spin->SetRange32(0, 100);
+	spin = Item<mfcless::UpDown>(IDC_SPIN2);
+	spin->SetRange(0, 100);
 	spin->SetPos32(m_settings.fadeInStart);
-	spin = (CSpinButtonCtrl *)GetDlgItem(IDC_SPIN3);
-	spin->SetRange32(0, 100);
+	spin = Item<mfcless::UpDown>(IDC_SPIN3);
+	spin->SetRange(0, 100);
 	spin->SetPos32(m_settings.fadeOutEnd);
 
 	SetItemInt(IDC_EDIT1, m_settings.factor);
@@ -506,17 +506,17 @@ bool AddSilenceDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 
-	CSpinButtonCtrl *spin = static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN_ADDSILENCE));
+	mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN_ADDSILENCE);
 	if(spin)
 	{
-		spin->SetRange32(0, int32_max);
+		spin->SetRange(0, int32_max);
 		spin->SetPos32(m_numSamples);
 	}
 
 	m_ComboUnit->SetAccessibleName(UL_("Length unit"));
-	m_ComboUnit->AddString(UL_("samples"));
-	m_ComboUnit->AddString(UL_("ms"));
-	m_ComboUnit->SetCurSel(m_unit);
+	mfcless::AddItem(m_ComboUnit, UL_("samples"));
+	mfcless::AddItem(m_ComboUnit, UL_("ms"));
+	m_ComboUnit->setCurrentIndex(m_unit);
 	if(m_sampleRate == 0)
 	{
 		// Can't do any conversions if samplerate is unknown
@@ -604,7 +604,7 @@ void AddSilenceDlg::OnEditModeChanged()
 
 void AddSilenceDlg::OnUnitChanged()
 {
-	const auto unit = static_cast<Unit>(m_ComboUnit->GetCurSel());
+	const auto unit = static_cast<Unit>(m_ComboUnit->currentIndex());
 	if(m_unit == unit)
 		return;
 
@@ -780,7 +780,7 @@ void CSampleXFadeDlg::OnFadeLengthChanged()
 }
 
 
-void CSampleXFadeDlg::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *sb)
+void CSampleXFadeDlg::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *sb)
 {
 	if(sb == (CScrollBar *)(m_SliderLength))
 	{
@@ -866,11 +866,11 @@ bool CResamplingDlg::OnInitDialog()
 
 
 	SetItemInt(IDC_EDIT1, m_lastFrequency);
-	CSpinButtonCtrl *spin = static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1));
-	spin->SetRange32(1, 999999);
+	mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN1);
+	spin->SetRange(1, 999999);
 	spin->SetPos32(m_lastFrequency);
 
-	CComboBox *cbnResampling = static_cast<CComboBox *>(GetDlgItem(IDC_COMBO_FILTER));
+	QComboBox *cbnResampling = Item<QComboBox>(IDC_COMBO_FILTER);
 	cbnResampling->SetRedraw(false);
 	const auto resamplingModes = Resampling::AllModesWithDefault();
 	for(auto mode : resamplingModes)
@@ -879,10 +879,10 @@ bool CResamplingDlg::OnInitDialog()
 		if(mode != SRCMODE_DEFAULT)
 			desc = CTrackApp::GetResamplingModeName(mode, 1, true);
 
-		int index = cbnResampling->AddString(desc);
-		cbnResampling->SetItemData(index, mode);
+		int index = mfcless::AddItem(cbnResampling, desc);
+		mfcless::SetItemData(cbnResampling, index, mode);
 		if(m_srcMode == mode)
-			cbnResampling->SetCurSel(index);
+			cbnResampling->setCurrentIndex(index);
 	}
 	cbnResampling->SetRedraw(true);
 
@@ -914,14 +914,14 @@ void CResamplingDlg::OnOK()
 			m_lastFrequency = m_frequency = newFrequency;
 		} else
 		{
-			mfcless::MessageBeep(nfIconWarning);
+			mfcless::MessageBeep();
 			mfcless::GotoDlgCtrl(GetDlgItem(IDC_EDIT1));
 			return;
 		}
 	}
 
-	CComboBox *cbnResampling = static_cast<CComboBox *>(GetDlgItem(IDC_COMBO_FILTER));
-	m_srcMode = static_cast<ResamplingMode>(cbnResampling->GetItemData(cbnResampling->GetCurSel()));
+	QComboBox *cbnResampling = Item<QComboBox>(IDC_COMBO_FILTER);
+	m_srcMode = static_cast<ResamplingMode>(mfcless::GetItemData(cbnResampling, cbnResampling->currentIndex()));
 
 	m_updatePatternCommands = IsChecked(IDC_CHECK1) != 0;
 	m_updatePatternNotes = IsChecked(IDC_CHECK2) != 0;

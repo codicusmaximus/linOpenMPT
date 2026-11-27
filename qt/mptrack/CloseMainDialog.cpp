@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: Dialog showing a list of unsaved documents, with the ability to choose which documents should be saved or not.
  * Notes  : mfcless twin of upstream's mptrack/CloseMainDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -63,8 +63,8 @@ bool CloseMainDialog::OnInitDialog()
 		if(modDoc->IsModified())
 		{
 			int item = mfcless::AddItem(m_List, FormatTitle(*modDoc, true));
-			m_List->SetItemDataPtr(item, modDoc);
-			m_List->SetSel(item, true);
+			mfcless::SetItemDataPtr(m_List, item, modDoc);
+			mfcless::SetSel(m_List, item, true);
 		}
 	}
 	m_List->setUpdatesEnabled(true);
@@ -84,9 +84,9 @@ void CloseMainDialog::OnOK()
 	const int count = m_List->count();
 	for(int i = 0; i < count; i++)
 	{
-		CModDoc *modDoc = static_cast<CModDoc *>(m_List->GetItemDataPtr(i));
+		CModDoc *modDoc = static_cast<CModDoc *>(mfcless::GetItemDataPtr(m_List, i));
 		MPT_ASSERT(modDoc != nullptr);
-		if(m_List->GetSel(i))
+		if(mfcless::GetSel(m_List, i))
 		{
 			modDoc->ActivateWindow();
 			if(modDoc->DoFileSave() == false)
@@ -108,9 +108,9 @@ void CloseMainDialog::OnOK()
 void CloseMainDialog::OnSaveAll()
 {
 	if(m_List->count() == 1)
-		m_List->SetSel(0, true);	// SelItemRange can't select one item: https://jeffpar.github.io/kbarchive/kb/129/Q129428/
+		mfcless::SetSel(m_List, 0, true);	// SelItemRange can't select one item: https://jeffpar.github.io/kbarchive/kb/129/Q129428/
 	else
-		m_List->SelItemRange(true, 0, m_List->count() - 1);
+		mfcless::SelItemRange(m_List, true, 0, m_List->count() - 1);
 	OnOK();
 }
 
@@ -118,9 +118,9 @@ void CloseMainDialog::OnSaveAll()
 void CloseMainDialog::OnSaveNone()
 {
 	if(m_List->count() == 1)
-		m_List->SetSel(0, false);	// SelItemRange can't select one item: https://jeffpar.github.io/kbarchive/kb/129/Q129428/
+		mfcless::SetSel(m_List, 0, false);	// SelItemRange can't select one item: https://jeffpar.github.io/kbarchive/kb/129/Q129428/
 	else
-		m_List->SelItemRange(false, 0, m_List->count() - 1);
+		mfcless::SelItemRange(m_List, false, 0, m_List->count() - 1);
 	OnOK();
 }
 
@@ -133,11 +133,11 @@ void CloseMainDialog::OnSwitchFullPaths()
 	m_List->setUpdatesEnabled(false);
 	for(int i = 0; i < count; i++)
 	{
-		CModDoc *modDoc = static_cast<CModDoc *>(m_List->GetItemDataPtr(i));
+		CModDoc *modDoc = static_cast<CModDoc *>(mfcless::GetItemDataPtr(m_List, i));
 		int item = mfcless::InsertItem(m_List, i + 1, FormatTitle(*modDoc, fullPath));
-		m_List->SetItemDataPtr(item, modDoc);
-		m_List->SetSel(item, m_List->GetSel(i));
-		m_List->DeleteString(i);
+		mfcless::SetItemDataPtr(m_List, item, modDoc);
+		mfcless::SetSel(m_List, item, mfcless::GetSel(m_List, i));
+		mfcless::DeleteString(m_List, i);
 	}
 	m_List->setUpdatesEnabled(true);
 }

@@ -3,7 +3,7 @@
  * --------------
  * Purpose: Implementation of a coloured edit UI item.
  * Notes  : mfcless twin of upstream's mptrack/ColourEdit.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -19,52 +19,37 @@ OPENMPT_NAMESPACE_BEGIN
 /////////////////////////////////////////////////////////////////////////////
 // CColourEdit
 
-CColourEdit::CColourEdit()
+CColourEdit::CColourEdit(QWidget *parent)
+	: Window(parent)
 {
 	m_crText = mfcless::Rgb(0, 0, 0);  //default text color
+	m_crBackGnd = mfcless::Rgb(255, 255, 255);
 }
 
-CColourEdit::~CColourEdit()
+
+void CColourEdit::ApplyColors()
 {
-	if(m_brBackGnd.GetSafeHandle())  //delete brush
-		m_brBackGnd.DeleteObject();
+	QPalette pal = palette();
+	pal.setColor(QPalette::Text, mfcless::ToQColor(m_crText));
+	if(m_hasBackColor)
+		pal.setColor(QPalette::Base, mfcless::ToQColor(m_crBackGnd));
+	setPalette(pal);
+	Invalidate(true);
 }
 
-
-void CColourEdit::RegisterMessageMap()
-{
-	mfcless::Window<QLineEdit>::RegisterMessageMap();
-	// ON_WM_CTLCOLOR_REFLECT(): by hand (Qt event override)
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// CColourEdit message handlers
-
-mfcless::Brush CColourEdit::CtlColor(mfcless::DC *pDC, uint32 nCtlColor)
-{
-	MPT_UNREFERENCED_PARAMETER(nCtlColor);
-	pDC->SetTextColor(m_crText);		//set text color
-	pDC->SetBkColor(m_crBackGnd);		//set the text's background color
-	return m_brBackGnd;	//return the brush used for background - this sets control background
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Implementation
 
 void CColourEdit::SetBackColor(uint32 rgb)
 {
-	m_crBackGnd = rgb;					//set background color ref (used for text's background)
-	if(m_brBackGnd.GetSafeHandle())  //free brush
-		m_brBackGnd.DeleteObject();
-	m_brBackGnd.CreateSolidBrush(rgb);  //set brush to new color
-	Invalidate(true);					//redraw
+	m_crBackGnd = rgb;
+	m_hasBackColor = true;
+	ApplyColors();
 }
 
 
 void CColourEdit::SetTextColor(uint32 rgb)
 {
-	m_crText = rgb;    // set text color ref
-	Invalidate(true);  // redraw
+	m_crText = rgb;
+	ApplyColors();
 }
 
 

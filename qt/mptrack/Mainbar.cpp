@@ -603,7 +603,7 @@ void CMainToolBar::RemoveUpdateInfo()
 }
 
 
-static void EnableEdit(CEdit &edit, CSpinButtonCtrl &spin, bool enable)
+static void EnableEdit(QLineEdit &edit, mfcless::UpDown &spin, bool enable)
 {
 	// Avoid flicker when enabling / disabling controls
 	edit.SetRedraw(false);
@@ -686,14 +686,14 @@ void CMainToolBar::SetCurrentSong(CSoundFile *pSndFile)
 		m_currentGlobalVolume = -1;
 	}
 	// If focus was on a now-disabled input field, move it somewhere else
-	if(focus && !focus->IsWindowEnabled() && focus->GetParent() == this)
+	if(focus && !focus->isEnabled() && focus->GetParent() == this)
 		CMainFrame::GetMainFrame()->SetFocus();
 
 	m_updating = false;
 }
 
 
-void CMainToolBar::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CMainToolBar::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pScrollBar)
 {
 	CMainFrame *pMainFrm;
 
@@ -974,7 +974,7 @@ bool CMainToolBar::OnToolTipText(uint32 )
 	if(cmd != kcNull)
 	{
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-		if(!keyText.IsEmpty())
+		if(!keyText.empty())
 			fmt += MPT_UFORMAT(" ({})")(keyText);
 	}
 	mpt::String::WriteWinBuf(pTTT->szText) = fmt;
@@ -1061,7 +1061,7 @@ bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 		case mfcless::vk::RETURN:
 			if(const auto modItem = m_filterSource->GetModItem(m_filterSource->GetSelectedItem()); (modItem.type == CModTree::MODITEM_INSLIB_FOLDER || modItem.type == CModTree::MODITEM_INSLIB_SONG))
 			{
-				m_filterSource->mfcless::PostCommand(this, ID_MODTREE_EXECUTE);
+				mfcless::PostCommand(m_filterSource, ID_MODTREE_EXECUTE);
 			}
 			[[fallthrough]];
 		case mfcless::vk::ESCAPE:
@@ -1480,7 +1480,7 @@ void CModTreeBar::OnNcPaint()
 	{
 		mfcless::DC *pDC = GetWindowDC();
 		mfcless::DC * hdc = pDC->m_hDC;
-		FillRect(hdc, &rect, GetSysColorBrush(COLOR_BTNFACE));
+		mfcless::FillRect(hdc, &rect, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)));
 		ReleaseDC(pDC);
 	}
 }

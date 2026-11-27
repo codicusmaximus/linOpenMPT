@@ -19,6 +19,7 @@
 #pragma once
 
 #include "mfcless/Geometry.h"
+#include "mfcless/Text.h"
 #include "mfcless/Keyboard.h"
 #include "mfcless/MessageMap.h"
 #include "mfcless/ModMessage.h"
@@ -289,7 +290,7 @@ public:
 	void ScreenToClient(Rect *r) { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
 	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
 	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
-	void SetWindowText(const QString &text) { this->setWindowTitle(text); }
+	void SetWindowText(const Text &text) { this->setWindowTitle(text.value); }
 	bool SetWindowPos(QWidget *insertAfter, int x, int y, int cx, int cy, uint32_t flags) { return mfcless::SetWindowPos(this, insertAfter, x, y, cx, cy, flags); }
 	void BeginWaitCursor() { QApplication::setOverrideCursor(Qt::WaitCursor); }
 	void EndWaitCursor() { QApplication::restoreOverrideCursor(); }
@@ -319,6 +320,10 @@ public:
 
 	// Handlers. Each one's default is the Qt base class's handling of the
 	// event that led to it.
+	// Scroll bars (a dialog's scroll bars and sliders come here through the
+	// message map's AddScroll).
+	virtual void OnHScroll(ScrollCode, int, QWidget *) { }
+	virtual void OnVScroll(ScrollCode, int, QWidget *) { }
 	virtual void OnLButtonDown(uint32_t, Point) { Default(); }
 	virtual void OnLButtonUp(uint32_t, Point) { Default(); }
 	virtual void OnLButtonDblClk(uint32_t, Point) { Default(); }

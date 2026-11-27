@@ -3,7 +3,7 @@
  * ----------------------
  * Purpose: Implementation of the pattern search.
  * Notes  : mfcless twin of upstream's mptrack/PatternFindReplace.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -474,7 +474,7 @@ EndSearch:
 	if(nFound == 0)
 	{
 		mpt::ustring result;
-		result.Preallocate(14 + 16);
+		result.reserve(14 + 16);
 		result = UL_("Cannot find \"");
 
 		// Note
@@ -498,12 +498,12 @@ EndSearch:
 			if(FindReplace::instance.findInstrMin)
 				result += mfcless::PrintF(UL_("%03d"), FindReplace::instance.findInstrMin);
 			else
-				result.Append(UL_(" .."));
+				result.append(UL_(" .."));
 			if(FindReplace::instance.findInstrMax > FindReplace::instance.findInstrMin)
 				result += mfcless::PrintF(UL_("-%03d"), FindReplace::instance.findInstrMax);
 		} else
 		{
-			result.Append(UL_(" ??"));
+			result.append(UL_(" ??"));
 		}
 		result.push_back(u8' ');
 
@@ -532,7 +532,7 @@ EndSearch:
 				result += mfcless::PrintF(UL_("-%02d"), FindReplace::instance.findVolumeMax);
 		} else if(!FindReplace::instance.findFlags[FindReplace::PCParam])
 		{
-			result.Append(UL_("??"));
+			result.append(UL_("??"));
 		}
 		result.push_back(u8' ');
 
@@ -561,7 +561,7 @@ EndSearch:
 				result += mfcless::PrintF(UL_("-%02X"), FindReplace::instance.findParamMax);
 		} else if(!FindReplace::instance.findFlags[FindReplace::PCValue])
 		{
-			result.Append(UL_("??"));
+			result.append(UL_("??"));
 		}
 
 		result.push_back(u8'"');

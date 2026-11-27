@@ -160,7 +160,7 @@ protected:
 	void OnLButtonUp(uint32, mfcless::Point);
 	void OnMButtonDown(uint32, mfcless::Point);
 	void OnMouseMove(uint32, mfcless::Point);
-	void OnHScroll(uint32 nSBCode, uint32 nPos, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnSize(uint32 nType, int cx, int cy);
 	void OnSwitchToView();
 	void OnInsertOrder();
@@ -234,7 +234,7 @@ public:
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 	void OnDPIChanged() override;
 protected:
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnTbnDropDownToolBar();
 	void OnSequenceNext();
 	void OnSequencePrev();

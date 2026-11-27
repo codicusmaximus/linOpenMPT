@@ -135,9 +135,9 @@ void COrderList::SetScrollPos(int pos)
 	SCROLLINFO si{};
 	si.cbSize = sizeof(si);
 	si.fMask = SIF_TRACKPOS;
-	GetScrollInfo(SB_HORZ, &si);
+	GetScrollInfo(Qt::Horizontal, &si);
 	si.nPos = pos;
-	SetScrollInfo(SB_HORZ, &si);
+	SetScrollInfo(Qt::Horizontal, &si);
 }
 
 
@@ -147,7 +147,7 @@ int COrderList::GetScrollPos(bool getTrackPos)
 	SCROLLINFO si{};
 	si.cbSize = sizeof(si);
 	si.fMask = SIF_TRACKPOS;
-	GetScrollInfo(SB_HORZ, &si);
+	GetScrollInfo(Qt::Horizontal, &si);
 	return getTrackPos ? si.nTrackPos : si.nPos;
 }
 
@@ -209,7 +209,7 @@ bool COrderList::Init(const mfcless::Rect &rect)
 	m_hFont = CMainFrame::GetGUIFont();
 	SendMessage(WM_SETFONT, (uintptr_t)m_hFont);
 	SetScrollPos(0);
-	EnableScrollBarCtrl(SB_HORZ, true);
+	EnableScrollBarCtrl(Qt::Horizontal, true);
 	SetCurSel(0);
 	EnableToolTips();
 	return true;
@@ -229,7 +229,7 @@ void COrderList::UpdateScrollInfo()
 
 		int nMax = Order().GetLengthTailTrimmed() + std::max(ORDERINDEX(1), GetMargins()) - 1;
 
-		GetScrollInfo(SB_HORZ, &info, SIF_PAGE | SIF_RANGE);
+		GetScrollInfo(Qt::Horizontal, &info, SIF_PAGE | SIF_RANGE);
 		info.fMask = SIF_PAGE | SIF_RANGE;
 		info.nMin = 0;
 		nPage = rcClient.right / m_cxFont;
@@ -239,7 +239,7 @@ void COrderList::UpdateScrollInfo()
 		{
 			info.nPage = nPage;
 			info.nMax = nMax;
-			SetScrollInfo(SB_HORZ, &info, true);
+			SetScrollInfo(Qt::Horizontal, &info, true);
 		}
 	}
 }
@@ -1222,19 +1222,19 @@ void COrderList::OnHScroll(uint32 nSBCode, uint32 /*nPos*/, CScrollBar *)
 	uint32 nNewPos = m_nXScroll;
 	uint32 smin, smax;
 
-	GetScrollRange(SB_HORZ, (LPINT)&smin, (LPINT)&smax);
+	GetScrollRange(Qt::Horizontal, (LPINT)&smin, (LPINT)&smax);
 	m_bScrolling = true;
 	switch(nSBCode)
 	{
-	case SB_LINELEFT:		if (nNewPos) nNewPos--; break;
-	case SB_LINERIGHT:		if (nNewPos < smax) nNewPos++; break;
-	case SB_PAGELEFT:		if (nNewPos > 4) nNewPos -= 4; else nNewPos = 0; break;
-	case SB_PAGERIGHT:		if (nNewPos + 4 < smax) nNewPos += 4; else nNewPos = smax; break;
-	case SB_THUMBPOSITION:
-	case SB_THUMBTRACK:		nNewPos = GetScrollPos(true); break;
-	case SB_LEFT:			nNewPos = 0; break;
-	case SB_RIGHT:			nNewPos = smax; break;
-	case SB_ENDSCROLL:		m_bScrolling = false; break;
+	case mfcless::ScrollCode::LineUp:		if (nNewPos) nNewPos--; break;
+	case mfcless::ScrollCode::LineDown:		if (nNewPos < smax) nNewPos++; break;
+	case mfcless::ScrollCode::PageUp:		if (nNewPos > 4) nNewPos -= 4; else nNewPos = 0; break;
+	case mfcless::ScrollCode::PageDown:		if (nNewPos + 4 < smax) nNewPos += 4; else nNewPos = smax; break;
+	case mfcless::ScrollCode::ThumbPosition:
+	case mfcless::ScrollCode::ThumbTrack:		nNewPos = GetScrollPos(true); break;
+	case mfcless::ScrollCode::Top:			nNewPos = 0; break;
+	case mfcless::ScrollCode::Bottom:			nNewPos = smax; break;
+	case mfcless::ScrollCode::EndScroll:		m_bScrolling = false; break;
 	}
 	if (nNewPos > smax) nNewPos = smax;
 	if (nNewPos != m_nXScroll)
@@ -1253,7 +1253,7 @@ void COrderList::OnSize(uint32 nType, int cx, int cy)
 
 	Window::OnSize(nType, cx, cy);
 	UpdateScrollInfo();
-	GetScrollRange(SB_HORZ, &smin, &smax);
+	GetScrollRange(Qt::Horizontal, &smin, &smax);
 	nPos = GetScrollPos();
 	if(nPos > smax)
 		nPos = smax;
@@ -1361,43 +1361,43 @@ void COrderList::OnPatternProperties()
 
 void COrderList::OnPlayerPlay()
 {
-	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PLAY);
+	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAY);
 }
 
 
 void COrderList::OnPlayerPause()
 {
-	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PAUSE);
+	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PAUSE);
 }
 
 
 void COrderList::OnPlayerPlayFromStart()
 {
-	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PLAYFROMSTART);
+	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAYFROMSTART);
 }
 
 
 void COrderList::OnPatternPlayFromStart()
 {
-	m_pParent.mfcless::PostCommand(this, IDC_PATTERN_PLAYFROMSTART);
+	m_pParent.PostMessage(WM_COMMAND, IDC_PATTERN_PLAYFROMSTART);
 }
 
 
 void COrderList::OnCreateNewPattern()
 {
-	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_NEW);
+	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_NEW);
 }
 
 
 void COrderList::OnDuplicatePattern()
 {
-	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_COPY);
+	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_COPY);
 }
 
 
 void COrderList::OnMergePatterns()
 {
-	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_MERGE);
+	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_MERGE);
 }
 
 
@@ -1413,7 +1413,7 @@ void COrderList::OnPatternCopy()
 
 void COrderList::OnPatternPaste()
 {
-	m_pParent.mfcless::PostCommand(this, ID_PATTERNPASTE);
+	m_pParent.PostMessage(WM_COMMAND, ID_PATTERNPASTE);
 }
 
 

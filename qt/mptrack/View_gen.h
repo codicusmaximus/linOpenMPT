@@ -175,8 +175,8 @@ protected:
 	void OnPrevPlugin();
 	void OnNextPlugin();
 	void OnDestroy();
-	void OnHScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnSize(uint32 nType, int cx, int cy);
 	void OnTabSelchange();
 	intptr_t OnMDIDeactivate(uintptr_t, intptr_t);

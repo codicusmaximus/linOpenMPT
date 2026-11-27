@@ -216,7 +216,7 @@ bool CViewPattern::SetCurrentPattern(PATTERNINDEX pat, ROWINDEX row)
 		return false;
 	if(pat == PATTERNINDEX_SKIP || pat == PATTERNINDEX_INVALID)
 		return false;
-	if(m_pEditWnd && m_pEditWnd->IsWindowVisible())
+	if(m_pEditWnd && m_pEditWnd->isVisible())
 		m_pEditWnd->ShowWindow(false);
 
 	m_nPattern = pat;
@@ -243,9 +243,9 @@ bool CViewPattern::SetCurrentPattern(PATTERNINDEX pat, ROWINDEX row)
 	UpdateIndicator();
 
 	if(m_bWholePatternFitsOnScreen)
-		SetScrollPos(SB_VERT, 0);
+		SetScrollPos(Qt::Vertical, 0);
 	else if(updateScroll)
-		SetScrollPos(SB_VERT, (int)GetCurrentRow() * GetRowHeight());
+		SetScrollPos(Qt::Vertical, (int)GetCurrentRow() * GetRowHeight());
 
 	UpdateScrollPos();
 	InvalidatePattern(true, true);
@@ -2121,7 +2121,7 @@ void CViewPattern::OnSplitPattern()
 	const ROWINDEX splitRow = m_MenuCursor.GetRow();
 	if(splitRow < 1 || !sndFile.Patterns.IsValidPat(sourcePat) || !sndFile.Patterns[sourcePat].IsValidRow(splitRow))
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		return;
 	}
 
@@ -3733,12 +3733,12 @@ CHANNELINDEX CViewPattern::GetRecordChannelForPCEvent(PLUGINDEX plugSlot, PlugPa
 			continue;
 
 		const ModCommand &m = *sndFile.Patterns[pattern].GetpModCommand(row, c);
-		if((c < m_chnState.size() && m_chnState[c].previousPCevent == plugParam && m.IsEmpty()) || (m.IsPcNote() && m.instr == plugSlot + 1 && m.GetValueVolCol() == paramIndex))
+		if((c < m_chnState.size() && m_chnState[c].previousPCevent == plugParam && m.empty()) || (m.IsPcNote() && m.instr == plugSlot + 1 && m.GetValueVolCol() == paramIndex))
 		{
 			return c;
 			break;
 		}
-		if(m.IsEmpty() && (candidateChn == CHANNELINDEX_INVALID || c == editChn))
+		if(m.empty() && (candidateChn == CHANNELINDEX_INVALID || c == editChn))
 		{
 			candidateChn = c;
 		}
@@ -3782,7 +3782,7 @@ intptr_t CViewPattern::OnRecordPlugParamChange(uintptr_t plugSlot, intptr_t para
 		// MPTM: Use PC Notes
 
 		// only overwrite existing PC Notes
-		if(m.IsEmpty() || m.IsPcNote())
+		if(m.empty() || m.IsPcNote())
 		{
 			m.Set(NOTE_PCS, static_cast<ModCommand::INSTR>(plugSlot + 1), static_cast<uint16>(paramIndex), static_cast<uint16>(pPlug->GetParameter(static_cast<PlugParamIndex>(paramIndex)) * ModCommand::maxColumnValue));
 			m_chnState.resize(sndFile.GetNumChannels());
@@ -6940,7 +6940,7 @@ bool CViewPattern::BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 						continue;
 
 					mpt::ustring instString = modDoc->GetPatternViewInstrumentName(i, true);
-					if(!instString.IsEmpty())
+					if(!instString.empty())
 					{
 						instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT + i, modDoc->GetPatternViewInstrumentName(i));
 						addSeparator = true;
@@ -7634,7 +7634,7 @@ intptr_t CViewPattern::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pT
 	{
 		text = UL_("Show Pattern Properties");
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(kcShowPatternProperties, 0);
-		if(!keyText.IsEmpty())
+		if(!keyText.empty())
 			text += MPT_UFORMAT(" ({})")(keyText);
 		break;
 	}
@@ -7708,7 +7708,7 @@ HRESULT CViewPattern::get_accName(VARIANT varChild, BSTR *pszName)
 	str.Replace(UL_("%column_description%"), GetCursorDescription());
 	str.Replace(UL_("%channel_name%"), channelName);
 
-	if(str.IsEmpty())
+	if(str.empty())
 		return CModScrollView::get_accName(varChild, pszName);
 
 	*pszName = str.AllocSysString();

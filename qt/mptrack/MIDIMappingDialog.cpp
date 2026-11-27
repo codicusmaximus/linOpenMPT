@@ -3,7 +3,7 @@
  * ---------------------
  * Purpose: Implementation of OpenMPT's MIDI mapping dialog, for mapping incoming MIDI messages to plugin parameters.
  * Notes  : mfcless twin of upstream's mptrack/MIDIMappingDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -62,6 +62,7 @@ void CMIDIMappingDialog::RegisterMessageMap()
 {
 	ResizableDialog::RegisterMessageMap();
 	AddNotify(IDC_LIST1, mfcless::Notify::ItemChanged, &CMIDIMappingDialog::OnSelectionChanged);
+	AddNotify(IDC_LIST1, mfcless::Notify::CheckChange, &CMIDIMappingDialog::OnCheckChanged);
 	AddCommand(IDC_CHECKACTIVE, &CMIDIMappingDialog::OnBnClickedCheckactive);
 	AddCommand(IDC_CHECKCAPTURE, &CMIDIMappingDialog::OnBnClickedCheckCapture);
 	AddNotify(IDC_COMBO_CONTROLLER, mfcless::Notify::SelChange, &CMIDIMappingDialog::OnCbnSelchangeComboController);
@@ -134,15 +135,15 @@ bool CMIDIMappingDialog::OnInitDialog()
 	// Initialize mapping table
 	static constexpr CListCtrlEx::Header headers[] =
 	{
-		{ UL_("Channel"),            58,  LVCFMT_LEFT },
-		{ UL_("Event / Controller"), 176, LVCFMT_LEFT },
-		{ UL_("Plugin"),             120, LVCFMT_LEFT },
-		{ UL_("Parameter"),          120, LVCFMT_LEFT },
-		{ UL_("Capture"),            40,  LVCFMT_LEFT },
-		{ UL_("Pattern Record"),     40,  LVCFMT_LEFT }
+		{ UL_("Channel"),            58,  mfcless::list::AlignLeft },
+		{ UL_("Event / Controller"), 176, mfcless::list::AlignLeft },
+		{ UL_("Plugin"),             120, mfcless::list::AlignLeft },
+		{ UL_("Parameter"),          120, mfcless::list::AlignLeft },
+		{ UL_("Capture"),            40,  mfcless::list::AlignLeft },
+		{ UL_("Pattern Record"),     40,  mfcless::list::AlignLeft }
 	};
 	m_List->SetHeaders(headers);
-	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT);
+	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::CheckBoxes | mfcless::list::FullRowSelect);
 
 	// Add directives to list
 	for(size_t i = 0; i < m_rMIDIMapper.GetCount(); i++)
@@ -161,7 +162,7 @@ bool CMIDIMappingDialog::OnInitDialog()
 
 	EnableItem(IDC_CHECK_PATRECORD, (m_sndFile.GetType() == MOD_TYPE_MPT) ? true : false);
 
-	CMainFrame::GetMainFrame()->SetMidiRecordWnd(GetSafeHwnd());
+	CMainFrame::GetMainFrame()->SetMidiRecordWnd(this);
 
 	SetChecked(IDC_CHECK_MIDILEARN, 1);
 
@@ -207,7 +208,7 @@ int CMIDIMappingDialog::InsertItem(const CMIDIMappingDirective &m, int insertAt)
 		if(plug.pMixPlugin != nullptr)
 			s = plug.pMixPlugin->GetFormattedParamName(m.GetParamIndex());
 		else
-			s.Empty();
+			s.clear();
 		m_List->SetItemText(insertAt, 3, s);
 	}
 	m_List->SetItemText(insertAt, 4, m.GetCaptureMIDI() ? UL_("Capt") : UL_(""));
@@ -219,7 +220,7 @@ int CMIDIMappingDialog::InsertItem(const CMIDIMappingDirective &m, int insertAt)
 
 void CMIDIMappingDialog::SelectItem(int i)
 {
-	m_List->SetItemState(i, LVIS_SELECTED, LVIS_SELECTED);
+	m_List->SetItemState(i, mfcless::list::Selected, mfcless::list::Selected);
 	m_List->SetSelectionMark(i);
 }
 
@@ -275,7 +276,7 @@ void CMIDIMappingDialog::UpdateParameters()
 {
 	m_PlugParamCBox->setUpdatesEnabled(false);
 	m_PlugParamCBox->clear();
-	AddPluginParameternamesToCombobox(m_PlugParamCBox, m_sndFile.m_MixPlugins[m_Setting.GetPlugIndex() - 1]);
+	AddPluginParameternamesToCombobox(*m_PlugParamCBox, m_sndFile.m_MixPlugins[m_Setting.GetPlugIndex() - 1]);
 	m_PlugParamCBox->setCurrentIndex(m_Setting.GetParamIndex());
 	m_PlugParamCBox->setUpdatesEnabled(true);
 	m_PlugParamCBox->update();
@@ -284,34 +285,27 @@ void CMIDIMappingDialog::UpdateParameters()
 
 void CMIDIMappingDialog::OnSelectionChanged()
 {
-	int i;
-	if(pNMHDR != nullptr)
-	{
-		// cppcheck-suppress dangerousTypeCast
-		NMLISTVIEW *nmlv = (NMLISTVIEW *)pNMHDR;
-
-		if(((nmlv->uOldState ^ nmlv->uNewState) & INDEXTOSTATEIMAGEMASK(3)) != 0 && nmlv->uOldState != 0)
-		{
-			// Check box status changed
-			CMIDIMappingDirective m = m_rMIDIMapper.GetDirective(nmlv->iItem);
-			m.SetActive(nmlv->uNewState == INDEXTOSTATEIMAGEMASK(2));
-			m_rMIDIMapper.SetDirective(nmlv->iItem, m);
-			SetModified();
-			if(nmlv->iItem == m_List->GetSelectionMark())
-				SetChecked(IDC_CHECKACTIVE, nmlv->uNewState == INDEXTOSTATEIMAGEMASK(2) ? 1 : 0);
-		}
-
-		if(nmlv->uNewState & LVIS_SELECTED)
-			i = nmlv->iItem;
-		else
-			return;
-	} else
-	{
-		i = m_List->GetSelectionMark();
-	}
+	const int i = m_List->GetSelectionMark();
 	if(i < 0 || (size_t)i >= m_rMIDIMapper.GetCount()) return;
 	m_Setting = m_rMIDIMapper.GetDirective(i);
 	UpdateDialog(i);
+}
+
+
+// Check box status changed
+void CMIDIMappingDialog::OnCheckChanged()
+{
+	const int item = CurrentNotify().item;
+	if(item < 0 || (size_t)item >= m_rMIDIMapper.GetCount()) return;
+	const bool active = m_List->GetCheck(item);
+	CMIDIMappingDirective m = m_rMIDIMapper.GetDirective(item);
+	if(m.IsActive() == active)
+		return;  // Only the text changed, or the dialog set the check itself
+	m.SetActive(active);
+	m_rMIDIMapper.SetDirective(item, m);
+	SetModified();
+	if(item == m_List->GetSelectionMark())
+		SetChecked(IDC_CHECKACTIVE, active ? 1 : 0);
 }
 
 
@@ -429,8 +423,6 @@ void CMIDIMappingDialog::OnDeltaposSpinmovemapping()
 {
 	const int index = m_List->GetSelectionMark();
 	if(index < 0 || index >= m_List->GetItemCount()) return;
-
-	LPNMUPDOWN pNMUpDown = reinterpret_cast<LPNMUPDOWN>(pNMHDR);
 
 	int newIndex = -1;
 	if(CurrentNotify().delta < 0) //Up

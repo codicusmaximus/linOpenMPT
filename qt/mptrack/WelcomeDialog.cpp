@@ -3,7 +3,7 @@
  * -----------------
  * Purpose: "First run" OpenMPT welcome dialog
  * Notes  : mfcless twin of upstream's mptrack/WelcomeDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -21,6 +21,10 @@
 #include "UpdateCheck.h"
 #include "WindowMessages.h"
 #include "../common/mptStringBuffer.h"
+
+#include <QtCore/QLocale>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QInputMethod>
 #include "mpt/fs/fs.hpp"
 #include "mpt/string/utility.hpp"
 
@@ -134,40 +138,47 @@ bool WelcomeDlg::OnInitDialog()
 
 	const char *keyFile = nullptr;
 	const mpt::uchar *keyFileName = nullptr;
-	const uint16 language = LOWORD(GetKeyboardLayout(0)), primaryLang = language & 0x3FF;
-	CComboBox *combo = (CComboBox *)GetDlgItem(IDC_COMBO1);
-	combo->AddString(UL_("OpenMPT / Chromatic (Default)"));
-	combo->SetCurSel(0);
-	switch(primaryLang)
+	// mfcless: the keyboard layout's language (upstream: GetKeyboardLayout),
+	// as the input method reports it, else the system's.
+	QLocale keyboardLocale = QGuiApplication::inputMethod() ? QGuiApplication::inputMethod()->locale() : QLocale::system();
+	if(keyboardLocale.language() == QLocale::C)
+		keyboardLocale = QLocale::system();
+	QComboBox *combo = Item<QComboBox>(IDC_COMBO1);
+	mfcless::AddItem(combo, UL_("OpenMPT / Chromatic (Default)"));
+	combo->setCurrentIndex(0);
+	switch(keyboardLocale.language())
 	{
-		case LANG_GERMAN:
+		case QLocale::German:
 			keyFile = "DE_jojo";
 			keyFileName = UL_("German");
 			break;
-		case LANG_SPANISH:
+		case QLocale::Spanish:
 			// Spanish latin-american keymap, so we ignore Spain.
-			if(language != SUBLANG_SPANISH_MODERN && language != SUBLANG_SPANISH)
+			if(keyboardLocale.territory() != QLocale::Spain)
 			{
 				keyFile = "es-LA_mpt_(jmkz)";
 				keyFileName = UL_("Spanish");
 			}
 			break;
-		case LANG_FRENCH:
+		case QLocale::French:
 			keyFile = "FR_mpt_(legovitch)";
 			keyFileName = UL_("French");
 			break;
-		case LANG_NORWEGIAN:
+		case QLocale::NorwegianBokmal:
+		case QLocale::NorwegianNynorsk:
 			keyFile = "NO_mpt_classic_(rakib)";
 			keyFileName = UL_("Norwegian");
+			break;
+		default:
 			break;
 	}
 	if(keyFile != nullptr)
 	{
 		if(mpt::native_fs{}.is_file(GetFullKeyPath(keyFile)))
 		{
-			int i = combo->AddString(UL_("OpenMPT / Chromatic (") + mpt::ustring(keyFileName) + UL_(")"));
-			combo->SetItemDataPtr(i, (void *)keyFile);
-			combo->SetCurSel(i);
+			int i = mfcless::AddItem(combo, UL_("OpenMPT / Chromatic (") + mpt::ustring(keyFileName) + UL_(")"));
+			mfcless::SetItemDataPtr(combo, i, (void *)keyFile);
+			combo->setCurrentIndex(i);
 
 			// As this is presented as the default, load it right now, even if the user closes the dialog through the close button
 			auto cmdSet = std::make_unique<CCommandSet>();
@@ -175,8 +186,8 @@ bool WelcomeDlg::OnInitDialog()
 			CMainFrame::GetInputHandler()->SetNewCommandSet(*cmdSet);
 		}
 	}
-	combo->SetItemDataPtr(combo->AddString(UL_("Impulse Tracker")), (void*)("US_mpt-it2_classic"));
-	combo->SetItemDataPtr(combo->AddString(UL_("FastTracker 2")), (void*)("US_mpt-ft2_classic"));
+	mfcless::SetItemDataPtr(combo, mfcless::AddItem(combo, UL_("Impulse Tracker")), (void*)("US_mpt-it2_classic"));
+	mfcless::SetItemDataPtr(combo, mfcless::AddItem(combo, UL_("FastTracker 2")), (void*)("US_mpt-ft2_classic"));
 
 	SetChecked(IDC_CHECK1, 1);
 	SetChecked(IDC_CHECK3, 1);
@@ -194,7 +205,7 @@ bool WelcomeDlg::OnInitDialog()
 void WelcomeDlg::OnOptions()
 {
 	OnOK();
-	CMainFrame::GetMainFrame()->mfcless::PostCommand(this, ID_VIEW_OPTIONS);
+	mfcless::PostCommand(CMainFrame::GetMainFrame(), ID_VIEW_OPTIONS);
 }
 
 
@@ -229,8 +240,8 @@ void WelcomeDlg::OnOK()
 		TrackerSettings::Instance().patternFont = font;
 	}
 
-	CComboBox *combo = (CComboBox *)GetDlgItem(IDC_COMBO1);
-	const char *keyFile = static_cast<char *>(combo->GetItemDataPtr(combo->GetCurSel()));
+	QComboBox *combo = Item<QComboBox>(IDC_COMBO1);
+	const char *keyFile = static_cast<char *>(mfcless::GetItemDataPtr(combo, combo->currentIndex()));
 	auto cmdSet = std::make_unique<CCommandSet>();
 	if(keyFile != nullptr)
 		cmdSet->LoadFile(GetFullKeyPath(keyFile));

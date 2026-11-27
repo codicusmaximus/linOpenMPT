@@ -334,7 +334,7 @@ bool CSmpGenDialog::OnInitDialog()
 
 	// Create font for "dropdown" button (Marlett system font)
 	hButtonFont = CreateFont(14, 0, 0, 0, FW_DONTCARE, false, false, false, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, TEXT("Marlett"));
-	::SendMessage(GetDlgItem(IDC_BUTTON_SHOW_EXPRESSIONS)->m_hWnd, WM_SETFONT, (uintptr_t)hButtonFont, MAKELPARAM(true, 0));
+	::SendMessage(GetDlgItem(IDC_BUTTON_SHOW_EXPRESSIONS), WM_SETFONT, (uintptr_t)hButtonFont, MAKELPARAM(true, 0));
 
 	return true;
 }
@@ -464,7 +464,7 @@ void CSmpGenDialog::OnShowPresets()
 
 	mpt::ustring result;
 	result = GetItemText(IDC_EDIT_FORMULA);
-	if((!result.IsEmpty()) && (presets.GetNumPresets() < MAX_SAMPLEGEN_PRESETS))
+	if((!result.empty()) && (presets.GetNumPresets() < MAX_SAMPLEGEN_PRESETS))
 	{
 		hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_GENERATOR_PRESET_MENU + MAX_SAMPLEGEN_PRESETS + 1, _TEXT("Add current..."));
 	}
@@ -660,7 +660,7 @@ void CSmpGenPresetDlg::OnOK()
 
 void CSmpGenPresetDlg::OnListSelChange()
 {
-	currentItem = ((CListBox *)GetDlgItem(IDC_LIST_SAMPLEGEN_PRESETS))->GetCurSel() + 1;
+	currentItem = (Item<QListWidget>(IDC_LIST_SAMPLEGEN_PRESETS))->currentIndex() + 1;
 	if(currentItem == 0 || currentItem > presets->GetNumPresets()) return;
 	samplegen_expression *preset = presets->GetPreset(currentItem - 1);
 	if(preset == nullptr) return;
@@ -679,10 +679,10 @@ void CSmpGenPresetDlg::OnTextChanged()
 	if(preset == nullptr) return;
 	preset->description = result;
 
-	CListBox *clist = (CListBox *)GetDlgItem(IDC_LIST_SAMPLEGEN_PRESETS);
-	clist->DeleteString(currentItem - 1);
-	clist->InsertString(currentItem - 1, (preset->description).c_str());
-	clist->SetCurSel(currentItem - 1);
+	QListWidget *clist = Item<QListWidget>(IDC_LIST_SAMPLEGEN_PRESETS);
+	mfcless::DeleteString(clist, currentItem - 1);
+	mfcless::InsertItem(clist, currentItem - 1, (preset->description).c_str());
+	clist->setCurrentIndex(currentItem - 1);
 }
 
 
@@ -721,21 +721,21 @@ void CSmpGenPresetDlg::OnRemovePreset()
 
 void CSmpGenPresetDlg::RefreshList()
 {
-	CListBox *clist = (CListBox *)GetDlgItem(IDC_LIST_SAMPLEGEN_PRESETS);
+	QListWidget *clist = Item<QListWidget>(IDC_LIST_SAMPLEGEN_PRESETS);
 	clist->SetRedraw(false);	//disable lisbox refreshes during fill to avoid flicker
-	clist->ResetContent();
+	clist->clear();
 	for(size_t i = 0; i < presets->GetNumPresets(); i++)
 	{
 		samplegen_expression *preset = presets->GetPreset(i);
 		if(preset != nullptr)
-			clist->AddString((preset->description).c_str());
+			mfcless::AddItem(clist, (preset->description).c_str());
 	}
 	clist->SetRedraw(true);		//re-enable lisbox refreshes
 	if(currentItem == 0 || currentItem > presets->GetNumPresets())
 	{
 		currentItem = presets->GetNumPresets();
 	}
-	if(currentItem != 0) clist->SetCurSel(currentItem - 1);
+	if(currentItem != 0) clist->setCurrentIndex(currentItem - 1);
 	OnListSelChange();
 }
 

@@ -34,7 +34,7 @@ protected:
 
 	void RecalcUndoSize();
 
-	void OnHScroll(uint32 /*nSBCode*/, uint32 /*nPos*/, QScrollBar * /*pScrollBar*/) { OnSettingsChanged(); }
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar) { OnSettingsChanged(); }
 	void OnSettingsChanged() { SetModified(true); }
 	void OnUndoSizeChanged();
 	void RegisterMessageMap() override;;

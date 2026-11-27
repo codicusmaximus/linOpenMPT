@@ -408,7 +408,7 @@ public:
 		CTrackApp::OpenURL(m_releaseURL);
 	}
 
-	DECLARE_MESSAGE_MAP()
+	void RegisterMessageMap() override;
 };
 
 void UpdateDialog::RegisterMessageMap()
@@ -1552,7 +1552,7 @@ void CUpdateSetupDlg::RegisterMessageMap()
 
 
 CUpdateSetupDlg::CUpdateSetupDlg()
-	: CPropertyPage(IDD_OPTIONS_UPDATE)
+	: PropertyPage(IDD_OPTIONS_UPDATE)
 	, m_SettingChangedNotifyGuard(theApp.GetSettings(), TrackerSettings::Instance().UpdateLastUpdateCheck.GetPath())
 {
 	return;

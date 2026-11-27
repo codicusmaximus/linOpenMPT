@@ -173,7 +173,7 @@ void CNoteMapWnd::OnPaint()
 
 	mfcless::Rect rcClient;
 	GetClientRect(&rcClient);
-	const auto highlightBrush = GetSysColorBrush(COLOR_HIGHLIGHT), windowBrush = GetSysColorBrush(COLOR_WINDOW);
+	const auto highlightBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Highlight)), windowBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::Window));
 	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText);
 	const auto colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
 	const int lineWidth = HighDPISupport::ScalePixels(1, *this);
@@ -237,7 +237,7 @@ void CNoteMapWnd::OnPaint()
 					s = UL_("???");
 				}
 			}
-			FillRect(dc, &rect, highlight ? highlightBrush : windowBrush);
+			mfcless::FillRect(dc, &rect, highlight ? highlightBrush : windowBrush);
 			if(nPos == (int)m_nNote && !m_bIns)
 			{
 				rect.InflateRect(-1, -1);
@@ -255,7 +255,7 @@ void CNoteMapWnd::OnPaint()
 			{
 				s = mpt::ufmt::right(3, mpt::ufmt::dec(pIns->Keyboard[nPos]));
 			}
-			FillRect(dc, &rect, highlight ? highlightBrush : windowBrush);
+			mfcless::FillRect(dc, &rect, highlight ? highlightBrush : windowBrush);
 			if((nPos == (int)m_nNote) && (m_bIns))
 			{
 				rect.InflateRect(-1, -1);
@@ -270,7 +270,7 @@ void CNoteMapWnd::OnPaint()
 		if (ypaint < rcClient.bottom)
 		{
 			rect.SetRect(rcClient.left, ypaint, rcClient.right, rcClient.bottom);
-			FillRect(dc, &rect, GetSysColorBrush(COLOR_BTNFACE));
+			mfcless::FillRect(dc, &rect, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)));
 		}
 	}
 	dc.SelectObject(oldFont);
@@ -583,14 +583,14 @@ void CNoteMapWnd::OnEditSample(uint32 nID)
 void CNoteMapWnd::OnEditSampleMap()
 {
 	m_undo = true;
-	m_pParent.mfcless::PostCommand(this, ID_INSTRUMENT_SAMPLEMAP);
+	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_SAMPLEMAP);
 }
 
 
 void CNoteMapWnd::OnInstrumentDuplicate()
 {
 	m_undo = true;
-	m_pParent.mfcless::PostCommand(this, ID_INSTRUMENT_DUPLICATE);
+	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_DUPLICATE);
 }
 
 
@@ -646,8 +646,8 @@ intptr_t CNoteMapWnd::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 
 	// Parent shortcuts (also displayed in context menu of this control)
 	case kcInstrumentCtrlDuplicate:		OnInstrumentDuplicate(); return wParam;
-	case kcNextInstrument:				m_pParent.mfcless::PostCommand(this, ID_NEXTINSTRUMENT); return wParam;
-	case kcPrevInstrument:				m_pParent.mfcless::PostCommand(this, ID_PREVINSTRUMENT); return wParam;
+	case kcNextInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_NEXTINSTRUMENT); return wParam;
+	case kcPrevInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_PREVINSTRUMENT); return wParam;
 	}
 
 	return kcNull;
@@ -1207,10 +1207,10 @@ bool CCtrlInstruments::SetCurrentInstrument(uint32 nIns, bool bUpdNum)
 		m_SpinInstrument->SetRange(1, m_sndFile.GetNumInstruments());
 		m_SpinInstrument->setEnabled((m_sndFile.GetNumInstruments()) ? true : false);
 		// Is this a bug ?
-		m_SliderCutOff->update(false);
-		m_SliderResonance->update(false);
+		m_SliderCutOff->update();
+		m_SliderResonance->update();
 		// Volume ramping (attack)
-		m_SliderAttack->update(false);
+		m_SliderAttack->update();
 	}
 	SendViewMessage(VIEWMSG_SETCURRENTINSTRUMENT, m_nInstrument);
 	UnlockControls();
@@ -1575,18 +1575,18 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 				SetCurrentInstrument(m_sndFile.GetNumInstruments());
 
 		}
-		m_NoteMap->update(false);
+		m_NoteMap->update();
 
-		m_ComboNNA->update(false);
-		m_ComboDCT->update(false);
-		m_ComboDCA->update(false);
-		m_ComboPPC->update(false);
-		m_CbnMidiCh->update(false);
-		m_CbnMixPlug->update(false);
-		m_CbnResampling->update(false);
-		m_CbnFilterMode->update(false);
-		m_CbnPluginVolumeHandling->update(false);
-		m_ComboTuning->update(false);
+		m_ComboNNA->update();
+		m_ComboDCT->update();
+		m_ComboDCA->update();
+		m_ComboPPC->update();
+		m_CbnMidiCh->update();
+		m_CbnMixPlug->update();
+		m_CbnResampling->update();
+		m_CbnFilterMode->update();
+		m_CbnPluginVolumeHandling->update();
+		m_ComboTuning->update();
 	}
 
 	if(!m_initialized)
@@ -1766,7 +1766,7 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 	if(uId)
 	{
 		QWidget *wnd = GetDlgItem(uId);
-		bool isEnabled = wnd == nullptr || wnd->IsWindowEnabled() != false;
+		bool isEnabled = wnd == nullptr || wnd->isEnabled() != false;
 		if(!isEnabled && !m_sndFile.GetNumInstruments())
 		{
 			s = UL_("Create a new instrument to enable instrument mode.");
@@ -1926,7 +1926,7 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 		if(cmd != kcNull)
 		{
 			auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-			if (!keyText.IsEmpty())
+			if (!keyText.empty())
 				s += MPT_UFORMAT(" ({})")(keyText);
 		}
 	}
@@ -2632,7 +2632,7 @@ void CCtrlInstruments::OnAttackChanged()
 		}
 
 		m_SliderAttack->setValue(n);
-		if(CSpinButtonCtrl *spin = (CSpinButtonCtrl *)GetDlgItem(IDC_SPIN1))
+		if(mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN1))
 			spin->SetPos(n);
 		LockControls();
 		if (n == 0) SetItemText(IDC_EDIT2, UL_("default"));
@@ -2695,24 +2695,24 @@ void CCtrlInstruments::OnFilterModeChanged()
 }
 
 
-void CCtrlInstruments::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pSB)
+void CCtrlInstruments::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pSB)
 {
 	// Give focus back to envelope editor when stopping to scroll spin buttons (for instrument preview keyboard focus)
 	CModControlDlg::OnVScroll(nCode, nPos, pSB);
-	if (nCode == SB_ENDSCROLL) SwitchToViewIfMouse();
+	if (nCode == mfcless::ScrollCode::EndScroll) SwitchToViewIfMouse();
 }
 
 
-void CCtrlInstruments::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pSB)
+void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pSB)
 {
 	CModControlDlg::OnHScroll(nCode, nPos, pSB);
-	if ((m_nInstrument) && (!IsLocked()) && (nCode != SB_ENDSCROLL))
+	if ((m_nInstrument) && (!IsLocked()) && (nCode != mfcless::ScrollCode::EndScroll))
 	{
 		ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
 		if(!pIns)
 			return;
 			
-		auto *pSlider = reinterpret_cast<const CSliderCtrl *>(pSB);
+		auto *pSlider = reinterpret_cast<const QSlider *>(pSB);
 		int32 n = pSlider->GetPos();
 
 		if(pSlider == &m_SliderAttack)
@@ -2814,11 +2814,11 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pSB
 				m_sndFile.UpdateInstrumentFilter(*pIns, false, false, true);
 			}
 		}
-	} else if(nCode == SB_ENDSCROLL)
+	} else if(nCode == mfcless::ScrollCode::EndScroll)
 	{
 		m_startedHScroll = false;
 	}
-	if ((nCode == SB_ENDSCROLL) || (nCode == SB_THUMBPOSITION))
+	if ((nCode == mfcless::ScrollCode::EndScroll) || (nCode == mfcless::ScrollCode::ThumbPosition))
 	{
 		SwitchToViewIfMouse();
 	}
@@ -2838,7 +2838,7 @@ void CCtrlInstruments::OnEditSampleMap()
 			if (dlg.DoModal() == IDOK)
 			{
 				SetModified(InstrumentHint().Info(), true);
-				m_NoteMap->update(false);
+				m_NoteMap->update();
 			} else
 			{
 				m_modDoc.GetInstrumentUndo().RemoveLastUndoStep(m_nInstrument);

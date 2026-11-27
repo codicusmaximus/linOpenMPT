@@ -1,4 +1,4 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
+// Hand-edited from the twin.py draft.
 /*
  * mod2midi.cpp
  * ------------
@@ -745,7 +745,7 @@ bool CModToMidi::OnInitDialog()
 	// Subsongs
 	CheckRadio(IDC_RADIO4, IDC_RADIO5, (m_subSongs.size() <= 1) ? IDC_RADIO4 : IDC_RADIO5);
 
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, static_cast<int>(m_subSongs.size()));
+	Item<mfcless::UpDown>(IDC_SPIN2)->SetRange(1, static_cast<int>(m_subSongs.size()));
 	SetItemInt(IDC_EDIT1, static_cast<uint32>(m_selectedSong + 1));
 	m_EditSubSong->SetAccessibleName(UL_("Sub Song"));
 	if(m_subSongs.size() <= 1)
@@ -792,7 +792,7 @@ void CModToMidi::FillProgramBox(bool percussion)
 		}
 	}
 	m_CbnProgram->setUpdatesEnabled(true);
-	m_CbnProgram->update(false);
+	m_CbnProgram->update();
 	m_percussion = percussion;
 }
 
@@ -849,7 +849,7 @@ void CModToMidi::UpdateDialog()
 }
 
 
-void CModToMidi::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CModToMidi::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	DialogBase::OnVScroll(nSBCode, nPos, pScrollBar);
 	int pos = m_SpinInstrument->GetPos();
@@ -887,8 +887,8 @@ void CModToMidi::OnChannelChanged()
 
 void CModToMidi::OnProgramChanged()
 {
+	if(m_CbnProgram->currentIndex() < 0) return;
 	uintptr_t nProgram = mfcless::GetItemData(m_CbnProgram, m_CbnProgram->currentIndex());
-	if (static_cast<LONG_PTR>(nProgram) == CB_ERR) return;
 	if ((m_currentInstr > 0) && (m_currentInstr < MAX_SAMPLES))
 	{
 		m_instrMap[m_currentInstr].program = static_cast<uint8>(nProgram);

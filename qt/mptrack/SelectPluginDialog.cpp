@@ -110,7 +110,7 @@ bool CSelectPluginDlg::OnInitDialog()
 		mfcless::Point(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowX, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowY, dpi, 96)),
 		mfcless::Size(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowWidth, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowHeight, dpi, 96))
 	);
-	::MapWindowPoints(GetParent()->m_hWnd, HWND_DESKTOP, (mfcless::Point *)&rect, 2);
+	::MapWindowPoints(GetParent(), HWND_DESKTOP, (mfcless::Point *)&rect, 2);
 	mfcless::WindowPlacement wnd;
 	wnd.length = sizeof(wnd);
 	GetWindowPlacement(&wnd);
@@ -198,7 +198,7 @@ void CSelectPluginDlg::OnOK()
 				{
 					IMixPlugin *p = m_pPlugin->pMixPlugin;
 					const mpt::ustring name = p->GetDefaultEffectName();
-					if(!name.IsEmpty())
+					if(!name.empty())
 					{
 						m_pPlugin->Info.szName = mpt::ToCharset(mpt::Charset::Locale, name);
 					}
@@ -254,7 +254,7 @@ VSTPluginLib* CSelectPluginDlg::GetSelectedPlugin()
 {
 	QTreeWidgetItem * item = m_treePlugins->GetSelectedItem();
 	if(item)
-		return reinterpret_cast<VSTPluginLib *>(m_treePlugins->GetItemData(item));
+		return reinterpret_cast<VSTPluginLib *>(mfcless::GetItemData(m_treePlugins, item));
 	else
 		return nullptr;
 }
@@ -266,7 +266,7 @@ void CSelectPluginDlg::SaveWindowPos() const
 	wnd.length = sizeof(mfcless::WindowPlacement);
 	GetWindowPlacement(&wnd);
 	mfcless::Rect rect = wnd.rcNormalPosition;
-	::MapWindowPoints(HWND_DESKTOP, GetParent()->m_hWnd, (mfcless::Point *)&rect, 2);
+	::MapWindowPoints(HWND_DESKTOP, GetParent(), (mfcless::Point *)&rect, 2);
 	TrackerSettings::Instance().gnPlugWindowX = HighDPISupport::ScalePixelsInv(rect.left, this);
 	TrackerSettings::Instance().gnPlugWindowY = HighDPISupport::ScalePixelsInv(rect.top, this);
 	TrackerSettings::Instance().gnPlugWindowWidth = HighDPISupport::ScalePixelsInv(rect.Width(), this);
@@ -534,7 +534,7 @@ void CSelectPluginDlg::OnSelChanged()
 	bool enableRemoveButton = false;
 	if (pManager != nullptr && pManager->IsValidPlugin(pPlug))
 	{
-		if(pPlug->vendor.IsEmpty())
+		if(pPlug->vendor.empty())
 			SetItemText(IDC_VENDOR, UL_(""));
 		else
 			SetItemText(IDC_VENDOR, UL_("Vendor: ") + pPlug->vendor);

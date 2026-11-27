@@ -638,11 +638,11 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 			if ((rect.bottom > rect.top) && (rect.right > rect.left))
 			{
 				::SetDCBrushColor(hdc, faceColor);
-				::FillRect(hdc, &rect, dcBrush);
+				mfcless::FillRect(hdc, &rect, dcBrush);
 				auto shadowRect = rect;
 				shadowRect.top = shadowRect.bottom++;
 				::SetDCBrushColor(hdc, shadowColor);
-				::FillRect(hdc, &shadowRect, dcBrush);
+				mfcless::FillRect(hdc, &shadowRect, dcBrush);
 			}
 			yofs = 0;
 		}
@@ -685,7 +685,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	{
 		rc.SetRect(xpaint, rcClient.top, rcClient.right, ypaint);
 		::SetDCBrushColor(hdc, faceColor);
-		::FillRect(hdc, &rc, dcBrush);
+		mfcless::FillRect(hdc, &rc, dcBrush);
 	}
 	if (ypaint < rcClient.bottom)
 	{
@@ -702,7 +702,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 		DrawDragSel(hdc);
 	}
 
-	const auto buttonBrush = GetSysColorBrush(COLOR_BTNFACE), blackBrush = GetStockBrush(BLACK_BRUSH);
+	const auto buttonBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)), blackBrush = GetStockBrush(BLACK_BRUSH);
 	rect.SetRect(0, rcClient.top, rcClient.right, rcClient.top + m_szHeader.cy);
 	if(pDC->RectVisible(rect))
 	{
@@ -752,7 +752,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 					r.right = rect.right - chanColorOffset;
 
 					::SetDCBrushColor(m_offScreenDC, channel.color);
-					::FillRect(m_offScreenDC, r, dcBrush);
+					mfcless::FillRect(m_offScreenDC, r, dcBrush);
 				}
 
 				// When dragging around channel headers, mark insertion position
@@ -769,7 +769,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 					r.right = r.left + dropWidth;
 
 					::SetDCBrushColor(m_offScreenDC, textColor);
-					::FillRect(m_offScreenDC, r, dcBrush);
+					mfcless::FillRect(m_offScreenDC, r, dcBrush);
 				}
 
 				rect.bottom = rect.top + colHeight;
@@ -1441,10 +1441,10 @@ void CViewPattern::UpdateScrollPos()
 	mfcless::Rect rect;
 	GetClientRect(&rect);
 	
-	int x = GetScrollPos(SB_HORZ);
+	int x = GetScrollPos(Qt::Horizontal);
 	if (x < 0) x = 0;
 	m_nXScroll = (x + m_szCell.cx - 1) / m_szCell.cx;
-	int y = GetScrollPos(SB_VERT);
+	int y = GetScrollPos(Qt::Vertical);
 	if (y < 0) y = 0;
 	m_nYScroll = (y + m_szCell.cy - 1) / m_szCell.cy;
 
@@ -1459,15 +1459,15 @@ bool CViewPattern::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 	// don't scroll if there is no valid scroll range (ie. no scroll bar)
 	CScrollBar* pBar;
 	uint32 dwStyle = GetStyle();
-	pBar = GetScrollBarCtrl(SB_VERT);
-	if ((pBar != NULL && !pBar->IsWindowEnabled()) ||
+	pBar = GetScrollBarCtrl(Qt::Vertical);
+	if ((pBar != NULL && !pBar->isEnabled()) ||
 		(pBar == NULL && !(dwStyle & WS_VSCROLL)))
 	{
 		// vertical scroll bar not enabled
 		sizeScroll.cy = 0;
 	}
-	pBar = GetScrollBarCtrl(SB_HORZ);
-	if ((pBar != NULL && !pBar->IsWindowEnabled()) ||
+	pBar = GetScrollBarCtrl(Qt::Horizontal);
+	if ((pBar != NULL && !pBar->isEnabled()) ||
 		(pBar == NULL && !(dwStyle & WS_HSCROLL)))
 	{
 		// horizontal scroll bar not enabled
@@ -1475,14 +1475,14 @@ bool CViewPattern::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 	}
 
 	// adjust current x position
-	xOrig = x = GetScrollPos(SB_HORZ);
-	int xMax = GetScrollLimit(SB_HORZ);
+	xOrig = x = GetScrollPos(Qt::Horizontal);
+	int xMax = GetScrollLimit(Qt::Horizontal);
 	x += sizeScroll.cx;
 	if (x < 0) x = 0; else if (x > xMax) x = xMax;
 
 	// adjust current y position
-	yOrig = y = GetScrollPos(SB_VERT);
-	int yMax = GetScrollLimit(SB_VERT);
+	yOrig = y = GetScrollPos(Qt::Vertical);
+	int yMax = GetScrollLimit(Qt::Vertical);
 	y += sizeScroll.cy;
 	if (y < 0) y = 0; else if (y > yMax) y = yMax;
 
@@ -1535,8 +1535,8 @@ bool CViewPattern::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 			m_nYScroll = y;
 		}
 	}
-	if (xNew != xOrig) SetScrollPos(SB_HORZ, xNew);
-	if (yNew != yOrig) SetScrollPos(SB_VERT, yNew);
+	if (xNew != xOrig) SetScrollPos(Qt::Horizontal, xNew);
+	if (yNew != yOrig) SetScrollPos(Qt::Vertical, yNew);
 	return true;
 }
 
@@ -1557,11 +1557,11 @@ void CViewPattern::OnSize(uint32 nType, int cx, int cy)
 }
 
 
-void CViewPattern::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CViewPattern::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
-	if (nSBCode == SB_THUMBTRACK) m_Status.set(psDragVScroll);
+	if (nSBCode == mfcless::ScrollCode::ThumbTrack) m_Status.set(psDragVScroll);
 	CModScrollView::OnVScroll(nSBCode, nPos, pScrollBar);
-	if (nSBCode == SB_ENDSCROLL) m_Status.reset(psDragVScroll);
+	if (nSBCode == mfcless::ScrollCode::EndScroll) m_Status.reset(psDragVScroll);
 }
 
 
@@ -1825,7 +1825,7 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 				effectInfo.GetEffectNameEx(sztmp, *m, m->param * xMultiplier + xParam, channel);
 			}
 			//effectInfo.GetEffectName(sztmp, m->command, m->param, false, nChn);
-			if(!sztmp.IsEmpty())
+			if(!sztmp.empty())
 			{
 				s = mfcless::PrintF(UL_("%c%02X: "), sndFile.GetModSpecifications().GetEffectLetter(m->command), m->param);
 				s += sztmp;

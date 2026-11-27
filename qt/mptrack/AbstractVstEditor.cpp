@@ -156,7 +156,7 @@ void CAbstractVstEditor::OnActivate(uint32 nState, QWidget *pWndOther, bool bMin
 	if(nState != WA_INACTIVE)
 	{
 		auto callback = [&plugin = m_VstPlugin](mpt::const_byte_span sysex) { plugin.MidiSend(sysex); };
-		CMainFrame::GetMainFrame()->SetMidiRecordWnd(GetSafeHwnd(), callback);
+		CMainFrame::GetMainFrame()->SetMidiRecordWnd(this, callback);
 	}
 }
 

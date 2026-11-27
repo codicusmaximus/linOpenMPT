@@ -72,6 +72,7 @@ protected:
 	void RegisterMessageMap() override;
 
 	void OnSelectionChanged();
+	void OnCheckChanged();
 	
 	void OnBnClickedCheckactive();
 	void OnBnClickedCheckCapture();

@@ -55,9 +55,9 @@ QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, cons
 
 	m_groupsEnabled = m_list->EnableGroupView();
 	m_list->setUpdatesEnabled(false);
-	m_list->SetExtendedStyle(m_list->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
-	m_list->InsertColumn(0, UL_("File"), LVCFMT_LEFT);
-	m_list->InsertColumn(1, UL_("Location"), LVCFMT_LEFT);
+	m_list->SetExtendedStyle(m_list->GetExtendedStyle() | mfcless::list::FullRowSelect);
+	m_list->InsertColumn(0, UL_("File"), mfcless::list::AlignLeft);
+	m_list->InsertColumn(1, UL_("Location"), mfcless::list::AlignLeft);
 	
 	const std::pair<const std::vector<mpt::PathString> &, const mpt::uchar *> PathGroups[] =
 	{
@@ -101,10 +101,10 @@ QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, cons
 		m_paths[groupId] = PathGroups[groupId].first;
 	}
 	UpdateFileList();
-	m_list->SetColumnWidth(0, LVSCW_AUTOSIZE);
-	m_list->SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
+	m_list->SetColumnWidth(0, mfcless::list::AutoSize);
+	m_list->SetColumnWidth(1, mfcless::list::AutoSizeUseHeader);
 	m_list->setUpdatesEnabled(true);
-	m_list->update(false);
+	m_list->update();
 	OnItemChanged(nullptr, nullptr);
 	UpdateHeight();
 }
@@ -136,8 +136,8 @@ void QuickStartDlg::OnDPIChanged()
 	m_prevDPI = GetDPI();
 
 	m_list->SetImageList(&CMainFrame::GetMainFrame()->m_PatternIcons, LVSIL_SMALL);
-	m_list->SetColumnWidth(0, LVSCW_AUTOSIZE);
-	m_list->SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
+	m_list->SetColumnWidth(0, mfcless::list::AutoSize);
+	m_list->SetColumnWidth(1, mfcless::list::AutoSizeUseHeader);
 
 	m_bmpNew.DeleteObject();
 	m_bmpOpen.DeleteObject();
@@ -170,8 +170,8 @@ bool QuickStartDlg::PreTranslateMessage(mfcless::Message *pMsg)
 		if(curSel != selItem)
 		{
 			if(curSel != -1)
-				m_list->SetItemState(curSel, 0, LVIS_SELECTED);
-			m_list->SetItemState(selItem, LVIS_SELECTED, LVIS_SELECTED);
+				m_list->SetItemState(curSel, 0, mfcless::list::Selected);
+			m_list->SetItemState(selItem, mfcless::list::Selected, mfcless::list::Selected);
 			m_list->SetSelectionMark(selItem);
 		}
 		return true;
@@ -191,7 +191,7 @@ void QuickStartDlg::UpdateHeight()
 	mfcless::Rect windowRect, parentRect, itemRect;
 	GetClientRect(windowRect);
 	GetParent()->GetClientRect(parentRect);
-	m_list->GetItemRect(0, itemRect, LVIR_BOUNDS);
+	m_list->GetItemRect(0, itemRect, mfcless::list::Bounds);
 	viewRect.bottom += itemRect.Height() * 2;  // View height calculation seems to be a bit off and would still cause a vertical scrollbar to appear without this adjustment
 	if(viewRect.bottom > listRect.bottom)
 		windowRect.bottom += viewRect.bottom - listRect.bottom;
@@ -210,7 +210,7 @@ void QuickStartDlg::OnNew()
 
 void QuickStartDlg::OnOpen()
 {
-	CMainFrame::GetMainFrame()->mfcless::SendCommand(this, ID_FILE_OPEN);
+	mfcless::SendCommand(CMainFrame::GetMainFrame(), ID_FILE_OPEN);
 }
 
 
@@ -224,7 +224,7 @@ void QuickStartDlg::OnRemoveMRUItem()
 {
 	auto &mruFiles = TrackerSettings::Instance().mruFiles;
 	int i = -1;
-	while((i = m_list->GetNextItem(i, LVNI_SELECTED | LVNI_ALL)) != -1)
+	while((i = m_list->GetNextItem(i, mfcless::list::NextSelected | mfcless::list::All)) != -1)
 	{
 		if(GetItemGroup(i) != 0)
 			continue;
@@ -257,7 +257,7 @@ void QuickStartDlg::OnUpdateFilter()
 	m_list->setUpdatesEnabled(false);
 	intptr_t highlight = intptr_t(-1);
 	if(int sel = m_list->GetSelectionMark(); sel != -1)
-		highlight = m_list->GetItemData(sel);
+		highlight = mfcless::GetItemData(m_list, sel);
 	m_list->DeleteAllItems();
 	mpt::ustring filter;
 	mfcless::GetWindowText(m_find, filter);
@@ -268,7 +268,7 @@ void QuickStartDlg::OnUpdateFilter()
 
 void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 {
-	const bool applyFilter = !filter.IsEmpty();
+	const bool applyFilter = !filter.empty();
 	if(applyFilter)
 		filter = UL_("*") + filter + UL_("*");
 
@@ -300,7 +300,7 @@ void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 			m_list->SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().ToUnicode());
 			if(lvi.lParam == highlight)
 			{
-				m_list->SetItemState(itemId, LVIS_SELECTED, LVIS_SELECTED);
+				m_list->SetItemState(itemId, mfcless::list::Selected, mfcless::list::Selected);
 				m_list->SetSelectionMark(itemId);
 				highlightFound = true;
 			}
@@ -308,7 +308,7 @@ void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 	}
 	if(!highlightFound)
 	{
-		m_list->SetItemState(0, LVIS_SELECTED, LVIS_SELECTED);
+		m_list->SetItemState(0, mfcless::list::Selected, mfcless::list::Selected);
 		m_list->SetSelectionMark(0);
 	}
 }
@@ -324,7 +324,7 @@ void QuickStartDlg::OnOpenFile()
 	};
 	std::vector<OpenItem> files;
 	int i = -1;
-	while((i = m_list->GetNextItem(i, LVNI_SELECTED | LVNI_ALL)) != -1)
+	while((i = m_list->GetNextItem(i, mfcless::list::NextSelected | mfcless::list::All)) != -1)
 	{
 		const int group = GetItemGroup(i);
 		const size_t index = GetItemIndex(i);

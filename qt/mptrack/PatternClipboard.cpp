@@ -715,7 +715,7 @@ bool PatternClipboard::HandlePaste(CSoundFile &sndFile, PatternEditPos &pastePos
 			const bool skipPaste =
 				col >= sndFile.GetNumChannels() ||
 				(doMixPaste && m.IsPcNote()) ||
-				(doMixPaste && data[pos] == 'P' && !m.IsEmpty());
+				(doMixPaste && data[pos] == 'P' && !m.empty());
 
 			if(skipPaste == false)
 			{
@@ -925,7 +925,7 @@ bool PatternClipboard::HandlePaste(CSoundFile &sndFile, PatternEditPos &pastePos
 				// if the original modcommand was empty as otherwise the unchanged parts
 				// of the old modcommand would falsely be interpreted being of type
 				// origFormat and ConvertCommand could change them.
-				if(pasteFormat != sndFile.GetType() && (!doMixPaste || origModCmd.IsEmpty()))
+				if(pasteFormat != sndFile.GetType() && (!doMixPaste || origModCmd.empty()))
 					m.Convert(pasteFormat, sndFile.GetType(), sndFile);
 
 				// Sanitize PC events
@@ -1108,7 +1108,7 @@ void PatternClipboardDialog::OnSelectClipboard()
 	{
 		return;
 	}
-	PatternClipboard::clipindex_t item = reinterpret_cast<PatternClipboard::clipindex_t>(m_clipList->GetItemDataPtr(m_clipList->currentRow()));
+	PatternClipboard::clipindex_t item = reinterpret_cast<PatternClipboard::clipindex_t>(mfcless::GetItemDataPtr(m_clipList, m_clipList->currentRow()));
 	PatternClipboard::SelectClipboard(item);
 	OnEndEdit();
 }
@@ -1174,13 +1174,13 @@ void PatternClipboardDialog::OnEditName()
 	m_editNameBox->SetFont(m_clipList->GetFont());
 	mfcless::SetWindowText(m_editNameBox, PatternClipboard::instance.m_clipboards[sel].description);
 	mfcless::GotoDlgCtrl(m_editNameBox);
-	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, (LONG_PTR)m_clipList->GetItemDataPtr(sel));
+	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, (LONG_PTR)mfcless::GetItemDataPtr(m_clipList, sel));
 }
 
 
 void PatternClipboardDialog::OnEndEdit(bool apply)
 {
-	if(m_editNameBox->GetSafeHwnd() == NULL)
+	if(m_editNameBox->this == NULL)
 	{
 		return;
 	}
@@ -1207,7 +1207,7 @@ void PatternClipboardDialog::OnEndEdit(bool apply)
 }
 
 
-BEGIN_MESSAGE_MAP(PatternClipboardDialog::CInlineEdit, CEdit)
+BEGIN_MESSAGE_MAP(PatternClipboardDialog::CInlineEdit, QLineEdit)
 	ON_WM_KILLFOCUS()
 END_MESSAGE_MAP()
 

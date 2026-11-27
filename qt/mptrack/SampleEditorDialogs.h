@@ -223,7 +223,7 @@ protected:
 
 	void OnLoopTypeChanged();
 	void OnFadeLengthChanged();
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 
 	void RegisterMessageMap() override;
 };

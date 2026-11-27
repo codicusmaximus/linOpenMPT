@@ -54,7 +54,7 @@ void COptionsSampleEditor::DoDataExchange(DataExchange &dx)
 }
 
 
-COptionsSampleEditor::COptionsSampleEditor() : CPropertyPage{IDD_OPTIONS_SAMPLEEDITOR}
+COptionsSampleEditor::COptionsSampleEditor() : PropertyPage{IDD_OPTIONS_SAMPLEEDITOR}
 {
 	m_undoBufferEdit->SetAccessibleSuffix(UL_("%"));
 	m_finetuneEdit->SetAccessibleSuffix(UL_("cents"));
@@ -66,8 +66,8 @@ bool COptionsSampleEditor::OnInitDialog()
 	PropertyPage::OnInitDialog();
 	SetItemInt(IDC_EDIT_UNDOSIZE, TrackerSettings::Instance().m_SampleUndoBufferSize.Get().GetSizeInPercent());
 	SetItemInt(IDC_EDIT_FINETUNE, TrackerSettings::Instance().m_nFinetuneStep);
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(0, 100);
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, 200);
+	Item<mfcless::UpDown>(IDC_SPIN1)->SetRange(0, 100);
+	Item<mfcless::UpDown>(IDC_SPIN2)->SetRange(1, 200);
 	RecalcUndoSize();
 
 	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("FLAC")), dfFLAC);
@@ -77,7 +77,7 @@ bool COptionsSampleEditor::OnInitDialog()
 	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("IFF")), dfIFF);
 	m_cbnDefaultSampleFormat->setCurrentIndex(TrackerSettings::Instance().m_defaultSampleFormat);
 
-	CSliderCtrl *slider = static_cast<CSliderCtrl *>(GetDlgItem(IDC_SLIDER1));
+	QSlider *slider = Item<QSlider>(IDC_SLIDER1);
 	slider->SetRange(0, 8);
 	slider->SetTicFreq(1);
 	slider->SetPos(TrackerSettings::Instance().m_FLACCompressionLevel);
@@ -108,7 +108,7 @@ void COptionsSampleEditor::OnOK()
 	TrackerSettings::Instance().m_SampleUndoBufferSize = SampleUndoBufferSize(GetItemInt(IDC_EDIT_UNDOSIZE));
 	TrackerSettings::Instance().m_defaultSampleFormat = static_cast<SampleEditorDefaultFormat>(mfcless::GetItemData(m_cbnDefaultSampleFormat, m_cbnDefaultSampleFormat->currentIndex()));
 	TrackerSettings::Instance().m_followSamplePlayCursor = static_cast<FollowSamplePlayCursor>(GetCheckedRadio(IDC_RADIO4, IDC_RADIO6) - IDC_RADIO4);
-	TrackerSettings::Instance().m_FLACCompressionLevel = static_cast<CSliderCtrl *>(GetDlgItem(IDC_SLIDER1))->GetPos();
+	TrackerSettings::Instance().m_FLACCompressionLevel = Item<QSlider>(IDC_SLIDER1)->GetPos();
 	TrackerSettings::Instance().sampleEditorKeyBehaviour = static_cast<SampleEditorKeyBehaviour>(GetCheckedRadio(IDC_RADIO1, IDC_RADIO3) - IDC_RADIO1);
 	TrackerSettings::Instance().compressITI = IsChecked(IDC_COMPRESS_ITI) != 0;
 	TrackerSettings::Instance().DefaultPlugVolumeHandling = static_cast<PlugVolumeHandling>(mfcless::GetItemData(m_cbnDefaultVolumeHandling, m_cbnDefaultVolumeHandling->currentIndex()));
@@ -145,7 +145,7 @@ void COptionsSampleEditor::RecalcUndoSize()
 	if(sizePercent)
 		text += mfcless::PrintF(UL_("%u MiB)"), sizeMB);
 	else
-		text.Append(UL_("disabled)"));
+		text.append(UL_("disabled)"));
 	SetItemText(IDC_UNDOSIZE, text);
 }
 

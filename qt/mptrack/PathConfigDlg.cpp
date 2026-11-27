@@ -32,7 +32,7 @@ static constexpr std::pair<ConfigurableDirectory TrackerSettings::*, int> PathSe
 };
 
 PathConfigDlg::PathConfigDlg()
-	: CPropertyPage{IDD_OPTIONS_AUTOSAVE}
+	: PropertyPage{IDD_OPTIONS_AUTOSAVE}
 {
 	m_accessibleEdits[0].SetAccessibleSuffix(UL_("minutes"));
 	m_accessibleEdits[1].SetAccessibleSuffix(UL_("backups"));
@@ -102,9 +102,9 @@ bool PathConfigDlg::OnInitDialog()
 	// Autosave
 	SetChecked(IDC_CHECK1, settings.CreateBackupFiles ? 1 : 0);
 
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, int32_max);
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, int32_max);
-	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN3))->SetRange32(1, int32_max);
+	Item<mfcless::UpDown>(IDC_SPIN1)->SetRange(1, int32_max);
+	Item<mfcless::UpDown>(IDC_SPIN2)->SetRange(1, int32_max);
+	Item<mfcless::UpDown>(IDC_SPIN3)->SetRange(1, int32_max);
 	SetChecked(IDC_AUTOSAVE_ENABLE, settings.AutosaveEnabled ? 1 : 0);
 	SetItemInt(IDC_AUTOSAVE_HISTORY, settings.AutosaveHistoryDepth);
 	SetItemInt(IDC_AUTOSAVE_INTERVAL, settings.AutosaveIntervalMinutes);
@@ -124,7 +124,7 @@ bool PathConfigDlg::OnInitDialog()
 
 mpt::PathString PathConfigDlg::GetPath(int id)
 {
-	return mpt::PathString::FromUnicode(GetWindowTextString(*GetDlgItem(id))).WithTrailingSlash();
+	return mpt::PathString::FromUnicode(mfcless::GetWindowTextString(*GetDlgItem(id))).WithTrailingSlash();
 }
 
 

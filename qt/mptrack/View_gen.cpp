@@ -183,7 +183,7 @@ void CViewGlobals::OnInitialUpdate()
 		GeneralViewState &generalState = pFrame->GetGeneralViewState();
 		if (generalState.initialized)
 		{
-			m_TabCtrl->SetCurSel(generalState.nTab);
+			m_TabCtrl->setCurrentIndex(generalState.nTab);
 			m_nActiveTab = generalState.nTab;
 			m_nCurrentPlugin = generalState.nPlugin;
 			m_nCurrentParam = generalState.nParam;
@@ -336,7 +336,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 	nTabCount = (sndFile.GetNumChannels() + (CHANNELS_IN_TAB - 1)) / CHANNELS_IN_TAB;
 	if (nTabCount != m_TabCtrl->GetItemCount())
 	{
-		uint32 nOldSel = m_TabCtrl->GetCurSel();
+		uint32 nOldSel = m_TabCtrl->currentIndex();
 		if (!m_TabCtrl->GetItemCount()) nOldSel = m_nActiveTab;
 		m_TabCtrl->setUpdatesEnabled(false);
 		m_TabCtrl->DeleteAllItems();
@@ -353,11 +353,11 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 		if (nOldSel >= (uint32)nTabCount) nOldSel = 0;
 
 		m_TabCtrl->setUpdatesEnabled(true);
-		m_TabCtrl->SetCurSel(nOldSel);
+		m_TabCtrl->setCurrentIndex(nOldSel);
 
 		InvalidateRect(NULL, false);
 	}
-	nTabIndex = m_TabCtrl->GetCurSel();
+	nTabIndex = m_TabCtrl->currentIndex();
 	if ((nTabIndex < 0) || (nTabIndex >= nTabCount)) return; // ???
 
 	if (m_nActiveTab != nTabIndex || genHint.GetType()[HINT_MODTYPE | HINT_MODCHANNELS])
@@ -398,7 +398,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 				// Channel name
 				s = mpt::ToUnicode(sndFile.GetCharsetInternal(), chnSettings.szName);
 				SetItemText(IDC_EDIT9 + ichn, s);
-				((CEdit*)(GetDlgItem(IDC_EDIT9 + ichn)))->LimitText(MAX_CHANNELNAME - 1);
+				((QLineEdit*)(GetDlgItem(IDC_EDIT9 + ichn)))->LimitText(MAX_CHANNELNAME - 1);
 			} else
 			{
 				SetItemText(IDC_TEXT1 + ichn, UL_(""));
@@ -506,7 +506,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 			EnableItem(IDC_EDIT14, true);
 		} else
 		{
-			s.Empty();
+			s.clear();
 			if (m_CbnParam->count() > 0) m_CbnParam->clear();
 			m_nCurrentParam = 0;
 
@@ -590,11 +590,11 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 		OnParamChanged();
 	}
 
-	m_CbnPlugin->update(false);
-	m_CbnParam->update(false);
-	m_CbnPreset->update(false);
-	m_CbnSpecialMixProcessing->update(false);
-	m_CbnOutput->update(false);
+	m_CbnPlugin->update();
+	m_CbnParam->update();
+	m_CbnPreset->update();
+	m_CbnSpecialMixProcessing->update();
+	m_CbnOutput->update();
 }
 
 
@@ -795,7 +795,7 @@ void CViewGlobals::OnEditPan3() {OnEditPan(2, IDC_EDIT6);}
 void CViewGlobals::OnEditPan4() {OnEditPan(3, IDC_EDIT8);}
 
 
-void CViewGlobals::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CViewGlobals::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	DialogBase::OnHScroll(nSBCode, nPos, pScrollBar);
 
@@ -870,7 +870,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 					const PlugParamIndex nParams = pPlugin->GetNumVisibleParameters();
 					if(m_nCurrentParam < nParams)
 					{
-						if (nSBCode == SB_THUMBPOSITION || nSBCode == SB_THUMBTRACK || nSBCode == SB_ENDSCROLL)
+						if (nSBCode == mfcless::ScrollCode::ThumbPosition || nSBCode == mfcless::ScrollCode::ThumbTrack || nSBCode == mfcless::ScrollCode::EndScroll)
 						{
 							pPlugin->SetScaledUIParam(m_nCurrentParam, 0.01f * n);
 							OnParamChanged();
@@ -884,7 +884,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 }
 
 
-void CViewGlobals::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CViewGlobals::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	CModDoc *pModDoc = GetDocument();
 
@@ -892,7 +892,7 @@ void CViewGlobals::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 	CSoundFile &sndFile = pModDoc->GetSoundFile();
 	mpt::uchar s[32];
 
-	if(nSBCode != SB_ENDSCROLL && pScrollBar && pScrollBar == (CScrollBar*)&m_SpinMixGain)
+	if(nSBCode != mfcless::ScrollCode::EndScroll && pScrollBar && pScrollBar == (CScrollBar*)&m_SpinMixGain)
 	{
 
 		SNDMIXPLUGIN &plugin = sndFile.m_MixPlugins[m_nCurrentPlugin];
@@ -906,7 +906,7 @@ void CViewGlobals::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 
 			float fValue = 0.1f * (float)gain;
 			_stprintf(s, UL_("Gain: x%1.1f"), fValue);
-			CEdit *gainEdit = (CEdit *)GetDlgItem(IDC_EDIT16);
+			QLineEdit *gainEdit = Item<QLineEdit>(IDC_EDIT16);
 			mfcless::SetWindowText(gainEdit, s);
 
 			SetPluginModified();
@@ -1115,7 +1115,7 @@ void CViewGlobals::OnParamChanged()
 			if(mfcless::GetFocus() != GetDlgItem(IDC_EDIT14))
 			{
 				mpt::ustring s = pPlugin->GetFormattedParamValue(m_nCurrentParam).Trim();
-				if(s.IsEmpty())
+				if(s.empty())
 				{
 					s = mfcless::PrintF(UL_("%f"), value);
 				}
@@ -1713,7 +1713,7 @@ void CViewGlobals::OnFillParamCombo()
 	if (m_nCurrentParam >= nParams) m_nCurrentParam = 0;
 	m_CbnParam->setCurrentIndex(m_nCurrentParam);
 	m_CbnParam->setUpdatesEnabled(true);
-	m_CbnParam->update(false);
+	m_CbnParam->update();
 }
 
 
@@ -1746,7 +1746,7 @@ void CViewGlobals::FillPluginProgramBox(int32 firstProg, int32 lastProg)
 	}
 
 	m_CbnPreset->setUpdatesEnabled(true);
-	m_CbnPreset->update(false);
+	m_CbnPreset->update();
 }
 
 

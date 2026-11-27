@@ -153,11 +153,12 @@ LATE = [
 	(r'(?<![\w>.:])(\w+(?:\[[^\]\[]*\])?)\.(SetWindowText|GetWindowText)\(', r'mfcless::\2(\1, '),
 	(r'(?:\b\w+->)?\b(Begin|End)WaitCursor\(\)', r'mfcless::\1WaitCursor()'),
 	(r'(?<![\w:.>])(?:::)?\bMulDiv\(', 'mfcless::MulDiv('),
-	(r'(?<![\w:.>])(?:::)?\bMessageBeep\(', 'mfcless::MessageBeep('),
+	(r'(?<![\w:.>])(?:::)?\bMessageBeep\([^()]*\)', 'mfcless::MessageBeep()'),
 	(r'(?<![\w.>])(?:::)?\bGetFocus\(\)', 'mfcless::GetFocus()'),
 	(r'(?<![\w.>])\bSetFocus\(\)', 'setFocus()'),
 	(r'(?<![\w.>])\bGotoDlgCtrl\(', 'mfcless::GotoDlgCtrl('),
 	(r'\b(\w+)->m_hWnd\b', r'\1'),
+	(r'\)->m_hWnd\b', ')'),
 	(r'(?<![\w.>])\bm_hWnd\b', 'this'),
 	(r'\bMB_ICON(WARNING|EXCLAMATION)\b', 'nfIconWarning'),
 	(r'\bMB_ICON(ERROR|STOP|HAND)\b', 'nfIconError'),
@@ -168,10 +169,70 @@ LATE = [
 	(r'\bID(YES|NO|OK|CANCEL|RETRY)\b(?!_)', lambda m: {'YES': 'naYes', 'NO': 'naNo', 'OK': 'IDOK', 'CANCEL': 'IDCANCEL', 'RETRY': 'naRetry'}[m.group(1)]),
 	(r'\bSWP_(NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|SHOWWINDOW|HIDEWINDOW|NOREDRAW|FRAMECHANGED|NOCOPYBITS|NOOWNERZORDER|DRAWFRAME)\b', lambda m: 'mfcless::swp::' + {'NOSIZE': 'NoSize', 'NOMOVE': 'NoMove', 'NOZORDER': 'NoZOrder', 'NOACTIVATE': 'NoActivate', 'SHOWWINDOW': 'ShowWindow', 'HIDEWINDOW': 'HideWindow', 'NOREDRAW': 'NoRedraw', 'FRAMECHANGED': 'FrameChanged', 'NOCOPYBITS': 'NoCopyBits', 'NOOWNERZORDER': 'NoOwnerZOrder', 'DRAWFRAME': 'FrameChanged'}[m.group(1)]),
 	(r'\bGetSysColor\(COLOR_(BTNFACE|3DFACE|BTNSHADOW|3DSHADOW|BTNHIGHLIGHT|3DHILIGHT|3DHIGHLIGHT|BTNTEXT|WINDOW|WINDOWTEXT|HIGHLIGHT|HIGHLIGHTTEXT|GRAYTEXT)\)', lambda m: 'mfcless::SystemColor(mfcless::SysColor::' + {'BTNFACE': 'ButtonFace', '3DFACE': 'ButtonFace', 'BTNSHADOW': 'ButtonShadow', '3DSHADOW': 'ButtonShadow', 'BTNHIGHLIGHT': 'ButtonHighlight', '3DHILIGHT': 'ButtonHighlight', '3DHIGHLIGHT': 'ButtonHighlight', 'BTNTEXT': 'ButtonText', 'WINDOW': 'Window', 'WINDOWTEXT': 'WindowText', 'HIGHLIGHT': 'Highlight', 'HIGHLIGHTTEXT': 'HighlightText', 'GRAYTEXT': 'GrayText'}[m.group(1)] + ')'),
-	(r'\bPostMessage\(WM_COMMAND,\s*', 'mfcless::PostCommand(this, '),
-	(r'\bSendMessage\(WM_COMMAND,\s*', 'mfcless::SendCommand(this, '),
-	(r'(\w+)->PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(\1, '),
-	(r'(\w+)->SendMessage\(WM_COMMAND,\s*', r'mfcless::SendCommand(\1, '),
+	(r'((?:\w+::)*\w+\(\)|\w+)->PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(\1, '),
+	(r'((?:\w+::)*\w+\(\)|\w+)->SendMessage\(WM_COMMAND,\s*', r'mfcless::SendCommand(\1, '),
+	(r'(?<![\w.>:])PostMessage\(WM_COMMAND,\s*', 'mfcless::PostCommand(this, '),
+	(r'(?<![\w.>:])SendMessage\(WM_COMMAND,\s*', 'mfcless::SendCommand(this, '),
+	# Controls looked up by ID.
+	(r'\((?:CComboBox|CComboBoxEx)\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QComboBox>(\1)'),
+	(r'static_cast<(?:CComboBox|CComboBoxEx)\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<QComboBox>(\1)'),
+	(r'\(CEdit\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QLineEdit>(\1)'),
+	(r'static_cast<CEdit\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<QLineEdit>(\1)'),
+	(r'\(CButton\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QAbstractButton>(\1)'),
+	(r'static_cast<CButton\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<QAbstractButton>(\1)'),
+	(r'\(CListBox\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QListWidget>(\1)'),
+	(r'static_cast<CListBox\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<QListWidget>(\1)'),
+	(r'\(CSliderCtrl\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QSlider>(\1)'),
+	(r'static_cast<CSliderCtrl\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<QSlider>(\1)'),
+	(r'\(CSpinButtonCtrl\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<mfcless::UpDown>(\1)'),
+	(r'static_cast<CSpinButtonCtrl\s*\*>\(GetDlgItem\((\w+)\)\)', r'Item<mfcless::UpDown>(\1)'),
+	(r'\bCComboBox(?:Ex)?\b', 'QComboBox'), (r'\bCEdit\b', 'QLineEdit'), (r'\bCListBox\b', 'QListWidget'),
+	(r'\bCSliderCtrl\b', 'QSlider'), (r'\bCSpinButtonCtrl\b', 'mfcless::UpDown'),
+	# Combo box calls on locals (members were done by type).
+	(r'(?<![\w.>])(\w+)->AddString\(', r'mfcless::AddItem(\1, '),
+	(r'(?<![\w.>])(\w+)->InsertString\(', r'mfcless::InsertItem(\1, '),
+	(r'(?<![\w.>])(\w+)->SetItemData\(', r'mfcless::SetItemData(\1, '),
+	(r'(?<![\w.>])(\w+)->GetItemData\(', r'mfcless::GetItemData(\1, '),
+	(r'->SetCurSel\(', '->setCurrentIndex('),
+	(r'->GetCurSel\(\)', '->currentIndex()'),
+	(r'->ResetContent\(\)', '->clear()'),
+	(r'\bLVCFMT_(LEFT|RIGHT|CENTER)\b', lambda m: 'mfcless::list::Align' + m.group(1).capitalize()),
+	(r'\bLVS_EX_(GRIDLINES|CHECKBOXES|FULLROWSELECT|DOUBLEBUFFER)\b', lambda m: 'mfcless::list::' + {'GRIDLINES': 'GridLines', 'CHECKBOXES': 'CheckBoxes', 'FULLROWSELECT': 'FullRowSelect', 'DOUBLEBUFFER': 'DoubleBuffer'}[m.group(1)]),
+	(r'\bLVIS_(FOCUSED|SELECTED)\b', lambda m: 'mfcless::list::' + m.group(1).capitalize()),
+	(r'\bLVNI_(ALL|FOCUSED|SELECTED)\b', lambda m: 'mfcless::list::' + {'ALL': 'All', 'FOCUSED': 'NextFocused', 'SELECTED': 'NextSelected'}[m.group(1)]),
+	(r'\bLVSCW_AUTOSIZE_USEHEADER\b', 'mfcless::list::AutoSizeUseHeader'), (r'\bLVSCW_AUTOSIZE\b', 'mfcless::list::AutoSize'),
+	(r'\bLVIR_(BOUNDS|ICON|LABEL)\b', lambda m: 'mfcless::list::' + m.group(1).capitalize()),
+	# The icon of a resource.
+	(r'(?:::)?LoadIcon\((?:AfxGetResourceHandle\(\)|AfxGetInstanceHandle\(\)|theApp\.m_hInstance),\s*MAKEINTRESOURCE\((\w+)\)\)', r'QIcon(QPixmap::fromImage(mfcless::res::Icon(\1)))'),
+	(r'\bAfxGetApp\(\)->LoadIcon\((\w+)\)', r'QIcon(QPixmap::fromImage(mfcless::res::Icon(\1)))'),
+	(r'(?<![\w.>])SetIcon\((\w+),\s*(?:TRUE|FALSE|true|false)\);', r'setWindowIcon(\1);'),
+	(r'\.Preallocate\(', '.reserve('),
+	(r'\.AppendChar\(', '.push_back('),
+	(r'(?<=\w)\.Append\(', '.append('),
+	(r'(?<![\w.>])(\w+)->(SetSel|GetSel|SelItemRange|DeleteString|SetItemDataPtr|GetItemDataPtr|GetSelCount)\((\)?)', lambda m: 'mfcless::%s(%s%s' % (m.group(2), m.group(1), ')' if m.group(3) else ', ')),
+	(r'\bSB_(LINEUP|LINELEFT|LINEDOWN|LINERIGHT|PAGEUP|PAGELEFT|PAGEDOWN|PAGERIGHT|THUMBPOSITION|THUMBTRACK|TOP|LEFT|BOTTOM|RIGHT|ENDSCROLL)\b', lambda m: 'mfcless::ScrollCode::' + {'LINEUP': 'LineUp', 'LINELEFT': 'LineUp', 'LINEDOWN': 'LineDown', 'LINERIGHT': 'LineDown', 'PAGEUP': 'PageUp', 'PAGELEFT': 'PageUp', 'PAGEDOWN': 'PageDown', 'PAGERIGHT': 'PageDown', 'THUMBPOSITION': 'ThumbPosition', 'THUMBTRACK': 'ThumbTrack', 'TOP': 'Top', 'LEFT': 'Top', 'BOTTOM': 'Bottom', 'RIGHT': 'Bottom', 'ENDSCROLL': 'EndScroll'}[m.group(1)]),
+	(r'\bSB_HORZ\b', 'Qt::Horizontal'), (r'\bSB_VERT\b', 'Qt::Vertical'),
+	(r'->GetModify\(\)', '->isModified()'),
+	(r'->SetModify\(\s*(?:FALSE|false)?\s*\)', '->setModified(false)'),
+	(r'->SetModify\(\s*(?:TRUE|true)\s*\)', '->setModified(true)'),
+	(r'->SetModify\(', '->setModified('),
+	(r'->IsWindowEnabled\(\)', '->isEnabled()'),
+	(r'->IsWindowVisible\(\)', '->isVisible()'),
+	(r'->update\((?:TRUE|FALSE|true|false)\)', '->update()'),
+	(r'->SetRange32\(', '->SetRange('),
+	(r'(?<![\w:.>])GetWindowTextString\(', 'mfcless::GetWindowTextString('),
+	(r'\.IsEmpty\(\)', '.empty()'),
+	(r'(?<=\w)\.Empty\(\)', '.clear()'),
+	(r'\bGetSafeHwnd\(\)', 'this'),
+	(r'->GetSafeHwnd\(\)', ''),
+	(r'\bafx_msg\s+', ''),
+	(r'(?<![\w.>])(\w+)->(SetCheck|GetCheck)\((\)?)', lambda m: 'mfcless::%s(%s%s' % (m.group(2), m.group(1), ')' if m.group(3) else ', ')),
+	(r'(?m)^\s*\w+->SetItemHeight\([^;]*\);[^\n]*\n', ''),
+	(r'\bCPropertyPage\b', 'PropertyPage'),
+	(r'\bCDialog\b', 'DialogBase'),
+	(r'\bSM_(CXBORDER|CYBORDER|CXVSCROLL|CYHSCROLL|CXEDGE|CYEDGE)\b', lambda m: 'HighDPISupport::SystemMetric::' + {'CXBORDER': 'CxBorder', 'CYBORDER': 'CyBorder', 'CXVSCROLL': 'CxVScroll', 'CYHSCROLL': 'CyHScroll', 'CXEDGE': 'CxEdge', 'CYEDGE': 'CyEdge'}[m.group(1)]),
+	(r'\bGetSysColorBrush\(COLOR_(BTNFACE|3DFACE|WINDOW|HIGHLIGHT|BTNSHADOW|BTNHIGHLIGHT)\)', lambda m: 'mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::' + {'BTNFACE': 'ButtonFace', '3DFACE': 'ButtonFace', 'WINDOW': 'Window', 'HIGHLIGHT': 'Highlight', 'BTNSHADOW': 'ButtonShadow', 'BTNHIGHLIGHT': 'ButtonHighlight'}[m.group(1)] + '))'),
+	(r'(?<![\w.>:])(?:::)?FillRect\(', 'mfcless::FillRect('),
 	# The dialog makes the control again as the member's class.
 	(r'(?<![\w.>])(\w+(?:\[[^\]\[]*\])?)(?:->|\.)SubclassDlgItem\(([^,()]+),\s*this\)', r'SubclassDlgItem(\2, \1)'),
 	(r'\bSetDlgItemInt\((\w+),\s*([^;]*?),\s*(?:false|FALSE|true|TRUE)\);', r'SetItemInt(\1, \2);'),
@@ -556,7 +617,7 @@ def twin_cpp(text, header):
 	text = re.sub(r'pDX->m_bSaveAndValidate', 'dx.save', text)
 	text = dialog_helpers(text)
 	# Handler signatures
-	text = re.sub(r'void (\w+)::(On[HV]Scroll)\(UINT\s*\w*,\s*UINT\s*\w*,\s*CScrollBar\s*\*\s*(\w*)\)', r'void \1::\2(mfcless::ScrollCode code, int pos, QWidget *\3)', text)
+	text = re.sub(r'void (\w+)::(On[HV]Scroll)\(UINT\s*(\w*),\s*UINT\s*(\w*),\s*CScrollBar\s*\*\s*(\w*)\)', lambda m: 'void %s::%s(mfcless::ScrollCode %s, int %s, QWidget *%s)' % (m.group(1), m.group(2), m.group(3) or 'nSBCode', m.group(4) or 'nPos', m.group(5) or 'pScrollBar'), text)
 	text = re.sub(r'void (\w+)::(\w+)\(CCmdUI\s*\*\s*(\w+)\)', r'void \1::\2(mfcless::CommandState &state)', text)
 	text = re.sub(r'\bpCmdUI->', 'state.', text)
 	text = re.sub(r'(\w+)::(\w+)\(NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1::\2()', text)
@@ -564,8 +625,15 @@ def twin_cpp(text, header):
 	text = re.sub(r'reinterpret_cast<(?:const )?NMUPDOWN\s*\*>\(pNMHDR\)', '(&CurrentNotify())', text)
 	text = re.sub(r'(\w+)->iDelta\b', 'CurrentNotify().delta', text)
 	text = re.sub(r'(\w+)->iPos\b', 'CurrentNotify().pos', text)
+	# Classes defined in the .cpp get what the header twins get.
+	def local_class(m):
+		block = twin(m.group(0))
+		block = block.replace('// ' + DRAFT_MARK + '\n', '')
+		# No moc run for classes in a .cpp.
+		return block.replace('\tQ_OBJECT\n', '')
+	text = re.sub(r'^(?:class|struct) \w+(?:\s+final)?\s*:\s*(?:public|protected|private)\s[^\n{;]*\n\{\n.*?^\};', local_class, text, flags=re.M | re.S)
 	# Controls
-	types = member_types(header)
+	types = member_types(header + '\n' + text)
 	text = member_access(text, types)
 	text = re.sub(r'\b(?:' + '|'.join(BASES) + r')::(' + WINDOW_HANDLERS + r')\(', r'Window::\1(', text)
 	text = re.sub(r'(?:BOOL|bool) (\w+)::PreTranslateMessage\(MSG\s*\*\s*(\w*)\)', r'bool \1::PreTranslateMessage(mfcless::Message *\2)', text)
@@ -605,6 +673,11 @@ if __name__ == '__main__':
 						hdr = os.path.join(root, f)
 		header = open(hdr, encoding='utf-8').read() if os.path.exists(hdr) else ''
 		out = twin_cpp(src, header)
+		# Message box flags.
+		if re.search(r'\bn[fa][A-Z]\w+', out) and '"Reporting.h"' not in out:
+			m0 = re.search(r'^#include "[^"]*"\n', out, re.M)
+			if m0:
+				out = out[:m0.end()] + '#include "Reporting.h"\n' + out[m0.end():]
 		# The widgets MFC's stdafx.h brought along.
 		m = re.search(r'^#include "[^"]*"\n', out, re.M)
 		if m and '"mfcless/Widgets.h"' not in out:

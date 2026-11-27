@@ -465,6 +465,11 @@ void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const mfcless::Rect &rect, 
 void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const mfcless::Rect &rect, const wchar_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
 void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const char *text = nullptr, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
 void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const wchar_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+// mfcless: UTF-8 texts (mpt::ustring), and the DC by reference.
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const mfcless::Rect &rect, const char8_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const char8_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+template <typename... Args>
+inline void DrawButtonRect(mfcless::DC &hdc, Args &&...args) { DrawButtonRect(&hdc, std::forward<Args>(args)...); }
 
 
 // Misc functions
@@ -481,6 +486,7 @@ void AppendNotesToControlEx(QComboBox &combobox, const CSoundFile &sndFile, INST
 
 // Get window text (e.g. edit box content) as a unicode string
 mpt::ustring GetWindowTextUnicode(const QWidget &wnd);
+inline mpt::ustring GetWindowTextUnicode(const QWidget *wnd) { return wnd ? GetWindowTextUnicode(*wnd) : mpt::ustring(); }
 
 mpt::ustring FormatFileSize(uint64 fileSize);
 

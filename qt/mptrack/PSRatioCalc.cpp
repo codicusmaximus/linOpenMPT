@@ -3,7 +3,7 @@
  * ---------------
  * Purpose: Dialog for calculating sample time stretch ratios in the sample editor.
  * Notes  : mfcless twin of upstream's mptrack/PSRatioCalc.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -54,7 +54,7 @@ bool CPSRatioCalc::OnInitDialog()
 
 	LockControls();
 
-	const std::pair<CNumberEdit &, int> NumberControls[] =
+	const std::pair<CNumberEdit *&, int> NumberControls[] =
 	{
 		{m_EditTempo,        IDC_TEMPO},
 		{m_EditRatio,        IDC_PSRATIO},
@@ -66,7 +66,7 @@ bool CPSRatioCalc::OnInitDialog()
 	for(auto [editCtrl, dlgID] : NumberControls)
 	{
 		SubclassDlgItem(dlgID, editCtrl);
-		editCtrl.AllowNegative(false);
+		editCtrl->AllowNegative(false);
 	}
 
 	SetItemInt(IDC_SAMPLE_LENGTH_ORIGINAL, m_sndFile.GetSample(m_sampleIndex).nLength);
@@ -136,7 +136,7 @@ void CPSRatioCalc::OnChangeSpeed()
 		return;
 	LockControls();
 	m_tempo = std::max(TEMPO(1, 0), m_EditTempo->GetTempoValue());
-	m_speed = std::max(uint32(1), GetItemInt(IDC_SPEED));
+	m_speed = std::max(uint32(1), static_cast<uint32>(GetItemInt(IDC_SPEED)));
 	CalcRows();
 	UnlockControls();
 }

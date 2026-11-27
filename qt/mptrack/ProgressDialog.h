@@ -32,11 +32,11 @@ public:
 	~CProgressDialog();
 
 	// Set the window title
-	void SetTitle(const mpt::uchar *title);
+	void SetTitle(const mpt::ustring &title);
 	// Set the text on abort button
-	void SetAbortText(const mpt::uchar *abort);
+	void SetAbortText(const mpt::ustring &abort);
 	// Set the text to be displayed along the progress bar.
-	void SetText(const mpt::uchar *text);
+	void SetText(const mpt::ustring &text);
 	// Set the minimum and maximum value of the progress bar.
 	void SetRange(uint64 min, uint64 max);
 	// Set the current progress.

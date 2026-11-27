@@ -868,7 +868,7 @@ void CEffectVis::UpdateEffectList()
 		}
 	}
 	m_cmbEffectList->setUpdatesEnabled(true);
-	m_cmbEffectList->update(false);
+	m_cmbEffectList->update();
 }
 
 void CEffectVis::MakeChange(ROWINDEX row, int y)
@@ -904,7 +904,7 @@ void CEffectVis::MakeChange(ROWINDEX row, int y)
 
 		case Action::FillPC:
 			// Fill only empty slots with PC notes - leave other slots alone.
-			if (m.IsEmpty())
+			if (m.empty())
 			{
 				SetPcNote(row);
 			}

@@ -239,7 +239,7 @@ protected:
 	void OnUpdateSamples();
 	void OnUpdateKeyboard();
 	void OnUpdateOctave();
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	intptr_t OnKeyboardNotify(uintptr_t, intptr_t);
 	void RegisterMessageMap() override;
 };

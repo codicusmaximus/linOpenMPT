@@ -130,7 +130,7 @@ void COptionsColors::DoDataExchange(DataExchange &dx)
 
 
 COptionsColors::COptionsColors()
-    : CPropertyPage{IDD_OPTIONS_COLORS}
+    : PropertyPage{IDD_OPTIONS_COLORS}
     , CustomColors{TrackerSettings::Instance().rgbCustomColors}
 {
 	m_rpbEdit->SetAccessibleSuffix(UL_("rows per beat"));
@@ -234,7 +234,7 @@ bool COptionsColors::OnInitDialog()
 	mfcless::AddItem(m_ComboPreset, UL_("OpenMPT (Default)"));
 	for(const auto &preset : ColorSchemes)
 	{
-		m_ComboPreset->SetItemDataPtr(mfcless::AddItem(m_ComboPreset, preset.name), const_cast<ColorScheme *>(&preset));
+		mfcless::SetItemDataPtr(m_ComboPreset, mfcless::AddItem(m_ComboPreset, preset.name), const_cast<ColorScheme *>(&preset));
 	}
 	m_ComboPreset->setCurrentIndex(0);
 	m_ComboPreset->setUpdatesEnabled(true);
@@ -520,7 +520,7 @@ void COptionsColors::SelectColor(int colorIndex)
 }
 
 
-void COptionsColors::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void COptionsColors::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	PropertyPage::OnVScroll(nSBCode, nPos, pScrollBar);
 	int newSel = m_ComboItem->currentIndex() - m_ColorSpin->GetPos();
@@ -570,14 +570,14 @@ void COptionsColors::OnUpdateDialog()
 		m_BtnColor[i].ShowWindow(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
 	}
 
-	m_BtnPreview->update(false);
+	m_BtnPreview->update();
 }
 
 
 void COptionsColors::OnPreviewChanged()
 {
 	OnSettingsChanged();
-	m_BtnPreview->update(false);
+	m_BtnPreview->update();
 	for(int i = 0; i < 3; i++)
 	{
 		m_BtnColor[i].SetColor(CustomColors[colorDefs[m_nColorItem].colorIndex[i]]);
@@ -591,7 +591,7 @@ void COptionsColors::OnPresetChange()
 	if(curSel == 0)
 		return;
 	TrackerSettings::GetDefaultColourScheme(CustomColors);
-	auto scheme = static_cast<const ColorScheme *>(m_ComboPreset->GetItemDataPtr(curSel));
+	auto scheme = static_cast<const ColorScheme *>(mfcless::GetItemDataPtr(m_ComboPreset, curSel));
 	if(scheme != nullptr)
 	{
 		for(const auto &c : scheme->colors)

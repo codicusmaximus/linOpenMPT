@@ -141,7 +141,7 @@ protected:
 	void OnRampingChanged();
 	void OnDefaultRampSettings();
 
-	void OnHScroll(uint32 n, uint32 pos, QScrollBar *p);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 
 	void RegisterMessageMap() override;
 
@@ -190,11 +190,11 @@ protected:
 	void OnOK() override;
 	bool OnSetActive() override;
 	void DoDataExchange(DataExchange &dx) override;
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnSettingsChanged() { SetModified(true); }
 
 #ifndef NO_EQ
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnEqUser1() { LoadEQPreset(TrackerSettings::Instance().m_EqUserPresets[0]); };
 	void OnEqUser2() { LoadEQPreset(TrackerSettings::Instance().m_EqUserPresets[1]); };
 	void OnEqUser3() { LoadEQPreset(TrackerSettings::Instance().m_EqUserPresets[2]); };

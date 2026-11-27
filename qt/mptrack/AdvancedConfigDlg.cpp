@@ -42,9 +42,9 @@ void COptionsAdvanced::DoDataExchange(DataExchange &dx)
 
 
 #ifndef _AFX_NO_MFC_CONTROLS_IN_DIALOGS
-COptionsAdvanced::COptionsAdvanced() : CPropertyPage{IDD_OPTIONS_ADVANCED}, m_List{m_indexToPath} {}
+COptionsAdvanced::COptionsAdvanced() : PropertyPage{IDD_OPTIONS_ADVANCED}, m_List{m_indexToPath} {}
 #else   // _AFX_NO_MFC_CONTROLS_IN_DIALOGS
-COptionsAdvanced::COptionsAdvanced() : CPropertyPage{IDD_OPTIONS_ADVANCED} {}
+COptionsAdvanced::COptionsAdvanced() : PropertyPage{IDD_OPTIONS_ADVANCED} {}
 #endif  // !_AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
 COptionsAdvanced::~COptionsAdvanced() {}
@@ -65,7 +65,7 @@ bool COptionsAdvanced::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
 
-	m_List.SetExtendedStyle(m_List.GetExtendedStyle() | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
+	m_List.SetExtendedStyle(m_List.GetExtendedStyle() | mfcless::list::GridLines | mfcless::list::FullRowSelect);
 
 	m_listGrouped = m_List.EnableGroupView();
 
@@ -73,20 +73,20 @@ bool COptionsAdvanced::OnInitDialog()
 	{
 		static constexpr ListCtrl::Header headers[] =
 		{
-			{ UL_("Setting"), 170, LVCFMT_LEFT },
-			{ UL_("Type"),    40,  LVCFMT_LEFT },
-			{ UL_("Value"),   160, LVCFMT_LEFT },
-			{ UL_("Default"), 76,  LVCFMT_LEFT },
+			{ UL_("Setting"), 170, mfcless::list::AlignLeft },
+			{ UL_("Type"),    40,  mfcless::list::AlignLeft },
+			{ UL_("Value"),   160, mfcless::list::AlignLeft },
+			{ UL_("Default"), 76,  mfcless::list::AlignLeft },
 		};
 		m_List.SetHeaders(headers);
 	} else
 	{
 		static constexpr ListCtrl::Header headers[] =
 		{
-			{ UL_("Setting"), 220, LVCFMT_LEFT },
-			{ UL_("Type"),    40,  LVCFMT_LEFT },
-			{ UL_("Value"),   120, LVCFMT_LEFT },
-			{ UL_("Default"), 66,  LVCFMT_LEFT },
+			{ UL_("Setting"), 220, mfcless::list::AlignLeft },
+			{ UL_("Type"),    40,  mfcless::list::AlignLeft },
+			{ UL_("Value"),   120, mfcless::list::AlignLeft },
+			{ UL_("Default"), 66,  mfcless::list::AlignLeft },
 		};
 		m_List.SetHeaders(headers);
 	}

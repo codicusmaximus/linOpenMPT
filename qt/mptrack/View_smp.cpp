@@ -270,7 +270,7 @@ void CViewSample::UpdateScrollSize(int newZoom, bool forceRefresh, SmpLength cen
 		{
 			const SmpLength nOldPos = ScrollPosToSamplePos(oldZoom);
 			const float fPosFraction = (dwLen > 0) ? static_cast<float>(nOldPos) / dwLen : 0;
-			SetScrollPos(SB_HORZ, static_cast<int>(fPosFraction * GetScrollLimit(SB_HORZ)));
+			SetScrollPos(Qt::Horizontal, static_cast<int>(fPosFraction * GetScrollLimit(Qt::Horizontal)));
 		}
 	}
 
@@ -318,10 +318,10 @@ void CViewSample::ScrollToSample(SmpLength sample, bool refresh, ScrollTarget ta
 	if(target != ScrollTarget::Left)
 		scrollToSample -= (m_rcClient.Width() / ((target == ScrollTarget::Right) ? 1 : 2)) >> (-std::min(-1, m_nZoom) - 1);
 
-	Limit(scrollToSample, 0, GetScrollLimit(SB_HORZ));
-	if(GetScrollPos(SB_HORZ) != scrollToSample)
+	Limit(scrollToSample, 0, GetScrollLimit(Qt::Horizontal));
+	if(GetScrollPos(Qt::Horizontal) != scrollToSample)
 	{
-		SetScrollPos(SB_HORZ, scrollToSample);
+		SetScrollPos(Qt::Horizontal, scrollToSample);
 		if(refresh)
 			InvalidateSample();
 	}
@@ -333,7 +333,7 @@ int CViewSample::CalcScroll(int &currentPos, int amount, int style, int bar)
 	// Don't scroll if there is no valid scroll range (ie. no scroll bar)
 	const CScrollBar *pBar = GetScrollBarCtrl(bar);
 	uint32 dwStyle = GetStyle();
-	if((pBar != nullptr && !pBar->IsWindowEnabled())
+	if((pBar != nullptr && !pBar->isEnabled())
 		|| (pBar == nullptr && !(dwStyle & style)))
 	{
 		// Scroll bar not enabled
@@ -351,8 +351,8 @@ int CViewSample::CalcScroll(int &currentPos, int amount, int style, int bar)
 bool CViewSample::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 {
 	int x = 0, y = 0;
-	int scrollByX = CalcScroll(x, sizeScroll.cx, WS_HSCROLL, SB_HORZ);
-	int scrollByY = CalcScroll(y, sizeScroll.cy, WS_VSCROLL, SB_VERT);
+	int scrollByX = CalcScroll(x, sizeScroll.cx, WS_HSCROLL, Qt::Horizontal);
+	int scrollByY = CalcScroll(y, sizeScroll.cy, WS_VSCROLL, Qt::Vertical);
 
 	if(!scrollByX && !scrollByY)
 	{
@@ -369,8 +369,8 @@ bool CViewSample::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 		}
 
 		ScrollWindow(scrollByX, scrollByY);
-		if(scrollByX) SetScrollPos(SB_HORZ, x);
-		if(scrollByY) SetScrollPos(SB_VERT, y);
+		if(scrollByX) SetScrollPos(Qt::Horizontal, x);
+		if(scrollByY) SetScrollPos(Qt::Vertical, y);
 		m_forceRedrawWaveform  = true;
 		m_scrolledSinceLastMouseMove = true;
 	}
@@ -397,7 +397,7 @@ void CViewSample::SetCurrentSample(SAMPLEINDEX nSmp)
 	m_nSample = nSmp;
 	m_dwNotifyPos.fill(Notification::PosInvalid);
 	if(!wasOPL && IsOPLInstrument())
-		SetScrollPos(SB_HORZ, 0);
+		SetScrollPos(Qt::Horizontal, 0);
 	UpdateOPLEditor();
 	UpdateScrollSize();
 	UpdateNcButtonState();
@@ -415,7 +415,7 @@ void CViewSample::UpdateOPLEditor()
 {
 	if(!IsOPLInstrument())
 	{
-		if(m_oplEditor && m_oplEditor->IsWindowVisible())
+		if(m_oplEditor && m_oplEditor->isVisible())
 		{
 			m_oplEditor->SetEnabled(false);
 			setFocus();
@@ -732,7 +732,7 @@ intptr_t CViewSample::OnModViewMsg(uintptr_t wParam, intptr_t lParam)
 			if (pState->nSample == m_nSample)
 			{
 				SetCurSel(pState->dwBeginSel, pState->dwEndSel);
-				SetScrollPos(SB_HORZ, pState->dwScrollPos);
+				SetScrollPos(Qt::Horizontal, pState->dwScrollPos);
 				UpdateScrollSize();
 				InvalidateSample();
 			}
@@ -1667,7 +1667,7 @@ void CViewSample::ScrollToPosition(int x)    // logical coordinates
 {
 	mfcless::Point pt;
 	// now in device coordinates - limit if out of range
-	int xMax = GetScrollLimit(SB_HORZ);
+	int xMax = GetScrollLimit(Qt::Horizontal);
 	pt.x = x;
 	pt.y = 0;
 	if (pt.x < 0)
@@ -4212,7 +4212,7 @@ intptr_t CViewSample::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI
 		if(cmd != kcNull)
 		{
 			auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-			if(!keyText.IsEmpty())
+			if(!keyText.empty())
 				text += MPT_UFORMAT(" ({})")(keyText);
 		}
 	} else

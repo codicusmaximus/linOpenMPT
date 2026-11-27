@@ -112,7 +112,7 @@ protected:
 		if(doPreview)
 		{
 			mpt::ustring name = GetPathName();
-			if(!name.IsEmpty() && name != oldName)
+			if(!name.empty() && name != oldName)
 			{
 				oldName = name;
 				if(CMainFrame::GetMainFrame()->PlaySoundFile(mpt::PathString::FromUnicode(name), NOTE_MIDDLEC))
@@ -254,8 +254,8 @@ bool BrowseForFolder::Show(QWidget *parent)
 
 	mpt::uchar path[MAX_PATH];
 	BROWSEINFO bi{};
-	bi.hwndOwner = (parent != nullptr ? parent : theApp.m_pMainWnd)->m_hWnd;
-	if(!m_caption.IsEmpty())
+	bi.hwndOwner = (parent != nullptr ? parent : theApp.m_pMainWnd);
+	if(!m_caption.empty())
 		bi.lpszTitle = m_caption;
 	bi.pszDisplayName = path;
 	bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_USENEWUI;

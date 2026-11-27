@@ -99,7 +99,7 @@ protected:
 	TEMPO SliderToTempo(int value) const;
 	int TempoToSlider(TEMPO tempo) const;
 	intptr_t OnUpdatePosition(uintptr_t, intptr_t);
-	void OnVScroll(uint32, uint32, QScrollBar *);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnTapTempo();
 	void OnTitleChanged();
 	void OnArtistChanged();

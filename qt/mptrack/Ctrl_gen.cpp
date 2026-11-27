@@ -3,7 +3,7 @@
  * ------------
  * Purpose: General tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_gen.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -276,7 +276,7 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 		{
 			mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, CTrackApp::GetResamplingModeName(mode, 2, true)), mode);
 		}
-		m_CbnResampling->update(false);
+		m_CbnResampling->update();
 	}
 
 	if(updateAll)
@@ -459,7 +459,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 			}
 		}
 
-		else if(pSlider == (CSliderCtrl*)&m_SpinTempo)
+		else if(pSlider == (QSlider*)&m_SpinTempo)
 		{
 			int pos32 = m_SpinTempo->GetPos();
 			if(pos32 != 0)
@@ -492,13 +492,13 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 
 void CCtrlGeneral::OnTitleChanged()
 {
-	if (!m_EditTitle || !m_EditTitle->GetModify()) return;
+	if (!m_EditTitle || !m_EditTitle->isModified()) return;
 
 	mpt::ustring title;
 	mfcless::GetWindowText(m_EditTitle, title);
 	if(m_sndFile.SetTitle(mpt::ToCharset(m_sndFile.GetCharsetInternal(), title)))
 	{
-		m_EditTitle->SetModify(false);
+		m_EditTitle->setModified(false);
 		m_modDoc.SetModified();
 		m_modDoc.UpdateAllViews(nullptr, GeneralHint().General(), this);
 	}
@@ -507,12 +507,12 @@ void CCtrlGeneral::OnTitleChanged()
 
 void CCtrlGeneral::OnArtistChanged()
 {
-	if (!m_EditArtist || !m_EditArtist->GetModify()) return;
+	if (!m_EditArtist || !m_EditArtist->isModified()) return;
 
 	mpt::ustring artist = GetWindowTextUnicode(m_EditArtist);
 	if(artist != m_sndFile.m_songArtist)
 	{
-		m_EditArtist->SetModify(false);
+		m_EditArtist->setModified(false);
 		m_sndFile.m_songArtist = artist;
 		m_modDoc.SetModified();
 		m_modDoc.UpdateAllViews(NULL, GeneralHint().General(), this);
@@ -530,7 +530,7 @@ void CCtrlGeneral::OnTempoChanged()
 		if (tempo != m_sndFile.Order().GetDefaultTempo())
 		{
 			m_editsLocked = true;
-			m_EditTempo->SetModify(false);
+			m_EditTempo->setModified(false);
 			m_sndFile.Order().SetDefaultTempo(tempo);
 			m_sndFile.m_PlayState.m_nMusicTempo = tempo;
 			m_modDoc.SetModified();
@@ -554,7 +554,7 @@ void CCtrlGeneral::OnSpeedChanged()
 			if (n != m_sndFile.Order().GetDefaultSpeed())
 			{
 				m_editsLocked = true;
-				m_EditSpeed->SetModify(false);
+				m_EditSpeed->setModified(false);
 				m_sndFile.Order().SetDefaultSpeed(n);
 				m_sndFile.m_PlayState.m_nMusicSpeed = n;
 				m_modDoc.SetModified();
@@ -628,7 +628,7 @@ void CCtrlGeneral::OnGlobalVolChanged()
 			if (n != m_sndFile.m_nDefaultGlobalVolume)
 			{ 
 				m_editsLocked = true;
-				m_EditGlobalVol->SetModify(false);
+				m_EditGlobalVol->setModified(false);
 				m_sndFile.m_nDefaultGlobalVolume = n;
 				m_sndFile.m_PlayState.m_nGlobalVolume = n;
 				m_modDoc.SetModified();
@@ -658,7 +658,7 @@ void CCtrlGeneral::OnRestartPosChanged()
 	if(n == m_sndFile.Order().GetRestartPos())
 		return;
 	
-	m_EditRestartPos->SetModify(false);
+	m_EditRestartPos->setModified(false);
 	m_sndFile.Order().SetRestartPos(n);
 	m_modDoc.SetModified();
 	m_modDoc.UpdateAllViews(nullptr, SequenceHint(m_sndFile.Order.GetCurrentSequenceIndex()).RestartPos(), this);
@@ -704,7 +704,7 @@ mpt::ustring CCtrlGeneral::GetToolTipText(uint32 uId, QWidget *) const
 		const mpt::uchar moreRecentMixModeNote[] = UL_("Use a more recent mixmode to see dB offsets.");
 		const bool displayDBValues = m_sndFile.GetPlayConfig().getDisplayDBValues();
 		const QWidget *wnd = GetDlgItem(uId);
-		const bool isEnabled = wnd ? (wnd->IsWindowEnabled() != false) : true;  // nullptr check is for a Wine bug workaround (https://bugs.openmpt.org/view.php?id=1553)
+		const bool isEnabled = wnd ? (wnd->isEnabled() != false) : true;  // nullptr check is for a Wine bug workaround (https://bugs.openmpt.org/view.php?id=1553)
 		mpt::ustring notAvailable;
 		if(!isEnabled)
 			notAvailable = MPT_UFORMAT("Feature is not available in the {} format.")(mpt::ToUnicode(m_sndFile.GetModSpecifications().GetFileExtensionUpper()));
@@ -715,7 +715,7 @@ mpt::ustring CCtrlGeneral::GetToolTipText(uint32 uId, QWidget *) const
 			s = UL_("Song Properties");
 			{
 				const auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(kcViewSongProperties, 0);
-				if (!keyText.IsEmpty())
+				if (!keyText.empty())
 					s +=  MPT_UFORMAT(" ({})")(keyText);
 			}
 			break;

@@ -136,7 +136,7 @@ bool CCtrlPatterns::OnInitDialog()
 	SetRedraw(false);
 	LockControls();
 	// Order List
-	const int cyHScroll = HighDPISupport::GetSystemMetrics(SM_CYHSCROLL, GetDPI());
+	const int cyHScroll = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
 	m_BtnNext->GetWindowRect(&rect);
 	ScreenToClient(&rect);
 	auto margins = HighDPISupport::ScalePixels(4, this);
@@ -219,7 +219,7 @@ void CCtrlPatterns::RecalcLayout()
 	{
 		mfcless::Rect rect;
 		int cx, cy, cellcx;
-		int cyHScroll = HighDPISupport::GetSystemMetrics(SM_CYHSCROLL, GetDPI());
+		int cyHScroll = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
 		m_BtnNext->GetWindowRect(&rect);
 		ScreenToClient(&rect);
 		cx = -(rect.right + 4);
@@ -371,7 +371,7 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 			if(nPos == 0)
 				SetCurrentInstrument(0);
 			m_CbnInstrument->setUpdatesEnabled(true);
-			m_CbnInstrument->update(false);
+			m_CbnInstrument->update();
 		}
 		if(updateAll || updatePatNames)
 		{
@@ -429,17 +429,17 @@ intptr_t CCtrlPatterns::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		break;
 
 	case CTRLMSG_NOTIFYCURRENTORDER:
-		if(m_OrderList->GetCurSel().GetSelCount() > 1 || m_OrderList->m_bDragging)
+		if(m_OrderList->currentIndex().GetSelCount() > 1 || m_OrderList->m_bDragging)
 		{
 			// Only update play cursor in case there's a selection
-			m_OrderList->update(false);
+			m_OrderList->update();
 			break;
 		}
 		// Otherwise, just act the same as a normal selection change
 		[[fallthrough]];
 	case CTRLMSG_SETCURRENTORDER:
 		// Set order list selection and refresh GUI if change successful
-		m_OrderList->SetCurSel(static_cast<ORDERINDEX>(lParam), false, false, true);
+		m_OrderList->setCurrentIndex(static_cast<ORDERINDEX>(lParam), false, false, true);
 		break;
 
 	case CTRLMSG_FORCEREFRESH:
@@ -495,11 +495,11 @@ intptr_t CCtrlPatterns::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		break;
 
 	case CTRLMSG_PREVORDER:
-		m_OrderList->SetCurSel(Order().GetPreviousOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
+		m_OrderList->setCurrentIndex(Order().GetPreviousOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
 		break;
 
 	case CTRLMSG_NEXTORDER:
-		m_OrderList->SetCurSel(Order().GetNextOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
+		m_OrderList->setCurrentIndex(Order().GetNextOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
 		break;
 
 	case CTRLMSG_PAT_FOLLOWSONG:
@@ -617,7 +617,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 				if(ORDERINDEX ord = m_sndFile.Order(seq).FindOrder(pat); ord != ORDERINDEX_INVALID)
 				{
 					m_OrderList->SelectSequence(seq);
-					m_OrderList->SetCurSel(ord, true);
+					m_OrderList->setCurrentIndex(ord, true);
 					UpdateView(SequenceHint(seq).Names(), nullptr);
 					break;
 				}
@@ -635,7 +635,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 			const auto &order = Order();
 			if(ord < order.size())
 			{
-				m_OrderList->SetCurSel(ord);
+				m_OrderList->setCurrentIndex(ord);
 				SetCurrentPattern(order[ord]);
 			}
 			UpdateView(SequenceHint(static_cast<SEQUENCEINDEX>(seq)).Names(), nullptr);
@@ -653,7 +653,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 		if(patternViewState.initialOrder != ORDERINDEX_INVALID)
 		{
 			if(CMainFrame::GetMainFrame()->GetModPlaying() != &m_modDoc)
-				m_OrderList->SetCurSel(patternViewState.initialOrder);
+				m_OrderList->setCurrentIndex(patternViewState.initialOrder);
 			patternViewState.initialOrder = ORDERINDEX_INVALID;
 		}
 
@@ -676,7 +676,7 @@ void CCtrlPatterns::OnDeactivatePage()
 }
 
 
-void CCtrlPatterns::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CCtrlPatterns::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	CModControlDlg::OnVScroll(nSBCode, nPos, pScrollBar);
 	short int pos = (short int)m_SpinInstrument->GetPos();
@@ -693,14 +693,14 @@ void CCtrlPatterns::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrol
 
 void CCtrlPatterns::OnSequencePrev()
 {
-	m_OrderList->SetCurSel(m_OrderList->GetCurSel(true).firstOrd - 1);
+	m_OrderList->setCurrentIndex(m_OrderList->GetCurSel(true).firstOrd - 1);
 	m_OrderList->setFocus();
 }
 
 
 void CCtrlPatterns::OnSequenceNext()
 {
-	m_OrderList->SetCurSel(m_OrderList->GetCurSel(true).firstOrd + 1);
+	m_OrderList->setCurrentIndex(m_OrderList->GetCurSel(true).firstOrd + 1);
 	m_OrderList->setFocus();
 }
 
@@ -826,8 +826,8 @@ void CCtrlPatterns::OnPatternNew()
 				m_sndFile.Patterns[newPat].SetTempoSwing(m_sndFile.Patterns[curPat].GetTempoSwing());
 		}
 		// move to new pattern
-		m_OrderList->SetCurSel(curOrd);
-		m_OrderList->update(false);
+		m_OrderList->setCurrentIndex(curOrd);
+		m_OrderList->update();
 		SetCurrentPattern(newPat);
 		m_modDoc.SetModified();
 		m_modDoc.UpdateAllViews(nullptr, PatternHint(newPat).Names(), this);
@@ -840,7 +840,7 @@ void CCtrlPatterns::OnPatternNew()
 // Duplicates one or more patterns.
 void CCtrlPatterns::OnPatternDuplicate()
 {
-	OrdSelection selection = m_OrderList->GetCurSel();
+	OrdSelection selection = m_OrderList->currentIndex();
 	const ORDERINDEX insertFrom = selection.firstOrd;
 	const ORDERINDEX insertWhere = selection.lastOrd + 1u;
 	if(insertWhere >= m_sndFile.GetModSpecifications().ordersMax)
@@ -894,8 +894,8 @@ void CCtrlPatterns::OnPatternDuplicate()
 	{
 		m_OrderList->InsertUpdatePlaystate(selection.firstOrd, selection.lastOrd);
 
-		m_OrderList->update(false);
-		m_OrderList->SetCurSel(insertWhere, true, false, true);
+		m_OrderList->update();
+		m_OrderList->setCurrentIndex(insertWhere, true, false, true);
 
 		// If the first duplicated order is e.g. a +++ item, we need to move the pattern display on or else we'll still edit the previously shown pattern.
 		ORDERINDEX showPattern = std::min(insertWhere, order.GetLastIndex());
@@ -923,7 +923,7 @@ void CCtrlPatterns::OnPatternDuplicate()
 // Merges one or more patterns into a single pattern
 void CCtrlPatterns::OnPatternMerge()
 {
-	const OrdSelection selection = m_OrderList->GetCurSel();
+	const OrdSelection selection = m_OrderList->currentIndex();
 	const ORDERINDEX firstOrder = selection.firstOrd;
 	const ORDERINDEX numOrders = selection.GetSelCount();
 
@@ -943,7 +943,7 @@ void CCtrlPatterns::OnPatternMerge()
 	}
 	if(!numRows || !numOrders)
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		SwitchToViewIfMouse();
 		return;
 	}
@@ -988,7 +988,7 @@ void CCtrlPatterns::OnPatternMerge()
 	}
 	if(minPatternSize == maxPatternSize && minPatternSize == patternSize)
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		SwitchToViewIfMouse();
 		return;
 	}
@@ -1035,7 +1035,7 @@ void CCtrlPatterns::OnPatternMerge()
 		patternsInserted++;
 	}
 
-	m_OrderList->update(false);
+	m_OrderList->update();
 	m_OrderList->SetSelection(firstOrder, firstOrder + patternsInserted);
 	SetCurrentPattern(order[firstOrder]);
 
@@ -1403,7 +1403,7 @@ mpt::ustring CCtrlPatterns::GetToolTipText(uint32 id, QWidget *) const
 	case IDC_SPIN_SEQNUM:
 	case IDC_EDIT_SEQNUM:
 	case IDC_EDIT_SEQUENCE_NAME:
-		if(!GetDlgItem(id)->IsWindowEnabled())
+		if(!GetDlgItem(id)->isEnabled())
 			s = UL_("Multiple sequences are only supported in the MPTM format.");
 		break;
 
@@ -1414,7 +1414,7 @@ mpt::ustring CCtrlPatterns::GetToolTipText(uint32 id, QWidget *) const
 	if(cmd != kcNull)
 	{
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-		if(!keyText.IsEmpty())
+		if(!keyText.empty())
 			s += MPT_UFORMAT(" ({})")(keyText);
 	}
 	return s;

@@ -3,7 +3,7 @@
  * ---------------------
  * Purpose: Implementation of pattern "go to" dialog.
  * Notes  : mfcless twin of upstream's mptrack/PatternGotoDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -55,9 +55,9 @@ void CPatternGotoDialog::RegisterMessageMap()
 bool CPatternGotoDialog::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
-	QIcon icon = ::LoadIcon(AfxGetResourceHandle(), MAKEINTRESOURCE(IDR_MODULETYPE));
-	SetIcon(icon, false);
-	SetIcon(icon, true);
+	QIcon icon = QIcon(QPixmap::fromImage(mfcless::res::Icon(IDR_MODULETYPE)));
+	setWindowIcon(icon);
+	setWindowIcon(icon);
 
 	UpdateNumRows();
 	m_SpinChannel->SetRange(1, m_SndFile.GetNumChannels());
@@ -81,14 +81,14 @@ void CPatternGotoDialog::OnOK()
 	// Valid order item?
 	if(m_nOrder >= Order.size())
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		mfcless::GotoDlgCtrl(GetDlgItem(IDC_GOTO_ORD));
 		return;
 	}
 	// Does order match pattern? Does pattern exist?
 	if(Order[m_nOrder] != m_nPattern || !Order.IsValidPat(m_nOrder))
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		mfcless::GotoDlgCtrl(GetDlgItem(IDC_GOTO_PAT));
 		return;
 	}

@@ -72,7 +72,7 @@ protected:
 	bool OnInitDialog() override;
 	void DoDataExchange(DataExchange &dx) override;
 	void FillProgramBox(bool percussion);
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void UpdateDialog();
 	void OnChannelChanged();
 	void OnProgramChanged();

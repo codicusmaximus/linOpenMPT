@@ -159,7 +159,7 @@ protected:
 	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
 	intptr_t OnSettingChange(uintptr_t, intptr_t);
 	intptr_t OnRefreshToolbar(uintptr_t, intptr_t);
-	void OnVScroll(uint32, uint32, QScrollBar *);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnTbnDropDownToolBar();
 	bool OnToolTipText(uint32 );
 	void OnSelectMIDIDevice(uint32 id);

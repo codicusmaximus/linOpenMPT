@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Class for tuning a sample to a given base note automatically.
  * Notes  : mfcless twin of upstream's mptrack/Autotune.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -429,7 +429,7 @@ void CAutotuneDlg::OnOK()
 	int pitch = GetItemInt(IDC_EDIT1);
 	if(pitch <= 0)
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		return;
 	}
 

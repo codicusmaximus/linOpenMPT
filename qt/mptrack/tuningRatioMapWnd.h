@@ -13,12 +13,12 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Window.h"
+#include <QtGui/QFont>
 #include <QtWidgets/QLabel>
 
 #include "../soundlib/tuning.h"
 #include "../soundlib/modcommand.h"
 
-class QFont;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -37,6 +37,7 @@ protected:
 	CTuningDialog* m_pParent = nullptr;
 
 	QFont m_font;
+	bool m_fontCreated = false;
 	int m_cxFont = 0, m_cyFont = 0;
 	int m_dpi = 0;
 	NOTEINDEXTYPE m_nNote = NOTE_MIDDLEC;

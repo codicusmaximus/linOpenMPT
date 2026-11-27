@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: Dialog for handling missing plugins
  * Notes  : mfcless twin of upstream's mptrack/PlugNotFoundDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -45,11 +45,11 @@ bool PlugNotFoundDialog::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{ UL_("Plugin"),		128, LVCFMT_LEFT },
-		{ UL_("File Path"),	308, LVCFMT_LEFT },
+		{ UL_("Plugin"),		128, mfcless::list::AlignLeft },
+		{ UL_("File Path"),	308, mfcless::list::AlignLeft },
 	};
 	m_List->SetHeaders(headers);
-	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
+	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::FullRowSelect | mfcless::list::CheckBoxes);
 
 	for(const auto &plug : m_plugins)
 	{

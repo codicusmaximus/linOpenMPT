@@ -114,8 +114,8 @@ void CCtrlComments::RecalcLayout()
 		int cx = rect.Width(), cy = rect.Height();
 		if(m_sndFile.GetModSpecifications().commentLineLengthMax != 0)
 		{
-			const int cxBorder = HighDPISupport::GetSystemMetrics(SM_CXBORDER, GetDPI());
-			const int cxVScroll = HighDPISupport::GetSystemMetrics(SM_CXVSCROLL, GetDPI());
+			const int cxBorder = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CxBorder, GetDPI());
+			const int cxVScroll = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CxVScroll, GetDPI());
 			int cxmax = cxBorder + m_sndFile.GetModSpecifications().commentLineLengthMax * charWidth + cxVScroll + cxBorder + HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN + MPT_COMMENTS_MARGIN - 1, m_EditComments);
 			if(cx != cxmax && cxmax != 0)
 				cx = cxmax;
@@ -227,7 +227,7 @@ void CCtrlComments::OnCommentsUpdated()
 	const std::size_t maxline = m_sndFile.GetModSpecifications().commentLineLengthMax;
 	int beg = 0;
 	int end = 0;
-	m_EditComments->GetSel(beg, end);
+	mfcless::GetSel(m_EditComments, beg, end);
 	mpt::ustring text;
 	mfcless::GetWindowText(m_EditComments, text);
 	std::string lines_new;
@@ -321,7 +321,7 @@ void CCtrlComments::OnCommentsUpdated()
 	{
 		text = lines_new.c_str();
 		mfcless::SetWindowText(m_EditComments, text);
-		m_EditComments->SetSel(beg, end);
+		mfcless::SetSel(m_EditComments, beg, end);
 	}
 	m_Reformatting = false;
 
@@ -334,11 +334,11 @@ void CCtrlComments::OnCommentsChanged()
 {
 	if(m_nLockCount)
 		return;
-	if(!m_initialized || !m_EditComments || !m_EditComments->GetModify())
+	if(!m_initialized || !m_EditComments || !m_EditComments->isModified())
 		return;
 	mpt::ustring text;
 	mfcless::GetWindowText(m_EditComments, text);
-	m_EditComments->SetModify(false);
+	m_EditComments->setModified(false);
 	if(m_sndFile.m_songMessage.SetFormatted(mpt::ToCharset(m_sndFile.GetCharsetInternal(), text), SongMessage::leCRLF))
 	{
 		m_modDoc.SetModified();
@@ -353,15 +353,15 @@ bool CCtrlComments::PreTranslateMessage(mfcless::Message *pMsg)
 	{
 		// Ctrl-A is not handled by multiline edit boxes
 		if(mfcless::GetFocus() == m_EditComments)
-			m_EditComments->SetSel(0, -1);
+			mfcless::SetSel(m_EditComments, 0, -1);
 	} else if(pMsg->message == mfcless::msg::KeyDown && pMsg->wParam == mfcless::vk::TAB && CInputHandler::GetModifierMask() == ModNone)
 	{
 		int selStart, selEnd;
-		m_EditComments->GetSel(selStart, selEnd);
+		mfcless::GetSel(m_EditComments, selStart, selEnd);
 		int posInLine = (selStart - m_EditComments->LineIndex(m_EditComments->LineFromChar(selStart)));
 		mpt::ustring tabs(u8' ', 4 - (posInLine % 4));
 		m_EditComments->ReplaceSel(tabs, true);
-		m_EditComments->SetSel(-1, -1, true);
+		mfcless::SetSel(m_EditComments, -1, -1, true);
 		return true;
 	}
 	return CModControlDlg::PreTranslateMessage(pMsg);

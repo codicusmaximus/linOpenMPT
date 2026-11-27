@@ -53,7 +53,7 @@ protected:
 	void OnOverrideSignature();
 	void OnTempoSwing();
 	void OnPatternChanged();
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 
 	void RegisterMessageMap() override;
 
@@ -133,7 +133,7 @@ protected:
 	void OnVolCmdChanged();
 	void OnCommandChanged();
 	void OnPlugParamChanged();
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void RegisterMessageMap() override;
 };
 
@@ -238,7 +238,7 @@ protected:
 	void OnActivate(uint32 nState, QWidget *, bool);
 	void OnVolChanged();
 	void OnPanChanged();
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnMuteChanged();
 	void OnSurroundChanged();
 	void OnNameChanged();
@@ -272,7 +272,7 @@ protected:
 	bool GetSampleInfo(Setting<mpt::PathString> &path, QComboBox &combo, QLineEdit &edit, QAbstractButton &browseButton);
 	mpt::PathString BrowseForSample(const mpt::PathString &path);
 
-	void OnHScroll(uint32, uint32, QScrollBar *);
+	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	void OnToggleMetronome();
 	void OnSampleChanged();
 	void OnBrowseMeasure();

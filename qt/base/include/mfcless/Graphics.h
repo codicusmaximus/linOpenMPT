@@ -219,6 +219,8 @@ public:
 	void FillSolidRect(int x, int y, int cx, int cy, uint32_t color) { FillSolidRect(Rect(x, y, x + cx, y + cy), color); }
 	void FillRect(const Rect &r, const Brush *brush);
 	void FillRect(const Rect &r, const Brush &brush) { FillRect(r, &brush); }
+	void FillRect(const Rect *r, const Brush &brush) { FillRect(*r, &brush); }
+	void FillRect(const Rect *r, const Brush *brush) { FillRect(*r, brush); }
 	void FrameRect(const Rect &r, const Brush *brush);
 	void FrameRect(const Rect &r, const Brush &brush) { FrameRect(r, &brush); }
 	void Draw3dRect(const Rect &r, uint32_t topLeft, uint32_t bottomRight);
@@ -226,6 +228,7 @@ public:
 	bool DrawEdge(Rect *r, uint32_t edgeType, uint32_t flags);
 	bool DrawEdge(Rect r, uint32_t edgeType, uint32_t flags) { return DrawEdge(&r, edgeType, flags); }
 	void DrawFocusRect(const Rect &r);
+	void DrawFocusRect(const Rect *r) { DrawFocusRect(*r); }
 	void InvertRect(const Rect &r);
 	bool PatBlt(int x, int y, int width, int height, uint32_t rasterOp);
 
@@ -246,10 +249,14 @@ public:
 	// Returns the height of the text; with dt::CalcRect, measures into r.
 	int DrawText(const Text &text, Rect *r, uint32_t format);
 	int DrawText(const Text &text, Rect r, uint32_t format) { return DrawText(text, &r, format); }
+	// With a length (-1: all of it).
+	int DrawText(const Text &text, int length, Rect *r, uint32_t format) { return DrawText(length < 0 ? text : Text(text.value.left(length)), r, format); }
+	int DrawText(const Text &text, int length, const Rect &r, uint32_t format) { Rect rr = r; return DrawText(text, length, &rr, format); }
 	Size GetTextExtent(const Text &text) const;
 	int GetTextHeight() const;
 
 	int IntersectClipRect(const Rect &r);
+	int IntersectClipRect(const Rect *r) { return IntersectClipRect(*r); }
 	int IntersectClipRect(int l, int t, int r, int b) { return IntersectClipRect(Rect(l, t, r, b)); }
 	int SelectClipRect(const Rect *r);
 	Rect GetClipBox() const;
@@ -286,6 +293,12 @@ protected:
 	};
 	std::vector<Saved> m_saved;
 };
+
+// FillRect(dc, rect, brush) in all the forms upstream writes it.
+inline void FillRect(DC &dc, const Rect &r, const Brush &b) { dc.FillRect(r, &b); }
+inline void FillRect(DC &dc, const Rect *r, const Brush &b) { dc.FillRect(*r, &b); }
+inline void FillRect(DC *dc, const Rect &r, const Brush &b) { dc->FillRect(r, &b); }
+inline void FillRect(DC *dc, const Rect *r, const Brush &b) { dc->FillRect(*r, &b); }
 
 // Owner-drawn controls: the item states of DrawItemInfo.
 namespace ods

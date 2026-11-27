@@ -81,9 +81,9 @@ bool ResizableDialog::OnInitDialog()
 	DialogBase::OnInitDialog();
 	LoadDynamicLayout(m_lpszTemplateName);
 
-	QIcon icon = ::LoadIcon(AfxGetResourceHandle(), MAKEINTRESOURCE(IDR_MODULETYPE));
-	SetIcon(icon, false);
-	SetIcon(icon, true);
+	QIcon icon = QIcon(QPixmap::fromImage(mfcless::res::Icon(IDR_MODULETYPE)));
+	setWindowIcon(icon);
+	setWindowIcon(icon);
 
 	return true;
 }

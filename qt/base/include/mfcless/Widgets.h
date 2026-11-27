@@ -56,6 +56,10 @@
 #include "mfcless/System.h"
 #include "mfcless/Text.h"
 #include "mfcless/Window.h"
+#include "mfcless/StandardIds.h"
+
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
 
 namespace mfcless
 {

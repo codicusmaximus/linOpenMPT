@@ -158,7 +158,7 @@ protected:
 	void OnXFade();
 	void OnStereoSeparation();
 	void OnKeepSampleOnDisk();
-	void OnVScroll(uint32, uint32, QScrollBar *);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 

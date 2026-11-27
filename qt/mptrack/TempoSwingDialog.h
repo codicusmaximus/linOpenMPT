@@ -39,7 +39,7 @@ protected:
 
 		SliderContainer(CTempoSwingDlg &parent) : m_parent(parent) { }
 
-		void OnHScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+		void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 		bool OnToolTipNotify(uint32 );
 
 		void RegisterMessageMap() override;
@@ -83,7 +83,7 @@ protected:
 	void OnUseGlobal();
 	void OnToggleGroup();
 	void OnGroupChanged();
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 
 	void RegisterMessageMap() override;
 };

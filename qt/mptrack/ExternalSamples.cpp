@@ -53,11 +53,11 @@ bool MissingExternalSamplesDlg::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{ UL_("Sample"),            128, LVCFMT_LEFT },
-		{ UL_("External Filename"), 308, LVCFMT_LEFT },
+		{ UL_("Sample"),            128, mfcless::list::AlignLeft },
+		{ UL_("External Filename"), 308, mfcless::list::AlignLeft },
 	};
 	m_List->SetHeaders(headers);
-	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
+	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::FullRowSelect);
 
 	GenerateList();
 	SetWindowText((UL_("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
@@ -81,7 +81,7 @@ void MissingExternalSamplesDlg::GenerateList()
 			if(insertAt == -1)
 				continue;
 			m_List->SetItemText(insertAt, 1, m_sndFile.GetSamplePath(smp).ToUnicode());
-			m_List->SetItemData(insertAt, smp);
+			mfcless::SetItemData(m_List, insertAt, smp);
 		}
 	}
 	m_List->setUpdatesEnabled(true);
@@ -96,7 +96,7 @@ void MissingExternalSamplesDlg::OnSetPath()
 {
 	const int item = m_List->GetSelectionMark();
 	if(item == -1) return;
-	const SAMPLEINDEX smp = static_cast<SAMPLEINDEX>(m_List->GetItemData(item));
+	const SAMPLEINDEX smp = static_cast<SAMPLEINDEX>(mfcless::GetItemData(m_List, item));
 
 	const mpt::PathString path = m_modDoc.GetSoundFile().GetSamplePath(smp);
 	FileDialog dlg = OpenFileDialog()
@@ -247,12 +247,12 @@ bool ModifiedExternalSamplesDlg::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{UL_("Sample"),            120, LVCFMT_LEFT},
-		{UL_("Status"),            54,  LVCFMT_LEFT},
-		{UL_("External Filename"), 262, LVCFMT_LEFT},
+		{UL_("Sample"),            120, mfcless::list::AlignLeft},
+		{UL_("Status"),            54,  mfcless::list::AlignLeft},
+		{UL_("External Filename"), 262, mfcless::list::AlignLeft},
 	};
 	m_List->SetHeaders(headers);
-	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
+	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::FullRowSelect | mfcless::list::CheckBoxes);
 
 	GenerateList();
 	SetWindowText((UL_("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
@@ -288,8 +288,8 @@ void ModifiedExternalSamplesDlg::GenerateList()
 			continue;
 		m_List->SetItemText(insertAt, 1, status.c_str());
 		m_List->SetItemText(insertAt, 2, m_sndFile.GetSamplePath(smp).ToUnicode());
-		m_List->SetCheck(insertAt, true);
-		m_List->SetItemData(insertAt, smp);
+		mfcless::SetCheck(m_List, insertAt, true);
+		mfcless::SetItemData(m_List, insertAt, smp);
 	}
 	m_List->setUpdatesEnabled(true);
 
@@ -308,7 +308,7 @@ void ModifiedExternalSamplesDlg::OnCheckAll()
 	const int count = m_List->GetItemCount();
 	for(int i = 0; i < count; i++)
 	{
-		m_List->SetCheck(i, check);
+		mfcless::SetCheck(m_List, i, check);
 	}
 }
 
@@ -319,7 +319,7 @@ void ModifiedExternalSamplesDlg::OnSelectionChanged()
 	const int count = m_List->GetItemCount();
 	for(int i = 0; i < count; i++)
 	{
-		if(m_List->GetCheck(i))
+		if(mfcless::GetCheck(m_List, i))
 			numChecked++;
 	}
 	const mpt::uchar *embedText, *saveText;
@@ -350,10 +350,10 @@ void ModifiedExternalSamplesDlg::Execute(bool doSave)
 	const int count = m_List->GetItemCount();
 	for(int i = 0; i < count; i++)
 	{
-		if(!m_List->GetCheck(i))
+		if(!mfcless::GetCheck(m_List, i))
 			continue;
 
-		SAMPLEINDEX smp = static_cast<SAMPLEINDEX>(m_List->GetItemData(i));
+		SAMPLEINDEX smp = static_cast<SAMPLEINDEX>(mfcless::GetItemData(m_List, i));
 		if(doSave)
 		{
 			ok &= m_modDoc.SaveSample(smp);

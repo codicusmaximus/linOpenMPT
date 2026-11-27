@@ -28,7 +28,7 @@ OPENMPT_NAMESPACE_BEGIN
 
 
 //***************************************************************************************//
-// CCustEdit: customised CEdit control to catch keypresses.
+// CCustEdit: customised QLineEdit control to catch keypresses.
 // (does what CHotKeyCtrl does,but better)
 //***************************************************************************************//
 
@@ -130,8 +130,8 @@ void CCustEdit::OnKillFocus(QWidget *pNewWnd)
 
 static constexpr CListCtrlEx::Header KeyListHeaders[] =
 {
-	{UL_("Shortcut"),      274, LVCFMT_LEFT},
-	{UL_("Assigned Keys"), 174, LVCFMT_LEFT},
+	{UL_("Shortcut"),      274, mfcless::list::AlignLeft},
+	{UL_("Assigned Keys"), 174, mfcless::list::AlignLeft},
 };
 
 void COptionsKeyboard::RegisterMessageMap()
@@ -187,7 +187,7 @@ void COptionsKeyboard::DoDataExchange(DataExchange &dx)
 }
 
 
-COptionsKeyboard::COptionsKeyboard() : CPropertyPage{IDD_OPTIONS_KEYBOARD} { }
+COptionsKeyboard::COptionsKeyboard() : PropertyPage{IDD_OPTIONS_KEYBOARD} { }
 
 
 bool COptionsKeyboard::OnSetActive()
@@ -205,7 +205,7 @@ bool COptionsKeyboard::OnInitDialog()
 	m_localCmdSet = std::make_unique<CCommandSet>();
 	m_localCmdSet->Copy(*CMainFrame::GetInputHandler()->m_activeCommandSet);
 
-	m_lbnCommandKeys->SetExtendedStyle(m_lbnCommandKeys->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
+	m_lbnCommandKeys->SetExtendedStyle(m_lbnCommandKeys->GetExtendedStyle() | mfcless::list::FullRowSelect);
 	m_listGrouped = m_lbnCommandKeys->EnableGroupView();
 	m_lbnCommandKeys->SetHeaders(KeyListHeaders);
 
@@ -424,11 +424,11 @@ void COptionsKeyboard::OnSearchTermChanged()
 	mpt::ustring findString;
 	mfcless::GetWindowText(m_eFind, findString);
 
-	if(findString.IsEmpty())
+	if(findString.empty())
 	{
 		UpdateCategory();
 	}
-	UpdateShortcutList(findString.IsEmpty() ? m_curCategory : -1);
+	UpdateShortcutList(findString.empty() ? m_curCategory : -1);
 }
 
 
@@ -503,7 +503,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 	mfcless::GetWindowText(m_eFind, findString);
 	findString.MakeLower();
 
-	const bool searchByName = !findString.IsEmpty(), searchByKey = m_eFindHotKey->HasKey();
+	const bool searchByName = !findString.empty(), searchByKey = m_eFindHotKey->HasKey();
 	const bool doSearch = (searchByName || searchByKey);
 
 	int firstCat = category, lastCat = category;
@@ -515,7 +515,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 	}
 
 	const auto curSelection = m_lbnCommandKeys->GetSelectionMark();
-	const CommandID curCommand = (curSelection >= 0) ? static_cast<CommandID>(m_lbnCommandKeys->GetItemData(curSelection)) : kcNull;
+	const CommandID curCommand = (curSelection >= 0) ? static_cast<CommandID>(mfcless::GetItemData(m_lbnCommandKeys, curSelection)) : kcNull;
 	m_lbnCommandKeys->setUpdatesEnabled(false);
 	m_lbnCommandKeys->DeleteAllItems();
 	if(m_listGrouped)
@@ -584,7 +584,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 						lvi.iItem = ++itemID;
 						lvi.lParam = kcNull;
 						mpt::ustring catName;
-						if(range.name.IsEmpty())
+						if(range.name.empty())
 							catName = const_cast<mpt::uchar *>(UL_("------------------------------------------------------"));
 						else
 							catName = UL_("------ ") + range.name + UL_(" ------");
@@ -639,7 +639,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 	if(itemToSelect != -1)
 	{
 		m_lbnCommandKeys->SetSelectionMark(itemToSelect);
-		m_lbnCommandKeys->SetItemState(itemToSelect, LVIS_SELECTED, LVIS_SELECTED);
+		m_lbnCommandKeys->SetItemState(itemToSelect, mfcless::list::Selected, mfcless::list::Selected);
 	}
 	m_lbnCommandKeys->setUpdatesEnabled(true);
 	OnCommandKeySelChanged();
@@ -653,7 +653,7 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 	if(pNMHDR)
 	{
 		auto hdr = reinterpret_cast<const NMLISTVIEW *>(pNMHDR);
-		if(!(hdr->uNewState & LVIS_SELECTED))
+		if(!(hdr->uNewState & mfcless::list::Selected))
 			return;
 		selectedItem = hdr->iItem;
 	} else
@@ -661,7 +661,7 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 		selectedItem = m_lbnCommandKeys->GetSelectionMark();
 	}
 
-	const CommandID cmd = (selectedItem >= 0) ? static_cast<CommandID>(m_lbnCommandKeys->GetItemData(selectedItem)) : kcNull;
+	const CommandID cmd = (selectedItem >= 0) ? static_cast<CommandID>(mfcless::GetItemData(m_lbnCommandKeys, selectedItem)) : kcNull;
 	mpt::ustring str;
 
 	EnableKeyChoice(false);
@@ -795,7 +795,7 @@ void COptionsKeyboard::OnRestoreKeyChoice()
 	// Do nothing if there's nothing to restore
 	if(cmd == kcNull || ((m_curKeyChoice < 0 || m_curKeyChoice >= ih->GetKeyListSize(cmd)) && ih->GetKeyListSize(cmd) != 0))
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		return;
 	}
 
@@ -857,7 +857,7 @@ void COptionsKeyboard::OnDeleteKeyChoice()
 	// Do nothing if there's no key defined for this slot.
 	if(m_curCommand == kcNull || m_curKeyChoice < 0 || m_curKeyChoice >= m_localCmdSet->GetKeyListSize(cmd))
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		return;
 	}
 
@@ -979,7 +979,7 @@ void COptionsKeyboard::UpdateWarning(mpt::ustring text, bool notify)
 {
 	const int iconSize = HighDPISupport::ScalePixels(16, this);
 	QIcon icon;
-	if(text.IsEmpty())
+	if(text.empty())
 	{
 		mfcless::SetWindowText(m_warnText, UL_("No conflicts found."));
 		if(!m_infoIcon)
@@ -988,7 +988,7 @@ void COptionsKeyboard::UpdateWarning(mpt::ustring text, bool notify)
 	} else
 	{
 		if(notify)
-			mfcless::MessageBeep(nfIconWarning);
+			mfcless::MessageBeep();
 
 		mfcless::SetWindowText(m_warnText, text);
 		if(!m_warnIcon)
@@ -1084,7 +1084,7 @@ void COptionsKeyboard::ForceUpdateGUI(bool updateAllKeys)
 		const int numItems = m_lbnCommandKeys->GetItemCount();
 		for(int i = 0; i < numItems; i++)
 		{
-			if(const auto cmd = static_cast<CommandID>(m_lbnCommandKeys->GetItemData(i)); cmd != kcNull)
+			if(const auto cmd = static_cast<CommandID>(mfcless::GetItemData(m_lbnCommandKeys, i)); cmd != kcNull)
 				m_lbnCommandKeys->SetItemText(i, 1, m_localCmdSet->GetKeyTextFromCommand(cmd));
 		}
 		UpdateNoteRepeatCheckbox();

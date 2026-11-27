@@ -660,7 +660,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 		{
 			fileName = m_TuningCollectionsFilenames[pTC] + P_(" - ");
 		}
-		if(!m_TuningCollectionsNames[pTC].IsEmpty())
+		if(!m_TuningCollectionsNames[pTC].empty())
 		{
 			fileName += mpt::PathString::FromUnicode(mpt::ToUnicode(m_TuningCollectionsNames[pTC])).AsSanitizedComponent() + P_(" - ");
 		}

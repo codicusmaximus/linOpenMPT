@@ -53,7 +53,7 @@ protected:
 	void OnOK() override;
 	void DoDataExchange(DataExchange &dx) override;
 	bool OnSetActive() override;
-	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
 
 	void SelectColor(int colorIndex);
 

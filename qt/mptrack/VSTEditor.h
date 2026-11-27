@@ -16,8 +16,7 @@
 
 #include "AbstractVstEditor.h"
 
-#include <QtWidgets/QLabel>
-class QWidget;
+#include <QtWidgets/QWidget>
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -29,7 +28,8 @@ class COwnerVstEditor : public CAbstractVstEditor
 {
 	Q_OBJECT
 protected:
-	QLabel *m_plugWindow = nullptr;
+	// The native (X11) window the plugin opens its editor in.
+	QWidget *m_plugWindow = nullptr;
 	int m_width = 0, m_height = 0;
 
 public:
@@ -46,8 +46,7 @@ public:
 	void DoClose() override;
 
 protected:
-	bool OnEraseBkgnd(mfcless::DC *) { return true; }
-	void OnPaint();
+	void OnPaint() override;
 
 	intptr_t OnPreTranslateKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::KeyDown, wParam, lParam); }
 	intptr_t OnPreTranslateKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::KeyUp, wParam, lParam); }

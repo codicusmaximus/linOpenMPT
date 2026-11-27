@@ -507,7 +507,7 @@ mpt::ustring CModTypeDlg::GetToolTipText(uint32 id, QWidget *) const
 		text = UL_("Mixing method of sample and instrument plugin levels.");
 		break;
 	case IDC_BUTTON1:
-		if(!GetDlgItem(IDC_BUTTON1)->IsWindowEnabled())
+		if(!GetDlgItem(IDC_BUTTON1)->isEnabled())
 		{
 			text = UL_("Tempo swing is only available in modern tempo mode.");
 		} else
@@ -562,7 +562,6 @@ CLegacyPlaybackSettingsDlg::CLegacyPlaybackSettingsDlg(QWidget *parent, PlayBeha
 bool CLegacyPlaybackSettingsDlg::OnInitDialog()
 {
 	ResizableDialog::OnInitDialog();
-	m_CheckList->SetItemHeight(0, 0);  // Workaround to force MFC to correctly compute the height of the first list item, in particular on high-DPI setups
 	OnFilterStringChanged();
 	UpdateSelectDefaults();
 	return true;
@@ -575,7 +574,7 @@ void CLegacyPlaybackSettingsDlg::OnSelectDefaults()
 	m_playBehaviour = CSoundFile::GetDefaultPlaybackBehaviour(m_modType);
 	for(int i = 0; i < count; i++)
 	{
-		m_CheckList->SetCheck(i, m_playBehaviour[mfcless::GetItemData(m_CheckList, i)] ? 1 : 0);
+		mfcless::SetCheck(m_CheckList, i, m_playBehaviour[mfcless::GetItemData(m_CheckList, i)] ? 1 : 0);
 	}
 }
 
@@ -585,7 +584,7 @@ void CLegacyPlaybackSettingsDlg::UpdateSelectDefaults()
 	const int count = m_CheckList->count();
 	for(int i = 0; i < count; i++)
 	{
-		m_playBehaviour.set(mfcless::GetItemData(m_CheckList, i),  m_CheckList->GetCheck(i) != 0);
+		m_playBehaviour.set(mfcless::GetItemData(m_CheckList, i),  mfcless::GetCheck(m_CheckList, i) != 0);
 	}
 	const auto defaults = CSoundFile::GetDefaultPlaybackBehaviour(m_modType);
 	EnableItem(IDC_BUTTON1, m_playBehaviour != defaults ? true : false);
@@ -596,7 +595,7 @@ void CLegacyPlaybackSettingsDlg::OnFilterStringChanged()
 {
 	mpt::ustring s;
 	s = GetItemText(IDC_EDIT1);
-	const bool filterActive = !s.IsEmpty();
+	const bool filterActive = !s.empty();
 	s.MakeLower();
 
 	m_CheckList->setUpdatesEnabled(false);
@@ -773,7 +772,7 @@ void CLegacyPlaybackSettingsDlg::OnFilterStringChanged()
 			int check = m_playBehaviour[i] ? 1 : 0;
 			if(!allowedFlags[i])
 				check = 2;  // Is checked but not supported by format -> grey out
-			m_CheckList->SetCheck(item, check);
+			mfcless::SetCheck(m_CheckList, item, check);
 		}
 	}
 	m_CheckList->setUpdatesEnabled(true);
@@ -821,7 +820,7 @@ bool CRemoveChannelsDlg::OnInitDialog()
 			s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.ChnSettings[n].szName);
 		}
 		mfcless::SetItemData(m_RemChansList, mfcless::AddItem(m_RemChansList, s), n);
-		if (!m_bKeepMask[n]) m_RemChansList->SetSel(n);
+		if (!m_bKeepMask[n]) mfcless::SetSel(m_RemChansList, n);
 	}
 
 	if (m_nRemove > 0)
@@ -839,7 +838,7 @@ bool CRemoveChannelsDlg::OnInitDialog()
 
 void CRemoveChannelsDlg::OnOK()
 {
-	int selCount = m_RemChansList->GetSelCount();
+	int selCount = mfcless::GetSelCount(m_RemChansList);
 	std::vector<int> selected(selCount);
 	m_RemChansList->GetSelItems(selCount, selected.data());
 
@@ -858,7 +857,7 @@ void CRemoveChannelsDlg::OnOK()
 
 void CRemoveChannelsDlg::OnChannelChanged()
 {
-	const uint32 selCount = m_RemChansList->GetSelCount();
+	const uint32 selCount = mfcless::GetSelCount(m_RemChansList);
 	EnableItem(IDOK, ((selCount == m_nRemove && selCount > 0)  || (m_nRemove == 0 && (sndFile.GetNumChannels() >= selCount + sndFile.GetModSpecifications().channelsMin) && selCount > 0)) ? true : false);
 }
 
@@ -1220,7 +1219,7 @@ void CSampleMapDlg::OnDPIChanged()
 }
 
 
-void CSampleMapDlg::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pBar)
+void CSampleMapDlg::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pBar)
 {
 	DialogBase::OnHScroll(nCode, nPos, pBar);
 	OnUpdateKeyboard();
@@ -1432,7 +1431,7 @@ bool CEditHistoryDlg::OnInitDialog()
 	SetItemText(IDC_EDIT_HISTORY, s);
 
 	// Total edit time
-	s.Empty();
+	s.clear();
 	if(totalTime)
 	{
 		totalTime = mpt::saturate_round<uint64>(totalTime / HISTORY_TIMER_PRECISION);
@@ -1627,7 +1626,7 @@ void MsgBoxHidable(enMsgBoxHidableMessage enMsg)
 /////////////////////////////////////////////////////////////////////////////////////
 
 
-void AppendNotesToControl(CComboBox& combobox, ModCommand::NOTE noteStart, ModCommand::NOTE noteEnd)
+void AppendNotesToControl(QComboBox& combobox, ModCommand::NOTE noteStart, ModCommand::NOTE noteEnd)
 {
 	const ModCommand::NOTE upperLimit = std::min(ModCommand::NOTE(NOTE_MAX), noteEnd);
 	for(ModCommand::NOTE note = noteStart; note <= upperLimit; note++)
@@ -1635,7 +1634,7 @@ void AppendNotesToControl(CComboBox& combobox, ModCommand::NOTE noteStart, ModCo
 }
 
 
-void AppendNotesToControlEx(CComboBox& combobox, const CSoundFile &sndFile, INSTRUMENTINDEX nInstr, ModCommand::NOTE noteStart, ModCommand::NOTE noteEnd)
+void AppendNotesToControlEx(QComboBox& combobox, const CSoundFile &sndFile, INSTRUMENTINDEX nInstr, ModCommand::NOTE noteStart, ModCommand::NOTE noteEnd)
 {
 	bool addSpecial = noteStart == noteEnd;
 	if(noteStart == noteEnd)

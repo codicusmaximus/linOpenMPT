@@ -242,7 +242,7 @@ mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 
 	mpt::ustring text;
 	const QWidget *wnd = GetDlgItem(static_cast<int>(id));
-	const CSliderCtrl *slider = static_cast<const CSliderCtrl *>(wnd);
+	const QSlider *slider = static_cast<const QSlider *>(wnd);
 	switch(id)
 	{
 	case IDC_SLIDER1:

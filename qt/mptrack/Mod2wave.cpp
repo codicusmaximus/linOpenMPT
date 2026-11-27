@@ -741,7 +741,7 @@ void CWaveConvert::OnOK()
 
 	m_Settings.repeatCount = static_cast<uint16>(GetItemInt(IDC_EDIT5));
 	m_Settings.normalize = IsChecked(IDC_CHECK5) != 0;
-	if(GetDlgItem(IDC_RENDERSILENCE)->IsWindowEnabled())
+	if(GetDlgItem(IDC_RENDERSILENCE)->isEnabled())
 		m_Settings.silencePlugBuffers = IsChecked(IDC_RENDERSILENCE) != 0;
 	m_Settings.outputToSample = IsChecked(IDC_RADIO5) != 0;
 	m_bGivePlugsIdleTime = IsChecked(IDC_GIVEPLUGSIDLETIME) != 0;

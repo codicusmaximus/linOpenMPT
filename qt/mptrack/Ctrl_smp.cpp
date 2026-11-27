@@ -707,7 +707,7 @@ mpt::ustring CCtrlSamples::GetToolTipText(uint32 uId, QWidget *) const
 		if(cmd != kcNull)
 		{
 			auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(cmd, 0);
-			if (!keyText.IsEmpty())
+			if (!keyText.empty())
 				s += MPT_UFORMAT(" ({})")(keyText);
 		}
 	}
@@ -831,7 +831,7 @@ void CCtrlSamples::UpdateView(UpdateHint hint, QObject *pObj)
 		uint32 d;
 
 		m_SpinSample->SetRange(1, m_sndFile.GetNumSamples());
-		m_SpinSample->update(false);	// In case the spin button was previously disabled
+		m_SpinSample->update();	// In case the spin button was previously disabled
 
 		// Length / Type
 		if(isOPL)
@@ -841,7 +841,7 @@ void CCtrlSamples::UpdateView(UpdateHint hint, QObject *pObj)
 		SetItemText(IDC_TEXT5, s);
 		// File Name
 		s = mpt::ToUnicode(m_sndFile.GetCharsetInternal(), sample.filename);
-		if (specs.sampleFilenameLengthMax == 0) s.Empty();
+		if (specs.sampleFilenameLengthMax == 0) s.clear();
 		SetItemText(IDC_SAMPLE_FILENAME, s);
 		// Volume
 		if(sample.uFlags[SMP_NODEFAULTVOLUME])
@@ -967,9 +967,9 @@ void CCtrlSamples::UpdateView(UpdateHint hint, QObject *pObj)
 		UnlockControls();
 	}
 
-	m_ComboLoopType->update(false);
-	m_ComboSustainType->update(false);
-	m_ComboAutoVib->update(false);
+	m_ComboLoopType->update();
+	m_ComboSustainType->update();
+	m_ComboAutoVib->update();
 
 	UnlockControls();
 }
@@ -1806,7 +1806,7 @@ void CCtrlSamples::ApplyResample(SAMPLEINDEX smp, uint32 newRate, ResamplingMode
 	const uint32 oldRate = sample.GetSampleRate(m_sndFile.GetType());
 	if(newRate < 1 || oldRate < 1)
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		mfcless::EndWaitCursor();
 		return;
 	}
@@ -1822,7 +1822,7 @@ void CCtrlSamples::ApplyResample(SAMPLEINDEX smp, uint32 newRate, ResamplingMode
 	SmpLength newSelEnd = SampleEdit::Resample(sample, selection.nStart, selection.nEnd, newRate, mode, m_sndFile, updatePatternCommands, updatePatternNotes, prepareSampleUndoFunc, preparePatternUndoFunc);
 	if(!newSelEnd)
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		mfcless::EndWaitCursor();
 		return;
 	}
@@ -2480,7 +2480,7 @@ void CCtrlSamples::OnSustainPointsChanged()
 }
 
 
-void CCtrlSamples::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *scrollBar)
+void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrollBar)
 {
 	mpt::uchar s[32];
 	if(IsLocked()) return;
@@ -2583,7 +2583,7 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *scrollB
 		SetFinetune(pos);
 		m_SpinFineTune->SetPos(0);
 	}
-	if(nCode == SB_ENDSCROLL)
+	if(nCode == mfcless::ScrollCode::EndScroll)
 		SwitchToViewIfMouse();
 	if(redraw)
 	{
@@ -2768,7 +2768,7 @@ void CCtrlSamples::OnXFade()
 
 	if(!sample.HasSampleData())
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		SwitchToViewIfMouse();
 		return;
 	}
@@ -2831,7 +2831,7 @@ void CCtrlSamples::OnStereoSeparation()
 		|| sample.GetNumChannels() != 2
 		|| sample.uFlags[CHN_ADLIB])
 	{
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 		SwitchToViewIfMouse();
 		return;
 	}

@@ -138,7 +138,7 @@ void COptionsSoundcard::DoDataExchange(DataExchange &dx)
 
 
 COptionsSoundcard::COptionsSoundcard(SoundDevice::Identifier deviceIdentifier)
-	: CPropertyPage(IDD_OPTIONS_SOUNDCARD)
+	: PropertyPage(IDD_OPTIONS_SOUNDCARD)
 	, m_InitialDeviceIdentifier(deviceIdentifier)
 {
 	return;
@@ -609,7 +609,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		EnableItem(IDC_STATIC_CHANNEL_REAR, true);
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
-			CComboBox *combo = &m_CbnChannelMapping[mch];
+			QComboBox *combo = &m_CbnChannelMapping[mch];
 			combo->EnableWindow(true);
 		}
 	}
@@ -631,22 +631,22 @@ void COptionsSoundcard::UpdateChannelMapping()
 	}
 	for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)	// Host channels
 	{
-		CComboBox *combo = &m_CbnChannelMapping[mch];
+		QComboBox *combo = &m_CbnChannelMapping[mch];
 		combo->EnableWindow((m_CurrentDeviceCaps.CanChannelMapping && mch < usedChannels) ? true : false);
-		combo->ResetContent();
+		combo->clear();
 		if(m_CurrentDeviceCaps.CanChannelMapping)
 		{
-			combo->SetItemData(combo->AddString(UL_("Unassigned")), (uintptr_t)-1);
-			combo->SetCurSel(0);
+			mfcless::SetItemData(combo, mfcless::AddItem(combo, UL_("Unassigned")), (uintptr_t)-1);
+			combo->setCurrentIndex(0);
 			if(mch < usedChannels)
 			{
 				for(size_t dch = 0; dch < m_CurrentDeviceDynamicCaps.channelNames.size(); dch++)	// Device channels
 				{
 					const int pos = (int)::SendMessageW(combo, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.channelNames[dch].c_str());
-					combo->SetItemData(pos, (uintptr_t)dch);
+					mfcless::SetItemData(combo, pos, (uintptr_t)dch);
 					if(static_cast<int32>(dch) == m_Settings.Channels.ToDevice(mch))
 					{
-						combo->SetCurSel(pos);
+						combo->setCurrentIndex(pos);
 					}
 				}
 			}
@@ -659,7 +659,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		EnableItem(IDC_STATIC_CHANNEL_REAR, false);
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
-			CComboBox *combo = &m_CbnChannelMapping[mch];
+			QComboBox *combo = &m_CbnChannelMapping[mch];
 			combo->EnableWindow(false);
 		}
 	}
@@ -706,8 +706,8 @@ void COptionsSoundcard::OnSoundCardDriverPanel()
 
 void COptionsSoundcard::OnChannelChanged(int channel)
 {
-	CComboBox *combo = &m_CbnChannelMapping[channel];
-	const LONG_PTR newChn = combo->GetItemData(combo->GetCurSel());
+	QComboBox *combo = &m_CbnChannelMapping[channel];
+	const LONG_PTR newChn = mfcless::GetItemData(combo, combo->currentIndex());
 	if(newChn == -1)
 	{
 		return;
@@ -718,7 +718,7 @@ void COptionsSoundcard::OnChannelChanged(int channel)
 		if(mch != channel)
 		{
 			combo = &m_CbnChannelMapping[mch];
-			if((int)combo->GetItemData(combo->GetCurSel()) == newChn)
+			if((int)mfcless::GetItemData(combo, combo->currentIndex()) == newChn)
 			{
 				// find an unused channel
 				bool found = false;
@@ -742,10 +742,10 @@ void COptionsSoundcard::OnChannelChanged(int channel)
 				}
 				if(found)
 				{
-					combo->SetCurSel(deviceChannel+1);
+					combo->setCurrentIndex(deviceChannel+1);
 				} else
 				{
-					combo->SetCurSel(0);
+					combo->setCurrentIndex(0);
 				}
 				break;
 			}
@@ -905,8 +905,8 @@ void COptionsSoundcard::OnOK()
 			std::vector<int32> channels(numChannels);
 			for(int mch = 0; mch < numChannels; mch++)	// Host channels
 			{
-				CComboBox *combo = &m_CbnChannelMapping[mch];
-				channels[mch] = static_cast<int32>(combo->GetItemData(combo->GetCurSel()));
+				QComboBox *combo = &m_CbnChannelMapping[mch];
+				channels[mch] = static_cast<int32>(mfcless::GetItemData(combo, combo->currentIndex()));
 			}
 			m_Settings.Channels = channels;
 		}
@@ -1030,7 +1030,7 @@ void COptionsMixer::DoDataExchange(DataExchange &dx)
 
 
 COptionsMixer::COptionsMixer()
-	: CPropertyPage{IDD_OPTIONS_MIXER}
+	: PropertyPage{IDD_OPTIONS_MIXER}
 {
 	m_CEditRampUp->SetAccessibleSuffix(UL_("microseconds up"));
 	m_CEditRampDown->SetAccessibleSuffix(UL_("microseconds down"));
@@ -1080,8 +1080,8 @@ bool COptionsMixer::OnInitDialog()
 	{
 		mfcless::SetWindowText(m_CEditRampUp, mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampUpMicroseconds())));
 		mfcless::SetWindowText(m_CEditRampDown, mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampDownMicroseconds())));
-		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(0, int32_max);
-		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN3))->SetRange32(0, int32_max);
+		Item<mfcless::UpDown>(IDC_SPIN2)->SetRange(0, int32_max);
+		Item<mfcless::UpDown>(IDC_SPIN3)->SetRange(0, int32_max);
 		UpdateRamping();
 	}
 
@@ -1152,7 +1152,7 @@ void COptionsMixer::OnDefaultRampSettings()
 }
 
 
-void COptionsMixer::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *p)
+void COptionsMixer::OnHScroll(mfcless::ScrollCode n, int pos, QWidget *p)
 {
 	PropertyPage::OnHScroll(n, pos, p);
 	if(p == (CScrollBar *)&m_SliderStereoSep)
@@ -1263,17 +1263,17 @@ public:
 
 bool CEQSavePresetDlg::OnInitDialog()
 {
-	CComboBox *pCombo = (CComboBox *)GetDlgItem(IDC_COMBO1);
+	QComboBox *pCombo = Item<QComboBox>(IDC_COMBO1);
 	if (pCombo)
 	{
 		int ndx = 0;
 		for (uint32 i=0; i<4; i++)
 		{
-			int n = pCombo->AddString(mpt::ToUnicode(mpt::Charset::Locale, TrackerSettings::Instance().m_EqUserPresets[i].szName));
-			pCombo->SetItemData( n, i);
+			int n = mfcless::AddItem(pCombo, mpt::ToUnicode(mpt::Charset::Locale, TrackerSettings::Instance().m_EqUserPresets[i].szName));
+			mfcless::SetItemData(pCombo,  n, i);
 			if (!lstrcmpiA(TrackerSettings::Instance().m_EqUserPresets[i].szName, m_EQ.szName)) ndx = n;
 		}
-		pCombo->SetCurSel(ndx);
+		pCombo->setCurrentIndex(ndx);
 	}
 	SetItemText(IDC_EDIT1, mpt::ToUnicode(mpt::Charset::Locale, m_EQ.szName));
 	return true;
@@ -1282,10 +1282,10 @@ bool CEQSavePresetDlg::OnInitDialog()
 
 void CEQSavePresetDlg::OnOK()
 {
-	CComboBox *pCombo = (CComboBox *)GetDlgItem(IDC_COMBO1);
+	QComboBox *pCombo = Item<QComboBox>(IDC_COMBO1);
 	if (pCombo)
 	{
-		int n = pCombo->GetCurSel();
+		int n = pCombo->currentIndex();
 		if ((n < 0) || (n >= 4)) n = 0;
 		mpt::ustring s;
 		s = GetItemText(IDC_EDIT1);
@@ -1310,7 +1310,7 @@ bool CEQSlider::PreTranslateMessage(mfcless::Message *pMsg)
 	{
 		m_x = LOWORD(pMsg->lParam);
 		m_y = HIWORD(pMsg->lParam);
-		m_pParent->mfcless::PostCommand(this, ID_EQSLIDER_BASE+m_nSliderNo, 0);
+		mfcless::PostCommand(m_pParent, ID_EQSLIDER_BASE+m_nSliderNo, 0);
 	}
 	return WindowBase::PreTranslateMessage(pMsg);
 }
@@ -1378,7 +1378,7 @@ void COptionsPlayer::DoDataExchange(DataExchange &dx)
 }
 
 
-COptionsPlayer::COptionsPlayer() : CPropertyPage{IDD_OPTIONS_PLAYER}
+COptionsPlayer::COptionsPlayer() : PropertyPage{IDD_OPTIONS_PLAYER}
 #ifndef NO_EQ
 	, m_EQPreset(TrackerSettings::Instance().m_EqSettings)
 #endif
@@ -1455,7 +1455,7 @@ bool COptionsPlayer::OnInitDialog()
 	for (uint32 iRvb=0; iRvb<NUM_REVERBTYPES; iRvb++)
 	{
 		mpt::ustring pszName = mpt::ToUnicode(GetReverbPresetName(iRvb));
-		if(!pszName.IsEmpty())
+		if(!pszName.empty())
 		{
 			uint32 n = mfcless::AddItem(m_CbnReverbPreset, pszName);
 			mfcless::SetItemData(m_CbnReverbPreset, n, iRvb);
@@ -1505,9 +1505,9 @@ bool COptionsPlayer::OnSetActive()
 }
 
 
-void COptionsPlayer::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *psb)
+void COptionsPlayer::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *psb)
 {
-	if (nSBCode == SB_ENDSCROLL) return;
+	if (nSBCode == mfcless::ScrollCode::EndScroll) return;
 	if ((psb) && (psb == m_SbReverbDepth))
 	{
 #ifndef NO_REVERB
@@ -1600,7 +1600,7 @@ void COptionsPlayer::UpdateEQ(bool bReset)
 }
 
 
-void COptionsPlayer::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void COptionsPlayer::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	PropertyPage::OnVScroll(nSBCode, nPos, pScrollBar);
 	for (uint32 i=0; i<MAX_EQ_BANDS; i++)
@@ -1755,7 +1755,7 @@ void CMidiSetupDlg::DoDataExchange(DataExchange &dx)
 
 
 CMidiSetupDlg::CMidiSetupDlg(FlagSet<MidiSetup> flags, uint32 device)
-	: CPropertyPage{IDD_OPTIONS_MIDI}
+	: PropertyPage{IDD_OPTIONS_MIDI}
 	, m_midiSetup{flags}
 	, m_nMidiDevice{device}
 {
@@ -1880,7 +1880,7 @@ void CMidiSetupDlg::RefreshDeviceList(uint32 currentDevice)
 		}
 	}
 	m_InputDevice->setUpdatesEnabled(true);
-	m_InputDevice->update(false);
+	m_InputDevice->update();
 }
 
 
@@ -1898,7 +1898,7 @@ void CMidiSetupDlg::OnRenameDevice()
 		CInputDlg dlg(this, UL_("New name for ") + name + UL_(":"), friendlyName);
 		if(dlg.DoModal() == IDOK)
 		{
-			if(dlg.resultAsString.IsEmpty() || dlg.resultAsString == name)
+			if(dlg.resultAsString.empty() || dlg.resultAsString == name)
 				theApp.GetSettings().Remove(U_("MIDI Input Ports"), mpt::ToUnicode(name));
 			else
 				theApp.GetSettings().Write(U_("MIDI Input Ports"), mpt::ToUnicode(name), dlg.resultAsString);
@@ -1974,7 +1974,7 @@ void COptionsWine::RegisterMessageMap()
 
 
 COptionsWine::COptionsWine()
-	: CPropertyPage(IDD_OPTIONS_WINE)
+	: PropertyPage(IDD_OPTIONS_WINE)
 {
 	return;
 }

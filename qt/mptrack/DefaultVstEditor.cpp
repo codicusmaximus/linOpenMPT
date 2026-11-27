@@ -278,7 +278,7 @@ void CDefaultVstEditor::UpdateControls(bool updateParamNames)
 		{
 			// This param doesn't exist.
 			controls[i]->EnableControls(false);
-			controls[i]->ResetContent();
+			controls[i]->clear();
 			continue;
 		}
 
@@ -295,12 +295,12 @@ void CDefaultVstEditor::UpdateControls(bool updateParamNames)
 }
 
 
-void CDefaultVstEditor::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CDefaultVstEditor::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	// Check if any of the value sliders were affected.
 	for(size_t i = 0; i < controls.size(); i++)
 	{
-		if((pScrollBar->GetDlgCtrlID() == controls[i]->GetSliderID()) && (nSBCode != SB_ENDSCROLL))
+		if((pScrollBar->GetDlgCtrlID() == controls[i]->GetSliderID()) && (nSBCode != mfcless::ScrollCode::EndScroll))
 		{
 			OnParamSliderChanged(controls[i]->GetSliderID());
 			break;
@@ -311,7 +311,7 @@ void CDefaultVstEditor::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pS
 }
 
 
-void CDefaultVstEditor::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScrollBar)
+void CDefaultVstEditor::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
 {
 	if (pScrollBar == &paramScroller)
 	{
@@ -330,46 +330,46 @@ void CDefaultVstEditor::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pS
 		// Determine the new position of scroll box.
 		switch(nSBCode)
 		{
-		case SB_LEFT:			// Scroll to far left.
+		case mfcless::ScrollCode::Top:			// Scroll to far left.
 			curpos = minpos;
 			break;
 
-		case SB_RIGHT:			// Scroll to far right.
+		case mfcless::ScrollCode::Bottom:			// Scroll to far right.
 			curpos = maxpos;
 			break;
 
-		case SB_ENDSCROLL:		// End scroll.
+		case mfcless::ScrollCode::EndScroll:		// End scroll.
 			break;
 
-		case SB_LINELEFT:		// Scroll left.
+		case mfcless::ScrollCode::LineUp:		// Scroll left.
 			if(curpos > minpos)
 				curpos--;
 			break;
 
-		case SB_LINERIGHT:		// Scroll right.
+		case mfcless::ScrollCode::LineDown:		// Scroll right.
 			if(curpos < maxpos)
 				curpos++;
 			break;
 
-		case SB_PAGELEFT:		// Scroll one page left.
+		case mfcless::ScrollCode::PageUp:		// Scroll one page left.
 			if(curpos > minpos)
 			{
 				curpos = std::max(minpos, curpos - static_cast<int>(sbInfo.nPage));
 			}
 			break;
 
-		case SB_PAGERIGHT:		// Scroll one page right.
+		case mfcless::ScrollCode::PageDown:		// Scroll one page right.
 			if(curpos < maxpos)
 			{
 				curpos = std::min(maxpos, curpos + static_cast<int>(sbInfo.nPage));
 			}
 			break;
 
-		case SB_THUMBPOSITION:	// Scroll to absolute position. nPos is the position
+		case mfcless::ScrollCode::ThumbPosition:	// Scroll to absolute position. nPos is the position
 			curpos = nPos;		// of the scroll box at the end of the drag operation.
 			break;
 
-		case SB_THUMBTRACK:		// Drag scroll box to specified position. nPos is the
+		case mfcless::ScrollCode::ThumbTrack:		// Drag scroll box to specified position. nPos is the
 			curpos = nPos;		// position that the scroll box has been dragged to.
 			break;
 		}

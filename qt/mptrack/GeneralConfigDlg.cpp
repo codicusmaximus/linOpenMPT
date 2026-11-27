@@ -3,7 +3,7 @@
  * --------------------
  * Purpose: Implementation of the general settings dialog.
  * Notes  : mfcless twin of upstream's mptrack/GeneralConfigDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +11,7 @@
 
 #include "GeneralConfigDlg.h"
 #include "mfcless/Widgets.h"
+#include "Reporting.h"
 #include "FileDialog.h"
 #include "FolderScanner.h"
 #include "Mainfrm.h"
@@ -39,9 +40,8 @@ void COptionsGeneral::RegisterMessageMap()
 }
 
 
-COptionsGeneral::COptionsGeneral() : CPropertyPage{IDD_OPTIONS_GENERAL}
+COptionsGeneral::COptionsGeneral() : PropertyPage{IDD_OPTIONS_GENERAL}
 {
-	m_templateBrowseButton->SetAccessibleText(UL_("Browse for template file..."));
 }
 
 
@@ -99,6 +99,8 @@ void COptionsGeneral::DoDataExchange(DataExchange &dx)
 bool COptionsGeneral::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
+	// mfcless: the controls exist once the template is built.
+	m_templateBrowseButton->SetAccessibleText(UL_("Browse for template file..."));
 
 	mfcless::SetWindowText(m_defaultArtist, mpt::ToUnicode(TrackerSettings::Instance().defaultArtist.Get()));
 
@@ -133,7 +135,7 @@ bool COptionsGeneral::OnInitDialog()
 	{
 		mpt::RawPathString fileW = file.AsNative();
 		fileW = fileW.substr(basePath.Length());
-		::SendMessage(m_defaultTemplate, CB_ADDSTRING, 0, (intptr_t)fileW.c_str());
+		mfcless::AddItem(m_defaultTemplate, mpt::PathString(fileW).ToUnicode());
 	}
 	file = TrackerSettings::Instance().defaultTemplateFile;
 	if(file.GetDirectoryWithDrive() == basePath)
@@ -149,10 +151,9 @@ bool COptionsGeneral::OnInitDialog()
 	{
 		auto idx = mfcless::AddItem(m_CheckList, mpt::ToUnicode(mpt::Charset::ASCII, opt.name));
 		const int check = patternSetup[opt.flag] ? 1 : 0;
-		m_CheckList->SetCheck(idx, check);
+		mfcless::SetCheck(m_CheckList, idx, check);
 	}
 	m_CheckList->setCurrentRow(0);
-	m_CheckList->SetItemHeight(0, 0);  // Workaround to force MFC to correctly compute the height of the first list item, in particular on high-DPI setups
 	OnOptionSelChanged();
 
 	return true;
@@ -163,7 +164,7 @@ void COptionsGeneral::OnOK()
 {
 	TrackerSettings::Instance().defaultArtist = GetWindowTextUnicode(m_defaultArtist);
 	TrackerSettings::Instance().defaultModType = static_cast<MODTYPE>(mfcless::GetItemData(m_defaultFormat, m_defaultFormat->currentIndex()));
-	TrackerSettings::Instance().defaultTemplateFile = mpt::PathString::FromUnicode(GetWindowTextString(m_defaultTemplate));
+	TrackerSettings::Instance().defaultTemplateFile = mpt::PathString::FromUnicode(mfcless::GetWindowTextString(m_defaultTemplate));
 
 	NewFileAction action = nfDefaultFormat;
 	int newActionRadio = GetCheckedRadio(IDC_RADIO1, IDC_RADIO3);
@@ -172,14 +173,14 @@ void COptionsGeneral::OnOK()
 	if(action == nfDefaultTemplate && TrackerSettings::Instance().defaultTemplateFile.Get().empty())
 	{
 		action = nfDefaultFormat;
-		mfcless::MessageBeep(nfIconWarning);
+		mfcless::MessageBeep();
 	}
 	TrackerSettings::Instance().defaultNewFileAction = action;
 
 	FlagSet<PatternSetup> patternSetup = TrackerSettings::Instance().patternSetup;
 	for(int i = 0; i < mpt::saturate_cast<int>(std::size(generalOptionsList)); i++)
 	{
-		const bool check = (m_CheckList->GetCheck(i) != 0);
+		const bool check = (mfcless::GetCheck(m_CheckList, i) != 0);
 
 		patternSetup.set(generalOptionsList[i].flag, check);
 	}
@@ -213,7 +214,7 @@ void COptionsGeneral::OnOptionSelChanged()
 void COptionsGeneral::OnBrowseTemplate()
 {
 	mpt::PathString basePath = theApp.GetUserTemplatesPath();
-	mpt::PathString defaultFile = mpt::PathString::FromUnicode(GetWindowTextString(m_defaultTemplate));
+	mpt::PathString defaultFile = mpt::PathString::FromUnicode(mfcless::GetWindowTextString(m_defaultTemplate));
 	if(defaultFile.empty()) defaultFile = TrackerSettings::Instance().defaultTemplateFile;
 
 	OpenFileDialog dlg;
@@ -222,7 +223,7 @@ void COptionsGeneral::OnBrowseTemplate()
 		dlg.WorkingDirectory(basePath);
 	} else
 	{
-		if(defaultFile.ToWide().find_first_of(UL_("/\\")) == std::wstring::npos)
+		if(defaultFile.AsNative().find_first_of(PL_("/\\")) == mpt::RawPathString::npos)
 		{
 			// Relative path
 			defaultFile = basePath + defaultFile;
