@@ -182,7 +182,7 @@ protected:
 	std::array<SAMPLEINDEX, NOTE_MAX> m_sampleNum;
 
 public:
-	CKeyboardControl() = default;
+	explicit CKeyboardControl(QWidget *parent = nullptr) : Window(parent) {}
 
 public:
 	void Init(QWidget *parent, int octaves = 1, bool cursorNotify = false);

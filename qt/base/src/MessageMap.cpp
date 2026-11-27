@@ -277,9 +277,11 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 		QObject::connect(combo, &QComboBox::activated, context, [=] { Send(target, id, Notify::SelChange, control); });
 		if(QWidget *popup = combo->view() ? combo->view()->window() : nullptr; popup && popup != combo->window())
 			popup->installEventFilter(new PopupWatcher(combo, id, target));
-		if(combo->isEditable())
+		// CBN_EDITCHANGE and CBN_EDITUPDATE come from typing only, not from
+		// text the program sets.
+		if(QLineEdit *comboEdit = combo->lineEdit())
 		{
-			QObject::connect(combo, &QComboBox::editTextChanged, context, [=] {
+			QObject::connect(comboEdit, &QLineEdit::textEdited, context, [=] {
 				Send(target, id, Notify::EditUpdate, control);
 				Send(target, id, Notify::EditChange, control);
 			});
