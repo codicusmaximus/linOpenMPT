@@ -1091,6 +1091,33 @@ void CModControlBar::EnableButton(uint32 nID, bool enable)
 }
 
 
+void CModControlBar::SetState(uint32 nID, uint32 state)
+{
+	if(QAction *action = GetButton(nID))
+	{
+		action->setEnabled(state & StateEnabled);
+		if(action->isCheckable() || (state & StateChecked))
+		{
+			action->setCheckable(true);
+			action->setChecked(state & StateChecked);
+		}
+	}
+}
+
+
+void CModControlBar::ChangeBitmap(uint32 nID, int iImage)
+{
+	QAction *action = GetButton(nID);
+	if(!action || !m_icons)
+		return;
+	QIcon icon;
+	icon.addPixmap(m_icons->GetImage(iImage), QIcon::Normal);
+	if(m_disabledIcons)
+		icon.addPixmap(m_disabledIcons->GetImage(iImage), QIcon::Disabled);
+	action->setIcon(icon);
+}
+
+
 QPoint CModControlBar::GetDropDownPos(uint32 nID) const
 {
 	if(QAction *action = GetButton(nID))

@@ -292,6 +292,20 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 			info.subItem = column;
 			target->DispatchNotify(info);
 		});
+		if(listCtrl)
+		{
+			QObject::connect(listCtrl, &ListCtrl::labelEditBegun, context, [=](int index) { Send(target, id, Notify::BeginLabelEdit, control, index); });
+			QObject::connect(listCtrl, &ListCtrl::labelEditEnded, context, [=](int index, const QString &text, bool accepted) {
+				NotifyInfo info;
+				info.id = id;
+				info.code = Notify::EndLabelEdit;
+				info.control = control;
+				info.item = index;
+				info.text = text;
+				info.textValid = accepted;
+				target->DispatchNotify(info);
+			});
+		}
 		tree->viewport()->installEventFilter(new RightClickWatcher(tree, id, target, [=](QTreeWidgetItem *item) { return item ? indexOf(item) : -1; }));
 		QObject::connect(tree, &QTreeWidget::itemClicked, context, [=](QTreeWidgetItem *item, int column) {
 			NotifyInfo info;

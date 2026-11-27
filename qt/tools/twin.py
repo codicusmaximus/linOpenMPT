@@ -147,6 +147,7 @@ TYPES = [
 
 # Applied last to the .cpp twins, once control members are pointers.
 LATE = [
+	(r'\bTBSTATE_CHECKED\b', 'CModControlBar::StateChecked'), (r'\bTBSTATE_ENABLED\b', 'CModControlBar::StateEnabled'),
 	(r'\bMAKEINTRESOURCE\(([^()]+)\)', r'\1'),
 	(r'->SetImageList\(&([\w:>()-]+(?:->|\.)m_\w+), LVSIL_SMALL\)', r'->SetImageList(\1.GetIcons())'),
 	(r'\bGetDlgItem\(([^()]+)\)->SetWindowText\(', r'SetItemText(\1, '),

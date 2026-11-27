@@ -9,14 +9,12 @@
 #include "mfcless/Graphics.h"
 
 #include <QtWidgets/QHeaderView>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QStyledItemDelegate>
 
 #include <algorithm>
 
 namespace mfcless
-{
-
-namespace
 {
 
 constexpr int DataRole = Qt::UserRole + 1;
@@ -28,6 +26,29 @@ class ListDelegate : public QStyledItemDelegate
 {
 public:
 	explicit ListDelegate(ListCtrl *list) : QStyledItemDelegate(list), m_list(list) {}
+
+	// Label editing: the list's handler decides what becomes of the text.
+	QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+	{
+		QWidget *editor = QStyledItemDelegate::createEditor(parent, option, index);
+		m_list->m_editor = editor;
+		const int row = m_list->IndexOf(m_list->itemFromIndex(index));
+		m_editRow = row;
+		m_committed = false;
+		QMetaObject::invokeMethod(m_list, [list = m_list, row] { Q_EMIT list->labelEditBegun(row); }, Qt::QueuedConnection);
+		connect(editor, &QObject::destroyed, m_list, [list = m_list, this, row] {
+			list->m_editor = nullptr;
+			if(!m_committed)
+				Q_EMIT list->labelEditEnded(row, QString(), false);
+		});
+		return editor;
+	}
+	void setModelData(QWidget *editor, QAbstractItemModel *, const QModelIndex &) const override
+	{
+		m_committed = true;
+		const QString text = editor->property("text").toString();
+		Q_EMIT m_list->labelEditEnded(m_editRow, text, true);
+	}
 
 protected:
 	void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override
@@ -46,9 +67,9 @@ protected:
 
 private:
 	ListCtrl *m_list;
+	mutable int m_editRow = -1;
+	mutable bool m_committed = false;
 };
-
-} // namespace
 
 
 ListCtrl::ListCtrl(QWidget *parent)
@@ -192,6 +213,8 @@ QTreeWidgetItem *ListCtrl::NewItem(int index, int groupId)
 		item->setCheckState(0, Qt::Unchecked);
 	}
 	item->setData(0, DataRole, QVariant::fromValue<qulonglong>(0));
+	if(m_labelEdit)
+		item->setFlags(item->flags() | Qt::ItemIsEditable);
 	QTreeWidgetItem *group = nullptr;
 	if(m_groupView)
 	{
@@ -519,6 +542,35 @@ void ListCtrl::EditLabel(int index)
 		item->setFlags(item->flags() | Qt::ItemIsEditable);
 		editItem(item, 0);
 	}
+}
+
+
+void ListCtrl::EnableLabelEdit(bool enable)
+{
+	m_labelEdit = enable;
+	setEditTriggers(enable ? (QAbstractItemView::EditKeyPressed | QAbstractItemView::SelectedClicked) : QAbstractItemView::NoEditTriggers);
+	for(QTreeWidgetItem *item : m_items)
+	{
+		if(enable)
+			item->setFlags(item->flags() | Qt::ItemIsEditable);
+		else
+			item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+	}
+}
+
+
+bool ListCtrl::edit(const QModelIndex &index, EditTrigger trigger, QEvent *event)
+{
+	// Only the first column is the label.
+	if(index.column() != 0 && trigger != QAbstractItemView::AllEditTriggers)
+		return false;
+	return Window::edit(index, trigger, event);
+}
+
+
+QLineEdit *ListCtrl::GetEditControl() const
+{
+	return qobject_cast<QLineEdit *>(m_editor);
 }
 
 

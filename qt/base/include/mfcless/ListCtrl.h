@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <vector>
 
+class QLineEdit;
+
 namespace mfcless
 {
 
@@ -100,6 +102,20 @@ public:
 	bool GetViewRect(Rect &rect) const { return GetViewRect(&rect); }
 	// Starts editing the label (column 0) of an item.
 	void EditLabel(int index);
+	// LVS_EDITLABELS: the first column's texts can be edited (F2, or a click
+	// on the selected item). The edit is told as the BeginLabelEdit and
+	// EndLabelEdit notifications; the list keeps its text unless the
+	// handler sets it (as upstream's handlers do).
+	void EnableLabelEdit(bool enable);
+	// The editor of the label being edited, or nullptr.
+	QLineEdit *GetEditControl() const;
+
+Q_SIGNALS:
+	void labelEditBegun(int index);
+	// text is empty and accepted false when the edit was cancelled.
+	void labelEditEnded(int index, const QString &text, bool accepted);
+
+public:
 
 	// Owner data: the list has count rows, whose texts come from
 	// GetItemText (which a derived class overrides).
@@ -115,6 +131,7 @@ public:
 	virtual uint32_t OnGetCellBkColor(int row, int column);
 
 protected:
+	bool edit(const QModelIndex &index, EditTrigger trigger, QEvent *event) override;
 	QTreeWidgetItem *NewItem(int index, int groupId);
 	void RefreshVirtual();
 
@@ -125,6 +142,9 @@ protected:
 	std::vector<std::pair<int, QTreeWidgetItem *>> m_groups;
 	std::vector<QIcon> m_icons;
 	int m_selectionMark = -1;
+	bool m_labelEdit = false;
+	friend class ListDelegate;
+	QWidget *m_editor = nullptr;
 };
 
 } // namespace mfcless

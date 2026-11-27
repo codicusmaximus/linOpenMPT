@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Song comments tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/view_com.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -129,10 +129,18 @@ void CViewComments::OnInitialUpdate()
 		}
 	}
 	GetClientRect(&rect);
-	m_ToolBar->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | CCS_NOPARENTALIGN, rect, this, IDC_TOOLBAR_DETAILS);
+	m_ToolBar = new CModControlBar(ClientWidget());
+	m_ToolBar->setGeometry(QRect(rect));
+	m_ToolBar->SetCommandTarget(this);
 	m_ToolBar->Init(CMainFrame::GetMainFrame()->m_MiscIcons, CMainFrame::GetMainFrame()->m_MiscIconsDisabled);
-	m_ItemList->Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | LVS_REPORT | LVS_SINGLESEL | LVS_EDITLABELS | LVS_NOSORTHEADER, rect, this, IDC_LIST_DETAILS);
-	m_ItemList->ModifyStyleEx(0, WS_EX_STATICEDGE);
+	m_ToolBar->show();
+	m_ItemList = new CListCtrlEx(ClientWidget());
+	m_ItemList->setGeometry(QRect(rect));
+	m_ItemList->setSelectionMode(QAbstractItemView::SingleSelection);
+	m_ItemList->header()->setSectionsClickable(false);
+	m_ItemList->EnableLabelEdit(true);
+	mfcless::ConnectNotifications(m_ItemList, IDC_LIST_DETAILS, this);
+	m_ItemList->show();
 	m_ItemList->SetExtendedStyle(m_ItemList->GetExtendedStyle() | mfcless::list::FullRowSelect);
 
 	// Add ToolBar Buttons
@@ -147,10 +155,7 @@ void CViewComments::OnInitialUpdate()
 void CViewComments::OnDPIChanged()
 {
 	UpdateView(GeneralHint().MPTOptions().ModType());
-	m_ToolBar->SetIndent(HighDPISupport::ScalePixels(4, this));
-	const int imgSize = HighDPISupport::ScalePixels(16, this), btnSizeX = HighDPISupport::ScalePixels(26, this), btnSizeY = HighDPISupport::ScalePixels(24, this);
-	m_ToolBar->SetButtonSize(mfcless::Size(btnSizeX, btnSizeY));
-	m_ToolBar->SetBitmapSize(mfcless::Size(imgSize, imgSize));
+	m_ToolBar->OnDPIChanged();
 	RecalcLayout();
 	CModScrollView::OnDPIChanged();
 }
@@ -169,7 +174,6 @@ void CViewComments::OnDestroy()
 		commentState.initialized = true;
 		commentState.nId = m_nListId;
 	}
-	m_fixedFont.DeleteObject();
 	CModScrollView::OnDestroy();
 }
 
@@ -327,12 +331,8 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 		m_ToolBar->UpdateStyle();
 		
 		// Font for sample / instrument names
-		QFont *font = m_ItemList->GetFont();
-		LOGFONT lf;
-		font->GetLogFont(&lf);
-		mpt::WriteWinBuf(lf.lfFaceName) = mpt::ToUnicode(TrackerSettings::Instance().commentsFont.Get().name);
-		m_fixedFont.DeleteObject();
-		m_fixedFont.CreateFontIndirect(&lf);
+		m_fixedFont = m_ItemList->font();
+		m_fixedFont.setFamily(mfcless::ToQString(TrackerSettings::Instance().commentsFont.Get().name));
 
 		m_ItemList->update();
 	}
@@ -437,18 +437,13 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						bool update = true;
 						if (iSmp < nCount)
 						{
-							mpt::ustring stmp = m_ItemList->GetItemText(iSmp, nCol);
+							mpt::ustring stmp = mfcless::FromQString(m_ItemList->GetItemText(iSmp, nCol));
 							if (s == stmp) update = false;
 						}
 						if (update) m_ItemList->SetItemText(iSmp, nCol, s);
 					} else
 					{
-						LV_ITEM lvi;
-						lvi.mask = LVIF_TEXT;
-						lvi.iItem = iSmp;
-						lvi.iSubItem = nCol;
-						lvi.pszText = const_cast<mpt::uchar *>(s.c_str());
-						m_ItemList->InsertItem(&lvi);
+						m_ItemList->InsertItem(iSmp, s);
 					}
 					nCol++;
 				}
@@ -519,18 +514,13 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						bool update = true;
 						if (iIns < nCount)
 						{
-							mpt::ustring stmp = m_ItemList->GetItemText(iIns, nCol);
+							mpt::ustring stmp = mfcless::FromQString(m_ItemList->GetItemText(iIns, nCol));
 							if (s == stmp) update = false;
 						}
 						if (update) m_ItemList->SetItemText(iIns, nCol, s);
 					} else
 					{
-						LV_ITEM lvi;
-						lvi.mask = LVIF_TEXT;
-						lvi.iItem = iIns;
-						lvi.iSubItem = nCol;
-						lvi.pszText = const_cast<mpt::uchar *>(s.c_str());
-						m_ItemList->InsertItem(&lvi);
+						m_ItemList->InsertItem(iIns, s);
 					}
 					nCol++;
 				}
@@ -544,6 +534,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 	//if ((m_nCurrentListId == IDC_LIST_PATTERNS) && (hintType & (HINT_MODTYPE|HINT_PATNAMES|HINT_PATTERNROW)))
 	{
 	}
+	OnCustomDrawList();
 	m_ItemList->setUpdatesEnabled(true);
 }
 
@@ -554,8 +545,9 @@ void CViewComments::RecalcLayout()
 
 	if (!this) return;
 	GetClientRect(&rect);
-	m_ToolBar->SetWindowPos(NULL, 0, 0, rect.Width(), DETAILS_TOOLBAR_CY, mfcless::swp::NoZOrder|mfcless::swp::NoActivate);
-	m_ItemList->SetWindowPos(NULL, -1, DETAILS_TOOLBAR_CY, rect.Width()+2, rect.Height() - DETAILS_TOOLBAR_CY + 1, mfcless::swp::NoZOrder|mfcless::swp::NoActivate);
+	const int toolbarHeight = std::max(DETAILS_TOOLBAR_CY, m_ToolBar->sizeHint().height());
+	m_ToolBar->setGeometry(0, 0, rect.Width(), toolbarHeight);
+	m_ItemList->setGeometry(-1, toolbarHeight, rect.Width()+2, rect.Height() - toolbarHeight + 1);
 }
 
 
@@ -564,9 +556,9 @@ void CViewComments::UpdateButtonState()
 	const CModDoc *pModDoc = GetDocument();
 	if (pModDoc)
 	{
-		m_ToolBar->SetState(IDC_LIST_SAMPLES, ((m_nListId == IDC_LIST_SAMPLES) ? TBSTATE_CHECKED : 0)|TBSTATE_ENABLED);
-		m_ToolBar->SetState(IDC_LIST_INSTRUMENTS, ((m_nListId == IDC_LIST_INSTRUMENTS) ? TBSTATE_CHECKED : 0)|TBSTATE_ENABLED);
-		m_ToolBar->SetState(IDC_LIST_PATTERNS, ((m_nListId == IDC_LIST_PATTERNS) ? TBSTATE_CHECKED : 0)|TBSTATE_ENABLED);
+		m_ToolBar->SetState(IDC_LIST_SAMPLES, ((m_nListId == IDC_LIST_SAMPLES) ? CModControlBar::StateChecked : 0)|CModControlBar::StateEnabled);
+		m_ToolBar->SetState(IDC_LIST_INSTRUMENTS, ((m_nListId == IDC_LIST_INSTRUMENTS) ? CModControlBar::StateChecked : 0)|CModControlBar::StateEnabled);
+		m_ToolBar->SetState(IDC_LIST_PATTERNS, ((m_nListId == IDC_LIST_PATTERNS) ? CModControlBar::StateChecked : 0)|CModControlBar::StateEnabled);
 		m_ToolBar->EnableButton(IDC_LIST_INSTRUMENTS, (pModDoc->GetNumInstruments()) ? true : false);
 	}
 }
@@ -591,25 +583,24 @@ void CViewComments::OnEndLabelEdit()
 	CMainFrame::GetInputHandler()->Bypass(false);
 	if(!m_editLabel)
 	{
-		*result = false;
 		return;
 	}
 	m_editLabel = false;
 
-	LV_DISPINFO &lvDispInfo = *reinterpret_cast<LV_DISPINFO *>(pnmhdr);
-	LV_ITEM &lvItem = lvDispInfo.item;
+	const mfcless::NotifyInfo &info = CurrentNotify();
+	const mpt::ustring text = mfcless::FromQString(info.text);
 	CModDoc *pModDoc = GetDocument();
 
-	if(lvItem.pszText != nullptr && !lvItem.iSubItem && pModDoc)
+	if(info.textValid && !info.subItem && pModDoc && info.item >= 0)
 	{
-		uint32 iItem = lvItem.iItem;
+		uint32 iItem = static_cast<uint32>(info.item);
 		CSoundFile &sndFile = pModDoc->GetSoundFile();
 
 		if(m_nListId == IDC_LIST_SAMPLES)
 		{
 			if(iItem < sndFile.GetNumSamples())
 			{
-				sndFile.m_szNames[iItem + 1] = mpt::ToCharset(sndFile.GetCharsetInternal(), mpt::ustring(lvItem.pszText));
+				sndFile.m_szNames[iItem + 1] = mpt::ToCharset(sndFile.GetCharsetInternal(), text);
 				pModDoc->UpdateAllViews(this, SampleHint(static_cast<SAMPLEINDEX>(iItem + 1)).Info().Names(), this);
 				pModDoc->SetModified();
 			}
@@ -618,7 +609,7 @@ void CViewComments::OnEndLabelEdit()
 			if((iItem < sndFile.GetNumInstruments()) && (sndFile.Instruments[iItem + 1]))
 			{
 				ModInstrument *pIns = sndFile.Instruments[iItem + 1];
-				pIns->name = mpt::ToCharset(sndFile.GetCharsetInternal(), mpt::ustring(lvItem.pszText));
+				pIns->name = mpt::ToCharset(sndFile.GetCharsetInternal(), text);
 				pModDoc->UpdateAllViews(this, InstrumentHint(static_cast<INSTRUMENTINDEX>(iItem + 1)).Info().Names(), this);
 				pModDoc->SetModified();
 			}
@@ -626,7 +617,7 @@ void CViewComments::OnEndLabelEdit()
 		{
 			return;
 		}
-		m_ItemList->SetItemText(iItem, lvItem.iSubItem, lvItem.pszText);
+		m_ItemList->SetItemText(iItem, 0, text);
 	}
 }
 
@@ -712,42 +703,29 @@ void CViewComments::OnRClickListItem()
 	mfcless::Menu menu = mfcless::Menu::CreatePopup();
 	menu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, UL_("&Copy Names")));
 	menu.AppendMenu(mfcless::menu::String | (mfcless::clip::IsFormatAvailable(mfcless::clip::UnicodeText) ? 0 : mfcless::menu::Disabled), ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("&Paste Names")));
-	mfcless::Point pt;
-	::GetCursorPos(&pt);
+	const QPoint cursor = QCursor::pos();
+	mfcless::Point pt{cursor.x(), cursor.y()};
 	menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x, pt.y, this);
 	menu.DestroyMenu();
 
 }
 
 
+// mfcless: upstream draws the name and file name columns in the comments
+// font (NM_CUSTOMDRAW); here those cells get the font when the list is filled.
 void CViewComments::OnCustomDrawList()
 {
-	const auto &lvcd = *reinterpret_cast<NMLVCUSTOMDRAW *>(pNMHDR);
-	CurrentNotify().result = CDRF_DODEFAULT;
-
-	const bool useFont = lvcd.iSubItem == 0 || (m_nListId == IDC_LIST_SAMPLES && lvcd.iSubItem == SMPLIST_FILENAME) || (m_nListId == IDC_LIST_INSTRUMENTS && lvcd.iSubItem == INSLIST_FILENAME);
-	switch(lvcd.nmcd.dwDrawStage)
+	for(int i = 0; i < m_ItemList->GetItemCount(); i++)
 	{
-		case CDDS_PREPAINT:
-			CurrentNotify().result = CDRF_NOTIFYITEMDRAW;
-			break;
-		case CDDS_ITEMPREPAINT:
-			CurrentNotify().result = CDRF_NOTIFYSUBITEMDRAW;
-			break;
-		case CDDS_ITEMPREPAINT | CDDS_SUBITEM:
+		QTreeWidgetItem *item = m_ItemList->ItemAt(i);
+		if(!item)
+			continue;
+		for(int col = 0; col < m_ItemList->GetColumnCount(); col++)
+		{
+			const bool useFont = col == 0 || (m_nListId == IDC_LIST_SAMPLES && col == SMPLIST_FILENAME) || (m_nListId == IDC_LIST_INSTRUMENTS && col == INSLIST_FILENAME);
 			if(useFont)
-			{
-				m_oldFont = SelectFont(lvcd.nmcd.hdc, m_fixedFont);
-				CurrentNotify().result = CDRF_NEWFONT | CDRF_NOTIFYPOSTPAINT;
-			}
-			break;
-		case CDDS_ITEMPOSTPAINT | CDDS_SUBITEM:
-			if(useFont)
-			{
-				SelectFont(lvcd.nmcd.hdc, m_oldFont);
-				CurrentNotify().result = CDRF_NEWFONT;
-			}
-			break;
+				item->setFont(col, m_fixedFont);
+		}
 	}
 }
 

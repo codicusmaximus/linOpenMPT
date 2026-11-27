@@ -64,6 +64,9 @@ public:
 	void CheckButton(uint32 nID, bool check = true);
 	bool IsButtonChecked(uint32 nID) const;
 	void EnableButton(uint32 nID, bool enable = true);
+	// CToolBarCtrl::SetState (StateChecked, StateEnabled) and ChangeBitmap.
+	void SetState(uint32 nID, uint32 state);
+	void ChangeBitmap(uint32 nID, int iImage);
 	// Where the drop-down menu of a button opens, in global coordinates.
 	QPoint GetDropDownPos(uint32 nID) const;
 
