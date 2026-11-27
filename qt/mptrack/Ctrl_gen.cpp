@@ -811,7 +811,7 @@ void CVuMeter::SetVuMeter(int level, bool force)
 		if(curTime - m_lastVuUpdateTime >= TrackerSettings::Instance().VuMeterUpdateInterval || force)
 		{
 			m_lastLevel = level;
-			mfcless::PaintDC dc(this);
+			mfcless::ClientDC dc(this);
 			DrawVuMeter(dc);
 			m_lastVuUpdateTime = curTime;
 		}

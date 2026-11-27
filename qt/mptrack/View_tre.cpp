@@ -2908,11 +2908,11 @@ void CModTree::OnUpdate(CModDoc *pModDoc, UpdateHint hint, QObject *pHint)
 
 void CModTree::OnItemExpanded()
 {
-	LPNMTREEVIEW pnm = (LPNMTREEVIEW)pnmhdr;
+	const mfcless::NotifyInfo *pnm = &CurrentNotify();
 	if((pnm->itemNew.iImage == IMAGE_FOLDER) || (pnm->itemNew.iImage == IMAGE_OPENFOLDER))
 	{
 		int iNewImage = (pnm->itemNew.state & mfcless::tree::Expanded) ? IMAGE_OPENFOLDER : IMAGE_FOLDER;
-		SetItemImage(pnm->itemNew.hItem, iNewImage, iNewImage);
+		SetItemImage(pnm->treeItem, iNewImage, iNewImage);
 	}
 	if(pResult)
 		CurrentNotify().result = true;
@@ -2976,8 +2976,8 @@ void CModTree::OnBeginRDrag()
 {
 	if(pnmhdr)
 	{
-		LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)pnmhdr;
-		OnBeginDrag(pnmtv->itemNew.hItem, false, pResult);
+		const mfcless::NotifyInfo *pnmtv = &CurrentNotify();
+		OnBeginDrag(pnmtv->treeItem, false, pResult);
 	}
 }
 
@@ -2986,8 +2986,8 @@ void CModTree::OnBeginLDrag()
 {
 	if(pnmhdr)
 	{
-		LPNMTREEVIEW pnmtv = (LPNMTREEVIEW)pnmhdr;
-		OnBeginDrag(pnmtv->itemNew.hItem, true, pResult);
+		const mfcless::NotifyInfo *pnmtv = &CurrentNotify();
+		OnBeginDrag(pnmtv->treeItem, true, pResult);
 	}
 }
 
@@ -3326,10 +3326,10 @@ void CModTree::OnItemRightClick(QTreeWidgetItem * hItem, mfcless::Point pt)
 			hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 		hMenu.AppendMenu(mfcless::menu::String, ID_MODTREE_REFRESH, UL_("&Refresh"));
 
-		TrackPopupMenu(hMenu, mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x + 4, pt.y, 0, this, NULL);
-		DestroyMenu(hMenu);
+		hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x + 4, pt.y, this);
+		hMenu.DestroyMenu();
 		if(hSubMenu)
-			DestroyMenu(hSubMenu);
+			hSubMenu.DestroyMenu();
 	}
 }
 
@@ -3533,7 +3533,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 			{
 				m_hDropWnd = this;
 				bool bCanDrop = CanDrop(HitTest(point, &flags), false);
-				SetCursor((bCanDrop) ? CMainFrame::curDragging : CMainFrame::curNoDrop2);
+				setCursor((bCanDrop) ? CMainFrame::curDragging : CMainFrame::curNoDrop2);
 			} else
 			{
 				mfcless::Point screenPt = point;
@@ -3561,7 +3561,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 							}
 						}
 					}
-					SetCursor(canDrop ? CMainFrame::curDragging : CMainFrame::curNoDrop);
+					setCursor(canDrop ? CMainFrame::curDragging : CMainFrame::curNoDrop);
 					if(canDrop)
 					{
 						if(GetDropHilightItem() != m_hItemDrag)
@@ -4475,7 +4475,7 @@ QTreeWidgetItem * CModTree::GetParentRootItem(QTreeWidgetItem * hItem) const
 {
 	while(hItem != nullptr)
 	{
-		const QTreeWidgetItem * h = GetParentItem(hItem);
+		QTreeWidgetItem *const h = GetParentItem(hItem);
 		if(h == nullptr || h == hItem)
 			break;
 		hItem = h;

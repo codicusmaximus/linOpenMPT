@@ -113,6 +113,13 @@ void UpdateToolTip::SetResult(PopAction action)
 }
 
 
+void UpdateToolTip::Pop()
+{
+	if(m_popup)
+		m_popup->close();
+}
+
+
 void UpdateToolTip::OnLinkClick()
 {
 	CTrackApp::OpenURL(m_infoURL);

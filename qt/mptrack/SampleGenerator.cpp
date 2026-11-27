@@ -193,7 +193,7 @@ bool CSampleGenerator::RenderSample(CSoundFile *pSndFile, SAMPLEINDEX nSample)
 		else
 			pModSample->uFlags &= ~(CHN_LOOP|CHN_PINGPONGLOOP);
 
-		ctrlSmp::ReplaceSample(*pModSample, (LPSTR)pSample, sample_length, pSndFile);
+		ctrlSmp::ReplaceSample(*pModSample, (char *)pSample, sample_length, pSndFile);
 
 		END_CRITICAL();
 	}

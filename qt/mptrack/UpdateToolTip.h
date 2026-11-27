@@ -42,6 +42,10 @@ protected:
 
 public:
 	~UpdateToolTip() override;
+	// Whether the bubble is showing (upstream: the tooltip window exists).
+	explicit operator bool() const { return !m_popup.isNull(); }
+	// Closes the bubble without a result (TTM_POP).
+	void Pop();
 	bool ShowUpdate(QWidget &parent, const mpt::ustring &newVersion, const mpt::ustring &infoURL, const mfcless::Rect rectClient, const mfcless::Point ptScreen, const int buttonID);
 
 protected:

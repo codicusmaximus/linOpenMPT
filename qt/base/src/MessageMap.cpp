@@ -340,7 +340,7 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 				*keep = true;
 		});
 		QObject::connect(treeCtrl, &TreeCtrl::itemDeleted, context, [=](QTreeWidgetItem *item, intptr_t data) {
-			send(Notify::DeleteItem, item, [&](NotifyInfo &info) { info.data = data; });
+			send(Notify::DeleteItem, item, [&](NotifyInfo &info) { info.oldTreeItem = item; info.data = data; });
 		});
 		treeCtrl->viewport()->installEventFilter(new RightClickWatcher(treeCtrl, id, target, [](QTreeWidgetItem *) { return -1; }));
 		return;
@@ -422,6 +422,13 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 			target->DispatchNotify(info);
 			if(info.result != 0)
 				*accepted = false;
+		});
+		// After the step, Windows' up-down control sends its parent a scroll
+		// message (WM_VSCROLL, or WM_HSCROLL for a horizontal one).
+		QObject::connect(upDown, &UpDown::posChanged, context, [=](int pos) {
+			const Qt::Orientation orientation = upDown->IsVertical() ? Qt::Vertical : Qt::Horizontal;
+			target->DispatchScroll(orientation, ScrollCode::ThumbPosition, pos, upDown);
+			target->DispatchScroll(orientation, ScrollCode::EndScroll, pos, upDown);
 		});
 		return;
 	}

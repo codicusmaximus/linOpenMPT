@@ -125,10 +125,8 @@ private:
 	bool m_Dragging = false;
 
 public:
-	CTuningTreeCtrl(CTuningDialog* parent)
-		: m_rParentDialog(*parent)
-	{}
-	//Note: Parent address may be given in its initializer list.
+	// mfcless: made by the dialog template, in the tuning dialog.
+	explicit CTuningTreeCtrl(QWidget *parent);
 
 	void SetDragging(bool state = true) {m_Dragging = state;}
 	bool IsDragging() {return m_Dragging;}
@@ -339,7 +337,7 @@ private:
 	};
 
 	static const TUNINGTREEITEM s_notFoundItemTuning;
-	static const QTreeWidgetItem * s_notFoundItemTree;
+	static QTreeWidgetItem *const s_notFoundItemTree;
 
 	bool AddTuning(CTuningCollection*, CTuning* pT);
 	bool AddTuning(CTuningCollection*, Tuning::Type type);

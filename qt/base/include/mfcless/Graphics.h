@@ -19,6 +19,7 @@
 #include "mfcless/Text.h"
 
 #include <QtGui/QColor>
+#include <QtCore/QPointer>
 #include <QtGui/QFont>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -335,6 +336,21 @@ class PaintDC : public DC
 public:
 	explicit PaintDC(QWidget *widget);
 	Rect rcPaint;
+};
+
+// CClientDC / CWindowDC: Qt draws on a widget only in its paint event, so
+// this DC draws nothing; it measures text in the widget's font, and when it
+// goes the widget is repainted (its OnPaint draws everything again).
+class ClientDC : public DC
+{
+public:
+	explicit ClientDC(QWidget *widget);
+	~ClientDC();
+	ClientDC(const ClientDC &) = delete;
+	ClientDC &operator=(const ClientDC &) = delete;
+
+private:
+	QPointer<QWidget> m_widget;
 };
 
 } // namespace mfcless

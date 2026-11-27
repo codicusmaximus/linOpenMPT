@@ -6693,8 +6693,8 @@ bool CViewPattern::BuildRecordCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, CH
 
 bool CViewPattern::BuildRowInsDelCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const
 {
-	mfcless::Menu subMenuInsert = CreatePopupMenu();
-	mfcless::Menu subMenuDelete = CreatePopupMenu();
+	mfcless::Menu subMenuInsert = mfcless::Menu::CreatePopup();
+	mfcless::Menu subMenuDelete = mfcless::Menu::CreatePopup();
 
 	const auto numRows = m_Selection.GetNumRows();
 	const mpt::ustring label = (numRows != 1) ? MPT_UFORMAT("{} Rows")(numRows) : mpt::ustring(UL_("Row"));
@@ -6765,7 +6765,7 @@ bool CViewPattern::BuildInterpolationCtxMenu(mfcless::Menu hMenu, CInputHandler 
 	const CSoundFile *sndFile = GetSoundFile();
 	const bool isPCNote = sndFile->Patterns.IsValidPat(m_nPattern) && sndFile->Patterns[m_nPattern].GetpModCommand(m_Selection.GetStartRow(), m_Selection.GetStartChannel())->IsPcNote();
 
-	mfcless::Menu subMenu = CreatePopupMenu();
+	mfcless::Menu subMenu = mfcless::Menu::CreatePopup();
 	bool addSeparator = false;
 	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::noteColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateNote, UL_("&Note Column")), ID_PATTERN_INTERPOLATE_NOTE);
 	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::instrColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateInstr, isPCNote ? UL_("&Plugin Column") : UL_("&Instrument Column")), ID_PATTERN_INTERPOLATE_INSTR);
@@ -6840,7 +6840,7 @@ bool CViewPattern::BuildVisFXCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) con
 
 bool CViewPattern::BuildTransposeCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const
 {
-	mfcless::Menu transMenu = CreatePopupMenu();
+	mfcless::Menu transMenu = mfcless::Menu::CreatePopup();
 
 	std::vector<CHANNELINDEX> validChans;
 	uint32 greyed = IsColumnSelected(PatternCursor::noteColumn) ? false : mfcless::menu::Grayed;

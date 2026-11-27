@@ -3,7 +3,7 @@
  * -----------
  * Purpose: Implementation of OpenMPT's window toolbar and parent container of the tree view.
  * Notes  : mfcless twin of upstream's mptrack/Mainbar.cpp.
- *          Draft from qt/tools/twin.py, partly edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +11,12 @@
 
 #include "Mainbar.h"
 #include "mfcless/Widgets.h"
+#include <QtCore/QRegularExpression>
+#include <QtGui/QFontMetrics>
+#include <QtGui/QRegularExpressionValidator>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QToolButton>
 #include "HighDPISupport.h"
 #include "ImageLists.h"
 #include "InputHandler.h"
@@ -46,11 +52,31 @@ void COctaveEdit::OnChar(uint32 nChar, uint32 /*nRepCnt*/, uint32 /*nFlags*/)
 
 /////////////////////////////////////////////////////////////////////
 // CToolBarEx: custom toolbar base class
+// mfcless: a QToolBar whose items are kept by index, as CToolBar's buttons
+// are: buttons (actions with a command ID), separators and controls.
+
+CToolBarEx::CToolBarEx(QWidget *parent)
+	: Window(parent)
+{
+	connect(this, &QToolBar::orientationChanged, this, [this](Qt::Orientation orientation) {
+		if((orientation == Qt::Vertical) != m_bVertical)
+		{
+			if(orientation == Qt::Vertical)
+				SetVertical();
+			else
+				SetHorizontal();
+		}
+	});
+	// The buttons' states, as MFC updates them when the program is idle.
+	m_updateTimer.setInterval(200);
+	connect(&m_updateTimer, &QTimer::timeout, this, &CToolBarEx::UpdateButtonStates);
+	m_updateTimer.start();
+}
+
 
 void CToolBarEx::SetHorizontal()
 {
 	m_bVertical = false;
-	SetBarStyle(GetBarStyle() | CBRS_ALIGN_TOP);
 }
 
 
@@ -60,111 +86,211 @@ void CToolBarEx::SetVertical()
 }
 
 
-mfcless::Size CToolBarEx::CalcDynamicLayout(int nLength, uint32 dwMode)
+void CToolBarEx::SetButtons(const uint32 *ids, int count)
 {
-	// Make the toolbar go into multiline mode when it's docked
-	if(dwMode & LM_HORZDOCK)
+	clear();
+	m_items.clear();
+	int image = 0;
+	for(int i = 0; i < count; i++)
 	{
-		if(auto mainFrm = CMainFrame::GetMainFrame())
+		Item item;
+		item.id = ids[i];
+		if(ids[i] == ID_SEPARATOR)
 		{
-			mfcless::Rect rect;
-			mainFrm->GetClientRect(rect);
-			nLength = rect.right;
-			dwMode &= ~LM_HORZDOCK;
-			dwMode |= LM_COMMIT;
-		}
-	}
-
-	mfcless::Size sizeResult;
-	// if we're committing set the buttons appropriately
-	if(dwMode & LM_COMMIT)
-	{
-		if(dwMode & LM_VERTDOCK)
-		{
-			if(!m_bVertical)
-				SetVertical();
+			item.action = addSeparator();
+			item.separator = true;
 		} else
 		{
-			if(m_bVertical)
-				SetHorizontal();
+			item.image = image++;
+			item.action = addAction(QString());
+			const uint32 id = ids[i];
+			connect(item.action, &QAction::triggered, this, [this, id] { OnButtonCommand(id); });
+			connect(item.action, &QAction::hovered, this, [this, id, action = item.action] {
+				action->setToolTip(GetButtonToolTip(id));
+			});
 		}
-		sizeResult = mfcless::Window<QToolBar>::CalcDynamicLayout(nLength, dwMode);
-	} else
-	{
-		const bool wasVertical = m_bVertical;
-		const bool doSwitch = (dwMode & LM_HORZ) ? wasVertical : !wasVertical;
-
-		if(doSwitch)
-		{
-			if(wasVertical)
-				SetHorizontal();
-			else
-				SetVertical();
-		}
-
-		sizeResult = mfcless::Window<QToolBar>::CalcDynamicLayout(nLength, dwMode);
-
-		if(doSwitch)
-		{
-			if(wasVertical)
-				SetHorizontal();
-			else
-				SetVertical();
-		}
+		m_items.push_back(item);
 	}
-
-	return sizeResult;
+	UpdateButtonImages();
 }
 
 
-void CToolBarEx::UpdateControl(bool show, QWidget &wnd, int index, int id, int height)
+void CToolBarEx::SetImageLists(CImageListEx *images, CImageListEx *disabledImages)
 {
-	if(show)
-	{
-		mfcless::Rect rect;
-		wnd.GetWindowRect(rect);
-		SetButtonInfo(index, id, TBBS_SEPARATOR, rect.Width());
+	m_images = images;
+	m_disabledImages = disabledImages;
+	if(m_images)
+		setIconSize(m_images->GetImageSize());
+	UpdateButtonImages();
+}
 
-		if(wnd.m_hWnd)
-		{
-			GetItemRect(index, rect);
-			if(height)
-			{
-				int n = (rect.bottom + rect.top - height) / 2;
-				if(n > rect.top)
-					rect.top = n;
-			}
-			wnd.SetWindowPos(nullptr, rect.left, rect.top, 0, 0, mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoSize);
-		}
+
+void CToolBarEx::UpdateButtonImages()
+{
+	for(const auto &item : m_items)
+	{
+		if(item.separator || item.control || item.image < 0 || !m_images)
+			continue;
+		QIcon icon;
+		icon.addPixmap(m_images->GetImage(item.image), QIcon::Normal);
+		if(m_disabledImages)
+			icon.addPixmap(m_disabledImages->GetImage(item.image), QIcon::Disabled);
+		item.action->setIcon(icon);
 	}
-	if(wnd.m_hWnd)
-		wnd.ShowWindow(show ? mfcless::show::Show : mfcless::show::Hide);
+}
+
+
+int CToolBarEx::CommandToIndex(uint32 id) const
+{
+	for(size_t i = 0; i < m_items.size(); i++)
+	{
+		if(!m_items[i].separator && m_items[i].id == id)
+			return static_cast<int>(i);
+	}
+	return -1;
+}
+
+
+QAction *CToolBarEx::GetButton(uint32 id) const
+{
+	const int index = CommandToIndex(id);
+	return (index >= 0) ? m_items[index].action : nullptr;
+}
+
+
+void CToolBarEx::SetButtonCommand(int index, uint32 id, int image)
+{
+	if(index < 0 || static_cast<size_t>(index) >= m_items.size())
+		return;
+	Item &item = m_items[index];
+	if(item.separator || item.control)
+		return;
+	if(item.id == id && item.image == image)
+		return;
+	item.id = id;
+	item.image = image;
+	// Re-connect the action to the new command.
+	disconnect(item.action, &QAction::triggered, this, nullptr);
+	disconnect(item.action, &QAction::hovered, this, nullptr);
+	connect(item.action, &QAction::triggered, this, [this, id] { OnButtonCommand(id); });
+	connect(item.action, &QAction::hovered, this, [this, id, action = item.action] {
+		action->setToolTip(GetButtonToolTip(id));
+	});
+	UpdateButtonImages();
+}
+
+
+void CToolBarEx::SetDropDown(uint32 id)
+{
+	QAction *action = GetButton(id);
+	if(!action)
+		return;
+	auto *button = qobject_cast<QToolButton *>(widgetForAction(action));
+	if(!button)
+		return;
+	// The arrow beside the button sends DropDown (TBN_DROPDOWN); the menu the
+	// owner shows is its own, the empty one only makes the arrow.
+	button->setPopupMode(QToolButton::MenuButtonPopup);
+	auto *menu = new QMenu(button);
+	button->setMenu(menu);
+	connect(menu, &QMenu::aboutToShow, this, [this, id, menu, button] {
+		QMetaObject::invokeMethod(menu, &QMenu::close, Qt::QueuedConnection);
+		const QPoint pos = button->mapToGlobal(QPoint(0, button->height()));
+		QMetaObject::invokeMethod(this, [this, id, pos] { OnButtonDropDown(id, pos); }, Qt::QueuedConnection);
+	});
+}
+
+
+void CToolBarEx::SetControl(int index, uint32 id, QWidget *control)
+{
+	if(index < 0 || static_cast<size_t>(index) >= m_items.size())
+		return;
+	Item &item = m_items[index];
+	QAction *placeholder = item.action;
+	item.action = insertWidget(placeholder, control);
+	removeAction(placeholder);
+	delete placeholder;
+	item.id = id;
+	item.separator = false;
+	item.control = control;
+	control->setProperty("mfcless_id", id);
+}
+
+
+void CToolBarEx::UpdateControl(bool show, QWidget &wnd, int index, int /*id*/, int height)
+{
+	if(show && height)
+	{
+		// Centred in the bar, as upstream places it.
+		wnd.setFixedHeight(height);
+	}
 	SetButtonVisibility(index, show);
 }
 
 
 void CToolBarEx::EnableFlatButtons(bool flat)
 {
-	ModifyStyle(flat ? 0 : TBSTYLE_FLAT, flat ? TBSTYLE_FLAT : 0);
-	Invalidate();
+	m_flat = flat;
+	for(const auto &item : m_items)
+	{
+		if(item.separator || item.control)
+			continue;
+		if(auto *button = qobject_cast<QToolButton *>(widgetForAction(item.action)))
+			button->setAutoRaise(flat);
+	}
+	update();
 }
 
 
 void CToolBarEx::SetButtonVisibility(int index, bool visible)
 {
-	auto style = GetButtonStyle(index);
-	if(visible)
-		style &= ~TBBS_HIDDEN;
-	else
-		style |= TBBS_HIDDEN;
-	SetButtonStyle(index, style);
+	if(index >= 0 && static_cast<size_t>(index) < m_items.size())
+		m_items[index].action->setVisible(visible);
+}
+
+
+void CToolBarEx::SetButtonHidden(uint32 id, bool hidden)
+{
+	if(QAction *action = GetButton(id))
+		action->setVisible(!hidden);
+}
+
+
+void CToolBarEx::OnButtonCommand(uint32 id)
+{
+	if(CMainFrame *mainFrm = CMainFrame::GetMainFrame())
+		mainFrm->RouteCommand(id);
+}
+
+
+void CToolBarEx::UpdateButtonStates()
+{
+	CMainFrame *mainFrm = CMainFrame::GetMainFrame();
+	if(!mainFrm || !isVisible())
+		return;
+	for(const auto &item : m_items)
+	{
+		if(item.separator || item.control || !item.action->isVisible())
+			continue;
+		mfcless::CommandState state;
+		state.id = item.id;
+		mainFrm->UpdateCommandState(item.id, state);
+		item.action->setEnabled(state.enabled);
+		if(state.checked.has_value())
+		{
+			item.action->setCheckable(true);
+			item.action->setChecked(*state.checked);
+		} else if(item.action->isCheckable())
+		{
+			item.action->setChecked(false);
+			item.action->setCheckable(false);
+		}
+	}
 }
 
 
 /////////////////////////////////////////////////////////////////////
 // CMainToolBar
-
-static constexpr uint32 WM_TOOLBAR_REFRESH = WM_USER + 1;
 
 enum ToolbarItemIndex
 {
@@ -282,12 +408,10 @@ void CMainToolBar::RegisterMessageMap()
 {
 	CToolBarEx::RegisterMessageMap();
 	AddScroll(Qt::Vertical, &CMainToolBar::OnVScroll);
-	// ON_NOTIFY_EX_RANGE(TTN_NEEDTEXT, 0, 0xFFFF, &CMainToolBar::OnToolTipText): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TBN_DROPDOWN, &CMainToolBar::OnTbnDropDownToolBar): by hand (Qt event override)
+	// TTN_NEEDTEXT: GetButtonToolTip. TBN_DROPDOWN: OnButtonDropDown.
 	AddCommandRange(ID_SELECT_MIDI_DEVICE, ID_SELECT_MIDI_DEVICE + MAX_MIDI_DEVICES, &CMainToolBar::OnSelectMIDIDevice);
-	AddMessage(WM_DPICHANGED_AFTERPARENT, &CMainToolBar::OnDPIChangedAfterParent);
-	AddMessage(WM_SETTINGCHANGE, &CMainToolBar::OnSettingChange);
-	AddMessage(WM_TOOLBAR_REFRESH, &CMainToolBar::OnRefreshToolbar);
+	// WM_DPICHANGED_AFTERPARENT: OnDPIChanged. WM_SETTINGCHANGE: only a
+	// Windows workaround (spin buttons vanishing after a UAC prompt).
 	AddNotify(IDC_EDIT_CURRENTSPEED, mfcless::Notify::EditChange, &CMainToolBar::OnSpeedChanged);
 	AddNotify(IDC_EDIT_CURRENTTEMPO, mfcless::Notify::EditChange, &CMainToolBar::OnTempoChanged);
 	AddNotify(IDC_EDIT_RPB, mfcless::Notify::EditChange, &CMainToolBar::OnRPBChanged);
@@ -295,39 +419,96 @@ void CMainToolBar::RegisterMessageMap()
 }
 
 
+// A read-only field of the bar (ES_READONLY | ES_AUTOHSCROLL), centred or not.
+static void InitBarEdit(QLineEdit &edit, bool center)
+{
+	edit.setReadOnly(true);
+	edit.setFrame(true);
+	if(center)
+		edit.setAlignment(Qt::AlignCenter);
+}
+
+
+// A static text of the bar (SS_CENTER | SS_CENTERIMAGE).
+static QLabel *MakeBarLabel(const mpt::uchar *text, QWidget *parent)
+{
+	auto *label = new QLabel(mfcless::Text(text).value, parent);
+	label->setAlignment(Qt::AlignCenter);
+	return label;
+}
+
+
 bool CMainToolBar::Create(QWidget *parent)
 {
-	if(!mfcless::Window<QToolBar>::Create(parent, WS_CHILD | WS_VISIBLE | CBRS_TOP | CBRS_SIZE_DYNAMIC | CBRS_TOOLTIPS | CBRS_FLYBY))
-		return false;
+	setParent(parent);
+	setObjectName(QStringLiteral("MainToolBar"));
+	setWindowTitle(QStringLiteral("Main"));
+	setMovable(true);
+	setFloatable(true);
+	setAllowedAreas(Qt::AllToolBarAreas);  // EnableDocking(CBRS_ALIGN_ANY)
 
 	SetButtons(MainButtons, static_cast<int>(std::size(MainButtons)));
 
-	// Placeholder rect, text width will be determined later
-	mfcless::Rect rect{0, 0, SPINNER_WIDTH, SPINNER_HEIGHT};
-
 	// Octave
-	m_EditOctave.Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_CENTER, rect, this, IDC_EDIT_BASEOCTAVE);
-	m_SpinOctave->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY, rect, this, IDC_SPIN_BASEOCTAVE);
+	m_EditOctave.setParent(this);
+	InitBarEdit(m_EditOctave, true);
+	m_SpinOctave = new mfcless::UpDown(this);
+	m_SpinOctave->SetBuddy(&m_EditOctave);
 	// Tempo
-	m_StaticTempo->Create(UL_("Tempo:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTTEMPO);
-	m_EditTempo->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_CURRENTTEMPO);
-	m_SpinTempo->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_CURRENTTEMPO);
+	m_StaticTempo = MakeBarLabel(UL_("Tempo:"), this);
+	m_EditTempo = new CNumberEdit(this);
+	InitBarEdit(*m_EditTempo, false);
+	m_SpinTempo = new mfcless::UpDown(this);
+	m_SpinTempo->SetBuddy(m_EditTempo);
 	// Speed
-	m_StaticSpeed->Create(UL_("Ticks/Row:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTSPEED);
-	m_EditSpeed->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_CURRENTSPEED);
-	m_SpinSpeed->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_CURRENTSPEED);
+	m_StaticSpeed = MakeBarLabel(UL_("Ticks/Row:"), this);
+	m_EditSpeed = new QLineEdit(this);
+	InitBarEdit(*m_EditSpeed, false);
+	m_SpinSpeed = new mfcless::UpDown(this);
+	m_SpinSpeed->SetBuddy(m_EditSpeed);
 	// Rows per Beat
-	m_StaticRowsPerBeat->Create(UL_("Rows/Beat:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_RPB);
-	m_EditRowsPerBeat->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_RPB);
-	m_SpinRowsPerBeat->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_RPB);
+	m_StaticRowsPerBeat = MakeBarLabel(UL_("Rows/Beat:"), this);
+	m_EditRowsPerBeat = new QLineEdit(this);
+	InitBarEdit(*m_EditRowsPerBeat, false);
+	m_SpinRowsPerBeat = new mfcless::UpDown(this);
+	m_SpinRowsPerBeat->SetBuddy(m_EditRowsPerBeat);
 	// Global Volume
-	m_StaticGlobalVolume->Create(UL_("Global Volume:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_GLOBALVOL);
-	m_EditGlobalVolume->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_GLOBALVOL);
-	m_SpinGlobalVolume->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_GLOBALVOL);
+	m_StaticGlobalVolume = MakeBarLabel(UL_("Global Volume:"), this);
+	m_EditGlobalVolume = new QLineEdit(this);
+	InitBarEdit(*m_EditGlobalVolume, false);
+	m_SpinGlobalVolume = new mfcless::UpDown(this);
+	m_SpinGlobalVolume->SetBuddy(m_EditGlobalVolume);
+	// Only digits (ES_NUMBER)
+	for(QLineEdit *edit : {m_EditSpeed, m_EditRowsPerBeat, m_EditGlobalVolume})
+		edit->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[0-9]*")), edit));
 
 	// VU Meter
-	rect.SetRect(0, 0, VUMETER_WIDTH, VUMETER_HEIGHT);
-	m_VuMeter->Create(UL_(""), WS_CHILD | WS_BORDER | SS_NOTIFY, rect, this, IDC_VUMETER);
+	m_VuMeter = new CStereoVU(this);
+	m_VuMeter->setFrameStyle(QFrame::Box | QFrame::Plain);  // WS_BORDER
+
+	SetControl(EDITOCTAVE_INDEX, IDC_EDIT_BASEOCTAVE, &m_EditOctave);
+	SetControl(SPINOCTAVE_INDEX, IDC_SPIN_BASEOCTAVE, m_SpinOctave);
+	SetControl(TEMPOTEXT_INDEX, IDC_TEXT_CURRENTTEMPO, m_StaticTempo);
+	SetControl(EDITTEMPO_INDEX, IDC_EDIT_CURRENTTEMPO, m_EditTempo);
+	SetControl(SPINTEMPO_INDEX, IDC_SPIN_CURRENTTEMPO, m_SpinTempo);
+	SetControl(SPEEDTEXT_INDEX, IDC_TEXT_CURRENTSPEED, m_StaticSpeed);
+	SetControl(EDITSPEED_INDEX, IDC_EDIT_CURRENTSPEED, m_EditSpeed);
+	SetControl(SPINSPEED_INDEX, IDC_SPIN_CURRENTSPEED, m_SpinSpeed);
+	SetControl(RPBTEXT_INDEX, IDC_TEXT_RPB, m_StaticRowsPerBeat);
+	SetControl(EDITRPB_INDEX, IDC_EDIT_RPB, m_EditRowsPerBeat);
+	SetControl(SPINRPB_INDEX, IDC_SPIN_RPB, m_SpinRowsPerBeat);
+	SetControl(GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL, m_StaticGlobalVolume);
+	SetControl(EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL, m_EditGlobalVolume);
+	SetControl(SPINGLOBALVOL_INDEX, IDC_SPIN_GLOBALVOL, m_SpinGlobalVolume);
+	SetControl(VUMETER_INDEX, IDC_VUMETER, m_VuMeter);
+
+	// The controls notify the bar, as they would their parent window.
+	mfcless::ConnectNotifications(m_EditTempo, IDC_EDIT_CURRENTTEMPO, this);
+	mfcless::ConnectNotifications(m_EditSpeed, IDC_EDIT_CURRENTSPEED, this);
+	mfcless::ConnectNotifications(m_EditRowsPerBeat, IDC_EDIT_RPB, this);
+	mfcless::ConnectNotifications(m_EditGlobalVolume, IDC_EDIT_GLOBALVOL, this);
+	for(auto [spin, id] : {std::pair{m_SpinOctave, IDC_SPIN_BASEOCTAVE}, {m_SpinTempo, IDC_SPIN_CURRENTTEMPO}, {m_SpinSpeed, IDC_SPIN_CURRENTSPEED}, {m_SpinRowsPerBeat, IDC_SPIN_RPB}, {m_SpinGlobalVolume, IDC_SPIN_GLOBALVOL}})
+		mfcless::ConnectNotifications(spin, id, this);
 
 	UpdateSizes();
 
@@ -343,46 +524,26 @@ bool CMainToolBar::Create(QWidget *parent)
 	m_SpinGlobalVolume->SetPos(0);
 
 	m_EditTempo->AllowNegative(false);
-	m_EditTempo->SetLimitText(9);
+	m_EditTempo->setMaxLength(9);
 	static_assert(MAX_GLOBAL_VOLUME <= 999);
 	m_EditGlobalVolume->setMaxLength(3);
 
 	// Display everything
-	SetWindowText(UL_("Main"));
 	SetBaseOctave(4);
 	SetCurrentSong(nullptr);
-	EnableDocking(CBRS_ALIGN_ANY);
 
-	GetToolBarCtrl().SetState(ID_UPDATE_AVAILABLE, TBSTATE_HIDDEN);
+	SetButtonHidden(ID_UPDATE_AVAILABLE, true);
 
 	return true;
 }
 
 
-intptr_t CMainToolBar::OnDPIChangedAfterParent(uintptr_t, intptr_t)
+void CMainToolBar::OnDPIChanged()
 {
-	auto result = Default();
-	m_font.DeleteObject();
+	m_font = QFont();
+	m_fontValid = false;
 	UpdateSizes();
 	RefreshToolbar();
-	return result;
-}
-
-
-intptr_t CMainToolBar::OnSettingChange(uintptr_t, intptr_t)
-{
-	// Workaround: When locking the screen or invoking a UAC prompt, spin buttons with auto-buddy property become invisible.
-	// One common thing between those two events is that they result in a WM_SETTINGCHANGE message being sent to the toolbar.
-	// If we try to refresh the toolbar right in this event, nothing happens, but if we defer it via PostMessage, the spin buttons reappear.
-	PostMessage(WM_TOOLBAR_REFRESH);
-	return Default();
-}
-
-
-intptr_t CMainToolBar::OnRefreshToolbar(uintptr_t, intptr_t)
-{
-	RefreshToolbar();
-	return 0;
 }
 
 
@@ -398,72 +559,64 @@ void CMainToolBar::RefreshToolbar()
 
 void CMainToolBar::UpdateSizes()
 {
-	mfcless::DC *dc = GetDC();
-	if(!m_font.m_hObject)
+	if(!m_fontValid)
+	{
 		HighDPISupport::CreateGUIFont(m_font, this);
+		m_fontValid = true;
+	}
 	const double scaling = HighDPISupport::GetDpiForWindow(this) / 96.0;
-	const int imgSize = HighDPISupport::ScalePixels(16, this), btnSizeX = HighDPISupport::ScalePixels(23, this), btnSizeY = HighDPISupport::ScalePixels(22, this);
-	m_ImageList.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, false);
-	m_ImageListDisabled.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, true);
-	
+	const int imgSize = HighDPISupport::ScalePixels(16, this);
+	m_ImageList.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, scaling, false);
+	m_ImageListDisabled.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, scaling, true);
+
 	struct TextWndInfo
 	{
 		QWidget &wnd;
 		const mpt::uchar *measureText;
-		int toolbarIndex, id;
 	};
 	const TextWndInfo TextWnds[] =
 	{
-		{m_EditOctave,         UL_("Octave 9"),       EDITOCTAVE_INDEX,    IDC_EDIT_BASEOCTAVE  },
-		{m_StaticTempo,        UL_("Tempo"),          TEMPOTEXT_INDEX,     IDC_TEXT_CURRENTTEMPO},
-		{m_EditTempo,          UL_("999.9999"),       EDITTEMPO_INDEX,     IDC_EDIT_CURRENTTEMPO},
-		{m_StaticSpeed,        UL_("Ticks/Row:"),     SPEEDTEXT_INDEX,     IDC_TEXT_CURRENTSPEED},
-		{m_EditSpeed,          UL_("999"),            EDITSPEED_INDEX,     IDC_EDIT_CURRENTSPEED},
-		{m_StaticRowsPerBeat,  UL_("Rows/Beat:"),     RPBTEXT_INDEX,       IDC_TEXT_RPB         },
-		{m_EditRowsPerBeat,    UL_("9999"),           EDITRPB_INDEX,       IDC_EDIT_RPB         },
-		{m_StaticGlobalVolume, UL_("Global Volume:"), GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL   },
-		{m_EditGlobalVolume,   UL_("999"),            EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL   },
+		{m_EditOctave,          UL_("Octave 9")      },
+		{*m_StaticTempo,        UL_("Tempo")         },
+		{*m_EditTempo,          UL_("999.9999")      },
+		{*m_StaticSpeed,        UL_("Ticks/Row:")    },
+		{*m_EditSpeed,          UL_("999")           },
+		{*m_StaticRowsPerBeat,  UL_("Rows/Beat:")    },
+		{*m_EditRowsPerBeat,    UL_("9999")          },
+		{*m_StaticGlobalVolume, UL_("Global Volume:")},
+		{*m_EditGlobalVolume,   UL_("999")           },
 	};
-	
-	auto oldFont = dc->SelectObject(m_font);
+
+	const QFontMetrics metrics(m_font);
 	const int textPaddingX = HighDPISupport::ScalePixels(10, this), textPaddingY = HighDPISupport::ScalePixels(4, this), textMinHeight = HighDPISupport::ScalePixels(20, this);
 	for(auto &info : TextWnds)
 	{
-		info.wnd.SetFont(&m_font, false);
-		const auto size = dc->GetTextExtent(info.measureText);
-		const int width = size.cx + textPaddingX;
-		const int height = std::max(static_cast<int>(size.cy) + textPaddingY, textMinHeight);
-		// For some reason, DeferWindowPos doesn't work here
-		info.wnd.SetWindowPos(nullptr, 0, 0, width, height, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate | mfcless::swp::NoCopyBits);
+		info.wnd.setFont(m_font);
+		const QSize size = metrics.size(Qt::TextSingleLine, mfcless::Text(info.measureText).value);
+		const int width = size.width() + textPaddingX;
+		const int height = std::max(size.height() + textPaddingY, textMinHeight);
+		info.wnd.setFixedSize(width, height);
 	}
-	dc->SelectObject(oldFont);
-	ReleaseDC(dc);
 
-	GetToolBarCtrl().SetImageList(&m_ImageList);
-	GetToolBarCtrl().SetDisabledImageList(&m_ImageListDisabled);
-	SetFont(&m_font);
-
-	SetSizes(mfcless::Size(btnSizeX, btnSizeY), mfcless::Size(imgSize, imgSize));
+	SetImageLists(&m_ImageList, &m_ImageListDisabled);
+	setIconSize(QSize(imgSize, imgSize));
+	setFont(m_font);
 
 	// Dropdown menus for New and MIDI buttons
-	GetToolBarCtrl().SetExtendedStyle(GetToolBarCtrl().GetExtendedStyle() | TBSTYLE_EX_DRAWDDARROWS);
-	SetButtonStyle(CommandToIndex(ID_FILE_NEW), GetButtonStyle(CommandToIndex(ID_FILE_NEW)) | TBSTYLE_DROPDOWN);
-	SetButtonStyle(CommandToIndex(ID_MIDI_RECORD), GetButtonStyle(CommandToIndex(ID_MIDI_RECORD)) | TBSTYLE_DROPDOWN);
+	SetDropDown(ID_FILE_NEW);
+	SetDropDown(ID_MIDI_RECORD);
 
 	const int spinnerWidth = SPINNER_WIDTH, spinnerHeight = SPINNER_HEIGHT;
-	m_SpinOctave->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
-	m_SpinTempo->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
-	m_SpinSpeed->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
-	m_SpinRowsPerBeat->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
-	m_SpinGlobalVolume->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
+	for(mfcless::UpDown *spin : {m_SpinOctave, m_SpinTempo, m_SpinSpeed, m_SpinRowsPerBeat, m_SpinGlobalVolume})
+		spin->setFixedSize(spinnerWidth, spinnerHeight);
 }
 
 
 void CMainToolBar::Init(CMainFrame *pMainFrm)
 {
 	EnableFlatButtons(TrackerSettings::Instance().patternSetup & PatternSetup::FlatToolbarButtons);
+	MPT_UNREFERENCED_PARAMETER(pMainFrm);
 	SetHorizontal();
-	pMainFrm->DockControlBar(this);
 }
 
 
@@ -506,35 +659,35 @@ void CMainToolBar::UpdateControls()
 	SetButtonVisibility(MISC_DIVIDER_INDEX, visibleItems.test_all(MainToolBarItem::IconsMisc | MainToolBarItem::VUMeter));
 
 	UpdateControl(visibleItems[MainToolBarItem::Octave], m_EditOctave, EDITOCTAVE_INDEX, IDC_EDIT_BASEOCTAVE);
-	UpdateControl(visibleItems[MainToolBarItem::Octave], m_SpinOctave, SPINOCTAVE_INDEX, IDC_SPIN_BASEOCTAVE);
+	UpdateControl(visibleItems[MainToolBarItem::Octave], *m_SpinOctave, SPINOCTAVE_INDEX, IDC_SPIN_BASEOCTAVE);
 	SetButtonVisibility(OCTAVE_DIVIDER_INDEX, m_bVertical && visibleItems[MainToolBarItem::Octave]);
 
-	UpdateControl(visibleItems[MainToolBarItem::Tempo], m_StaticTempo, TEMPOTEXT_INDEX, IDC_TEXT_CURRENTTEMPO);
-	UpdateControl(visibleItems[MainToolBarItem::Tempo], m_EditTempo, EDITTEMPO_INDEX, IDC_EDIT_CURRENTTEMPO);
-	UpdateControl(visibleItems[MainToolBarItem::Tempo], m_SpinTempo, SPINTEMPO_INDEX, IDC_SPIN_CURRENTTEMPO);
+	UpdateControl(visibleItems[MainToolBarItem::Tempo], *m_StaticTempo, TEMPOTEXT_INDEX, IDC_TEXT_CURRENTTEMPO);
+	UpdateControl(visibleItems[MainToolBarItem::Tempo], *m_EditTempo, EDITTEMPO_INDEX, IDC_EDIT_CURRENTTEMPO);
+	UpdateControl(visibleItems[MainToolBarItem::Tempo], *m_SpinTempo, SPINTEMPO_INDEX, IDC_SPIN_CURRENTTEMPO);
 	SetButtonVisibility(TEMPO_DIVIDER_INDEX, m_bVertical && visibleItems[MainToolBarItem::Tempo]);
 
-	UpdateControl(visibleItems[MainToolBarItem::Speed], m_StaticSpeed, SPEEDTEXT_INDEX, IDC_TEXT_CURRENTSPEED);
-	UpdateControl(visibleItems[MainToolBarItem::Speed], m_EditSpeed, EDITSPEED_INDEX, IDC_EDIT_CURRENTSPEED);
-	UpdateControl(visibleItems[MainToolBarItem::Speed], m_SpinSpeed, SPINSPEED_INDEX, IDC_SPIN_CURRENTSPEED);
+	UpdateControl(visibleItems[MainToolBarItem::Speed], *m_StaticSpeed, SPEEDTEXT_INDEX, IDC_TEXT_CURRENTSPEED);
+	UpdateControl(visibleItems[MainToolBarItem::Speed], *m_EditSpeed, EDITSPEED_INDEX, IDC_EDIT_CURRENTSPEED);
+	UpdateControl(visibleItems[MainToolBarItem::Speed], *m_SpinSpeed, SPINSPEED_INDEX, IDC_SPIN_CURRENTSPEED);
 	SetButtonVisibility(SPEED_DIVIDER_INDEX, m_bVertical && visibleItems[MainToolBarItem::Speed]);
 
-	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], m_StaticRowsPerBeat, RPBTEXT_INDEX, IDC_TEXT_RPB);
-	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], m_EditRowsPerBeat, EDITRPB_INDEX, IDC_EDIT_RPB);
-	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], m_SpinRowsPerBeat, SPINRPB_INDEX, IDC_SPIN_RPB);
+	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], *m_StaticRowsPerBeat, RPBTEXT_INDEX, IDC_TEXT_RPB);
+	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], *m_EditRowsPerBeat, EDITRPB_INDEX, IDC_EDIT_RPB);
+	UpdateControl(visibleItems[MainToolBarItem::RowsPerBeat], *m_SpinRowsPerBeat, SPINRPB_INDEX, IDC_SPIN_RPB);
 	SetButtonVisibility(RPB_DIVIDER_INDEX, m_bVertical && visibleItems[MainToolBarItem::RowsPerBeat]);
 
-	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], m_StaticGlobalVolume, GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL);
-	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], m_EditGlobalVolume, EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL);
-	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], m_SpinGlobalVolume, SPINGLOBALVOL_INDEX, IDC_SPIN_GLOBALVOL);
+	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], *m_StaticGlobalVolume, GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL);
+	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], *m_EditGlobalVolume, EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL);
+	UpdateControl(visibleItems[MainToolBarItem::GlobalVolume], *m_SpinGlobalVolume, SPINGLOBALVOL_INDEX, IDC_SPIN_GLOBALVOL);
 	SetButtonVisibility(GLOBALVOL_DIVIDER_INDEX, visibleItems.test_any_except(MainToolBarItem::VUMeter));
 
 	m_VuMeter->SetOrientation(!m_bVertical);
 	if(m_bVertical)
-		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_HEIGHT, VUMETER_HEIGHT, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+		m_VuMeter->setFixedSize(VUMETER_HEIGHT, VUMETER_HEIGHT);
 	else
-		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_WIDTH, VUMETER_HEIGHT, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-	UpdateControl(visibleItems[MainToolBarItem::VUMeter], m_VuMeter, VUMETER_INDEX, IDC_VUMETER, VUMETER_HEIGHT);
+		m_VuMeter->setFixedSize(VUMETER_WIDTH, VUMETER_HEIGHT);
+	UpdateControl(visibleItems[MainToolBarItem::VUMeter], *m_VuMeter, VUMETER_INDEX, IDC_VUMETER, VUMETER_HEIGHT);
 }
 
 
@@ -564,30 +717,27 @@ void CMainToolBar::SetBaseOctave(uint32 octave)
 		return;
 
 	m_currentOctave = octave;
-	mpt::uchar s[32];
-	wsprintf(s, UL_("Octave %d"), octave);
-	mfcless::SetWindowText(m_EditOctave, s);
+	m_EditOctave.setText(mfcless::Text(MPT_UFORMAT("Octave {}")(octave)).value);
 	m_SpinOctave->SetPos(octave);
 }
 
 
 bool CMainToolBar::ShowUpdateInfo(const mpt::ustring &newVersion, const mpt::ustring &infoURL, bool showHighLight)
 {
-	GetToolBarCtrl().SetState(ID_UPDATE_AVAILABLE, TBSTATE_ENABLED);
+	SetButtonHidden(ID_UPDATE_AVAILABLE, false);
 	RefreshToolbar();
 
 	// Trying to show the tooltip while the window is minimized hangs the application during TTM_TRACKACTIVATE.
 	if(!showHighLight || CMainFrame::GetMainFrame()->IsIconic())
 		return true;
 
-	mfcless::Rect rect;
-	GetToolBarCtrl().GetRect(ID_UPDATE_AVAILABLE, &rect);
+	mfcless::Rect rect(actionGeometry(GetButton(ID_UPDATE_AVAILABLE)));
 	mfcless::Point pt = rect.CenterPoint();
 	ClientToScreen(&pt);
-	if(!IsFloating())
+	if(!isFloating())
 	{
 		mfcless::Rect windowRect;
-		CMainFrame::GetMainFrame()->GetWindowRect(windowRect);
+		mfcless::GetWindowRect(CMainFrame::GetMainFrame(), &windowRect);
 		LimitMax(pt.x, windowRect.right);
 	}
 
@@ -599,21 +749,17 @@ void CMainToolBar::RemoveUpdateInfo()
 {
 	if(m_tooltip)
 		m_tooltip.Pop();
-	GetToolBarCtrl().SetState(ID_UPDATE_AVAILABLE, TBSTATE_HIDDEN);
+	SetButtonHidden(ID_UPDATE_AVAILABLE, true);
 }
 
 
-static void EnableEdit(QLineEdit &edit, mfcless::UpDown &spin, bool enable)
+static void EnableEdit(QLineEdit *edit, mfcless::UpDown *spin, bool enable)
 {
-	// Avoid flicker when enabling / disabling controls
-	edit.SetRedraw(false);
 	if(!enable)
-		mfcless::SetWindowText(edit, UL_("---"));
-	edit.EnableWindow(enable ? true : false);
-	edit.SetReadOnly(enable ? false : true);
-	edit.SetRedraw(true);
-	edit.Invalidate(false);
-	spin.EnableWindow(enable ? true : false);
+		edit->setText(QStringLiteral("---"));
+	edit->setEnabled(enable);
+	edit->setReadOnly(!enable);
+	spin->setEnabled(enable);
 }
 
 
@@ -627,19 +773,19 @@ void CMainToolBar::SetCurrentSong(CSoundFile *pSndFile)
 	{
 		// Update play/pause button
 		if(m_currentTempo == TEMPO(0, 0))
-			SetButtonInfo(PLAY_STARTPAUSE_INDEX, ID_PLAYER_PAUSE, TBBS_BUTTON, TOOLBAR_IMAGE_PAUSE);
+			SetButtonCommand(PLAY_STARTPAUSE_INDEX, ID_PLAYER_PAUSE, TOOLBAR_IMAGE_PAUSE);
 		// Update Speed
 		int nSpeed = pSndFile->m_PlayState.m_nMusicSpeed;
-		if(nSpeed != m_currentSpeed && focus != &m_EditSpeed && visibleItems[MainToolBarItem::Speed])
+		if(nSpeed != m_currentSpeed && focus != m_EditSpeed && visibleItems[MainToolBarItem::Speed])
 		{
 			if(m_currentSpeed < 0)
 				EnableEdit(m_EditSpeed, m_SpinSpeed, true);
 
 			m_currentSpeed = nSpeed;
-			SetItemInt(IDC_EDIT_CURRENTSPEED, m_currentSpeed);
+			m_EditSpeed->setText(QString::number(m_currentSpeed));
 		}
 		TEMPO nTempo = pSndFile->m_PlayState.m_nMusicTempo;
-		if(nTempo != m_currentTempo && focus != &m_EditTempo && visibleItems[MainToolBarItem::Tempo])
+		if(nTempo != m_currentTempo && focus != m_EditTempo && visibleItems[MainToolBarItem::Tempo])
 		{
 			if(m_currentTempo <= TEMPO(0, 0))
 				EnableEdit(m_EditTempo, m_SpinTempo, true);
@@ -648,30 +794,30 @@ void CMainToolBar::SetCurrentSong(CSoundFile *pSndFile)
 			m_EditTempo->SetTempoValue(m_currentTempo);
 		}
 		int nRowsPerBeat = pSndFile->m_PlayState.m_nCurrentRowsPerBeat;
-		if(nRowsPerBeat != m_currentRowsPerBeat && focus != &m_EditRowsPerBeat && visibleItems[MainToolBarItem::RowsPerBeat])
+		if(nRowsPerBeat != m_currentRowsPerBeat && focus != m_EditRowsPerBeat && visibleItems[MainToolBarItem::RowsPerBeat])
 		{
 			if(m_currentRowsPerBeat < 0)
 				EnableEdit(m_EditRowsPerBeat, m_SpinRowsPerBeat, true);
 
 			m_currentRowsPerBeat = nRowsPerBeat;
-			SetItemInt(IDC_EDIT_RPB, m_currentRowsPerBeat);
+			m_EditRowsPerBeat->setText(QString::number(m_currentRowsPerBeat));
 		}
 		int globalVol = pSndFile->m_PlayState.m_nGlobalVolume;
-		if(globalVol != m_currentGlobalVolume && focus != &m_EditGlobalVolume && visibleItems[MainToolBarItem::GlobalVolume])
+		if(globalVol != m_currentGlobalVolume && focus != m_EditGlobalVolume && visibleItems[MainToolBarItem::GlobalVolume])
 		{
 			if(m_currentGlobalVolume < 0)
 				EnableEdit(m_EditGlobalVolume, m_SpinGlobalVolume, true);
 
 			m_currentGlobalVolume = globalVol;
 			uint32 displayVolume = Util::muldivr_unsigned(m_currentGlobalVolume, pSndFile->GlobalVolumeRange(), MAX_GLOBAL_VOLUME);
-			SetItemInt(IDC_EDIT_GLOBALVOL, displayVolume);
+			m_EditGlobalVolume->setText(QString::number(displayVolume));
 		}
 	} else
 	{
 		if(m_currentTempo > TEMPO(0, 0))
 		{
 			EnableEdit(m_EditTempo, m_SpinTempo, false);
-			SetButtonInfo(PLAY_STARTPAUSE_INDEX, ID_PLAYER_PLAY, TBBS_BUTTON, TOOLBAR_IMAGE_PLAY);
+			SetButtonCommand(PLAY_STARTPAUSE_INDEX, ID_PLAYER_PLAY, TOOLBAR_IMAGE_PLAY);
 		}
 		if(m_currentSpeed != -1)
 			EnableEdit(m_EditSpeed, m_SpinSpeed, false);
@@ -686,8 +832,8 @@ void CMainToolBar::SetCurrentSong(CSoundFile *pSndFile)
 		m_currentGlobalVolume = -1;
 	}
 	// If focus was on a now-disabled input field, move it somewhere else
-	if(focus && !focus->isEnabled() && focus->GetParent() == this)
-		CMainFrame::GetMainFrame()->SetFocus();
+	if(focus && !focus->isEnabled() && focus->parentWidget() == this)
+		CMainFrame::GetMainFrame()->setFocus();
 
 	m_updating = false;
 }
@@ -700,9 +846,9 @@ void CMainToolBar::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pScro
 	CToolBarEx::OnVScroll(nCode, nPos, pScrollBar);
 	// Avoid auto-setting input focus to edit control
 	if(auto *activeView = CMainFrame::GetMainFrame()->GetActiveView(); activeView != nullptr)
-		activeView->SetFocus();
-	else
-		pScrollBar->SetFocus();
+		activeView->ViewWidget()->setFocus();
+	else if(pScrollBar)
+		pScrollBar->setFocus();
 
 	short int oct = (short int)m_SpinOctave->GetPos();
 	if((oct >= MIN_BASEOCTAVE) && ((int)oct != m_currentOctave))
@@ -771,7 +917,7 @@ void CMainToolBar::OnSpeedChanged()
 	if(CMainFrame *mainFrm = CMainFrame::GetMainFrame(); mainFrm && !m_updating)
 	{
 		bool ok = false;
-		uint32 newSpeed = GetItemInt(IDC_EDIT_CURRENTSPEED);
+		uint32 newSpeed = m_EditSpeed->text().toUInt(&ok);
 		CSoundFile *sndFile = mainFrm->GetSoundFilePlaying();
 		if(sndFile && ok)
 		{
@@ -804,7 +950,7 @@ void CMainToolBar::OnRPBChanged()
 	if(CMainFrame *mainFrm = CMainFrame::GetMainFrame(); mainFrm && !m_updating)
 	{
 		bool ok = false;
-		uint32 newRPB = GetItemInt(IDC_EDIT_RPB);
+		uint32 newRPB = m_EditRowsPerBeat->text().toUInt(&ok);
 		CSoundFile *sndFile = mainFrm->GetSoundFilePlaying();
 		if(sndFile && ok && newRPB > 0)
 		{
@@ -820,7 +966,7 @@ void CMainToolBar::OnGlobalVolChanged()
 	if(CMainFrame *mainFrm = CMainFrame::GetMainFrame(); mainFrm && !m_updating)
 	{
 		bool ok = false;
-		uint32 newGlobalVol = GetItemInt(IDC_EDIT_GLOBALVOL);
+		uint32 newGlobalVol = m_EditGlobalVolume->text().toUInt(&ok);
 		CSoundFile *sndFile = mainFrm->GetSoundFilePlaying();
 		if(sndFile && ok)
 		{
@@ -831,12 +977,9 @@ void CMainToolBar::OnGlobalVolChanged()
 }
 
 
-void CMainToolBar::OnTbnDropDownToolBar()
+void CMainToolBar::OnButtonDropDown(uint32 id, QPoint pos)
 {
-	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
-	ClientToScreen(&(pToolBar->rcButton));
-
-	switch(pToolBar->iItem)
+	switch(id)
 	{
 	case ID_FILE_NEW:
 		{
@@ -845,7 +988,7 @@ void CMainToolBar::OnTbnDropDownToolBar()
 			auto [templateMenu, templatePos] = CMainFrame::FindMenuItemByCommand(*mainFrm->GetMenu(), ID_FILE_OPENTEMPLATE);
 			if(templateMenu)
 				newMenu->AppendMenu(mfcless::menu::Popup, templateMenu, UL_("&Templates"));
-			newMenu->TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pToolBar->rcButton.left, pToolBar->rcButton.bottom, this);
+			newMenu->TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pos.x(), pos.y(), this);
 			if(templateMenu)
 				newMenu->RemoveMenu(newMenu->GetMenuItemCount() - 1, mfcless::menu::ByPosition);
 		}
@@ -866,13 +1009,11 @@ void CMainToolBar::OnTbnDropDownToolBar()
 			{
 				hMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, 0, UL_("No MIDI input devices found"));
 			}
-			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pToolBar->rcButton.left, pToolBar->rcButton.bottom, this);
+			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pos.x(), pos.y(), this);
 			hMenu.DestroyMenu();
 		}
 		break;
 	}
-
-	CurrentNotify().result = 0;
 }
 
 
@@ -933,16 +1074,8 @@ void CMainToolBar::SetRowsPerBeat(ROWINDEX newRPB)
 }
 
 
-bool CMainToolBar::OnToolTipText(uint32 )
+QString CMainToolBar::GetButtonToolTip(uint32 id)
 {
-	auto pTTT = reinterpret_cast<TOOLTIPTEXT *>(pNMHDR);
-	uintptr_t id = pNMHDR->idFrom;
-	if(pTTT->uFlags & TTF_IDISHWND)
-	{
-		// idFrom is actually the QWidget * of the tool
-		id = (uintptr_t)::GetDlgCtrlID((QWidget *)id);
-	}
-
 	const mpt::uchar *s = nullptr;
 	CommandID cmd = kcNull;
 	switch(id)
@@ -964,8 +1097,8 @@ bool CMainToolBar::OnToolTipText(uint32 )
 	}
 
 	if(s == nullptr)
-		return false;
-	
+		return {};
+
 	mpt::ustring fmt = s;
 	if(cmd != kcNull)
 	{
@@ -973,14 +1106,7 @@ bool CMainToolBar::OnToolTipText(uint32 )
 		if(!keyText.empty())
 			fmt += MPT_UFORMAT(" ({})")(keyText);
 	}
-	mpt::String::WriteWinBuf(pTTT->szText) = fmt;
-	CurrentNotify().result = 0;
-
-	// bring the tooltip window above other popup windows
-	::SetWindowPos(pNMHDR->hwndFrom, HWND_TOP, 0, 0, 0, 0,
-		mfcless::swp::NoActivate | mfcless::swp::NoSize | mfcless::swp::NoMove | mfcless::swp::NoOwnerZOrder);
-
-	return true;    // message was handled
+	return mfcless::Text(fmt).value;
 }
 
 
@@ -990,18 +1116,9 @@ bool CMainToolBar::OnToolTipText(uint32 )
 void CModTreeBar::RegisterMessageMap()
 {
 	mfcless::Window<QWidget>::RegisterMessageMap();
-	// ON_WM_NCCALCSIZE(): by hand (Qt event override)
-	// ON_WM_NCPAINT(): by hand (Qt event override)
-	// ON_WM_NCHITTEST(): by hand (Qt event override)
-	// ON_WM_SIZE() (mfcless::Window)
-	// ON_WM_NCMOUSEMOVE(): by hand (Qt event override)
-	// ON_WM_MOUSEMOVE() (mfcless::Window)
-	// ON_WM_LBUTTONDOWN() (mfcless::Window)
-	// ON_WM_NCLBUTTONDOWN(): by hand (Qt event override)
-	// ON_WM_LBUTTONUP() (mfcless::Window)
-	// ON_WM_NCLBUTTONUP(): by hand (Qt event override)
-	// ON_WM_TIMER() (mfcless::Window)
-	AddMessage(WM_INITDIALOG, &CModTreeBar::OnInitDialog);
+	// The bar's outer edge (upstream's non-client border) is the main
+	// window's splitter; the gap between the two trees is dragged here.
+	// ON_WM_SIZE(), ON_WM_MOUSEMOVE(), ON_WM_LBUTTONDOWN(), ON_WM_LBUTTONUP(), ON_WM_TIMER() (mfcless::Window)
 	AddNotify(IDC_EDIT1, mfcless::Notify::EditChange, &CModTreeBar::OnFilterChanged);
 	AddNotify(IDC_EDIT1, mfcless::Notify::KillFocus, &CModTreeBar::OnFilterLostFocus);
 	AddCommand(ID_CLOSE_LIBRARY_FILTER, &CModTreeBar::CloseTreeFilter);
@@ -1011,20 +1128,17 @@ void CModTreeBar::RegisterMessageMap()
 CModTreeBar::CModTreeBar()
 {
 	m_nTreeSplitRatio = TrackerSettings::Instance().glTreeSplitRatio;
-}
-
-
-intptr_t CModTreeBar::OnInitDialog(uintptr_t wParam, intptr_t lParam)
-{
-	intptr_t l = mfcless::Window<QWidget>::HandleInitDialog(wParam, lParam);
+	setMouseTracking(true);
+	// The trees of the IDD_TREEVIEW template (TVS_HASBUTTONS | TVS_HASLINES | WS_BORDER).
 	m_pModTreeData = new CModTree(nullptr);
-	SubclassDlgItem(IDC_TREEDATA, m_pModTreeData);
+	m_pModTreeData->setParent(this);
+	m_pModTreeData->setProperty("mfcless_id", IDC_TREEDATA);
 	m_pModTree = new CModTree(m_pModTreeData);
-	SubclassDlgItem(IDC_TREEVIEW, m_pModTree);
+	m_pModTree->setParent(this);
+	m_pModTree->setProperty("mfcless_id", IDC_TREEVIEW);
+	for(CModTree *tree : {m_pModTree, m_pModTreeData})
+		tree->SetStyle(mfcless::tree::HasButtons | mfcless::tree::HasLines);
 	m_status.reset();
-	m_sizeDefault.cx = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this) + Padding();
-	m_sizeDefault.cy = 32767;
-	return l;
 }
 
 
@@ -1045,6 +1159,7 @@ void CModTreeBar::Init()
 		m_pModTreeData->Init();
 		m_pModTree->Init();
 	}
+	ApplyWidth();
 }
 
 
@@ -1067,7 +1182,7 @@ bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 		case mfcless::vk::TAB:
 			if(m_filterSource)
 			{
-				m_filterSource->SetFocus();
+				m_filterSource->setFocus();
 				return true;
 			}
 			break;
@@ -1076,7 +1191,7 @@ bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 		case mfcless::vk::DOWN:
 			if(const auto selectedItem = m_filterSource->GetSelectedItem(); selectedItem != nullptr)
 			{
-				const auto item = m_filterSource->GetNextItem(selectedItem, (pMsg->wParam == mfcless::vk::UP) ? TVGN_PREVIOUS : TVGN_NEXT);
+				const auto item = m_filterSource->GetNextItem(selectedItem, (pMsg->wParam == mfcless::vk::UP) ? mfcless::tree::Previous : mfcless::tree::Next);
 				if(item)
 					m_filterSource->SelectItem(item);
 				return true;
@@ -1090,9 +1205,9 @@ bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 
 void CModTreeBar::DelayShow(bool show)
 {
-	if(!show && IsChild(mfcless::GetFocus()))
-		CMainFrame::GetMainFrame()->SetFocus();
-	mfcless::Window<QWidget>::DelayShow(show);
+	if(!show && isAncestorOf(mfcless::GetFocus()))
+		CMainFrame::GetMainFrame()->setFocus();
+	setVisible(show);
 }
 
 
@@ -1134,41 +1249,71 @@ void CModTreeBar::RecalcLayout()
 		if(cyavail < 0) cyavail = 0;
 		cytree = (cyavail * m_nTreeSplitRatio) >> 8;
 		cydata = cyavail - cytree;
-		auto dwp = ::BeginDeferWindowPos(3);
 		if(m_filterSource == m_pModTree)
 		{
 			int editHeight = HighDPISupport::ScalePixels(20, this);
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree - editHeight, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-			::DeferWindowPos(dwp, m_filterEdit, *m_pModTree, 0, cytree - editHeight, rect.Width(), editHeight, mfcless::swp::NoActivate);
+			m_pModTree->setGeometry(0, 0, rect.Width(), cytree - editHeight);
+			m_pModTreeData->setGeometry(0, cytree + padding, rect.Width(), cydata);
+			m_filterEdit->setGeometry(0, cytree - editHeight, rect.Width(), editHeight);
 		} else if(m_filterSource == m_pModTreeData)
 		{
 			int editHeight = HighDPISupport::ScalePixels(20, this);
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata - editHeight, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-			::DeferWindowPos(dwp, m_filterEdit, *m_pModTreeData, 0, cytree + padding + cydata - editHeight, rect.Width(), editHeight, mfcless::swp::NoActivate);
+			m_pModTree->setGeometry(0, 0, rect.Width(), cytree);
+			m_pModTreeData->setGeometry(0, cytree + padding, rect.Width(), cydata - editHeight);
+			m_filterEdit->setGeometry(0, cytree + padding + cydata - editHeight, rect.Width(), editHeight);
 		} else
 		{
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			m_pModTree->setGeometry(0, 0, rect.Width(), cytree);
+			m_pModTreeData->setGeometry(0, cytree + padding, rect.Width(), cydata);
 		}
-		::EndDeferWindowPos(dwp);
 	}
 }
 
 
-mfcless::Size CModTreeBar::CalcFixedLayout(bool, bool)
+// The gap between the two trees, where the split is dragged.
+mfcless::Rect CModTreeBar::SplitterRect() const
 {
-	int width = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this);
-	mfcless::Size sz;
-	m_sizeDefault.cx = width;
-	m_sizeDefault.cy = 32767;
-	const int padding = Padding();
-	sz.cx = width + padding;
-	if(sz.cx < padding + 1)
-		sz.cx = padding + 1;
-	sz.cy = 32767;
-	return sz;
+	if(!m_pModTree || !m_pModTreeData)
+		return {};
+	const QRect upper = m_pModTree->geometry(), lower = m_pModTreeData->geometry();
+	const int top = (m_filterSource == m_pModTree && m_filterEdit) ? m_filterEdit->geometry().bottom() + 1 : upper.bottom() + 1;
+	return mfcless::Rect(0, top, width(), lower.top());
+}
+
+
+QSplitter *CModTreeBar::ParentSplitter() const
+{
+	return qobject_cast<QSplitter *>(parentWidget());
+}
+
+
+void CModTreeBar::ApplyWidth()
+{
+	QSplitter *splitter = ParentSplitter();
+	if(!splitter)
+		return;
+	if(!m_splitterConnected)
+	{
+		m_splitterConnected = true;
+		connect(splitter, &QSplitter::splitterMoved, this, [this](int, int) {
+			// The bar's new width (upstream: the tracker on its edge).
+			if(isVisible() && width() > Padding())
+				TrackerSettings::Instance().glTreeWindowWidth = HighDPISupport::ScalePixelsInv(width(), this);
+		});
+	}
+	const int index = splitter->indexOf(this);
+	if(index < 0 || splitter->count() < 2)
+		return;
+	QList<int> sizes = splitter->sizes();
+	int total = 0;
+	for(int sz : sizes)
+		total += sz;
+	const int barWidth = std::max(HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this), Padding() + 1);
+	if(total <= 0)
+		total = std::max(splitter->width(), barWidth * 4);
+	for(int i = 0; i < sizes.size(); i++)
+		sizes[i] = (i == index) ? barWidth : std::max(total - barWidth, 1);
+	splitter->setSizes(sizes);
 }
 
 
@@ -1177,120 +1322,35 @@ void CModTreeBar::DoMouseMove(mfcless::Point pt)
 	mfcless::Rect rect;
 	GetClientRect(&rect);
 
-	if(m_status[MTB_CAPTURE | MTB_DRAGGING] && (::GetCapture() != this))
+	if(m_status[MTB_CAPTURE | MTB_DRAGGING] && !HasCapture())
 	{
 		CancelTracking();
 	}
 	if(m_status[MTB_DRAGGING])
 	{
-		if(m_status[MTB_VERTICAL])
-		{
-			if(m_pModTree)
-			{
-				mfcless::Rect windowRect;
-				m_pModTree->GetWindowRect(&windowRect);
-				pt.y += windowRect.Height();
-			}
-			pt.y -= ptDragging.y;
-			pt.y = std::clamp(static_cast<int>(pt.y), 0, rect.Height());
-			if(!m_status[MTB_TRACKER] || (pt.y != static_cast<int>(m_nTrackPos)))
-			{
-				if(m_status[MTB_TRACKER])
-					OnInvertTracker(m_nTrackPos);
-				m_nTrackPos = pt.y;
-				OnInvertTracker(m_nTrackPos);
-				m_status.set(MTB_TRACKER);
-			}
-		} else
-		{
-			pt.x -= ptDragging.x;
-			if(BarOnLeft())
-				pt.x += (m_cxOriginal - Padding());
-			else
-				pt.x = m_cxOriginal - pt.x;
-			pt.x = std::max(pt.x, int32(0));
-			if(!m_status[MTB_TRACKER] || (pt.x != static_cast<int>(m_nTrackPos)))
-			{
-				if(m_status[MTB_TRACKER])
-					OnInvertTracker(m_nTrackPos);
-				m_nTrackPos = pt.x;
-				OnInvertTracker(m_nTrackPos);
-				m_status.set(MTB_TRACKER);
-			}
-		}
+		// Live split (Qt's splitters move the panes while dragging).
+		m_nTrackPos = std::clamp(static_cast<int>(pt.y) - static_cast<int>(ptDragging.y), 0, rect.Height());
+		const int padding = Padding();
+		int cyavail = rect.Height() - padding;
+		if(cyavail < padding + 1)
+			cyavail = padding + 1;
+		m_nTreeSplitRatio = std::clamp(static_cast<int>(m_nTrackPos * 256) / cyavail, 0, 256);
+		RecalcLayout();
 	} else
 	{
-		uint32 nCursor = 0;
-
-		const int padding = Padding();
-		const int extraPadding = HighDPISupport::ScalePixels(2, this);
-		if(BarOnLeft())
-		{
-			rect.left = rect.right - extraPadding;
-			rect.right = rect.left + padding + extraPadding;
-		} else
-		{
-			rect.left -= extraPadding;
-			rect.right = rect.left + padding + extraPadding;
-		}
-		if(rect.PtInRect(pt))
-		{
-			nCursor = AFX_IDC_HSPLITBAR;
-		} else
-		if(m_pModTree)
-		{
-			m_pModTree->GetWindowRect(&rect);
-			rect.right = rect.Width();
-			rect.left = 0;
-			rect.top = rect.Height() - extraPadding;
-			rect.bottom = rect.top + padding + extraPadding;
-			if(rect.PtInRect(pt))
-			{
-				nCursor = AFX_IDC_VSPLITBAR;
-			}
-		}
-		if(nCursor)
-		{
-			const bool wasVertical = m_status[MTB_VERTICAL];
-			bool vertical = (nCursor == AFX_IDC_VSPLITBAR);
-			bool setCursor = false;
-			if(!m_status[MTB_CAPTURE])
-			{
-				m_status.set(MTB_CAPTURE);
-				SetCapture();
-				setCursor = true;
-			} else
-			{
-				if(vertical != wasVertical)
-					setCursor = true;
-			}
-			m_status.set(MTB_VERTICAL, vertical);
-			if(setCursor)
-				SetCursor(theApp.LoadCursor(nCursor));
-		} else
-		{
-			if(m_status[MTB_CAPTURE])
-			{
-				m_status.reset(MTB_CAPTURE);
-				ReleaseCapture();
-				SetCursor(LoadCursor(NULL, IDC_ARROW));
-			}
-		}
+		const bool overSplitter = SplitterRect().PtInRect(pt);
+		setCursor(overSplitter ? Qt::SplitVCursor : Qt::ArrowCursor);
 	}
 }
 
 
 void CModTreeBar::DoLButtonDown(mfcless::Point pt)
 {
-	if(m_status[MTB_CAPTURE] && !m_status[MTB_DRAGGING])
+	if(SplitterRect().PtInRect(pt))
 	{
-		mfcless::Rect rect;
-		GetWindowRect(&rect);
-		m_cxOriginal = rect.Width();
-		m_cyOriginal = rect.Height();
-		ptDragging = pt;
-		m_status.set(MTB_DRAGGING);
-		DoMouseMove(pt);
+		ptDragging = mfcless::Point(0, pt.y - SplitterRect().top);
+		m_status.set(MTB_DRAGGING | MTB_VERTICAL | MTB_CAPTURE);
+		SetCapture();
 	}
 }
 
@@ -1299,97 +1359,18 @@ void CModTreeBar::DoLButtonUp()
 {
 	if(m_status[MTB_DRAGGING])
 	{
-		mfcless::Rect rect;
-
-		m_status.reset(MTB_DRAGGING);
-		if(m_status[MTB_TRACKER])
-		{
-			OnInvertTracker(m_nTrackPos);
-			m_status.reset(MTB_TRACKER);
-		}
-		const int padding = Padding();
-		if(m_status[MTB_VERTICAL])
-		{
-			GetClientRect(&rect);
-			int cyavail = rect.Height() - padding;
-			if(cyavail < padding + 1)
-				cyavail = padding + 1;
-			int ratio = std::clamp(static_cast<int>(m_nTrackPos * 256) / cyavail, 0, 256);
-			m_nTreeSplitRatio = ratio;
-			TrackerSettings::Instance().glTreeSplitRatio = ratio;
-			RecalcLayout();
-		} else
-		{
-			GetWindowRect(&rect);
-			m_nTrackPos += padding;
-			if(m_nTrackPos < static_cast<uint32>(padding + 1))
-				m_nTrackPos = padding + 1;
-			CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-			if((m_nTrackPos != (uint32)rect.Width()) && (pMainFrm))
-			{
-				TrackerSettings::Instance().glTreeWindowWidth = HighDPISupport::ScalePixelsInv(m_nTrackPos - padding, this);
-				m_sizeDefault.cx = m_nTrackPos;
-				m_sizeDefault.cy = 32767;
-				pMainFrm->RecalcLayout();
-			}
-		}
+		TrackerSettings::Instance().glTreeSplitRatio = m_nTreeSplitRatio;
+		CancelTracking();
+		RecalcLayout();
 	}
 }
 
 
 void CModTreeBar::CancelTracking()
 {
-	if(m_status[MTB_TRACKER])
-	{
-		OnInvertTracker(m_nTrackPos);
-		m_status.reset(MTB_TRACKER);
-	}
-	m_status.reset(MTB_DRAGGING);
-	if(m_status[MTB_CAPTURE])
-	{
-		m_status.reset(MTB_CAPTURE);
-		ReleaseCapture();
-	}
-}
-
-
-void CModTreeBar::OnInvertTracker(uint32 x)
-{
-	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-
-	if(pMainFrm)
-	{
-		mfcless::Rect rect;
-
-		GetClientRect(&rect);
-		const int padding = Padding() + 1;
-		if(m_status[MTB_VERTICAL])
-		{
-			rect.top = x;
-			rect.bottom = rect.top + padding;
-		} else
-		{
-			if(BarOnLeft())
-				rect.left = x;
-			else
-				rect.left = rect.right - x;
-			rect.right = rect.left + padding;
-		}
-		ClientToScreen(&rect);
-		pMainFrm->ScreenToClient(&rect);
-
-		// pat-blt without clip children on
-		mfcless::DC* pDC = pMainFrm->GetDC();
-		// invert the brush pattern (looks just like frame window sizing)
-		mfcless::Brush* pBrush = mfcless::DC::GetHalftoneBrush();
-		mfcless::Brush hOldBrush;
-		if(pBrush != nullptr)
-			hOldBrush = (mfcless::Brush)SelectObject(pDC->m_hDC, pBrush->m_hObject);
-		pDC->PatBlt(rect.left, rect.top, rect.Width(), rect.Height(), mfcless::rop::PatInvert);
-		if(hOldBrush != nullptr)
-			SelectObject(pDC->m_hDC, hOldBrush);
-		ReleaseDC(pDC);
-	}
+	m_status.reset(MTB_TRACKER | MTB_DRAGGING | MTB_CAPTURE);
+	ReleaseCapture();
+	unsetCursor();
 }
 
 
@@ -1419,85 +1400,37 @@ void CModTreeBar::UpdatePlayPos(CModDoc *pModDoc, Notification *pNotify)
 
 void CModTreeBar::SetBarOnLeft(const bool left)
 {
-	SetBarStyle(left ? CBRS_LEFT : CBRS_RIGHT);
-	SetWindowPos(nullptr, 0, 0, 0, 0, mfcless::swp::NoActivate | mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoSize | mfcless::swp::FrameChanged | mfcless::swp::FrameChanged);
+	m_barOnLeft = left;
+	if(QSplitter *splitter = ParentSplitter())
+	{
+		const int index = splitter->indexOf(this);
+		const int wanted = left ? 0 : splitter->count() - 1;
+		if(index >= 0 && index != wanted)
+		{
+			const int barWidth = width();
+			splitter->insertWidget(wanted, this);
+			splitter->setStretchFactor(splitter->indexOf(this), 0);
+			for(int i = 0; i < splitter->count(); i++)
+			{
+				if(splitter->widget(i) != this)
+					splitter->setStretchFactor(i, 1);
+			}
+			if(barWidth > 0)
+				ApplyWidth();
+		}
+		if(!m_splitterConnected)
+			ApplyWidth();  // the first time the bar is in the splitter
+	}
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CModTreeBar message handlers
 
-void CModTreeBar::OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp)
-{
-	mfcless::Window<QWidget>::OnNcCalcSize(bCalcValidRects, lpncsp);
-	if(lpncsp)
-	{
-		if(BarOnLeft())
-			lpncsp->rgrc[0].right -= Padding();
-		else
-			lpncsp->rgrc[0].left += Padding();
-		lpncsp->rgrc[0].right = std::max(lpncsp->rgrc[0].left, lpncsp->rgrc[0].right);
-	}
-}
-
-
-intptr_t CModTreeBar::OnNcHitTest(mfcless::Point point)
-{
-	mfcless::Rect rect;
-
-	GetWindowRect(&rect);
-	rect.DeflateRect(1, 1);
-	if(BarOnLeft())
-		rect.right -= Padding();
-	else
-		rect.left += Padding();
-	if(!rect.PtInRect(point))
-		return HTBORDER;
-	return mfcless::Window<QWidget>::OnNcHitTest(point);
-}
-
-
-void CModTreeBar::OnNcPaint()
-{
-	mfcless::Rect rect;
-	mfcless::Window<QWidget>::OnNcPaint();
-
-	GetWindowRect(&rect);
-	// Assumes there is no other non-client items
-	rect.right -= rect.left;
-	rect.bottom -= rect.top;
-	rect.left = 0;
-	rect.top = 0;
-	if(BarOnLeft())
-		rect.left = rect.right - Padding();
-	else
-		rect.right = rect.left + Padding();
-	if((rect.left < rect.right) && (rect.top < rect.bottom))
-	{
-		mfcless::DC *pDC = GetWindowDC();
-		mfcless::DC * hdc = pDC->m_hDC;
-		mfcless::FillRect(hdc, &rect, mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)));
-		ReleaseDC(pDC);
-	}
-}
-
-
 void CModTreeBar::OnSize(uint32 nType, int cx, int cy)
 {
 	Window::OnSize(nType, cx, cy);
 	RecalcLayout();
-}
-
-
-void CModTreeBar::OnNcMouseMove(uint32, mfcless::Point point)
-{
-	mfcless::Rect rect;
-	mfcless::Point pt = point;
-
-	GetWindowRect(&rect);
-	pt.x -= rect.left;
-	pt.y -= rect.top;
-	DoMouseMove(pt);
 }
 
 
@@ -1507,27 +1440,9 @@ void CModTreeBar::OnMouseMove(uint32, mfcless::Point point)
 }
 
 
-void CModTreeBar::OnNcLButtonDown(uint32, mfcless::Point point)
-{
-	mfcless::Rect rect;
-	mfcless::Point pt = point;
-
-	GetWindowRect(&rect);
-	pt.x -= rect.left;
-	pt.y -= rect.top;
-	DoLButtonDown(pt);
-}
-
-
 void CModTreeBar::OnLButtonDown(uint32, mfcless::Point point)
 {
 	DoLButtonDown(point);
-}
-
-
-void CModTreeBar::OnNcLButtonUp(uint32, mfcless::Point)
-{
-	DoLButtonUp();
 }
 
 
@@ -1547,16 +1462,14 @@ void CModTreeBar::StartTreeFilter(CModTree &source)
 {
 	if(!m_filterEdit)
 	{
-		mfcless::Rect rect;
-		GetClientRect(rect);
-		rect.bottom = HighDPISupport::ScalePixels(20, this);
-
-		m_pModTree->GetItemRect(m_pModTree->GetFirstVisibleItem(), rect, false);
-		m_filterEdit->Create(WS_VISIBLE | WS_CHILD | WS_BORDER | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL, rect, this, IDC_EDIT1);
-		m_filterEdit->SetFont(GetFont());
+		m_filterEdit = new QLineEdit(this);
+		m_filterEdit->setProperty("mfcless_id", IDC_EDIT1);
+		m_filterEdit->setFont(font());
+		mfcless::ConnectNotifications(m_filterEdit, IDC_EDIT1, this);
+		m_filterEdit->show();
 	} else if(m_filterSource != &source)
 	{
-		mfcless::SetWindowText(m_filterEdit, UL_(""));
+		m_filterEdit->clear();
 	}
 	m_filterEdit->setFocus();
 	m_filterSource = &source;
@@ -1569,16 +1482,16 @@ void CModTreeBar::OnFilterChanged()
 	if(!m_filterSource)
 		return;
 
-	mpt::ustring filter;
-	mfcless::GetWindowText(m_filterEdit, filter);
-	if(filter.GetLength() < 1 || filter.GetLength() > 2)
+	const mpt::ustring filter = mfcless::FromQString(m_filterEdit->text());
+	const auto length = m_filterEdit->text().length();
+	if(length < 1 || length > 2)
 	{
 		CancelTimer();
-		m_filterSource->SetInstrumentLibraryFilter(mpt::ToUnicode(filter));
+		m_filterSource->SetInstrumentLibraryFilter(filter);
 	} else
 	{
 		if(!m_filterTimer)
-			m_filterTimer = SetTimer(1, 360 - filter.GetLength() * 120, nullptr);
+			m_filterTimer = SetTimer(1, static_cast<int>(360 - length * 120));
 	}
 }
 
@@ -1589,18 +1502,14 @@ void CModTreeBar::OnTimer(uintptr_t id)
 		return;
 
 	if(m_filterSource)
-	{
-		mpt::ustring filter;
-		mfcless::GetWindowText(m_filterEdit, filter);
-		m_filterSource->SetInstrumentLibraryFilter(mpt::ToUnicode(filter));
-	}
+		m_filterSource->SetInstrumentLibraryFilter(mfcless::FromQString(m_filterEdit->text()));
 	CancelTimer();
 }
 
 
 void CModTreeBar::OnFilterLostFocus()
 {
-	if(m_filterEdit && !mfcless::GetWindowTextLength(m_filterEdit))
+	if(m_filterEdit && m_filterEdit->text().isEmpty())
 		CloseTreeFilter();
 }
 
@@ -1611,13 +1520,16 @@ void CModTreeBar::CloseTreeFilter()
 	if(m_filterSource)
 	{
 		m_filterSource->SetInstrumentLibraryFilter({});
-		if(mfcless::GetFocus() == &m_filterEdit)
-			m_filterSource->SetFocus();
+		if(mfcless::GetFocus() == m_filterEdit)
+			m_filterSource->setFocus();
 		m_filterSource = nullptr;
 	}
 	if(m_filterEdit)
 	{
-		m_filterEdit->DestroyWindow();
+		// Deleted later: this may run from the edit's own focus-out.
+		m_filterEdit->hide();
+		m_filterEdit->deleteLater();
+		m_filterEdit = nullptr;
 		RecalcLayout();
 	}
 }
@@ -1684,8 +1596,8 @@ void CStereoVU::SetVuMeter(uint8 validChannels, const uint32 channels[4], bool f
 			{
 				vuMeter[c] = channels[c];
 			}
-			mfcless::PaintDC dc(this);
-			DrawVuMeters(dc, force);
+			// mfcless: Qt draws only in the paint event, which redraws it all.
+			update();
 			lastVuUpdateTime = curTime;
 		}
 	}

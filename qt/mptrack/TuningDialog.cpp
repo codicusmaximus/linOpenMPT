@@ -3,7 +3,7 @@
  * ----------------
  * Purpose: Alternative sample tuning configuration dialog.
  * Notes  : mfcless twin of upstream's mptrack/TuningDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -38,7 +38,7 @@ const mpt::Charset TuningCharsetFallback = mpt::Charset::Locale;
 
 
 const CTuningDialog::TUNINGTREEITEM CTuningDialog::s_notFoundItemTuning = TUNINGTREEITEM();
-const QTreeWidgetItem * CTuningDialog::s_notFoundItemTree = NULL;
+QTreeWidgetItem *const CTuningDialog::s_notFoundItemTree = NULL;
 
 using UNOTEINDEXTYPE = Tuning::UNOTEINDEXTYPE;
 using RATIOTYPE = Tuning::RATIOTYPE;
@@ -49,13 +49,11 @@ using NOTEINDEXTYPE = Tuning::NOTEINDEXTYPE;
 CTuningDialog::CTuningDialog(QWidget* pParent, INSTRUMENTINDEX inst, CSoundFile &csf)
 	: ResizableDialog(IDD_TUNING, pParent)
 	, m_sndFile(csf)
-	, m_TreeCtrlTuning(this)
 	, m_TreeItemTuningItemMap(s_notFoundItemTree, s_notFoundItemTuning)
 {
 	m_TuningCollections.push_back(&(m_sndFile.GetTuneSpecificTunings()));
 	m_TuningCollectionsNames[&(m_sndFile.GetTuneSpecificTunings())] = UL_("Tunings");
 	m_pActiveTuning = m_sndFile.Instruments[inst]->pTuning;
-	m_RatioMapWnd->m_pTuning = m_pActiveTuning; //pTun is the tuning to show when dialog opens.
 }
 
 CTuningDialog::~CTuningDialog()
@@ -74,7 +72,7 @@ CTuningDialog::~CTuningDialog()
 
 QTreeWidgetItem * CTuningDialog::AddTreeItem(CTuningCollection* pTC, QTreeWidgetItem * parent, QTreeWidgetItem * insertAfter)
 {
-	const QTreeWidgetItem * temp = m_TreeCtrlTuning->InsertItem((IsDeletable(pTC) ? mpt::ustring(UL_("loaded: ")) : mpt::ustring()) +  m_TuningCollectionsNames[pTC], parent, insertAfter);
+	QTreeWidgetItem *const temp = m_TreeCtrlTuning->InsertItem((IsDeletable(pTC) ? mpt::ustring(UL_("loaded: ")) : mpt::ustring()) +  m_TuningCollectionsNames[pTC], parent, insertAfter);
 	QTreeWidgetItem * temp2 = NULL;
 	m_TreeItemTuningItemMap.AddPair(temp, TUNINGTREEITEM(pTC));
 	for(const auto &tuning : *pTC)
@@ -87,7 +85,7 @@ QTreeWidgetItem * CTuningDialog::AddTreeItem(CTuningCollection* pTC, QTreeWidget
 
 QTreeWidgetItem * CTuningDialog::AddTreeItem(CTuning* pT, QTreeWidgetItem * parent, QTreeWidgetItem * insertAfter)
 {
-	const QTreeWidgetItem * temp = m_TreeCtrlTuning->InsertItem(mpt::ToUnicode(pT->GetName()), parent, insertAfter);
+	QTreeWidgetItem *const temp = m_TreeCtrlTuning->InsertItem(mpt::ToUnicode(pT->GetName()), parent, insertAfter);
 	m_TreeItemTuningItemMap.AddPair(temp, TUNINGTREEITEM(pT));
 	m_TreeCtrlTuning->EnsureVisible(temp);
 	return temp;
@@ -117,7 +115,7 @@ void CTuningDialog::DeleteTreeItem(CTuningCollection* pTC)
 		return;
 
 	m_pActiveTuning = nullptr;
-	const QTreeWidgetItem * temp = m_TreeItemTuningItemMap.GetMapping_21(TUNINGTREEITEM(pTC));
+	QTreeWidgetItem *const temp = m_TreeItemTuningItemMap.GetMapping_21(TUNINGTREEITEM(pTC));
 	if(temp)
 	{
 		TUNINGTREEITEM prevTTI = m_TreeItemTuningItemMap.GetMapping_12(m_TreeCtrlTuning->GetNextItem(temp, mfcless::tree::Previous));
@@ -163,6 +161,7 @@ bool CTuningDialog::OnInitDialog()
 	m_EditRatio->AllowNegative(false);
 	m_EditRatio->AllowFractions(true);
 
+	m_RatioMapWnd->m_pTuning = m_pActiveTuning; //pTun is the tuning to show when dialog opens.
 	m_RatioMapWnd->Init(this, 0);
 
 	//-->Creating treeview
@@ -311,8 +310,8 @@ void CTuningDialog::UpdateView(const int updateMask)
 
 		m_CombobTuningType->setEnabled(false);
 		m_EditSteps->setReadOnly(!enableControls);
-		m_EditRatioPeriod->SetReadOnly(!enableControls);
-		m_EditRatio->SetReadOnly((m_pActiveTuning->GetType() == Tuning::Type::GEOMETRIC) ? true : !enableControls);
+		m_EditRatioPeriod->setReadOnly(!enableControls);
+		m_EditRatio->setReadOnly((m_pActiveTuning->GetType() == Tuning::Type::GEOMETRIC) ? true : !enableControls);
 		m_EditNotename->setReadOnly(!enableControls);
 		m_EditMiscActions->setReadOnly((m_pActiveTuning->GetType() == Tuning::Type::GEOMETRIC) ? true : !enableControls);
 		m_EditFineTuneSteps->setReadOnly(!enableControls);
@@ -567,8 +566,7 @@ void CTuningDialog::OnBnClickedButtonNew()
 	mfcless::Point point;
 	mfcless::GetCursorPos(&point);
 
-	mfcless::Menu popUpMenu = CreatePopupMenu();
-	if(popUpMenu == NULL) return;
+	mfcless::Menu popUpMenu = mfcless::Menu::CreatePopup();
 
 	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGROUPGEOMETRIC, UL_("Add &GroupGeometric tuning"));
 	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGEOMETRIC, UL_("Add G&eometric tuning"));
@@ -576,8 +574,8 @@ void CTuningDialog::OnBnClickedButtonNew()
 
 	m_CommandItemDest.Set(m_TuningCollections[0]);
 
-	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
-	DestroyMenu(popUpMenu);
+	popUpMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, this);
+	popUpMenu.DestroyMenu();
 }
 
 
@@ -1046,9 +1044,9 @@ void CTuningDialog::OnTvnSelchangedTreeTuning()
 	//TODO: This gets called before killfocus messages of edits, which
 	//		can be a problem.
 
-	LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
+	const mfcless::NotifyInfo *pNMTreeView = &CurrentNotify();
 
-	TUNINGTREEITEM ti = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->itemNew.hItem);
+	TUNINGTREEITEM ti = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->treeItem);
 
 	if(ti)
 	{
@@ -1081,11 +1079,11 @@ void CTuningDialog::OnTvnSelchangedTreeTuning()
 
 void CTuningDialog::OnTvnDeleteitemTreeTuning()
 {
-	LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
+	const mfcless::NotifyInfo *pNMTreeView = &CurrentNotify();
 	CurrentNotify().result = 0;
-	if(pNMTreeView->itemOld.mask & mfcless::tree::MaskHandle && pNMTreeView->itemOld.hItem)
+	if(pNMTreeView->oldTreeItem)
 	{
-		m_TreeItemTuningItemMap.RemoveValue_1(pNMTreeView->itemOld.hItem);
+		m_TreeItemTuningItemMap.RemoveValue_1(pNMTreeView->oldTreeItem);
 	}
 	else
 		m_DoErrorExit = true;
@@ -1115,8 +1113,7 @@ void CTuningDialog::OnNMRclickTreeTuning()
 		return;
 	}
 
-	mfcless::Menu popUpMenu = CreatePopupMenu();
-	if(popUpMenu == NULL) return;
+	mfcless::Menu popUpMenu = mfcless::Menu::CreatePopup();
 
 	CTuning* pT = tunitem.GetT();
 	CTuningCollection* pTC = tunitem.GetTC();
@@ -1159,13 +1156,13 @@ void CTuningDialog::OnNMRclickTreeTuning()
 	}
 
 	mfcless::GetCursorPos(&point);
-	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
-	DestroyMenu(popUpMenu);
+	popUpMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, this);
+	popUpMenu.DestroyMenu();
 }
 
 bool CTuningDialog::IsDeletable(const CTuningCollection* const pTC) const
 {
-	auto iter = find(m_DeletableTuningCollections.begin(), m_DeletableTuningCollections.end(), pTC);
+	auto iter = std::find(m_DeletableTuningCollections.begin(), m_DeletableTuningCollections.end(), pTC);
 	if(iter != m_DeletableTuningCollections.end())
 		return true;
 	else
@@ -1175,13 +1172,13 @@ bool CTuningDialog::IsDeletable(const CTuningCollection* const pTC) const
 
 void CTuningDialog::OnTvnBegindragTreeTuning()
 {
-	LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
+	const mfcless::NotifyInfo *pNMTreeView = &CurrentNotify();
 	CurrentNotify().result = 0;
 
 	m_CommandItemDest.Reset();
 	m_CommandItemSrc.Reset();
-	if(pNMTreeView == NULL || pNMTreeView->itemNew.hItem == NULL) return;
-	TUNINGTREEITEM tunitem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->itemNew.hItem);
+	if(pNMTreeView == NULL || pNMTreeView->treeItem == NULL) return;
+	TUNINGTREEITEM tunitem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->treeItem);
 
 	if(tunitem.GetT() == NULL)
 	{
@@ -1192,9 +1189,9 @@ void CTuningDialog::OnTvnBegindragTreeTuning()
 	setCursor(CMainFrame::curDragging);
 
 	m_TreeCtrlTuning->SetDragging();
-	m_DragItem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->itemNew.hItem);
+	m_DragItem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->treeItem);
 
-	m_TreeCtrlTuning->Select(pNMTreeView->itemNew.hItem, mfcless::tree::Caret);
+	m_TreeCtrlTuning->Select(pNMTreeView->treeItem, mfcless::tree::Caret);
 }
 
 
@@ -1234,7 +1231,7 @@ CTuningCollection *CTuningDialog::CanDrop(QTreeWidgetItem * dragDestItem)
 
 void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 {
-	setCursor(CMainFrame::curArrow);
+	unsetCursor();
 	m_TreeCtrlTuning->SetDragging(false);
 	if(!m_DragItem)
 		return;
@@ -1253,8 +1250,7 @@ void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 	if(pTCdest)
 	{
 		uint32 mask = mfcless::menu::String;
-		mfcless::Menu popUpMenu = CreatePopupMenu();
-		if(popUpMenu == NULL) return;
+		mfcless::Menu popUpMenu = mfcless::Menu::CreatePopup();
 
 		mfcless::Point point;
 		mfcless::GetCursorPos(&point);
@@ -1266,8 +1262,8 @@ void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 		popUpMenu.AppendMenu(mask, ID_COPYTUNING, UL_("&Copy here"));
 
 		mfcless::GetCursorPos(&point);
-		TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
-		DestroyMenu(popUpMenu);
+		popUpMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, this);
+		popUpMenu.DestroyMenu();
 
 		m_CommandItemDest.Set(pTCdest);
 	}
@@ -1430,13 +1426,13 @@ void CTuningDialog::OnRemoveTuningCollection()
 		return;
 	}
 
-	auto iter = find(m_TuningCollections.begin(), m_TuningCollections.end(), m_pActiveTuningCollection);
+	auto iter = std::find(m_TuningCollections.begin(), m_TuningCollections.end(), m_pActiveTuningCollection);
 	if(iter == m_TuningCollections.end())
 	{
 		MPT_ASSERT(false);
 		return;
 	}
-	auto DTCiter = find(m_DeletableTuningCollections.begin(), m_DeletableTuningCollections.end(), *iter);
+	auto DTCiter = std::find(m_DeletableTuningCollections.begin(), m_DeletableTuningCollections.end(), *iter);
 	CTuningCollection* deletableTC = m_pActiveTuningCollection;
 	//Note: Order matters in the following lines.
 	m_DeletableTuningCollections.erase(DTCiter);
@@ -1453,7 +1449,7 @@ void CTuningDialog::OnRemoveTuningCollection()
 void CTuningDialog::OnOK()
 {
 	// Prevent return-key from closing the window.
-	if(GetKeyState(mfcless::vk::RETURN) <= -127 && mfcless::GetFocus() != GetDlgItem(IDOK))
+	if(mfcless::KeyState(mfcless::vk::RETURN) <= -127 && mfcless::GetFocus() != GetDlgItem(IDOK))
 		return;
 	else
 		ResizableDialog::OnOK();
@@ -1465,6 +1461,25 @@ void CTuningDialog::OnOK()
 //CTuningTreeCtrl
 //***************
 ////////////////////////////////////////////////////////
+
+static CTuningDialog &FindTuningDialog(QWidget *w)
+{
+	for(; w != nullptr; w = w->parentWidget())
+	{
+		if(auto *dlg = dynamic_cast<CTuningDialog *>(w))
+			return *dlg;
+	}
+	MPT_ASSERT_NOTREACHED();
+	std::abort();
+}
+
+
+CTuningTreeCtrl::CTuningTreeCtrl(QWidget *parent)
+	: mfcless::TreeCtrl(parent)
+	, m_rParentDialog(FindTuningDialog(parent))
+{
+}
+
 
 void CTuningTreeCtrl::RegisterMessageMap()
 {
@@ -1479,7 +1494,7 @@ void CTuningTreeCtrl::OnMouseMove(uint32 nFlags, mfcless::Point point)
 	if(IsDragging())
 	{
 		QTreeWidgetItem * hItem = HitTest(point, nullptr);
-		SetCursor((hItem == NULL || m_rParentDialog.CanDrop(hItem) == nullptr) ? CMainFrame::curNoDrop2 : CMainFrame::curDragging);
+		setCursor((hItem == NULL || m_rParentDialog.CanDrop(hItem) == nullptr) ? CMainFrame::curNoDrop2 : CMainFrame::curDragging);
 	}
 
 	Window::OnMouseMove(nFlags, point);
@@ -1492,9 +1507,10 @@ void CTuningTreeCtrl::OnLButtonUp(uint32 nFlags, mfcless::Point point)
 	{
 		QTreeWidgetItem * hItem = HitTest(point, nullptr);
 		m_rParentDialog.OnEndDrag(hItem);
-
-		Window::OnLButtonUp(nFlags, point);
+		unsetCursor();
 	}
+	// mfcless: Qt's tree finishes a click on the release, so it always gets it.
+	Window::OnLButtonUp(nFlags, point);
 }
 
 
@@ -1611,8 +1627,8 @@ CTuningDialog::EnSclImport CTuningDialog::ImportScl(std::istream& iStrm, const m
 
 	while (iStrm.getline(buffer, sizeof(buffer)))
 	{
-		LPSTR psz = buffer;
-		LPSTR const pEnd = psz + strlen(buffer);
+		char * psz = buffer;
+		char * const pEnd = psz + strlen(buffer);
 
 		// Skip tabs and spaces.
 		while(psz != pEnd && (*psz == ' ' || *psz == '\t'))

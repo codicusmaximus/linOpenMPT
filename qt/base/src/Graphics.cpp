@@ -696,6 +696,20 @@ PaintDC::PaintDC(QWidget *widget)
 }
 
 
+ClientDC::ClientDC(QWidget *widget)
+	: m_widget(PaintTarget(widget))
+{
+	if(m_widget)
+		m_font = m_widget->font();
+}
+
+ClientDC::~ClientDC()
+{
+	if(m_widget)
+		m_widget->update();
+}
+
+
 // The part of a 4- or 8-bit palette bitmap as an image (see DrawDib).
 static QImage DibPart(int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors)
 {

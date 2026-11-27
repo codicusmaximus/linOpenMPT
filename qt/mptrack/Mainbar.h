@@ -17,6 +17,7 @@
 #include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtCore/QTimer>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QWidget>
 #include "CDecimalSupport.h"
@@ -28,6 +29,7 @@
 class QFont;
 class QObject;
 class QScrollBar;
+class QSplitter;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -47,7 +49,7 @@ protected:
 	bool allowRightToLeft = false;
 
 public:
-	CStereoVU() { lastVuUpdateTime = mfcless::TickCount(); }
+	explicit CStereoVU(QWidget *parent = nullptr) : Window(parent) { lastVuUpdateTime = mfcless::TickCount(); }
 	void SetVuMeter(uint8 validChannels, const uint32 channels[4], bool force = false);
 	void SetOrientation(bool h) { horizontal = h; }
 
@@ -84,35 +86,70 @@ class CModTree;
 class CMainFrame;
 struct Notification;
 
+// mfcless: CToolBar as a QToolBar. Its items (buttons, separators and
+// controls) are kept by index, as upstream addresses them.
 class CToolBarEx: public mfcless::Window<QToolBar>
 {
 	Q_OBJECT
 protected:
+	struct Item
+	{
+		QAction *action = nullptr;
+		QWidget *control = nullptr;
+		uint32 id = 0;
+		int image = -1;
+		bool separator = false;
+	};
+	std::vector<Item> m_items;
+	CImageListEx *m_images = nullptr, *m_disabledImages = nullptr;
+	QTimer m_updateTimer;
 	bool m_bVertical = false;
+	bool m_flat = true;
 
 public:
-	CToolBarEx() {}
+	explicit CToolBarEx(QWidget *parent = nullptr);
 	~CToolBarEx() override {}
 
 public:
+	// The buttons, by command ID (ID_SEPARATOR for a separator); the images
+	// are taken in order, as CToolBar::SetButtons does.
+	void SetButtons(const uint32 *ids, int count);
+	void SetImageLists(CImageListEx *images, CImageListEx *disabledImages);
+	// Shows the control in the place of the separator at index.
+	void SetControl(int index, uint32 id, QWidget *control);
+	// Another command and image for the button at index.
+	void SetButtonCommand(int index, uint32 id, int image);
+	// An arrow beside the button opens OnButtonDropDown (TBSTYLE_DROPDOWN).
+	void SetDropDown(uint32 id);
+	int CommandToIndex(uint32 id) const;
+	QAction *GetButton(uint32 id) const;
+	void SetButtonHidden(uint32 id, bool hidden);
+
 	void UpdateControl(bool show, QWidget &wnd, int index, int id, int height = 0);
 	void EnableFlatButtons(bool flat);
 	void SetButtonVisibility(int index, bool visible);
 
 public:
-	// mfcless: the size for a docked or floating bar, as MFC asked control bars.
-	mfcless::Size CalcDynamicLayout(int nLength, uint32 dwMode);
 	virtual void SetHorizontal();
 	virtual void SetVertical();
+
+protected:
+	void UpdateButtonImages();
+	void UpdateButtonStates();
+	virtual void OnButtonCommand(uint32 id);
+	virtual void OnButtonDropDown(uint32 /*id*/, QPoint /*pos*/) {}
+	virtual QString GetButtonToolTip(uint32 /*id*/) { return {}; }
 };
 
 
 class CMainToolBar: public CToolBarEx
 {
+	Q_OBJECT
 protected:
 	UpdateToolTip m_tooltip;
 	CImageListEx m_ImageList, m_ImageListDisabled;
 	QFont m_font;
+	bool m_fontValid = false;
 	COctaveEdit m_EditOctave;
 	CNumberEdit *m_EditTempo = nullptr;
 	QLineEdit *m_EditSpeed = nullptr, *m_EditRowsPerBeat = nullptr, *m_EditGlobalVolume = nullptr;
@@ -134,14 +171,7 @@ public:
 	void SetHorizontal() override;
 	void SetVertical() override;
 public:
-#if MPT_COMPILER_CLANG
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Woverloaded-virtual"
-#endif // MPT_COMPILER_CLANG
 	bool Create(QWidget *parent);
-#if MPT_COMPILER_CLANG
-#pragma clang diagnostic pop
-#endif // MPT_COMPILER_CLANG
 	void Init(CMainFrame *);
 	uint32 GetBaseOctave() const;
 	void SetBaseOctave(uint32 nOctave);
@@ -151,17 +181,15 @@ public:
 	void RemoveUpdateInfo();
 
 	bool ToggleVisibility(MainToolBarItem item);
+	void OnDPIChanged();
 
 protected:
 	void RefreshToolbar();
 	void UpdateSizes();
 	void UpdateControls();
-	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
-	intptr_t OnSettingChange(uintptr_t, intptr_t);
-	intptr_t OnRefreshToolbar(uintptr_t, intptr_t);
-	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
-	void OnTbnDropDownToolBar();
-	bool OnToolTipText(uint32 );
+	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar) override;
+	void OnButtonDropDown(uint32 id, QPoint pos) override;
+	QString GetButtonToolTip(uint32 id) override;
 	void OnSelectMIDIDevice(uint32 id);
 
 	void OnSpeedChanged();
@@ -186,7 +214,6 @@ public:
 
 protected:
 	FlagSet<Status> m_status;
-	uint32 m_nCursorDrag = 0;
 	mfcless::Point ptDragging;
 	uint32 m_cxOriginal = 0, m_cyOriginal = 0, m_nTrackPos = 0;
 	uint32 m_nTreeSplitRatio = 0;
@@ -195,6 +222,7 @@ protected:
 	QLineEdit *m_filterEdit = nullptr;
 	CModTree *m_filterSource = nullptr;
 	uintptr_t m_filterTimer = 0;
+	bool m_splitterConnected = false;
 
 public:
 	CModTree *m_pModTree = nullptr, *m_pModTreeData = nullptr;
@@ -211,7 +239,6 @@ public:
 	void DoLButtonDown(mfcless::Point point);
 	void DoLButtonUp();
 	void CancelTracking();
-	void OnInvertTracker(uint32 x);
 	void RefreshDlsBanks();
 	void RefreshMidiLibrary();
 	void OnOptionsChanged();
@@ -227,30 +254,25 @@ public:
 	bool BarOnLeft() { return m_barOnLeft; }
 
 protected:
-	mfcless::Size CalcFixedLayout(bool bStretch, bool bHorz);
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void CloseTreeFilter();
 	void CancelTimer();
 
 	int Padding() const;
+	mfcless::Rect SplitterRect() const;
+	QSplitter *ParentSplitter() const;
+	// Sizes the bar in the main window's splitter from glTreeWindowWidth.
+	void ApplyWidth();
 
 protected:
-	void OnNcPaint();
-	intptr_t OnNcHitTest(mfcless::Point point);
-	void OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp);
-	void OnSize(uint32 nType, int cx, int cy);
-	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
-	void OnMouseMove(uint32 nFlags, mfcless::Point point);
-	void OnNcLButtonDown(uint32, mfcless::Point);
-	void OnLButtonDown(uint32, mfcless::Point);
-	void OnNcLButtonUp(uint32, mfcless::Point);
-	void OnLButtonUp(uint32, mfcless::Point);
-	void OnNcRButtonDown(uint32, mfcless::Point) { CancelTracking(); }
-	void OnRButtonDown(uint32, mfcless::Point) { CancelTracking(); }
-	intptr_t OnInitDialog(uintptr_t, intptr_t);
+	void OnSize(uint32 nType, int cx, int cy) override;
+	void OnMouseMove(uint32 nFlags, mfcless::Point point) override;
+	void OnLButtonDown(uint32, mfcless::Point) override;
+	void OnLButtonUp(uint32, mfcless::Point) override;
+	void OnRButtonDown(uint32, mfcless::Point) override { CancelTracking(); }
 	void OnFilterChanged();
 	void OnFilterLostFocus();
-	void OnTimer(uintptr_t id);
+	void OnTimer(uintptr_t id) override;
 	void RegisterMessageMap() override;
 };
 
