@@ -14,6 +14,7 @@
 #include "Childfrm.h"
 
 #include "mfcless/ModMessage.h"
+#include "mfcless/StandardIds.h"
 
 #include <QtCore/QThread>
 
@@ -197,6 +198,14 @@ bool Document::DoSave(const ::mpt::uchar *pathName, bool)
 		return false;
 	SetPathName(pathName);
 	return true;
+}
+
+
+void Document::RegisterMessageMap()
+{
+	AddCommand(ID_FILE_CLOSE, &Document::OnFileClose);
+	AddCommand(ID_FILE_SAVE, &Document::OnFileSave);
+	AddCommand(ID_FILE_SAVE_AS, &Document::OnFileSaveAs);
 }
 
 

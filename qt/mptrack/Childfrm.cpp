@@ -9,6 +9,8 @@
 
 
 #include "Childfrm.h"
+#include <QtCore/QPointer>
+#include <QtCore/QTimer>
 #include "ChannelManagerDlg.h"
 #include "Ctrl_ins.h"
 #include "Ctrl_pat.h"
@@ -90,6 +92,18 @@ CChildFrame::CChildFrame()
 
 CChildFrame::~CChildFrame()
 {
+	// MDI keeps one maximized state for all children: when a maximized child
+	// closes, the one activated next is maximized too. (QMdiArea does this
+	// when switching between children, but not when the active one goes.)
+	if(isMaximized() && mdiArea())
+	{
+		QPointer<QMdiArea> area = mdiArea();
+		QTimer::singleShot(0, area, [area]
+		{
+			if(QMdiSubWindow *next = area ? area->activeSubWindow() : nullptr; next && !next->isMaximized() && !next->isMinimized())
+				next->showMaximized();
+		});
+	}
 	OnDestroy();
 	if ((--glMdiOpenCount) == 0)
 	{

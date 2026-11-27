@@ -89,6 +89,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMdiArea>
 #include <QtWidgets/QMdiSubWindow>
+#include <QtWidgets/QStyle>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QSplitter>
 #include <QtWidgets/QStatusBar>
@@ -133,6 +134,13 @@ void CMainFrame::RegisterMessageMap()
 	AddCommand(ID_PLUGIN_SETUP, &CMainFrame::OnPluginManager);
 	AddCommand(ID_CLIPBOARD_MANAGER, &CMainFrame::OnClipboardManager);
 	//ON_COMMAND(ID_HELP,              &CMDIFrameWnd::OnHelp)
+	// mfcless: CMDIFrameWnd's and CWinApp's own commands.
+	AddCommand(ID_APP_EXIT, &CMainFrame::OnAppExit);
+	AddCommand(ID_WINDOW_NEW, &CMainFrame::OnWindowNew);
+	AddCommand(ID_WINDOW_CASCADE, &CMainFrame::OnWindowCascade);
+	AddCommand(ID_WINDOW_TILE_HORZ, &CMainFrame::OnWindowTileHorz);
+	AddCommand(ID_WINDOW_TILE_VERT, &CMainFrame::OnWindowTileVert);
+	AddCommand(ID_WINDOW_ARRANGE, &CMainFrame::OnWindowArrange);
 	AddCommand(ID_REPORT_BUG, &CMainFrame::OnReportBug);
 	AddCommand(ID_NEXTOCTAVE, &CMainFrame::OnNextOctave);
 	AddCommand(ID_PREVOCTAVE, &CMainFrame::OnPrevOctave);
@@ -814,6 +822,127 @@ bool CMainFrame::UpdateCommandState(uint32 id, mfcless::CommandState &state)
 	state.enabled = handled;
 	RouteCommandUpdate(id, state);
 	return true;
+}
+
+
+void CMainFrame::OnAppExit()
+{
+	// CWinApp::OnAppExit: the same as closing the main window.
+	close();
+}
+
+
+void CMainFrame::OnWindowNew()
+{
+	CChildFrame *active = MDIGetActive();
+	CModDoc *doc = active ? active->GetActiveDocument() : nullptr;
+	if(!doc || !doc->GetDocTemplate())
+		return;
+	CChildFrame *frame = doc->GetDocTemplate()->CreateNewFrame(doc);
+	if(!frame)
+		return;
+	doc->GetDocTemplate()->InitialUpdateFrame(frame, doc);
+	doc->UpdateFrameCounts();
+}
+
+
+void CMainFrame::OnWindowCascade()
+{
+	// QMdiArea::cascadeSubWindows shrinks maximized windows to their minimum
+	// size; Windows restores them and steps each one a title bar further.
+	if(!m_mdiArea)
+		return;
+	std::vector<QMdiSubWindow *> windows;
+	for(QMdiSubWindow *w : m_mdiArea->subWindowList(QMdiArea::StackingOrder))
+	{
+		if(w->isVisible() && !w->isMinimized())
+			windows.push_back(w);
+	}
+	if(windows.empty())
+		return;
+	const QRect area = m_mdiArea->viewport()->rect();
+	const int n = static_cast<int>(windows.size());
+	const int step = std::max(16, style()->pixelMetric(QStyle::PM_TitleBarHeight, nullptr, windows.front()) + 4);
+	const int width = std::max(area.width() * 2 / 3, area.width() - step * (n - 1));
+	const int height = std::max(area.height() * 2 / 3, area.height() - step * (n - 1));
+	for(int i = 0; i < n; i++)
+	{
+		QMdiSubWindow *w = windows[i];  // the active one last, on top
+		if(w->isMaximized())
+			w->showNormal();
+		const int offset = (step * i) % std::max(step, std::min(area.width() - width, area.height() - height) + 1);
+		w->setGeometry(offset, offset, width, height);
+		w->raise();
+	}
+}
+
+
+// MDITILE_HORIZONTAL puts the windows one above the other; MDITILE_VERTICAL
+// side by side. Minimized windows keep their place.
+void CMainFrame::TileWindows(bool horizontal)
+{
+	if(!m_mdiArea)
+		return;
+	std::vector<QMdiSubWindow *> windows;
+	for(QMdiSubWindow *w : m_mdiArea->subWindowList(QMdiArea::StackingOrder))
+	{
+		if(w->isVisible() && !w->isMinimized())
+			windows.push_back(w);
+	}
+	if(windows.empty())
+		return;
+	const QRect area = m_mdiArea->viewport()->rect();
+	const int n = static_cast<int>(windows.size());
+	for(int i = 0; i < n; i++)
+	{
+		QMdiSubWindow *w = windows[n - 1 - i];  // the active one first
+		if(w->isMaximized())
+			w->showNormal();
+		if(horizontal)
+		{
+			const int top = area.height() * i / n, bottom = area.height() * (i + 1) / n;
+			w->setGeometry(0, top, area.width(), bottom - top);
+		} else
+		{
+			const int left = area.width() * i / n, right = area.width() * (i + 1) / n;
+			w->setGeometry(left, 0, right - left, area.height());
+		}
+	}
+}
+
+
+void CMainFrame::OnWindowTileHorz()
+{
+	TileWindows(true);
+}
+
+
+void CMainFrame::OnWindowTileVert()
+{
+	TileWindows(false);
+}
+
+
+void CMainFrame::OnWindowArrange()
+{
+	// Lines the minimized windows up along the bottom of the MDI area.
+	if(!m_mdiArea)
+		return;
+	const QRect area = m_mdiArea->viewport()->rect();
+	int x = 0, y = area.bottom() + 1;
+	for(QMdiSubWindow *w : m_mdiArea->subWindowList(QMdiArea::CreationOrder))
+	{
+		if(!w->isVisible() || !w->isMinimized())
+			continue;
+		const QSize size = w->size();
+		if(x > 0 && x + size.width() > area.width())
+		{
+			x = 0;
+			y -= size.height();
+		}
+		w->move(x, y - size.height());
+		x += size.width();
+	}
 }
 
 

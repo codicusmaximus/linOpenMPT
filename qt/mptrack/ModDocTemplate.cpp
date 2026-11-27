@@ -10,6 +10,9 @@
 
 
 #include "ModDocTemplate.h"
+#include <QtCore/QTimer>
+#include <QtWidgets/QMdiArea>
+#include <QtWidgets/QStyle>
 #include "FolderScanner.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -175,7 +178,26 @@ CChildFrame *CModDocTemplate::CreateNewFrame(CModDoc *doc)
 	if(!mainFrm || !mainFrm->GetMDIClient())
 		return nullptr;
 	auto *frame = new CChildFrame();
-	mainFrm->GetMDIClient()->addSubWindow(frame);
+	QMdiArea *area = mainFrm->GetMDIClient();
+	// Windows gives a new MDI child (CW_USEDEFAULT) about three quarters of
+	// the client area, each one a title bar below and right of the last.
+	// While the program starts, the client area gets its size only once the
+	// main window is laid out.
+	const int count = static_cast<int>(area->subWindowList().size());
+	area->addSubWindow(frame);
+	auto placeFrame = [area, frame, count]
+	{
+		if(frame->isMaximized() || frame->isMinimized())
+			return;
+		const QRect client = area->viewport()->rect();
+		const int step = std::max(16, frame->style()->pixelMetric(QStyle::PM_TitleBarHeight, nullptr, frame) + 4);
+		const QSize size(std::max(client.width() * 3 / 4, 200), std::max(client.height() * 3 / 4, 150));
+		const int room = std::max(1, std::min(client.width() - size.width(), client.height() - size.height()) / step + 1);
+		frame->setGeometry((count % room) * step, (count % room) * step, size.width(), size.height());
+	};
+	placeFrame();
+	if(!area->isVisible())
+		QTimer::singleShot(0, frame, placeFrame);
 	if(!frame->OnCreateClient(doc, m_pViewClass))
 	{
 		delete frame;

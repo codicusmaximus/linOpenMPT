@@ -111,10 +111,17 @@ public:
 	void UpdateFrameCounts();
 	// The File > Close command: asks to save, then closes.
 	void OnFileClose();
+	// File > Save and File > Save As (CDocument's own commands).
+	void OnFileSave() { DoFileSave(); }
+	void OnFileSaveAs() { DoSave(nullptr); }
 	// Saves to pathName, or asks for a name (saveAs, or no path yet).
 	virtual bool DoSave(const ::mpt::uchar *pathName, bool saveAs = true);
 	bool DoFileSave();
 	virtual void DeleteContents() {}
+
+protected:
+	void RegisterMessageMap() override;
+public:
 
 	virtual void SetPathName(const ::mpt::uchar *pathName, bool addToMRU = true);
 	const ::mpt::ustring &GetPathName() const { return m_strPathName; }

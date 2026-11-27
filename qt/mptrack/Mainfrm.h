@@ -535,6 +535,14 @@ protected:
 	void OnCreateMixerDump();
 	void OnVerifyMixerDump();
 	void OnConvertMixerDumpToText();
+	// CMDIFrameWnd's and CWinApp's own commands (Window menu, File > Exit).
+	void OnAppExit();
+	void OnWindowNew();
+	void OnWindowCascade();
+	void OnWindowTileHorz();
+	void OnWindowTileVert();
+	void OnWindowArrange();
+	void TileWindows(bool horizontal);
 	void RegisterMessageMap() override;
 public:
 	bool UpdateEffectKeys(const CModDoc *modDoc);
