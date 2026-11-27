@@ -19,6 +19,7 @@
 #pragma once
 
 #include "mfcless/Geometry.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Text.h"
 #include "mfcless/Keyboard.h"
 #include "mfcless/MessageMap.h"
@@ -70,6 +71,25 @@ struct ToolInfo
 
 // What all windows have, whatever their Qt class.
 struct DrawItemInfo;
+
+// WM_NCHITTEST's answers.
+namespace hit
+{
+	inline constexpr intptr_t Error = -2, Transparent = -1, Nowhere = 0, Client = 1, Caption = 2, Border = 18;
+}
+
+// WM_NCCALCSIZE's parameters: rgrc[0] is the window's rectangle, to be made
+// the client area's.
+struct NcCalcSizeParams
+{
+	Rect rgrc[3];
+};
+
+// WM_ACTIVATE's states.
+namespace activate
+{
+	inline constexpr uint32_t Inactive = 0, Active = 1, ClickActive = 2;
+}
 
 // ShowWindow commands, as Windows numbers them.
 namespace show
@@ -156,6 +176,10 @@ public:
 	// Windows that give screen readers their own names call this, as with
 	// MFC; Qt asks every widget, so it has nothing to do.
 	void EnableActiveAccessibility() {}
+	// Qt asks every widget for its tooltips (OnToolHitTest) already.
+	void EnableToolTips(bool = true) {}
+	// A Qt widget exists from its construction (upstream: m_hWnd != nullptr).
+	bool IsCreated() const { return true; }
 	// A zoom gesture (pinch) around center; delta in Windows' units.
 	virtual bool OnGestureZoom(Point /*center*/, long /*delta*/) { return false; }
 
@@ -283,6 +307,13 @@ public:
 			ClientWidget()->update();
 	}
 	void InvalidateRect(const Rect &r, bool erase = true) { InvalidateRect(&r, erase); }
+	// Moves the painted contents of rect (all of the client area if null)
+	// and repaints what that uncovers.
+	void ScrollWindow(int dx, int dy, const Rect *rect = nullptr, const Rect * /*clip*/ = nullptr)
+	{
+		QWidget *w = ClientWidget();
+		w->scroll(dx, dy, rect ? QRect(*rect) : w->rect());
+	}
 	// Qt paints from the event loop; this paints what is due now.
 	void UpdateWindow() { ClientWidget()->repaint(); }
 	void GetClientRect(Rect *r) { *r = GetClientRect(); }
@@ -370,6 +401,8 @@ public:
 	virtual void OnChar(uint32_t, uint32_t, uint32_t) { Default(); }
 	virtual void OnSysChar(uint32_t, uint32_t, uint32_t) { Default(); }
 
+	// WM_ACTIVATE, for top-level windows: state is an activate:: value.
+	virtual void OnActivate(uint32_t /*state*/, QWidget * /*other*/, bool /*minimized*/) {}
 	virtual void OnSetFocus(QWidget *) { Default(); }
 	virtual void OnKillFocus(QWidget *) { Default(); }
 	virtual void OnPaint() { Default(); }
@@ -427,6 +460,11 @@ protected:
 			return true;
 		if(e->type() == QEvent::ToolTip && ToolTip(static_cast<QHelpEvent *>(e)))
 			return true;
+		if((e->type() == QEvent::WindowActivate || e->type() == QEvent::WindowDeactivate) && this->isWindow())
+		{
+			Handling h(this, e);
+			OnActivate(e->type() == QEvent::WindowActivate ? activate::Active : activate::Inactive, nullptr, false);
+		}
 		if constexpr(IsScrollArea)
 		{
 			// A scroll area's viewport gets the tooltip events.
@@ -502,6 +540,7 @@ protected:
 	void paintEvent(QPaintEvent *e) override
 	{
 		Handling h(this, e);
+		PaintRegionScope paintRegion(e->rect());
 		OnPaint();
 	}
 	void resizeEvent(QResizeEvent *e) override

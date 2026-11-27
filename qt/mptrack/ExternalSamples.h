@@ -3,7 +3,7 @@
  * -----------------
  * Purpose: Dialogs for locating missing external samples and handling modified samples
  * Notes  : mfcless twin of upstream's mptrack/ExternalSamples.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */

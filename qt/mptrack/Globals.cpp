@@ -33,6 +33,8 @@
 #include "mfcless/QtString.h"
 
 #include <QtGui/QKeyEvent>
+#include <QtGui/QMouseEvent>
+#include <QtGui/QPainter>
 #include <QtGui/QWheelEvent>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QScrollBar>
@@ -624,6 +626,126 @@ void CModScrollView::RegisterMessageMap()
 }
 
 
+namespace
+{
+// The non-client area of a CModScrollView: a bar of its own above the
+// viewport, painted and clicked by the view's non-client handlers.
+class NonClientBar : public QWidget
+{
+public:
+	explicit NonClientBar(CModScrollView &view)
+		: QWidget(&view)
+		, m_view(view)
+	{
+		setMouseTracking(true);
+		setAttribute(Qt::WA_OpaquePaintEvent);
+	}
+
+protected:
+	void paintEvent(QPaintEvent *) override
+	{
+		QPainter painter(this);
+		m_view.PaintNonClientArea(painter);
+	}
+	void mouseMoveEvent(QMouseEvent *e) override { m_view.NonClientMouse(e, false); }
+	void mousePressEvent(QMouseEvent *e) override { m_view.NonClientMouse(e, false); }
+	void mouseReleaseEvent(QMouseEvent *e) override { m_view.NonClientMouse(e, false); }
+	void mouseDoubleClickEvent(QMouseEvent *e) override { m_view.NonClientMouse(e, true); }
+	void leaveEvent(QEvent *) override { m_view.NonClientLeave(); }
+
+private:
+	CModScrollView &m_view;
+};
+}  // namespace
+
+
+void CModScrollView::RecalcNonClientArea()
+{
+	mfcless::NcCalcSizeParams params;
+	const mfcless::Rect window(0, 0, width(), height());
+	params.rgrc[0] = window;
+	OnNcCalcSize(true, &params);
+	const mfcless::Rect &client = params.rgrc[0];
+	const int top = std::max(0, client.top - window.top);
+	setViewportMargins(std::max(0, client.left - window.left), top, std::max(0, window.right - client.right), std::max(0, window.bottom - client.bottom));
+	if(top > 0)
+	{
+		if(!m_ncBar)
+			m_ncBar = new NonClientBar(*this);
+		m_ncBar->setGeometry(0, 0, width(), top);
+		m_ncBar->show();
+		m_ncBar->raise();
+		m_ncBar->update();
+	} else if(m_ncBar)
+	{
+		m_ncBar->hide();
+	}
+}
+
+
+mfcless::DC *CModScrollView::GetWindowDC()
+{
+	if(m_ncPaintDC)
+		return m_ncPaintDC;
+	// Not painting: a DC that draws nothing and repaints the area when released.
+	return new mfcless::ClientDC(m_ncBar ? m_ncBar : static_cast<QWidget *>(this));
+}
+
+
+void CModScrollView::ReleaseDC(mfcless::DC *dc)
+{
+	if(dc && dc != m_ncPaintDC)
+		delete dc;
+}
+
+
+void CModScrollView::PaintNonClientArea(QPainter &painter)
+{
+	mfcless::DC dc(painter);
+	if(m_ncBar)
+		dc.SelectObject(m_ncBar->font());
+	m_ncPaintDC = &dc;
+	OnNcPaint();
+	m_ncPaintDC = nullptr;
+}
+
+
+void CModScrollView::NonClientMouse(QMouseEvent *e, bool doubleClick)
+{
+	const mfcless::Point pt(e->globalPosition().toPoint());
+	const auto hitTest = static_cast<uint32>(OnNcHitTest(pt));
+	switch(e->type())
+	{
+	case QEvent::MouseMove: OnNcMouseMove(hitTest, pt); break;
+	case QEvent::MouseButtonPress:
+	case QEvent::MouseButtonDblClick:
+		if(e->button() == Qt::LeftButton)
+		{
+			if(doubleClick)
+				OnNcLButtonDblClk(hitTest, pt);
+			else
+				OnNcLButtonDown(hitTest, pt);
+		}
+		break;
+	case QEvent::MouseButtonRelease:
+		if(e->button() == Qt::LeftButton)
+			OnNcLButtonUp(hitTest, pt);
+		break;
+	default: break;
+	}
+}
+
+
+void CModScrollView::NonClientLeave()
+{
+	// Windows tells the non-client area about the mouse moving into the
+	// client area or away; a point above the window stands for that.
+	mfcless::Rect rect;
+	GetWindowRect(&rect);
+	OnNcMouseMove(static_cast<uint32>(mfcless::hit::Nowhere), mfcless::Point(rect.left - 1, rect.top - 1));
+}
+
+
 CModScrollView::CModScrollView(QWidget *parent)
 	: Window(parent)
 {
@@ -718,6 +840,7 @@ intptr_t CModScrollView::OnModViewMsg(uintptr_t wParam, intptr_t lParam)
 void CModScrollView::OnInitialUpdate()
 {
 	m_dpi = HighDPISupport::GetDpiForWindow(this);
+	RecalcNonClientArea();
 }
 
 
@@ -901,6 +1024,12 @@ int CModScrollView::GetScrollPos(Qt::Orientation bar) const
 }
 
 
+int CModScrollView::GetScrollLimit(Qt::Orientation bar) const
+{
+	return ((bar == Qt::Horizontal) ? horizontalScrollBar() : verticalScrollBar())->maximum();
+}
+
+
 QPoint CModScrollView::GetScrollPosition() const
 {
 	return QPoint(horizontalScrollBar()->value(), verticalScrollBar()->value());
@@ -952,6 +1081,7 @@ void CModScrollView::OnPaint()
 void CModScrollView::OnSize(uint32 nType, int cx, int cy)
 {
 	Window::OnSize(nType, cx, cy);
+	RecalcNonClientArea();
 	UpdateBars();
 }
 

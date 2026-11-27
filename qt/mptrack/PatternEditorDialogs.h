@@ -3,7 +3,7 @@
  * ----------------------
  * Purpose: Code for various dialogs that are used in the pattern editor.
  * Notes  : mfcless twin of upstream's mptrack/PatternEditorDialogs.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -268,8 +268,8 @@ protected:
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 
 	mpt::ustring GetVolumeString() const;
-	void SetSampleInfo(const mpt::PathString &path, QComboBox &combo, QLineEdit &edit, QAbstractButton &browseButton);
-	bool GetSampleInfo(Setting<mpt::PathString> &path, QComboBox &combo, QLineEdit &edit, QAbstractButton &browseButton);
+	void SetSampleInfo(const mpt::PathString &path, QComboBox *combo, QLineEdit *edit, QAbstractButton *browseButton);
+	bool GetSampleInfo(Setting<mpt::PathString> &path, QComboBox *combo, QLineEdit *edit, QAbstractButton *browseButton);
 	mpt::PathString BrowseForSample(const mpt::PathString &path);
 
 	void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);

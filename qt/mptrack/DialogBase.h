@@ -59,6 +59,8 @@ public:
 	// mfcless: CDialog::DoModal and Create.
 	int DoModal();
 	bool Create(QWidget *parent = nullptr);
+	// Whether Create built the dialog (upstream: m_hWnd != nullptr).
+	bool IsCreated() const { return m_initialized; }
 	bool Create(uint32 nIDTemplate, QWidget *parent) { m_templateID = nIDTemplate; return Create(parent); }
 
 	virtual bool OnInitDialog();
@@ -124,6 +126,16 @@ protected:
 			return;
 		}
 		dx.factories[id] = [&member](const mfcless::res::DialogItem &item, QWidget *parent) -> QWidget * {
+			// A control the dialog made itself beforehand (one that takes
+			// more than a parent to construct) takes the template's place.
+			if constexpr(std::is_base_of_v<QWidget, T>)
+			{
+				if(member)
+				{
+					member->setParent(parent);
+					return member;
+				}
+			}
 			QWidget *made = mfcless::CreateControl(item, parent);
 			if(auto *t = dynamic_cast<T *>(made))
 			{

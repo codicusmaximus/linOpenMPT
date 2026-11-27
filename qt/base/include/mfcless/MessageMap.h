@@ -14,6 +14,7 @@
 
 #include <QtCore/QPoint>
 #include <QtCore/QString>
+#include "mfcless/Text.h"
 #include <QtCore/Qt>
 
 #include <cstdint>
@@ -94,7 +95,7 @@ struct CommandState
 	void Enable(bool on = true) { enabled = on; }
 	void SetCheck(int check) { checked = (check != 0); }
 	void SetRadio(bool on = true) { radio = true; checked = on; }
-	void SetText(const QString &t) { text = t; }
+	void SetText(const Text &t) { text = t.value; }
 };
 
 class MessageMap

@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Pattern tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/View_pat.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.

@@ -3,7 +3,7 @@
  * --------
  * Purpose: Implementation of various player setup dialogs.
  * Notes  : mfcless twin of upstream's mptrack/Mpdlgs.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Draft from qt/tools/twin.py, partly edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -242,28 +242,7 @@ protected:
 
 
 
-class COptionsWine: public PropertyPage
-{
-	Q_OBJECT
-
-protected:
-	QComboBox *m_CbnPulseAudio = nullptr;
-	QComboBox *m_CbnPortAudio = nullptr;
-	QComboBox *m_CbnRtAudio = nullptr;
-
-public:
-	COptionsWine();
-
-protected:
-	bool OnInitDialog() override;
-	void OnOK() override;
-	bool OnSetActive() override;
-	void DoDataExchange(DataExchange &dx) override;
-
-	void OnSettingsChanged();
-	
-	void RegisterMessageMap() override;
-};
+// mfcless: no Wine page (COptionsWine); this build runs natively.
 
 
 

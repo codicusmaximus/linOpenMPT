@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <QtCore/QElapsedTimer>
+#include <vector>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QWidget>
 
@@ -41,6 +43,14 @@ public:
 	int GetLower() const { return m_lower; }
 	int GetUpper() const { return m_upper; }
 	void GetRange(int &lower, int &upper) const { lower = m_lower; upper = m_upper; }
+	void GetRange32(int &lower, int &upper) const { GetRange(lower, upper); }
+	// UDACCEL: after holding an arrow for seconds, it steps by increment.
+	struct Accel
+	{
+		uint32_t seconds = 0;
+		uint32_t increment = 1;
+	};
+	void SetAccel(std::vector<Accel> accel) { m_accel = std::move(accel); }
 	void SetPos(int pos);
 	int GetPos() const;
 
@@ -60,6 +70,9 @@ private:
 	QLineEdit *m_buddy = nullptr;
 	bool m_vertical = true, m_buddyInt = false, m_wrap = false;
 	int m_lower = 100, m_upper = 0, m_pos = 0;
+	// Windows' default acceleration
+	std::vector<Accel> m_accel{{0, 1}, {2, 5}, {5, 20}};
+	QElapsedTimer m_held;
 };
 
 // A Windows group box: an etched frame whose top line runs through the

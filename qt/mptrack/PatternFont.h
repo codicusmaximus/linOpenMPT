@@ -3,7 +3,7 @@
  * -------------
  * Purpose: Code for creating pattern font bitmaps
  * Notes  : mfcless twin of upstream's mptrack/PatternFont.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */

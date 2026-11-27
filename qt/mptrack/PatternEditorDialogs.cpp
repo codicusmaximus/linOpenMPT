@@ -3,7 +3,7 @@
  * ------------------------
  * Purpose: Code for various dialogs that are used in the pattern editor.
  * Notes  : mfcless twin of upstream's mptrack/PatternEditorDialogs.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -25,6 +25,12 @@
 #include "WindowMessages.h"
 #include "../common/mptStringBuffer.h"
 #include "../soundlib/mod_specifications.h"
+
+#include <QtCore/QRegularExpression>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QRegularExpressionValidator>
+#include <QtGui/QScreen>
+#include <QtWidgets/QLineEdit>
 
 
 OPENMPT_NAMESPACE_BEGIN
@@ -163,10 +169,9 @@ bool CPatternPropertiesDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 
-	COMBOBOXINFO cbi{};
-	cbi.cbSize = sizeof(cbi);
-	GetComboBoxInfo(m_numRows, &cbi);
-	mfcless::Window<QWidget>::FromHandle(cbi.hwndItem)->ModifyStyle(0, ES_NUMBER);
+	// ES_NUMBER on the combo box's edit field
+	if(m_numRows->lineEdit())
+		m_numRows->lineEdit()->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[0-9]*")), m_numRows->lineEdit()));
 
 	const CSoundFile &sndFile = m_modDoc.GetSoundFile();
 	const CModSpecifications &specs = sndFile.GetModSpecifications();
@@ -477,7 +482,7 @@ void CPatternPropertiesDlg::OnOK()
 		if(resize)
 		{
 			const bool copyContents = (newSize > oldSize) && prop.repeatContents;
-			m_modDoc.mfcless::BeginWaitCursor();
+			mfcless::BeginWaitCursor();
 			m_modDoc.GetPatternUndo().PrepareUndo(m_nPattern, 0, 0, sndFile.Patterns[m_nPattern].GetNumChannels(), oldSize, "Resize");
 			if(sndFile.Patterns[m_nPattern].Resize(newSize, true, resizeAtEnd))
 			{
@@ -497,7 +502,7 @@ void CPatternPropertiesDlg::OnOK()
 				}
 				updateHint.Data();
 			}
-			m_modDoc.mfcless::EndWaitCursor();
+			mfcless::EndWaitCursor();
 		}
 		if(pattern.GetName() != prop.name)
 		{
@@ -525,7 +530,7 @@ void CPatternPropertiesDlg::OnOK()
 void CEditCommand::RegisterMessageMap()
 {
 	DialogBase::RegisterMessageMap();
-	// ON_WM_ACTIVATE(): by hand (Qt event override)
+	// ON_WM_ACTIVATE() (mfcless::Window)
 	// ON_WM_CLOSE() (mfcless::Window)
 	AddNotify(IDC_COMBO1, mfcless::Notify::SelChange, &CEditCommand::OnNoteChanged);
 	AddNotify(IDC_COMBO2, mfcless::Notify::SelChange, &CEditCommand::OnNoteChanged);
@@ -594,25 +599,25 @@ bool CEditCommand::ShowEditWindow(PATTERNINDEX pat, const PatternCursor &cursor,
 	switch(cursor.GetColumnType())
 	{
 	case PatternCursor::noteColumn:
-		cbnNote.SetFocus();
+		cbnNote->setFocus();
 		break;
 	case PatternCursor::instrColumn:
-		cbnInstr.SetFocus();
+		cbnInstr->setFocus();
 		break;
 	case PatternCursor::volumeColumn:
 		if(m->IsPcNote())
-			cbnPlugParam.SetFocus();
+			cbnPlugParam->setFocus();
 		else
-			cbnVolCmd.SetFocus();
+			cbnVolCmd->setFocus();
 		break;
 	case PatternCursor::effectColumn:
 		if(m->IsPcNote())
-			sldParam.SetFocus();
+			sldParam->setFocus();
 		else
-			cbnCommand.SetFocus();
+			cbnCommand->setFocus();
 		break;
 	case PatternCursor::paramColumn:
-		sldParam.SetFocus();
+		sldParam->setFocus();
 		break;
 	case PatternCursor::numColumns:
 		MPT_ASSERT_NOTREACHED();
@@ -623,7 +628,7 @@ bool CEditCommand::ShowEditWindow(PATTERNINDEX pat, const PatternCursor &cursor,
 	SetWindowText(MPT_UFORMAT("Note Properties - Row {}, Channel {}")(row, chn + 1));
 
 	mfcless::Rect rectParent, rectWnd;
-	parent->GetWindowRect(&rectParent);
+	mfcless::GetWindowRect(parent, &rectParent);
 	GetClientRect(&rectWnd);
 	SetWindowPos(CMainFrame::GetMainFrame(),
 		rectParent.left + (rectParent.Width() - rectWnd.right) / 2,
@@ -637,12 +642,12 @@ bool CEditCommand::ShowEditWindow(PATTERNINDEX pat, const PatternCursor &cursor,
 void CEditCommand::InitNote()
 {
 	// Note
-	cbnNote.SetRedraw(false);
+	cbnNote->setUpdatesEnabled(false);
 	if(oldSpecs != &sndFile.GetModSpecifications())
 	{
-		cbnNote.ResetContent();
-		cbnNote.SetItemData(cbnNote.AddString(UL_("No Note")), 0);
-		AppendNotesToControlEx(cbnNote, sndFile, m->instr);
+		cbnNote->clear();
+		mfcless::SetItemData(cbnNote, mfcless::AddItem(cbnNote, UL_("No Note")), 0);
+		AppendNotesToControlEx(*cbnNote, sndFile, m->instr);
 		oldSpecs = &sndFile.GetModSpecifications();
 	}
 
@@ -650,36 +655,36 @@ void CEditCommand::InitNote()
 	{
 		// Normal note / no note
 		const ModCommand::NOTE noteStart = sndFile.GetModSpecifications().noteMin;
-		cbnNote.SetCurSel(m->note - (noteStart - 1));
+		cbnNote->setCurrentIndex(m->note - (noteStart - 1));
 	} else if(m->note == NOTE_NONE)
 	{
-		cbnNote.SetCurSel(0);
+		cbnNote->setCurrentIndex(0);
 	} else
 	{
 		// Special notes
-		for(int i = cbnNote.GetCount() - 1; i >= 0; --i)
+		for(int i = cbnNote->count() - 1; i >= 0; --i)
 		{
-			if(cbnNote.GetItemData(i) == m->note)
+			if(mfcless::GetItemData(cbnNote, i) == m->note)
 			{
-				cbnNote.SetCurSel(i);
+				cbnNote->setCurrentIndex(i);
 				break;
 			}
 		}
 	}
-	cbnNote.SetRedraw(true);
+	cbnNote->setUpdatesEnabled(true);
 
 	// Instrument
-	cbnInstr.SetRedraw(false);
-	cbnInstr.ResetContent();
+	cbnInstr->setUpdatesEnabled(false);
+	cbnInstr->clear();
 
 	if(m->IsPcNote())
 	{
 		// control plugin param note
-		cbnInstr.Update(PluginComboBox::Config{PluginComboBox::ShowNoPlugin | PluginComboBox::ShowEmptySlots}.CurrentSelection(m->instr ? (m->instr - 1) : PLUGINDEX_INVALID), sndFile);
+		cbnInstr->Update(PluginComboBox::Config{PluginComboBox::ShowNoPlugin | PluginComboBox::ShowEmptySlots}.CurrentSelection(m->instr ? (m->instr - 1) : PLUGINDEX_INVALID), sndFile);
 	} else
 	{
 		// instrument / sample
-		cbnInstr.SetItemData(cbnInstr.AddString(UL_("No Instrument")), 0);
+		mfcless::SetItemData(cbnInstr, mfcless::AddItem(cbnInstr, UL_("No Instrument")), 0);
 		const uint32 nmax = sndFile.GetNumInstruments() ? sndFile.GetNumInstruments() : sndFile.GetNumSamples();
 		for(uint32 i = 1; i <= nmax; i++)
 		{
@@ -691,45 +696,45 @@ void CEditCommand::InitNote()
 					s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Instruments[i]->name);
 			} else
 				s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[i]);
-			cbnInstr.SetItemData(cbnInstr.AddString(s), i);
+			mfcless::SetItemData(cbnInstr, mfcless::AddItem(cbnInstr, s), i);
 		}
-		cbnInstr.SetRawSelection(m->instr);
+		cbnInstr->SetRawSelection(m->instr);
 	}
-	cbnInstr.SetRedraw(true);
+	cbnInstr->setUpdatesEnabled(true);
 }
 
 
 void CEditCommand::InitVolume()
 {
-	cbnVolCmd.SetRedraw(false);
-	cbnVolCmd.ResetContent();
+	cbnVolCmd->setUpdatesEnabled(false);
+	cbnVolCmd->clear();
 	if(sndFile.GetType() == MOD_TYPE_MOD || m->IsPcNote())
 	{
-		cbnVolCmd.EnableWindow(false);
-		sldVolParam.EnableWindow(false);
+		cbnVolCmd->setEnabled(false);
+		sldVolParam->setEnabled(false);
 	} else
 	{
 		// Normal volume column effect
-		cbnVolCmd.EnableWindow(true);
-		sldVolParam.EnableWindow(true);
+		cbnVolCmd->setEnabled(true);
+		sldVolParam->setEnabled(true);
 		uint32 count = effectInfo.GetNumVolCmds();
-		cbnVolCmd.SetItemData(cbnVolCmd.AddString(UL_(" None")), (uintptr_t)-1);
-		cbnVolCmd.SetCurSel(0);
+		mfcless::SetItemData(cbnVolCmd, mfcless::AddItem(cbnVolCmd, UL_(" None")), (uintptr_t)-1);
+		cbnVolCmd->setCurrentIndex(0);
 		uint32 fxndx = effectInfo.GetIndexFromVolCmd(m->volcmd);
 		for(uint32 i = 0; i < count; i++)
 		{
 			mpt::ustring s;
 			if(effectInfo.GetVolCmdInfo(i, &s))
 			{
-				int k = cbnVolCmd.AddString(s);
-				cbnVolCmd.SetItemData(k, i);
+				int k = mfcless::AddItem(cbnVolCmd, s);
+				mfcless::SetItemData(cbnVolCmd, k, i);
 				if(i == fxndx)
-					cbnVolCmd.SetCurSel(k);
+					cbnVolCmd->setCurrentIndex(k);
 			}
 		}
 		UpdateVolCmdRange();
 	}
-	cbnVolCmd.SetRedraw(true);
+	cbnVolCmd->setUpdatesEnabled(true);
 }
 
 
@@ -737,36 +742,36 @@ void CEditCommand::InitEffect()
 {
 	if(m->IsPcNote())
 	{
-		cbnCommand.ShowWindow(false);
+		cbnCommand->setVisible(false);
 		return;
 	}
-	cbnCommand.ShowWindow(true);
+	cbnCommand->setVisible(true);
 	xParam = 0;
 	xMultiplier = 1;
 	getXParam(m->command, editPattern, editRow, editChannel, sndFile, xParam, xMultiplier);
 
-	cbnCommand.SetRedraw(false);
-	cbnCommand.ResetContent();
+	cbnCommand->setUpdatesEnabled(false);
+	cbnCommand->clear();
 	uint32 numfx = effectInfo.GetNumEffects();
 	uint32 fxndx = effectInfo.GetIndexFromEffect(m->command, m->param);
-	cbnCommand.SetItemData(cbnCommand.AddString(UL_(" None")), (uintptr_t)-1);
+	mfcless::SetItemData(cbnCommand, mfcless::AddItem(cbnCommand, UL_(" None")), (uintptr_t)-1);
 	if(m->command == CMD_NONE)
-		cbnCommand.SetCurSel(0);
+		cbnCommand->setCurrentIndex(0);
 
 	mpt::ustring s;
 	for(uint32 i = 0; i < numfx; i++)
 	{
 		if(effectInfo.GetEffectInfo(i, &s, true))
 		{
-			int k = cbnCommand.AddString(s);
-			cbnCommand.SetItemData(k, i);
+			int k = mfcless::AddItem(cbnCommand, s);
+			mfcless::SetItemData(cbnCommand, k, i);
 			if(i == fxndx)
-				cbnCommand.SetCurSel(k);
+				cbnCommand->setCurrentIndex(k);
 		}
 	}
 	UpdateEffectRange(false);
-	cbnCommand.SetRedraw(true);
-	cbnCommand.Invalidate();
+	cbnCommand->setUpdatesEnabled(true);
+	cbnCommand->update();
 }
 
 
@@ -774,23 +779,23 @@ void CEditCommand::InitPlugParam()
 {
 	if(!m->IsPcNote())
 	{
-		cbnPlugParam.ShowWindow(false);
+		cbnPlugParam->setVisible(false);
 		return;
 	}
-	cbnPlugParam.ShowWindow(true);
+	cbnPlugParam->setVisible(true);
 
-	cbnPlugParam.SetRedraw(false);
-	cbnPlugParam.ResetContent();
+	cbnPlugParam->setUpdatesEnabled(false);
+	cbnPlugParam->clear();
 
 	if(m->instr > 0 && m->instr <= MAX_MIXPLUGINS)
 	{
-		AddPluginParameternamesToCombobox(cbnPlugParam, sndFile.m_MixPlugins[m->instr - 1]);
-		cbnPlugParam.SetCurSel(m->GetValueVolCol());
+		AddPluginParameternamesToCombobox(*cbnPlugParam, sndFile.m_MixPlugins[m->instr - 1]);
+		cbnPlugParam->setCurrentIndex(m->GetValueVolCol());
 	}
 	UpdateEffectRange(false);
 
-	cbnPlugParam.SetRedraw(true);
-	cbnPlugParam.Invalidate();
+	cbnPlugParam->setUpdatesEnabled(true);
+	cbnPlugParam->update();
 }
 
 
@@ -801,16 +806,16 @@ void CEditCommand::UpdateVolCmdRange()
 	bool ok = effectInfo.GetVolCmdInfo(fxndx, NULL, &rangeMin, &rangeMax);
 	if(ok && rangeMax > rangeMin)
 	{
-		sldVolParam.EnableWindow(true);
-		sldVolParam.SetRange(rangeMin, rangeMax);
+		sldVolParam->setEnabled(true);
+		sldVolParam->setRange(rangeMin, rangeMax);
 		Limit(m->vol, rangeMin, rangeMax);
-		sldVolParam.SetPos(effectInfo.MapVolumeToPos(m->volcmd, m->vol));
+		sldVolParam->setValue(effectInfo.MapVolumeToPos(m->volcmd, m->vol));
 	} else
 	{
 		// Why does this not update the display at all?
-		sldVolParam.SetRange(0, 0);
-		sldVolParam.SetPos(0);
-		sldVolParam.EnableWindow(false);
+		sldVolParam->setRange(0, 0);
+		sldVolParam->setValue(0);
+		sldVolParam->setEnabled(false);
 	}
 	UpdateVolCmdValue();
 }
@@ -824,7 +829,7 @@ void CEditCommand::UpdateEffectRange(bool set)
 	if(m->IsPcNote())
 	{
 		// plugin param control note
-		sldParam.SetRange(0, ModCommand::maxColumnValue);
+		sldParam->setRange(0, ModCommand::maxColumnValue);
 		pos = m->GetValueEffectCol();
 	} else
 	{
@@ -838,20 +843,20 @@ void CEditCommand::UpdateEffectRange(bool set)
 			pos = rangeMin | (pos & 0x0F);
 		Limit(pos, rangeMin, rangeMax);
 
-		sldParam.SetRange(rangeMin, rangeMax);
+		sldParam->setRange(rangeMin, rangeMax);
 	}
 
 	if(enable)
 	{
-		sldParam.EnableWindow(true);
-		sldParam.SetPageSize(1);
-		sldParam.SetPos(pos);
+		sldParam->setEnabled(true);
+		sldParam->setPageStep(1);
+		sldParam->setValue(pos);
 	} else
 	{
 		// Why does this not update the display at all?
-		sldParam.SetRange(0, 0);
-		sldParam.SetPos(0);
-		sldParam.EnableWindow(false);
+		sldParam->setRange(0, 0);
+		sldParam->setValue(0);
+		sldParam->setEnabled(false);
 	}
 	UpdateEffectValue(set);
 }
@@ -863,20 +868,20 @@ void CEditCommand::OnNoteChanged()
 	ModCommand::NOTE newNote = m->note;
 	ModCommand::INSTR newInstr = m->instr;
 
-	int n = cbnNote.GetCurSel();
+	int n = cbnNote->currentIndex();
 	if(n >= 0)
-		newNote = static_cast<ModCommand::NOTE>(cbnNote.GetItemData(n));
+		newNote = static_cast<ModCommand::NOTE>(mfcless::GetItemData(cbnNote, n));
 
 	if(wasParamControl)
 	{
-		if(auto sel = cbnInstr.GetSelection(); sel)
+		if(auto sel = cbnInstr->GetSelection(); sel)
 			newInstr = *sel + 1;
 		else
 			newInstr = 0;
 	} else
 	{
-		if(n = cbnInstr.GetRawSelection(); n >= 0)
-			newInstr = static_cast<ModCommand::INSTR>(cbnInstr.GetItemData(n));
+		if(n = cbnInstr->GetRawSelection(); n >= 0)
+			newInstr = static_cast<ModCommand::INSTR>(mfcless::GetItemData(cbnInstr, n));
 	}
 
 	if(m->note != newNote || m->instr != newInstr)
@@ -914,13 +919,13 @@ void CEditCommand::OnVolCmdChanged()
 	ModCommand::VOLCMD newVolCmd = m->volcmd;
 	ModCommand::VOL newVol = m->vol;
 
-	int n = cbnVolCmd.GetCurSel();
+	int n = cbnVolCmd->currentIndex();
 	if(n >= 0)
 	{
-		newVolCmd = effectInfo.GetVolCmdFromIndex(static_cast<uint32>(cbnVolCmd.GetItemData(n)));
+		newVolCmd = effectInfo.GetVolCmdFromIndex(static_cast<uint32>(mfcless::GetItemData(cbnVolCmd, n)));
 	}
 
-	newVol = effectInfo.MapPosToVolume(newVolCmd, sldVolParam.GetPos());
+	newVol = effectInfo.MapPosToVolume(newVolCmd, sldVolParam->value());
 
 	const bool volCmdChanged = m->volcmd != newVolCmd;
 	if(volCmdChanged || m->vol != newVol)
@@ -945,10 +950,10 @@ void CEditCommand::OnCommandChanged()
 	ModCommand::COMMAND newCommand = m->command;
 	ModCommand::PARAM newParam = m->param;
 
-	int n = cbnCommand.GetCurSel();
+	int n = cbnCommand->currentIndex();
 	if(n >= 0)
 	{
-		int ndx = static_cast<int>(cbnCommand.GetItemData(n));
+		int ndx = static_cast<int>(mfcless::GetItemData(cbnCommand, n));
 		newCommand = static_cast<ModCommand::COMMAND>((ndx >= 0) ? effectInfo.GetEffectFromIndex(ndx, newParam) : CMD_NONE);
 	}
 
@@ -980,10 +985,10 @@ void CEditCommand::OnPlugParamChanged()
 {
 	uint16 newPlugParam = m->GetValueVolCol();
 
-	int n = cbnPlugParam.GetCurSel();
+	int n = cbnPlugParam->currentIndex();
 	if(n >= 0)
 	{
-		newPlugParam = static_cast<uint16>(cbnPlugParam.GetItemData(n));
+		newPlugParam = static_cast<uint16>(mfcless::GetItemData(cbnPlugParam, n));
 	}
 
 	if(m->GetValueVolCol() != newPlugParam)
@@ -1001,7 +1006,7 @@ void CEditCommand::UpdateVolCmdValue()
 	if(m->IsPcNote())
 	{
 		// plugin param control note
-		uint16 plugParam = static_cast<uint16>(sldVolParam.GetPos());
+		uint16 plugParam = static_cast<uint16>(sldVolParam->value());
 		s = mfcless::PrintF(UL_("Value: %u"), plugParam);
 	} else
 	{
@@ -1022,7 +1027,7 @@ void CEditCommand::UpdateEffectValue(bool set)
 	if(m->IsPcNote())
 	{
 		// plugin param control note
-		newPlugParam = static_cast<uint16>(sldParam.GetPos());
+		newPlugParam = static_cast<uint16>(sldParam->value());
 		s = mfcless::PrintF(UL_("Value: %u"), newPlugParam);
 	} else
 	{
@@ -1030,7 +1035,7 @@ void CEditCommand::UpdateEffectValue(bool set)
 		int32 fxndx = effectInfo.GetIndexFromEffect(m->command, m->param);
 		if(fxndx >= 0)
 		{
-			newParam = static_cast<ModCommand::PARAM>(effectInfo.MapPosToValue(fxndx, sldParam.GetPos()));
+			newParam = static_cast<ModCommand::PARAM>(effectInfo.MapPosToValue(fxndx, sldParam->value()));
 			effectInfo.GetEffectNameEx(s, *m, newParam * xMultiplier + xParam, editChannel);
 		}
 	}
@@ -1072,10 +1077,10 @@ void CEditCommand::PrepareUndo(const char *description)
 
 void CEditCommand::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *bar)
 {
-	if(bar == static_cast<QWidget *>(&sldVolParam))
+	if(bar == static_cast<QWidget *>(sldVolParam))
 	{
 		OnVolCmdChanged();
-	} else if(bar == static_cast<QWidget *>(&sldParam))
+	} else if(bar == static_cast<QWidget *>(sldParam))
 	{
 		UpdateEffectValue(true);
 	}
@@ -1085,7 +1090,7 @@ void CEditCommand::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *bar
 void CEditCommand::OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized)
 {
 	DialogBase::OnActivate(nState, pWndOther, bMinimized);
-	if(nState == WA_INACTIVE)
+	if(nState == mfcless::activate::Inactive)
 		ShowWindow(false);
 }
 
@@ -1134,7 +1139,7 @@ bool CChordEditor::OnInitDialog()
 	m_CbnShortcut->setUpdatesEnabled(false);
 	m_CbnBaseNote->setUpdatesEnabled(false);
 	for(auto &combo : m_CbnNote)
-		combo.SetRedraw(false);
+		combo->setUpdatesEnabled(false);
 
 	// Shortcut key combo box
 	AppendNotesToControl(*m_CbnShortcut, NOTE_MIN, NOTE_MIN + static_cast<int>(kcVPEndChords) - static_cast<int>(kcVPStartChords));
@@ -1163,13 +1168,13 @@ bool CChordEditor::OnInitDialog()
 				s += mfcless::PrintF(UL_(" (%d)"), octave);
 		}
 		for(auto &combo : m_CbnNote)
-			combo.SetItemData(combo.AddString(s), noteVal);
+			mfcless::SetItemData(combo, mfcless::AddItem(combo, s), noteVal);
 	}
 
 	m_CbnShortcut->setUpdatesEnabled(true);
 	m_CbnBaseNote->setUpdatesEnabled(true);
 	for(auto &combo : m_CbnNote)
-		combo.SetRedraw(true);
+		combo->setUpdatesEnabled(true);
 
 	// Update Dialog
 	OnChordChanged();
@@ -1386,7 +1391,7 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	int numItems = SplitKeyboardSettings::splitOctaveRange * 2 + 1;
 	for(int i = -SplitKeyboardSettings::splitOctaveRange; i < SplitKeyboardSettings::splitOctaveRange + 1; i++)
 	{
-		s.Format(i < 0 ? UL_("Octave -%d") : i > 0 ? UL_("Octave +%d") : UL_("No Change"), std::abs(i));
+		s = mfcless::PrintF(i < 0 ? UL_("Octave -%d") : i > 0 ? UL_("Octave +%d") : UL_("No Change"), std::abs(i));
 		int n = mfcless::AddItem(m_CbnOctaveModifier, s);
 		mfcless::SetItemData(m_CbnOctaveModifier, n, i);
 	}
@@ -1474,7 +1479,7 @@ void QuickChannelProperties::RegisterMessageMap()
 {
 	DialogBase::RegisterMessageMap();
 	AddScroll(Qt::Horizontal, &QuickChannelProperties::OnHScroll);  // Sliders
-	// ON_WM_ACTIVATE()	// Catch Window focus change: by hand (Qt event override)  // Catch Window focus change
+	// ON_WM_ACTIVATE() (mfcless::Window)	// Catch Window focus change
 	AddNotify(IDC_EDIT1, mfcless::Notify::EditUpdate, &QuickChannelProperties::OnVolChanged);
 	AddNotify(IDC_EDIT2, mfcless::Notify::EditUpdate, &QuickChannelProperties::OnPanChanged);
 	AddNotify(IDC_EDIT3, mfcless::Notify::EditUpdate, &QuickChannelProperties::OnNameChanged);
@@ -1508,7 +1513,7 @@ QuickChannelProperties::~QuickChannelProperties()
 
 void QuickChannelProperties::OnActivate(uint32 nState, QWidget *, bool)
 {
-	if(nState == WA_INACTIVE && !m_settingColor)
+	if(nState == mfcless::activate::Inactive && !m_settingColor)
 	{
 		// Hide window when changing focus to another window.
 		m_visible = false;
@@ -1520,7 +1525,7 @@ void QuickChannelProperties::OnActivate(uint32 nState, QWidget *, bool)
 // Show channel properties for a given channel at a given screen position.
 void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Point position)
 {
-	if(!this)
+	if(!IsCreated())
 	{
 		Create(IDD_CHANNELSETTINGS, nullptr);
 		SubclassDlgItem(IDC_BUTTON4, m_colorBtn);
@@ -1538,12 +1543,12 @@ void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Po
 	m_document = modDoc;
 	m_channel = chn;
 
-	SetParent(nullptr);
+	setParent(nullptr, windowFlags());
 
 	// Center window around point where user clicked.
 	mfcless::Rect rect, screenRect;
-	GetWindowRect(rect);
-	::GetWindowRect(::GetDesktopWindow(), &screenRect);
+	GetWindowRect(&rect);
+	screenRect = mfcless::Rect(QGuiApplication::primaryScreen()->availableGeometry());
 	rect.MoveToXY(
 	    Clamp(static_cast<int>(position.x) - rect.Width() / 2, 0, static_cast<int>(screenRect.right) - rect.Width()),
 	    Clamp(static_cast<int>(position.y) - rect.Height() / 2, 0, static_cast<int>(screenRect.bottom) - rect.Height()));
@@ -1862,7 +1867,7 @@ intptr_t QuickChannelProperties::OnCustomKeyMsg(uintptr_t wParam, intptr_t)
 		OnPickNextColor();
 		return wParam;
 	case kcChnSettingsClose:
-		OnActivate(WA_INACTIVE, nullptr, false);
+		OnActivate(mfcless::activate::Inactive, nullptr, false);
 		return wParam;
 	}
 
@@ -1949,23 +1954,23 @@ MetronomeSettingsDlg::MetronomeSettingsDlg(QWidget *parent)
 { }
 
 
-void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, QComboBox &combo, QLineEdit &edit, CButton &browseButton)
+void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, QComboBox *combo, QLineEdit *edit, QAbstractButton *browseButton)
 {
 	bool enable = false;
 	if(path.empty())
 	{
-		combo.SetCurSel(0);
+		combo->setCurrentIndex(0);
 	} else if(path == TrackerSettings::GetDefaultMetronomeSample())
 	{
-		combo.SetCurSel(1);
+		combo->setCurrentIndex(1);
 	} else
 	{
-		combo.SetCurSel(2);
+		combo->setCurrentIndex(2);
 		mfcless::SetWindowText(edit, path.ToUnicode());
 		enable = true;
 	}
-	edit.EnableWindow(enable);
-	browseButton.EnableWindow(enable);
+	edit->setEnabled(enable);
+	browseButton->setEnabled(enable);
 }
 
 
@@ -1973,7 +1978,7 @@ bool MetronomeSettingsDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 	SetChecked(IDC_CHECK1, TrackerSettings::Instance().metronomeEnabled ? 1 : 0);
-	m_volumeSlider->setRange(static_cast<int>(-48 / METRONOME_VOLUME_SCALE), 0, true);
+	m_volumeSlider->setRange(static_cast<int>(-48 / METRONOME_VOLUME_SCALE), 0);
 	m_volumeSlider->setValue(mpt::saturate_round<int>(TrackerSettings::Instance().metronomeVolume / METRONOME_VOLUME_SCALE));
 	m_volumeSlider->setTickInterval(static_cast<int>(3 / METRONOME_VOLUME_SCALE));
 	static const mpt::uchar *Options[] = {UL_("Off"), UL_("Default (Sine)"), UL_("Custom Sample")};
@@ -2015,12 +2020,12 @@ void MetronomeSettingsDlg::OnToggleMetronome()
 }
 
 
-bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, QComboBox &combo, QLineEdit &edit, CButton &browseButton)
+bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, QComboBox *combo, QLineEdit *edit, QAbstractButton *browseButton)
 {
 	mpt::ustring s;
 	bool modified = false;
 	bool enable = false;
-	switch(combo.GetCurSel())
+	switch(combo->currentIndex())
 	{
 	case 0:
 		if(path != mpt::PathString{})
@@ -2046,8 +2051,8 @@ bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, QComboB
 		enable = true;
 		break;
 	}
-	edit.EnableWindow(enable);
-	browseButton.EnableWindow(enable);
+	edit->setEnabled(enable);
+	browseButton->setEnabled(enable);
 	return modified;
 }
 

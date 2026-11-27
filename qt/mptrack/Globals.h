@@ -273,10 +273,35 @@ public:
 	void ScrollToPosition(QPoint pt);
 	QSize GetTotalSize() const { return m_totalDev; }
 	int GetScrollPos(Qt::Orientation bar) const;
+	// The highest position the bar scrolls to.
+	int GetScrollLimit(Qt::Orientation bar) const;
 
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 
+	// mfcless: the non-client area above the client area (upstream's views
+	// draw their toolbars there). OnNcCalcSize says how high it is (in
+	// window coordinates, as the rest), a bar of its own shows it, and
+	// OnNcPaint paints it on the DC that GetWindowDC gives while it paints.
+	// At other times, drawing on GetWindowDC's DC repaints the area.
+	void RecalcNonClientArea();
+	mfcless::DC *GetWindowDC();
+	// A DC for the client area outside painting: it draws nothing and
+	// repaints the view when released (OnDraw then draws what is due).
+	mfcless::DC *GetDC() { return new mfcless::ClientDC(viewport()); }
+	void ReleaseDC(mfcless::DC *dc);
+	void PaintNonClientArea(QPainter &painter);
+	void NonClientMouse(QMouseEvent *e, bool doubleClick);
+	void NonClientLeave();
+
 protected:
+	virtual void OnNcCalcSize(bool /*calcValidRects*/, mfcless::NcCalcSizeParams * /*params*/) {}
+	virtual void OnNcPaint() {}
+	virtual intptr_t OnNcHitTest(mfcless::Point /*point*/) { return mfcless::hit::Client; }
+	virtual void OnNcMouseMove(uint32 /*hitTest*/, mfcless::Point /*point*/) {}
+	virtual void OnNcLButtonDown(uint32 /*hitTest*/, mfcless::Point /*point*/) {}
+	virtual void OnNcLButtonUp(uint32 /*hitTest*/, mfcless::Point /*point*/) {}
+	virtual void OnNcLButtonDblClk(uint32 /*hitTest*/, mfcless::Point /*point*/) {}
+
 	void scrollContentsBy(int dx, int dy) override;
 	// mfcless: CScrollView's (the scroll bars follow the size).
 	void OnSize(uint32 nType, int cx, int cy) override;
@@ -302,6 +327,8 @@ protected:
 private:
 	void UpdateBars();
 	bool m_inScroll = false;
+	QWidget *m_ncBar = nullptr;
+	mfcless::DC *m_ncPaintDC = nullptr;
 };
 
 

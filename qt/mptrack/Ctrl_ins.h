@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Instrument tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_ins.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -64,6 +64,7 @@ public:
 		, m_pParent(parent)
 	{
 		EnableActiveAccessibility();
+		setFocusPolicy(Qt::StrongFocus);
 	}
 	void SetCurrentInstrument(INSTRUMENTINDEX nIns);
 	void SetCurrentNote(uint32 nNote);
@@ -74,6 +75,7 @@ public:
 	void StopNote();
 
 	void UpdateAccessibleTitle();
+	void OnDPIChanged();
 
 public:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
@@ -99,7 +101,6 @@ protected:
 	void OnEditSampleMap();
 	void OnInstrumentDuplicate();
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
-	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
 	void RegisterMessageMap() override;
 };
 

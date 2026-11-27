@@ -134,6 +134,35 @@ struct Rect
 			*this = Rect(std::min(a.left, b.left), std::min(a.top, b.top), std::max(a.right, b.right), std::max(a.bottom, b.bottom));
 		return !IsRectEmpty();
 	}
+	// a without b, if b covers a whole side of a (else a), as Windows does it.
+	bool SubtractRect(const Rect &a, const Rect &b)
+	{
+		Rect r = a;
+		Rect isect;
+		if(isect.IntersectRect(a, b))
+		{
+			if(isect.left == a.left && isect.right == a.right)
+			{
+				if(isect.top == a.top)
+					r.top = isect.bottom;
+				else if(isect.bottom == a.bottom)
+					r.bottom = isect.top;
+			} else if(isect.top == a.top && isect.bottom == a.bottom)
+			{
+				if(isect.left == a.left)
+					r.left = isect.right;
+				else if(isect.right == a.right)
+					r.right = isect.left;
+			}
+		}
+		*this = r;
+		if(IsRectEmpty())
+		{
+			SetRectEmpty();
+			return false;
+		}
+		return true;
+	}
 	Rect operator&(const Rect &o) const { Rect r; r.IntersectRect(*this, o); return r; }
 	Rect operator|(const Rect &o) const { Rect r; r.UnionRect(*this, o); return r; }
 	Rect &operator&=(const Rect &o) { IntersectRect(*this, o); return *this; }
@@ -143,5 +172,10 @@ struct Rect
 	Rect &operator+=(const Point &p) { OffsetRect(p); return *this; }
 	Rect &operator-=(const Point &p) { OffsetRect(-p.x, -p.y); return *this; }
 };
+
+// The rectangle calls as free functions, as upstream calls them.
+inline bool IntersectRect(Rect *dst, const Rect *a, const Rect *b) { return dst->IntersectRect(*a, *b); }
+inline bool UnionRect(Rect *dst, const Rect *a, const Rect *b) { return dst->UnionRect(*a, *b); }
+inline bool SubtractRect(Rect *dst, const Rect *a, const Rect *b) { return dst->SubtractRect(*a, *b); }
 
 } // namespace mfcless

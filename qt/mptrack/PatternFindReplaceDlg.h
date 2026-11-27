@@ -3,7 +3,7 @@
  * -----------------------
  * Purpose: The find/replace dialog for pattern data.
  * Notes  : mfcless twin of upstream's mptrack/PatternFindReplaceDlg.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.

@@ -37,8 +37,10 @@ UpDown::UpDown(QWidget *parent)
 	layout->addWidget(m_up);
 	layout->addWidget(m_down);
 	SetVertical(true);
-	connect(m_up, &QToolButton::clicked, this, [this] { Step(1); });
-	connect(m_down, &QToolButton::clicked, this, [this] { Step(-1); });
+	connect(m_up, &QToolButton::pressed, this, [this] { m_held.start(); });
+	connect(m_down, &QToolButton::pressed, this, [this] { m_held.start(); });
+	connect(m_up, &QToolButton::clicked, this, [this] { Step(1); if(!m_up->isDown()) m_held.invalidate(); });
+	connect(m_down, &QToolButton::clicked, this, [this] { Step(-1); if(!m_down->isDown()) m_held.invalidate(); });
 }
 
 void UpDown::SetVertical(bool vertical)
@@ -79,6 +81,15 @@ int UpDown::GetPos() const
 
 void UpDown::Step(int delta)
 {
+	// The step grows the longer an arrow is held, as UDACCEL sets it.
+	uint32_t increment = 1;
+	const qint64 held = m_held.isValid() ? m_held.elapsed() / 1000 : 0;
+	for(const Accel &a : m_accel)
+	{
+		if(static_cast<qint64>(a.seconds) <= held)
+			increment = a.increment;
+	}
+	delta *= static_cast<int>(std::max(increment, uint32_t(1)));
 	bool accepted = true;
 	const int cur = GetPos();
 	emit deltaPos(cur, delta, &accepted);

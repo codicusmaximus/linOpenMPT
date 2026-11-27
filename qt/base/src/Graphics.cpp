@@ -107,6 +107,7 @@ bool DC::CreateCompatibleDC(DC *)
 {
 	End();
 	m_bitmap = nullptr;
+	m_created = true;
 	return true;
 }
 
@@ -114,6 +115,7 @@ void DC::DeleteDC()
 {
 	End();
 	m_bitmap = nullptr;
+	m_created = false;
 }
 
 Bitmap *DC::SelectObject(Bitmap *bitmap)
@@ -310,14 +312,19 @@ void DC::FillSolidRect(const Rect &r, uint32_t color)
 void DC::FillRect(const Rect &r, const Brush *brush)
 {
 	if(m_painter && brush && !brush->null && !r.IsRectEmpty())
-		m_painter->fillRect(QRect(r), ToQColor(brush->color));
+	{
+		if(brush->halftone)
+			m_painter->fillRect(QRect(r), QBrush(ToQColor(m_textColor), Qt::Dense4Pattern));
+		else
+			m_painter->fillRect(QRect(r), ToQColor(brush->dc ? m_dcBrushColor : brush->color));
+	}
 }
 
 void DC::FrameRect(const Rect &r, const Brush *brush)
 {
 	if(!m_painter || !brush || brush->null || r.IsRectEmpty())
 		return;
-	const QColor c = ToQColor(brush->color);
+	const QColor c = ToQColor(brush->dc ? m_dcBrushColor : brush->color);
 	m_painter->fillRect(r.left, r.top, r.Width(), 1, c);
 	m_painter->fillRect(r.left, r.bottom - 1, r.Width(), 1, c);
 	m_painter->fillRect(r.left, r.top, 1, r.Height(), c);
@@ -407,7 +414,10 @@ bool DC::PatBlt(int x, int y, int width, int height, uint32_t rasterOp)
 	if(!m_painter)
 		return false;
 	const QRect rc(x, y, width, height);
-	const QColor brush = ToQColor(m_dcBrush ? m_dcBrushColor : m_brush.color);
+	const QColor color = ToQColor((m_dcBrush || m_brush.dc) ? m_dcBrushColor : m_brush.color);
+	// The halftone brush: a checkerboard of the text colour (white for
+	// inverting) over the background colour (black, which XORs to nothing).
+	const QBrush brush = m_brush.halftone ? QBrush(ToQColor(m_textColor), Qt::Dense4Pattern) : QBrush(color);
 	switch(rasterOp)
 	{
 	case rop::Blackness: m_painter->fillRect(rc, Qt::black); break;
@@ -628,7 +638,14 @@ Rect DC::GetClipBox() const
 	if(!m_painter)
 		return Rect();
 	if(m_painter->hasClipping())
-		return Rect(m_painter->clipBoundingRect().toAlignedRect());
+	{
+		Rect r(m_painter->clipBoundingRect().toAlignedRect());
+		if(m_hasPaintRect)
+			r.IntersectRect(r, m_paintRect);
+		return r;
+	}
+	if(m_hasPaintRect)
+		return m_paintRect;
 	if(m_device)
 		return Rect(0, 0, m_device->width(), m_device->height());
 	return Rect();
@@ -676,6 +693,9 @@ bool DC::RestoreDC(int saved)
 }
 
 
+static thread_local QRect t_paintRect;
+static thread_local bool t_hasPaintRect = false;
+
 static QWidget *PaintTarget(QWidget *widget)
 {
 	if(auto *area = qobject_cast<QAbstractScrollArea *>(widget))
@@ -692,7 +712,27 @@ PaintDC::PaintDC(QWidget *widget)
 		if(m_painter)
 			m_painter->setFont(m_font);
 		rcPaint = Rect(target->rect());
+		if(t_hasPaintRect)
+		{
+			rcPaint = Rect(t_paintRect & target->rect());
+			m_paintRect = rcPaint;
+			m_hasPaintRect = true;
+		}
 	}
+}
+
+PaintRegionScope::PaintRegionScope(const QRect &r)
+	: m_old(t_paintRect)
+	, m_hadOld(t_hasPaintRect)
+{
+	t_paintRect = r;
+	t_hasPaintRect = true;
+}
+
+PaintRegionScope::~PaintRegionScope()
+{
+	t_paintRect = m_old;
+	t_hasPaintRect = m_hadOld;
 }
 
 

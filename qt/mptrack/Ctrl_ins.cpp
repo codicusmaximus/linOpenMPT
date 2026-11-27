@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Instrument tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_ins.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -70,7 +70,7 @@ void CNoteMapWnd::RegisterMessageMap()
 	AddCommand(ID_INSTRUMENT_SAMPLEMAP, &CNoteMapWnd::OnEditSampleMap);
 	AddCommand(ID_INSTRUMENT_DUPLICATE, &CNoteMapWnd::OnInstrumentDuplicate);
 	AddMessage(WM_MOD_KEYCOMMAND, &CNoteMapWnd::OnCustomKeyMsg);
-	AddMessage(WM_DPICHANGED_AFTERPARENT, &CNoteMapWnd::OnDPIChangedAfterParent);
+	// WM_DPICHANGED_AFTERPARENT: CCtrlInstruments::OnDPIChanged calls OnDPIChanged.
 	AddCommandRange(ID_NOTEMAP_EDITSAMPLE, ID_NOTEMAP_EDITSAMPLE + MAX_SAMPLES, &CNoteMapWnd::OnEditSample);
 }
 
@@ -120,11 +120,10 @@ bool CNoteMapWnd::PreTranslateMessage(mfcless::Message *pMsg)
 }
 
 
-intptr_t CNoteMapWnd::OnDPIChangedAfterParent(uintptr_t, intptr_t)
+void CNoteMapWnd::OnDPIChanged()
 {
-	auto result = Default();
 	m_cxFont = m_cyFont = 0;
-	return result;
+	update();
 }
 
 
@@ -182,7 +181,7 @@ void CNoteMapWnd::OnPaint()
 	if ((m_cxFont <= 0) || (m_cyFont <= 0))
 	{
 		mfcless::Size sz;
-		sz = dc.GetTextExtent(UL_("C#0."), 4);
+		sz = dc.GetTextExtent(UL_("C#0."));
 		m_cyFont = sz.cy + 2;
 		m_cxFont = rcClient.right / 3;
 	}
@@ -352,15 +351,15 @@ void CNoteMapWnd::OnRButtonUp(uint32, mfcless::Point pt)
 				}
 
 				hMenu.AppendMenu(mfcless::menu::Popup, hSubMenu, ih->GetKeyTextFromCommand(kcInsNoteMapEditSample, UL_("&Edit Sample")));
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, NULL);
+				hMenu.AppendMenu(mfcless::menu::Separator);
 			}
-			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_SMP, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentSample, MPT_UFORMAT("Map All Notes to &Sample {}")(pIns->Keyboard[m_nNote])));
+			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_SMP, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentSample, MPT_UFORMAT("Map All Notes to &Sample {}")(pIns->Keyboard[m_nNote]).c_str()));
 
 			if(sndFile.GetType() != MOD_TYPE_XM)
 			{
 				if(ModCommand::IsNote(pIns->NoteMap[m_nNote]))
 				{
-					hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_NOTE, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentNote, MPT_UFORMAT("Map All &Notes to {}")(mpt::ToUnicode(sndFile.GetNoteName(pIns->NoteMap[m_nNote], m_nInstrument)))));
+					hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_NOTE, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentNote, MPT_UFORMAT("Map All &Notes to {}")(mpt::ToUnicode(sndFile.GetNoteName(pIns->NoteMap[m_nNote], m_nInstrument))).c_str()));
 				}
 				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_UP, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeUp, UL_("Transpose Map &Up")));
 				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_DOWN, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeDown, UL_("Transpose Map &Down")));
@@ -369,7 +368,7 @@ void CNoteMapWnd::OnRButtonUp(uint32, mfcless::Point pt)
 			hMenu.AppendMenu(mfcless::menu::String | (pIns->CanConvertToDefaultNoteMap().empty() ? mfcless::menu::Grayed : 0), ID_NOTEMAP_TRANSPOSE_SAMPLES, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeSamples, UL_("&Transpose Samples / Reset Map")));
 			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_REMOVE, ih->GetKeyTextFromCommand(kcInsNoteMapRemove, UL_("Remo&ve All Samples")));
 			hMenu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_DUPLICATE, ih->GetKeyTextFromCommand(kcInstrumentCtrlDuplicate, UL_("Duplicate &Instrument")));
-			SetMenuDefaultItem(hMenu, ID_INSTRUMENT_SAMPLEMAP, false);
+			hMenu.SetDefaultItem(ID_INSTRUMENT_SAMPLEMAP, false);
 			ClientToScreen(&pt);
 			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, pt.x, pt.y, this);
 			hMenu.DestroyMenu();
@@ -874,11 +873,11 @@ void CNoteMapWnd::UpdateAccessibleTitle()
 
 
 // Accessible description for screen readers
-HRESULT CNoteMapWnd::get_accName(VARIANT varChild, BSTR *pszName)
+QString CNoteMapWnd::GetAccessibleName()
 {
 	const auto *ins = m_modDoc.GetSoundFile().Instruments[m_nInstrument];
 	if(!ins || m_nNote >= std::size(ins->NoteMap))
-		return mfcless::Window<QLabel>::get_accName(varChild, pszName);
+		return mfcless::Window<QLabel>::GetAccessibleName();
 
 	const auto &sndFile = m_modDoc.GetSoundFile();
 	mpt::ustring str = mpt::ToUnicode(sndFile.GetNoteName(static_cast<ModCommand::NOTE>(m_nNote + NOTE_MIN), m_nInstrument)) + UL_(": ");
@@ -891,8 +890,7 @@ HRESULT CNoteMapWnd::get_accName(VARIANT varChild, BSTR *pszName)
 		str += MPT_UFORMAT("sample {} at {}")(ins->Keyboard[m_nNote], mpt::ToUnicode(sndFile.GetNoteName(mappedNote, m_nInstrument)));
 	}
 
-	*pszName = str.AllocSysString();
-	return S_OK;
+	return mfcless::ToQString(str);
 }
 
 
@@ -1012,8 +1010,9 @@ void CCtrlInstruments::DoDataExchange(DataExchange &dx)
 
 CCtrlInstruments::CCtrlInstruments(CModControlView &parent, CModDoc &document)
 	: CModControlDlg(parent, document)
-	, m_NoteMap(*this, document)
+	, m_NoteMap(new CNoteMapWnd(*this, document))
 {
+	m_NoteMap->setParent(this);
 	m_nLockCount = 1;
 }
 
@@ -1116,7 +1115,7 @@ bool CCtrlInstruments::OnInitDialog()
 	SetChecked(IDC_CHECK_PITCHTEMPOLOCK, 0);
 	SubclassDlgItem(IDC_EDIT_PITCHTEMPOLOCK, m_EditPitchTempoLock);
 	m_EditPitchTempoLock->AllowNegative(false);
-	m_EditPitchTempoLock->SetLimitText(9);
+	m_EditPitchTempoLock->setMaxLength(9);
 
 	SetRedraw(true);
 	return false;
@@ -1126,6 +1125,7 @@ bool CCtrlInstruments::OnInitDialog()
 void CCtrlInstruments::OnDPIChanged()
 {
 	m_ToolBar->OnDPIChanged();
+	m_NoteMap->OnDPIChanged();
 	CModControlDlg::OnDPIChanged();
 }
 
@@ -1380,12 +1380,8 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		m_SpinFadeOut->SetRange(0, extendedFadeoutRange ? 32767 : 8192);
 		m_EditFadeOut->setMaxLength(extendedFadeoutRange ? 5 : 4);
 		// XM-style fade-out is 32 times more precise than IT
-		UDACCEL accell[2];
-		accell[0].nSec = 0;
-		accell[0].nInc = (m_sndFile.GetType() == MOD_TYPE_IT ? 32 : 1);
-		accell[1].nSec = 2;
-		accell[1].nInc = 5 * accell[0].nInc;
-		m_SpinFadeOut->SetAccel(mpt::saturate_cast<int>(std::size(accell)), accell);
+		const uint32 fadeInc = (m_sndFile.GetType() == MOD_TYPE_IT ? 32 : 1);
+		m_SpinFadeOut->SetAccel({{0, fadeInc}, {2, 5 * fadeInc}});
 
 		// Panning ranges (0...64 for IT, 0...256 for MPTM)
 		m_SpinPanning->SetRange(0, (m_sndFile.GetType() & MOD_TYPE_IT) ? 64 : 256);
@@ -1451,9 +1447,9 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		// Backwards compatibility with legacy IT/XM modules that use now deprecated hack features.
 		m_SliderCutSwing->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nCutSwing != 0));
 		m_SliderResSwing->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nResSwing != 0));
-		m_CbnFilterMode->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->filterMode != FilterMode::Unchanged));
-		m_CbnResampling->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->resampling != SRCMODE_DEFAULT));
-		m_SliderAttack->EnableWindow  (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
+		m_CbnFilterMode->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->filterMode != FilterMode::Unchanged));
+		m_CbnResampling->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->resampling != SRCMODE_DEFAULT));
+		m_SliderAttack->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
 		GetDlgItem(IDC_EDIT2)->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
 
 		if (pIns)
@@ -1519,7 +1515,7 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 				m_ComboPPC->setUpdatesEnabled(false);
 				m_ComboPPC->clear();
 				AppendNotesToControlEx(*m_ComboPPC, m_sndFile, m_nInstrument, NOTE_MIN, NOTE_MAX);
-				m_ComboPPC->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>((LONG_PTR)pIns->pTuning));
+				m_ComboPPC->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(reinterpret_cast<intptr_t>(pIns->pTuning)));
 				m_ComboPPC->setUpdatesEnabled(true);
 			}
 			m_ComboPPC->setCurrentIndex(pIns->nPPC);
@@ -1561,13 +1557,13 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			if(m_sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_IT|MOD_TYPE_MPT))
 			{
 				bool enableVol = (m_CbnMixPlug->GetSelection() != PLUGINDEX_INVALID && !m_sndFile.m_playBehaviour[kMIDICCBugEmulation]) ? true : false;
-				velocityStyle.EnableWindow(enableVol);
+				velocityStyle->setEnabled(enableVol);
 				m_CbnPluginVolumeHandling->setEnabled(enableVol);
 			}
 		} else
 		{
 			mfcless::SetWindowText(m_EditFileName, UL_(""));
-			velocityStyle.EnableWindow(false);
+			velocityStyle->setEnabled(false);
 			m_CbnPluginVolumeHandling->setEnabled(false);
 			if(m_nInstrument > m_sndFile.GetNumInstruments())
 				SetCurrentInstrument(m_sndFile.GetNumInstruments());
@@ -1615,10 +1611,10 @@ void CCtrlInstruments::UpdateFilterText()
 				s = mfcless::PrintF(UL_("Z%02X (%u Hz)"), cutoff, mpt::saturate_round<int32>(m_sndFile.CutOffToFrequency(cutoff)));
 			} else if(pIns->IsCutoffEnabled())
 			{
-				_tcscpy(s, UL_("Z7F (Off)"));
+				s = UL_("Z7F (Off)");
 			} else
 			{
-				_tcscpy(s, UL_("No Change"));
+				s = UL_("No Change");
 			}
 
 			SetItemText(IDC_FILTERTEXT, s);
@@ -1751,7 +1747,7 @@ bool CCtrlInstruments::EditSample(uint32 nSample)
 {
 	if ((nSample > 0) && (nSample < MAX_SAMPLES))
 	{
-		m_parent.PostMessage(WM_MOD_ACTIVATEVIEW, IDD_CONTROL_SAMPLES, nSample);
+		mfcless::PostModMessage(&m_parent, WM_MOD_ACTIVATEVIEW, IDD_CONTROL_SAMPLES, nSample);
 		return true;
 	}
 	return false;
@@ -2291,7 +2287,7 @@ void CCtrlInstruments::OnSetPanningChanged()
 
 			if(smpPanningInUse)
 			{
-				if(Reporting::Confirm(_T("Some of the samples used in the instrument have \"Set Pan\" enabled. "
+				if(Reporting::Confirm(UL_("Some of the samples used in the instrument have \"Set Pan\" enabled. "
 						"Sample panning overrides instrument panning for the notes associated with such samples. "
 						"Do you wish to disable panning from those samples so that the instrument pan setting is effective "
 						"for the whole instrument?")) == cnfYes)
@@ -2491,7 +2487,7 @@ void CCtrlInstruments::OnMixPlugChanged()
 	if(pIns)
 	{
 		bool enableVol = (nPlug == PLUGINDEX_INVALID || m_sndFile.m_playBehaviour[kMIDICCBugEmulation]) ? false : true;
-		velocityStyle.EnableWindow(enableVol);
+		velocityStyle->setEnabled(enableVol);
 		m_CbnPluginVolumeHandling->setEnabled(enableVol);
 
 		const PLUGINDEX mixPlug = (nPlug != PLUGINDEX_INVALID) ? nPlug + 1 : 0;
@@ -2505,7 +2501,7 @@ void CCtrlInstruments::OnMixPlugChanged()
 				SetModified(InstrumentHint().Info(), false);
 			}
 
-			velocityStyle.SetCheck(pIns->pluginVelocityHandling == PLUGIN_VELOCITYHANDLING_CHANNEL ? 1 : 0);
+			velocityStyle->setChecked(pIns->pluginVelocityHandling == PLUGIN_VELOCITYHANDLING_CHANNEL);
 			m_CbnPluginVolumeHandling->setCurrentIndex(pIns->pluginVolumeHandling);
 
 #ifndef NO_PLUGINS
@@ -2710,10 +2706,12 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 		if(!pIns)
 			return;
 			
-		auto *pSlider = reinterpret_cast<const QSlider *>(pSB);
-		int32 n = pSlider->GetPos();
+		auto *pSlider = qobject_cast<const QSlider *>(pSB);
+		if(!pSlider)
+			return;
+		int32 n = pSlider->value();
 
-		if(pSlider == &m_SliderAttack)
+		if(pSlider == m_SliderAttack)
 		{
 			// Volume ramping (attack)
 			if(pIns->nVolRampUp != n)
@@ -2727,7 +2725,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				SetItemInt(IDC_EDIT2, n);
 				SetModified(InstrumentHint().Info(), false);
 			}
-		} else if(pSlider == &m_SliderVolSwing)
+		} else if(pSlider == m_SliderVolSwing)
 		{
 			// Volume Swing
 			if((n >= 0) && (n <= 100) && (n != pIns->nVolSwing))
@@ -2740,7 +2738,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				pIns->nVolSwing = static_cast<uint8>(n);
 				SetModified(InstrumentHint().Info(), false);
 			}
-		} else if(pSlider == &m_SliderPanSwing)
+		} else if(pSlider == m_SliderPanSwing)
 		{
 			// Pan Swing
 			if((n >= 0) && (n <= 64) && (n != pIns->nPanSwing))
@@ -2753,7 +2751,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				pIns->nPanSwing = static_cast<uint8>(n);
 				SetModified(InstrumentHint().Info(), false);
 			}
-		} else if(pSlider == &m_SliderCutSwing)
+		} else if(pSlider == m_SliderCutSwing)
 		{
 			// Cutoff swing
 			if((n >= 0) && (n <= 64) && (n != pIns->nCutSwing))
@@ -2766,7 +2764,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				pIns->nCutSwing = static_cast<uint8>(n);
 				SetModified(InstrumentHint().Info(), false);
 			}
-		} else if(pSlider == &m_SliderResSwing)
+		} else if(pSlider == m_SliderResSwing)
 		{
 			// Resonance swing
 			if((n >= 0) && (n <= 64) && (n != pIns->nResSwing))
@@ -2779,7 +2777,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				pIns->nResSwing = static_cast<uint8>(n);
 				SetModified(InstrumentHint().Info(), false);
 			}
-		} else if(pSlider == &m_SliderCutOff)
+		} else if(pSlider == m_SliderCutOff)
 		{
 			// Filter Cutoff
 			if((n >= 0) && (n < 0x80) && (n != (int)(pIns->GetCutoff())))
@@ -2795,7 +2793,7 @@ void CCtrlInstruments::OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *p
 				CriticalSection cs;
 				m_sndFile.UpdateInstrumentFilter(*pIns, false, true, false);
 			}
-		} else if(pSlider == &m_SliderResonance)
+		} else if(pSlider == m_SliderResonance)
 		{
 			// Filter Resonance
 			if((n >= 0) && (n < 0x80) && (n != (int)(pIns->GetResonance())))
@@ -2973,7 +2971,7 @@ void CCtrlInstruments::OnPluginVelocityHandlingChanged()
 	ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
 	if(!IsLocked() && pIns != nullptr)
 	{
-		PlugVelocityHandling n = velocityStyle.GetCheck() != 0 ? PLUGIN_VELOCITYHANDLING_CHANNEL : PLUGIN_VELOCITYHANDLING_VOLUME;
+		PlugVelocityHandling n = velocityStyle->isChecked() ? PLUGIN_VELOCITYHANDLING_CHANNEL : PLUGIN_VELOCITYHANDLING_VOLUME;
 		if(n != pIns->pluginVelocityHandling)
 		{
 			PrepareUndo("Set Velocity Handling");
@@ -3000,10 +2998,10 @@ void CCtrlInstruments::OnPluginVolumeHandlingChanged()
 		{
 			PrepareUndo("Set Volume Handling");
 
-			if(velocityStyle.GetCheck() == 0 && n == PLUGIN_VOLUMEHANDLING_IGNORE)
+			if(!velocityStyle->isChecked() && n == PLUGIN_VOLUMEHANDLING_IGNORE)
 			{
 				// This combination doesn't make sense.
-				velocityStyle.SetCheck(1);
+				velocityStyle->setChecked(true);
 			}
 
 			pIns->pluginVolumeHandling = n;
@@ -3020,7 +3018,7 @@ void CCtrlInstruments::OnPitchWheelDepthChanged()
 	{
 		int pwd = GetItemInt(IDC_PITCHWHEELDEPTH);
 		int lower = -128, upper = 127;
-		m_SpinPWD->GetRange32(lower, upper);
+		m_SpinPWD->GetRange(lower, upper);
 		Limit(pwd, lower, upper);
 		if(pwd != pIns->midiPWD)
 		{

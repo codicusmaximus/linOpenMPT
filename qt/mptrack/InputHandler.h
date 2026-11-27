@@ -71,6 +71,7 @@ public:
 	void Bypass(bool);
 	static FlagSet<Modifiers> GetModifierMask();
 	mpt::ustring GetKeyTextFromCommand(CommandID c, const mpt::uchar *prependText = nullptr) const;
+	mpt::ustring GetKeyTextFromCommand(CommandID c, const mpt::ustring &prependText) const { return GetKeyTextFromCommand(c, prependText.c_str()); }
 	mpt::ustring GetMenuText(uint32 id) const;
 	void UpdateMainMenu();
 	void SetNewCommandSet(const CCommandSet &newSet);

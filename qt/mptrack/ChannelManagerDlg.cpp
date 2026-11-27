@@ -118,7 +118,7 @@ void CChannelManagerDlg::Update(UpdateHint hint, QObject *pHint)
 
 void CChannelManagerDlg::Show()
 {
-	if(!this)
+	if(!IsCreated())
 	{
 		Create(IDD_CHANNELMANAGER, nullptr);
 	}

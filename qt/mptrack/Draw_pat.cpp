@@ -1,4 +1,4 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
+// Hand-edited from the twin.py draft.
 /*
  * draw_pat.cpp
  * ------------
@@ -11,6 +11,7 @@
 
 
 #include "View_pat.h"
+#include <QtWidgets/QScrollBar>
 #include "mfcless/Widgets.h"
 #include "dlg_misc.h"
 #include "EffectVis.h"
@@ -212,7 +213,7 @@ void CViewPattern::UpdateView(UpdateHint hint, QObject *pObj)
 			SetCurrentPattern(order.at(ord));
 	}
 	if(generalHint.GetType()[HINT_MODCHANNELS]
-	   && m_quickChannelProperties.m_hWnd
+	   && m_quickChannelProperties.IsCreated()
 	   && pObj != &m_quickChannelProperties
 	   && (generalHint.GetChannel() >= GetDocument()->GetNumChannels() || generalHint.GetChannel() == m_quickChannelProperties.GetChannel()))
 	{
@@ -530,7 +531,7 @@ void CViewPattern::DrawVolumeCommand(int x, int y, const ModCommand &mc, std::op
 void CViewPattern::OnDraw(mfcless::DC *pDC)
 {
 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-	CHAR s[256];
+	char s[256];
 	mfcless::Rect rcClient, rect, rc;
 	const CModDoc *pModDoc;
 
@@ -564,7 +565,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 			m_offScreenBitmap.CreateCompatibleBitmap(pDC, rcClient.Width(), rcClient.Height());
 			m_oldClient = rcClient;
 		}
-		hdc = m_offScreenDC;
+		hdc = &m_offScreenDC;
 	} else
 	{
 		// Off-screen DC for drawing horizontal (channel buttons) and vertical (row number buttons) headers to avoid flicker
@@ -577,11 +578,11 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 			m_offScreenBitmap.CreateCompatibleBitmap(pDC, buttonRect.Width(), buttonRect.Height());
 			m_oldClient = buttonRect;
 		}
-		hdc = pDC->m_hDC;
+		hdc = pDC;
 	}
 	mfcless::Bitmap * oldBitmap = SelectBitmap(m_offScreenDC, m_offScreenBitmap);
 
-	const auto dcBrush = GetStockBrush(DC_BRUSH);
+	const auto dcBrush = mfcless::Brush::DCColor();
 	const auto faceColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 	const auto shadowColor = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
 	const auto textColor = mfcless::SystemColor(mfcless::SysColor::ButtonText);
@@ -637,11 +638,11 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 			}
 			if ((rect.bottom > rect.top) && (rect.right > rect.left))
 			{
-				::SetDCBrushColor(hdc, faceColor);
+				SetDCBrushColor(hdc, faceColor);
 				mfcless::FillRect(hdc, &rect, dcBrush);
 				auto shadowRect = rect;
 				shadowRect.top = shadowRect.bottom++;
-				::SetDCBrushColor(hdc, shadowColor);
+				SetDCBrushColor(hdc, shadowColor);
 				mfcless::FillRect(hdc, &shadowRect, dcBrush);
 			}
 			yofs = 0;
@@ -684,7 +685,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	if ((xpaint < rcClient.right) && (ypaint > rcClient.top))
 	{
 		rc.SetRect(xpaint, rcClient.top, rcClient.right, ypaint);
-		::SetDCBrushColor(hdc, faceColor);
+		SetDCBrushColor(hdc, faceColor);
 		mfcless::FillRect(hdc, &rc, dcBrush);
 	}
 	if (ypaint < rcClient.bottom)
@@ -694,7 +695,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 		if(width == 1)
 			DrawButtonRect(hdc, lineWidth, rc, UL_(""));
 		else
-			DrawEdge(hdc, rc, mfcless::edge::Raised, BF_TOPLEFT | mfcless::edge::Middle);  // Prevent lower edge from being drawn
+			DrawEdge(hdc, rc, mfcless::edge::Raised, mfcless::edge::Top | mfcless::edge::Left | mfcless::edge::Middle);  // Prevent lower edge from being drawn
 	}
 	// Drawing pattern selection
 	if(m_Status[psDragnDropping])
@@ -702,7 +703,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 		DrawDragSel(hdc);
 	}
 
-	const auto buttonBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)), blackBrush = GetStockBrush(BLACK_BRUSH);
+	const auto buttonBrush = mfcless::Brush(mfcless::SystemColor(mfcless::SysColor::ButtonFace)), blackBrush = mfcless::Brush(0);
 	rect.SetRect(0, rcClient.top, rcClient.right, rcClient.top + m_szHeader.cy);
 	if(pDC->RectVisible(rect))
 	{
@@ -751,7 +752,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 					r.left = rect.left + chanColorOffset;
 					r.right = rect.right - chanColorOffset;
 
-					::SetDCBrushColor(m_offScreenDC, channel.color);
+					SetDCBrushColor(m_offScreenDC, channel.color);
 					mfcless::FillRect(m_offScreenDC, r, dcBrush);
 				}
 
@@ -768,7 +769,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 					r.left = (m_nDropItem.Value() < m_nDragItem.Value() || m_Status[psShiftDragging]) ? rect.left : rect.right - dropWidth;
 					r.right = r.left + dropWidth;
 
-					::SetDCBrushColor(m_offScreenDC, textColor);
+					SetDCBrushColor(m_offScreenDC, textColor);
 					mfcless::FillRect(m_offScreenDC, r, dcBrush);
 				}
 
@@ -790,7 +791,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 				if(m_Status[psShowVUMeters])
 				{
 					m_chnState[chn].vuMeterOld = 0;
-					DrawChannelVUMeter(m_offScreenDC, rect.left, rect.bottom, chn);
+					DrawChannelVUMeter(&m_offScreenDC, rect.left, rect.bottom, chn);
 					rect.top += vuHeight;
 					rect.bottom += vuHeight;
 				}
@@ -859,7 +860,7 @@ void CViewPattern::DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTE
 	for(CHANNELINDEX cmk = startChan; cmk < ncols; cmk++)
 	{
 		m_chnState[cmk].selectedCols = selEnable ? m_Selection.GetSelectionBits(cmk) : 0;
-		if(!::RectVisible(hdc, &rect))
+		if(!hdc->RectVisible(rect))
 			m_chnState[cmk].selectedCols |= COLUMN_BITS_INVISIBLE;
 		rect.left += nColumnWidth;
 		rect.right += nColumnWidth;
@@ -916,7 +917,7 @@ void CViewPattern::DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTE
 		rect.top = ypaint;
 		rect.right = rcClient.right;
 		rect.bottom = rect.top + m_szCell.cy;
-		if (!::RectVisible(hdc, &rect))
+		if (!hdc->RectVisible(rect))
 		{
 			// No speedup for these columns next time
 			for(CHANNELINDEX iup = startChan; iup < maxcol; iup++)
@@ -941,9 +942,9 @@ void CViewPattern::DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTE
 			// We already draw to the off-screen buffer in case of smooth scrolling
 			const bool drawOffscreen = !patternSetupFlags[PatternSetup::SmoothScrolling];
 			const mfcless::Rect drawRect = drawOffscreen ? mfcless::Rect{0, 0, rect.Width(), rect.Height()} : rect;
-			DrawButtonRect(drawOffscreen ? m_offScreenDC : hdc, lineWidth, drawRect, s, !selEnable || rowDisabled);
+			DrawButtonRect(drawOffscreen ? &m_offScreenDC : hdc, lineWidth, drawRect, s.c_str(), !selEnable || rowDisabled);
 			if(drawOffscreen)
-				::BitBlt(hdc, rect.left, rect.top, rect.Width(), rect.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
+				BitBlt(hdc, rect.left, rect.top, rect.Width(), rect.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
 		}
 
 		oldrowcolor = EncodeRowColor(row_bkcol, row_col, bRowSel);
@@ -1275,7 +1276,7 @@ void CViewPattern::DrawChannelVUMeter(mfcless::DC * hdc, int x, int y, uint32 nC
 		|| (channel.pModSample != nullptr && channel.pModSample->uFlags[CHN_ADLIB])
 		|| ((channel.pModSample == nullptr || !channel.pModSample->HasSampleData()) && channel.HasMIDIOutput());
 
-	const auto oldBitmap = m_vuMeterDC.SelectObject(m_vuMeterBitmap);
+	const auto oldBitmap = m_vuMeterDC.SelectObject(&m_vuMeterBitmap);
 	const int srcOffsetX = isSynth ? barWidth * 2 : 0;
 	x += (m_szCell.cx / 2);
 	BitBlt(hdc, x - barWidth - (midSpacer - midSpacer / 2), y, barWidth, m_ledHeight, m_vuMeterDC, srcOffsetX, vuL * m_ledHeight, mfcless::rop::SrcCopy);
@@ -1354,12 +1355,13 @@ void CViewPattern::DrawDragSel(mfcless::DC * hdc)
 	}
 
 	// invert the brush pattern (looks just like frame window sizing)
-	::SetTextColor(hdc, mfcless::Rgb(255, 255, 255));
-	::SetBkColor(hdc, mfcless::Rgb(0, 0, 0));
-	mfcless::Brush* pBrush = mfcless::DC::GetHalftoneBrush();
+	SetTextColor(hdc, mfcless::Rgb(255, 255, 255));
+	SetBkColor(hdc, mfcless::Rgb(0, 0, 0));
+	const mfcless::Brush halftoneBrush = mfcless::Brush::Halftone();
+	const mfcless::Brush *pBrush = &halftoneBrush;
 	if (pBrush != NULL)
 	{
-		mfcless::Brush hOldBrush = (mfcless::Brush)SelectObject(hdc, pBrush->m_hObject);
+		mfcless::Brush hOldBrush = SelectBrush(hdc, *pBrush);
 		// Top
 		if (drawTop)
 		{
@@ -1388,7 +1390,7 @@ void CViewPattern::DrawDragSel(mfcless::DC * hdc)
 			if (!drawTop) rect.top -= 4;
 			PatBlt(hdc, rect.left, rect.top, rect.Width(), rect.Height(), mfcless::rop::PatInvert);
 		}
-		if (hOldBrush != NULL) SelectObject(hdc, hOldBrush);
+		SelectBrush(hdc, hOldBrush);
 	}
 
 }
@@ -1396,12 +1398,9 @@ void CViewPattern::DrawDragSel(mfcless::DC * hdc)
 
 void CViewPattern::OnDrawDragSel()
 {
-	mfcless::DC * hdc = ::GetDC(this);
-	if (hdc != NULL)
-	{
-		DrawDragSel(hdc);
-		::ReleaseDC(this, hdc);
-	}
+	// mfcless: Qt draws only while painting, and OnDraw draws the dragged
+	// selection: repaint instead of inverting it here.
+	viewport()->update();
 }
 
 
@@ -1457,18 +1456,16 @@ bool CViewPattern::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 	int yOrig, yNew, y;
 
 	// don't scroll if there is no valid scroll range (ie. no scroll bar)
-	CScrollBar* pBar;
-	uint32 dwStyle = GetStyle();
-	pBar = GetScrollBarCtrl(Qt::Vertical);
-	if ((pBar != NULL && !pBar->isEnabled()) ||
-		(pBar == NULL && !(dwStyle & WS_VSCROLL)))
+	// mfcless: Qt's scroll bars always exist (as bars of their own)
+	QScrollBar *pBar;
+	pBar = verticalScrollBar();
+	if (!pBar->isEnabled() || pBar->maximum() <= pBar->minimum())
 	{
 		// vertical scroll bar not enabled
 		sizeScroll.cy = 0;
 	}
-	pBar = GetScrollBarCtrl(Qt::Horizontal);
-	if ((pBar != NULL && !pBar->isEnabled()) ||
-		(pBar == NULL && !(dwStyle & WS_HSCROLL)))
+	pBar = horizontalScrollBar();
+	if (!pBar->isEnabled() || pBar->maximum() <= pBar->minimum())
 	{
 		// horizontal scroll bar not enabled
 		sizeScroll.cx = 0;
@@ -1876,7 +1873,7 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 	mfcless::Rect rcClient;
 	GetClientRect(&rcClient);
 	int xofs = GetXScrollPos();
-	mfcless::DC * hdc = ::GetDC(this);
+	// mfcless: Qt draws only while painting: set the meters and repaint them.
 	const bool isPlaying = (pMainFrm->GetFollowSong(pModDoc) == this);
 	int x = m_szHeader.cx;
 	CHANNELINDEX nChn = static_cast<CHANNELINDEX>(xofs);
@@ -1887,11 +1884,11 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 		m_chnState[nChn].vuMeter = static_cast<uint16>(pnotify->pos[nChn]);
 		if(!isPlaying || pnotify->type[Notification::Stop])
 			m_chnState[nChn].vuMeter = 0;
-		DrawChannelVUMeter(hdc, x, rcClient.top + yPos, nChn);
+		if(m_chnState[nChn].vuMeter != m_chnState[nChn].vuMeterOld)
+			InvalidateRect(mfcless::Rect(x, rcClient.top + yPos, x + m_szCell.cx, rcClient.top + yPos + m_ledHeight), false);
 		nChn++;
 		x += m_szCell.cx;
 	}
-	::ReleaseDC(this, hdc);
 }
 
 
@@ -1908,10 +1905,10 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 // The left stack of LEDs uses the colors for sample-based instruments, the right stack is for synthesized / plugin instruments.
 void CViewPattern::CreateVUMeterBitmap()
 {
-	if(!this)
+	if(!IsCreated())
 		return;
 	
-	const auto dc = GetDC();
+	mfcless::DC *const dc = nullptr;  // mfcless: bitmaps need no screen DC
 
 	m_vuMeterBitmap.DeleteObject();
 	m_vuMeterDC.DeleteDC();
@@ -1933,7 +1930,7 @@ void CViewPattern::CreateVUMeterBitmap()
 	const int bmpHeight = m_ledHeight * (VUMETERS_LEDS_PER_SIDE + 1);
 
 	m_vuMeterBitmap.CreateCompatibleBitmap(dc, bmpWidth, bmpHeight);
-	const auto oldBitmap = m_vuMeterDC.SelectObject(m_vuMeterBitmap);
+	const auto oldBitmap = m_vuMeterDC.SelectObject(&m_vuMeterBitmap);
 	m_vuMeterDC.FillSolidRect(0, 0, bmpWidth, bmpHeight, mfcless::SystemColor(mfcless::SysColor::ButtonFace));
 
 	const auto &Colors = TrackerSettings::Instance().rgbCustomColors;
@@ -1974,7 +1971,6 @@ void CViewPattern::CreateVUMeterBitmap()
 	}
 
 	m_vuMeterDC.SelectObject(oldBitmap);
-	ReleaseDC(dc);
 }
 
 

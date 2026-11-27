@@ -1,4 +1,4 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
+// Hand-edited from the twin.py draft.
 /*
  * View_pat.cpp
  * ------------
@@ -48,7 +48,7 @@ const mfcless::ViewClass CViewPattern::classCViewPattern{"CViewPattern", [](QWid
 void CViewPattern::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();
-	// ON_WM_ERASEBKGND(): by hand (Qt event override)
+	// ON_WM_ERASEBKGND(): OnInitialUpdate sets the viewport opaque
 	AddScroll(Qt::Vertical, &CViewPattern::OnVScroll);
 	// ON_WM_SIZE() (mfcless::Window)
 	// ON_WM_MOUSEWHEEL() (mfcless::Window)
@@ -61,7 +61,7 @@ void CViewPattern::RegisterMessageMap()
 	// ON_WM_RBUTTONUP() (mfcless::Window)
 	// ON_WM_SETFOCUS() (mfcless::Window)
 	// ON_WM_KILLFOCUS() (mfcless::Window)
-	// ON_WM_DESTROY(): by hand (Qt event override)
+	// ON_WM_DESTROY(): the destructor calls OnDestroy
 	AddMessage(WM_MOD_KEYCOMMAND, &CViewPattern::OnCustomKeyMsg);
 	AddMessage(WM_MOD_MIDIMSG, &CViewPattern::OnMidiMsg);
 	AddMessage(WM_MOD_RECORDPARAM, &CViewPattern::OnRecordPlugParamChange);
@@ -160,6 +160,8 @@ CViewPattern::CViewPattern()
 
 CViewPattern::~CViewPattern()
 {
+	// mfcless: ON_WM_DESTROY
+	OnDestroy();
 	m_vuMeterBitmap.DeleteObject();
 	m_vuMeterDC.DeleteDC();
 	m_offScreenBitmap.DeleteObject();
@@ -171,6 +173,8 @@ void CViewPattern::OnInitialUpdate()
 {
 	CModScrollView::OnInitialUpdate();
 	EnableToolTips();
+	// ON_WM_ERASEBKGND (no erasing): OnDraw paints all of the view
+	viewport()->setAttribute(Qt::WA_OpaquePaintEvent);
 	m_chnState.assign(GetDocument()->GetNumChannels(), {});
 	m_splitActiveNoteChannel.fill(NOTE_CHANNEL_MAP_INVALID);
 	m_activeNoteChannel.fill(NOTE_CHANNEL_MAP_INVALID);
@@ -737,7 +741,7 @@ bool CViewPattern::PreTranslateMessage(mfcless::Message *pMsg)
 		} else if(pMsg->message == mfcless::msg::MButtonDown)
 		{
 			// Open quick channel properties dialog if we're middle-clicking a channel header.
-			mfcless::Point point(GET_X_LPARAM(pMsg->lParam), GET_Y_LPARAM(pMsg->lParam));
+			mfcless::Point point(static_cast<QMouseEvent *>(pMsg->event)->position().toPoint());
 			if(point.y < m_szHeader.cy - m_szPluginHeader.cy)
 			{
 				PatternCursor cursor = GetPositionFromPoint(point);
@@ -3383,7 +3387,7 @@ void CViewPattern::QueuePattern(ORDERINDEX order, OrderTransitionMode transition
 void CViewPattern::OnUpdateUndo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanUndo());
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
@@ -3394,7 +3398,7 @@ void CViewPattern::OnUpdateUndo(mfcless::CommandState &state)
 void CViewPattern::OnUpdateRedo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanRedo());
 		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
@@ -3734,12 +3738,12 @@ CHANNELINDEX CViewPattern::GetRecordChannelForPCEvent(PLUGINDEX plugSlot, PlugPa
 			continue;
 
 		const ModCommand &m = *sndFile.Patterns[pattern].GetpModCommand(row, c);
-		if((c < m_chnState.size() && m_chnState[c].previousPCevent == plugParam && m.empty()) || (m.IsPcNote() && m.instr == plugSlot + 1 && m.GetValueVolCol() == paramIndex))
+		if((c < m_chnState.size() && m_chnState[c].previousPCevent == plugParam && m.IsEmpty()) || (m.IsPcNote() && m.instr == plugSlot + 1 && m.GetValueVolCol() == paramIndex))
 		{
 			return c;
 			break;
 		}
-		if(m.empty() && (candidateChn == CHANNELINDEX_INVALID || c == editChn))
+		if(m.IsEmpty() && (candidateChn == CHANNELINDEX_INVALID || c == editChn))
 		{
 			candidateChn = c;
 		}
@@ -3783,7 +3787,7 @@ intptr_t CViewPattern::OnRecordPlugParamChange(uintptr_t plugSlot, intptr_t para
 		// MPTM: Use PC Notes
 
 		// only overwrite existing PC Notes
-		if(m.empty() || m.IsPcNote())
+		if(m.IsEmpty() || m.IsPcNote())
 		{
 			m.Set(NOTE_PCS, static_cast<ModCommand::INSTR>(plugSlot + 1), static_cast<uint16>(paramIndex), static_cast<uint16>(pPlug->GetParameter(static_cast<PlugParamIndex>(paramIndex)) * ModCommand::maxColumnValue));
 			m_chnState.resize(sndFile.GetNumChannels());
@@ -4832,7 +4836,7 @@ intptr_t CViewPattern::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			{
 				// Open centered Quick Channel Settings dialog.
 				mfcless::Rect windowPos;
-				GetWindowRect(windowPos);
+				GetWindowRect(&windowPos);
 				m_quickChannelProperties.Show(GetDocument(), m_Cursor.GetChannel(), mfcless::Point(windowPos.left + windowPos.Width() / 2, windowPos.top + windowPos.Height() / 2));
 				return wParam;
 			}
@@ -6965,7 +6969,7 @@ bool CViewPattern::BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 			// Add options to remove instrument from selection.
 			if(addSeparator)
 			{
-				instrumentChangeMenu.AppendMenu(mfcless::menu::Separator, 0, 0);
+				instrumentChangeMenu.AppendMenu(mfcless::menu::Separator);
 			}
 			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT, UL_("&Remove Instrument"));
 			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT + GetCurrentInstrument(), ih->GetKeyTextFromCommand(kcPatternSetInstrument, UL_("&Current Instrument")));
@@ -7223,15 +7227,15 @@ bool CViewPattern::IsEditingEnabled_bmsg()
 	if(TrackerSettings::Instance().patternNoEditPopup)
 		return false;
 
-	mfcless::Menu hMenu;
+	mfcless::Menu hMenu = mfcless::Menu::CreatePopup();
 
-	if((hMenu = ::CreatePopupMenu()) == nullptr)
+	if(!hMenu)
 		return false;
 
 	mfcless::Point pt = GetPointFromPosition(m_Cursor);
 
 	// We add an mnemonic for an unbreakable space to avoid activating edit mode accidentally.
-	AppendMenuW(hMenu, mfcless::menu::String, IDC_PATTERN_RECORD, L"Editing (recording) is disabled;&\u00A0 click here to enable it.");
+	hMenu.AppendMenu(mfcless::menu::String, IDC_PATTERN_RECORD, L"Editing (recording) is disabled;&\u00A0 click here to enable it.");
 
 	ClientToScreen(&pt);
 	hMenu.TrackPopupMenu(mfcless::menu::LeftAlign, pt.x, pt.y, this);
@@ -7663,20 +7667,17 @@ intptr_t CViewPattern::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pT
 	if(text.empty())
 		return mfcless::Window<QAbstractScrollArea>::OnToolHitTest(point, pTI);
 
-	pTI->hwnd = this;
+	pTI->hwnd = const_cast<CViewPattern *>(this);
 	pTI->uId = item.ToIntPtr();
 	pTI->rect = rect;
-	// MFC will free() the text
-	mpt::uchar *textP = static_cast<mpt::uchar *>(calloc(text.size() + 1, sizeof(mpt::uchar)));
-	std::copy(text.begin(), text.end(), textP);
-	pTI->lpszText = textP;
+	pTI->text = mfcless::ToQString(text);
 
 	return item.ToIntPtr();
 }
 
 
 // Accessible description for screen readers
-HRESULT CViewPattern::get_accName(VARIANT varChild, BSTR *pszName)
+QString CViewPattern::GetAccessibleName()
 {
 	const ModCommand &m = GetCursorCommand();
 	const size_t columnIndex = m_Cursor.GetColumnType();
@@ -7700,20 +7701,19 @@ HRESULT CViewPattern::get_accName(VARIANT varChild, BSTR *pszName)
 		channelName += UL_(": ") + mpt::ToUnicode(sndFile->GetCharsetInternal(), sndFile->ChnSettings[chn].szName);
 
 	mpt::ustring str = TrackerSettings::Instance().patternAccessibilityFormat;
-	str.Replace(UL_("%sequence%"), mpt::ufmt::val(sndFile->Order.GetCurrentSequenceIndex()));
-	str.Replace(UL_("%order%"), FormatOrderRow(GetCurrentOrder()));
-	str.Replace(UL_("%pattern%"), mpt::ufmt::val(GetCurrentPattern()));
-	str.Replace(UL_("%row%"), FormatOrderRow(m_Cursor.GetRow()));
-	str.Replace(UL_("%channel%"), channelNumber);
-	str.Replace(UL_("%column_type%"), column);
-	str.Replace(UL_("%column_description%"), GetCursorDescription());
-	str.Replace(UL_("%channel_name%"), channelName);
+	str = mpt::replace(str, mpt::ustring(UL_("%sequence%")), mpt::ustring(mpt::ufmt::val(sndFile->Order.GetCurrentSequenceIndex())));
+	str = mpt::replace(str, mpt::ustring(UL_("%order%")), mpt::ustring(FormatOrderRow(GetCurrentOrder())));
+	str = mpt::replace(str, mpt::ustring(UL_("%pattern%")), mpt::ustring(mpt::ufmt::val(GetCurrentPattern())));
+	str = mpt::replace(str, mpt::ustring(UL_("%row%")), mpt::ustring(FormatOrderRow(m_Cursor.GetRow())));
+	str = mpt::replace(str, mpt::ustring(UL_("%channel%")), mpt::ustring(channelNumber));
+	str = mpt::replace(str, mpt::ustring(UL_("%column_type%")), mpt::ustring(column));
+	str = mpt::replace(str, mpt::ustring(UL_("%column_description%")), mpt::ustring(GetCursorDescription()));
+	str = mpt::replace(str, mpt::ustring(UL_("%channel_name%")), mpt::ustring(channelName));
 
 	if(str.empty())
-		return CModScrollView::get_accName(varChild, pszName);
+		return CModScrollView::GetAccessibleName();
 
-	*pszName = str.AllocSysString();
-	return S_OK;
+	return mfcless::ToQString(str);
 }
 
 OPENMPT_NAMESPACE_END

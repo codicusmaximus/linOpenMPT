@@ -3,7 +3,7 @@
  * -----------------
  * Purpose: Dialog showing a list of unsaved documents, with the ability to choose which documents should be saved or not.
  * Notes  : mfcless twin of upstream's mptrack/CloseMainDialog.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */

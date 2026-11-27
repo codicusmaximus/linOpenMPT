@@ -98,12 +98,18 @@ struct Brush
 {
 	uint32_t color = 0xFFFFFF;
 	bool null = false;
+	// The DC's own brush colour (SetDCBrushColor), as the DC_BRUSH stock object
+	bool dc = false;
+	// The 50% grey checkerboard brush for inverted drag frames
+	bool halftone = false;
 
 	Brush() = default;
 	explicit Brush(uint32_t brushColor) : color(brushColor) {}
 	bool CreateSolidBrush(uint32_t brushColor) { *this = Brush(brushColor); return true; }
 	void DeleteObject() { *this = Brush(); }
 	static Brush Null() { Brush b; b.null = true; return b; }
+	static Brush DCColor() { Brush b; b.dc = true; return b; }
+	static Brush Halftone() { Brush b; b.halftone = true; b.color = 0; return b; }
 	QBrush ToQBrush() const { return null ? QBrush(Qt::NoBrush) : QBrush(ToQColor(color)); }
 };
 
@@ -168,7 +174,8 @@ public:
 	DC &operator=(const DC &) = delete;
 
 	QPainter *GetPainter() const { return m_painter; }
-	bool IsValid() const { return m_painter != nullptr; }
+	// Made (CreateCompatibleDC) or drawing on something.
+	bool IsValid() const { return m_painter != nullptr || m_created; }
 	explicit operator bool() const { return IsValid(); }
 
 	// Memory DCs.
@@ -264,7 +271,10 @@ public:
 	int IntersectClipRect(int l, int t, int r, int b) { return IntersectClipRect(Rect(l, t, r, b)); }
 	int SelectClipRect(const Rect *r);
 	Rect GetClipBox() const;
+	int GetClipBox(Rect &r) const { r = GetClipBox(); return 1; }
+	int GetClipBox(Rect *r) const { return GetClipBox(*r); }
 	bool RectVisible(const Rect &r) const;
+	bool RectVisible(const Rect *r) const { return RectVisible(*r); }
 
 	int SaveDC();
 	bool RestoreDC(int saved);
@@ -276,6 +286,7 @@ protected:
 	void ApplyBrush();
 
 	QPainter *m_painter = nullptr;
+	bool m_created = false;
 	std::unique_ptr<QPainter> m_ownPainter;
 	Bitmap *m_bitmap = nullptr;
 	QPaintDevice *m_device = nullptr;
@@ -287,6 +298,9 @@ protected:
 	uint32_t m_textColor = 0, m_bkColor = 0xFFFFFF;
 	int m_bkMode = bk::Opaque;
 	Point m_pos;
+	// The area the paint event repaints (a PaintDC's), for GetClipBox
+	Rect m_paintRect;
+	bool m_hasPaintRect = false;
 	struct Saved
 	{
 		Pen pen;
@@ -299,6 +313,27 @@ protected:
 };
 
 // FillRect(dc, rect, brush) in all the forms upstream writes it.
+// The device context calls as free functions on a DC or a pointer to one
+// (upstream calls them on an HDC), found by argument-dependent lookup.
+inline DC &DCRef(DC &dc) { return dc; }
+inline DC &DCRef(DC *dc) { return *dc; }
+template <typename D> uint32_t SetDCBrushColor(D &&dc, uint32_t c) { return DCRef(dc).SetDCBrushColor(c); }
+template <typename D> uint32_t SetDCPenColor(D &&dc, uint32_t c) { return DCRef(dc).SetDCPenColor(c); }
+template <typename D> uint32_t SetTextColor(D &&dc, uint32_t c) { return DCRef(dc).SetTextColor(c); }
+template <typename D> uint32_t SetBkColor(D &&dc, uint32_t c) { return DCRef(dc).SetBkColor(c); }
+template <typename D> int SetBkMode(D &&dc, int mode) { return DCRef(dc).SetBkMode(mode); }
+template <typename D> bool RectVisible(D &&dc, const Rect *r) { return DCRef(dc).RectVisible(*r); }
+template <typename D> void FrameRect(D &&dc, const Rect *r, const Brush &b) { DCRef(dc).FrameRect(*r, &b); }
+template <typename D> void InvertRect(D &&dc, const Rect *r) { DCRef(dc).InvertRect(*r); }
+template <typename D> bool DrawEdge(D &&dc, Rect &r, uint32_t edgeType, uint32_t flags) { return DCRef(dc).DrawEdge(&r, edgeType, flags); }
+template <typename D> bool DrawEdge(D &&dc, Rect *r, uint32_t edgeType, uint32_t flags) { return DCRef(dc).DrawEdge(r, edgeType, flags); }
+template <typename D> bool PatBlt(D &&dc, int x, int y, int w, int h, uint32_t rasterOp) { return DCRef(dc).PatBlt(x, y, w, h, rasterOp); }
+template <typename D, typename S> bool BitBlt(D &&dc, int x, int y, int w, int h, S &&src, int xs, int ys, uint32_t rasterOp) { return DCRef(dc).BitBlt(x, y, w, h, &DCRef(src), xs, ys, rasterOp); }
+template <typename D> Bitmap *SelectBitmap(D &&dc, Bitmap &bmp) { return DCRef(dc).SelectObject(&bmp); }
+template <typename D> Bitmap *SelectBitmap(D &&dc, Bitmap *bmp) { return DCRef(dc).SelectObject(bmp); }
+template <typename D> Brush SelectBrush(D &&dc, const Brush &b) { return DCRef(dc).SelectObject(b); }
+template <typename D> Pen SelectPen(D &&dc, const Pen &p) { return DCRef(dc).SelectObject(p); }
+template <typename D> QFont SelectFont(D &&dc, const QFont &f) { return DCRef(dc).SelectObject(f); }
 inline void FillRect(DC &dc, const Rect &r, const Brush &b) { dc.FillRect(r, &b); }
 inline void FillRect(DC &dc, const Rect *r, const Brush &b) { dc.FillRect(*r, &b); }
 inline void FillRect(DC *dc, const Rect &r, const Brush &b) { dc->FillRect(r, &b); }
@@ -327,6 +362,19 @@ struct DrawItemInfo
 	DC *hDC = nullptr;
 	Rect rcItem;
 	uintptr_t itemData = 0;
+};
+
+// Window's paint event sets the area it repaints, for the PaintDC made in OnPaint.
+class PaintRegionScope
+{
+public:
+	explicit PaintRegionScope(const QRect &r);
+	~PaintRegionScope();
+	PaintRegionScope(const PaintRegionScope &) = delete;
+	PaintRegionScope &operator=(const PaintRegionScope &) = delete;
+private:
+	QRect m_old;
+	bool m_hadOld;
 };
 
 // The DC of OnPaint: draws on the widget being painted (a scroll area's

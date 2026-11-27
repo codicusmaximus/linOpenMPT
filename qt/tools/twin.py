@@ -56,7 +56,8 @@ TYPES = [
 	(r'\bCView\s*\*', 'mfcless::DocumentView *'),
 	(r'\bMSG (\w+) = \{(\w+), (\w+), (\w+), (\w+), 0, \{\}\};', r'mfcless::Message \1{\2, \3, \4, \5, nullptr};'),
 	(r'\btimeGetTime\(\)', 'mfcless::TickCount()'),
-	(r'\bNCCALCSIZE_PARAMS\s*\*\s*', 'mfcless::Rect *'),
+	(r'\bNCCALCSIZE_PARAMS\s*\*\s*', 'mfcless::NcCalcSizeParams *'),
+	(r'(?<!::)\bHT(BORDER|CLIENT|NOWHERE|CAPTION|TRANSPARENT|ERROR)\b', lambda m: 'mfcless::hit::' + {'BORDER': 'Border', 'CLIENT': 'Client', 'NOWHERE': 'Nowhere', 'CAPTION': 'Caption', 'TRANSPARENT': 'Transparent', 'ERROR': 'Error'}[m.group(1)]),
 	(r'HRESULT get_accName\(VARIANT \w+, BSTR \*\w+\) override;', 'QString GetAccessibleName() override;'),
 	(r'(\w+)\(NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1()'),
 	(r'(\w+)\(UINT\s*(\w*),\s*NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1(uint32 \2)'),
@@ -152,6 +153,10 @@ LATE = [
 	(r'(?m)^[ \t]*\w+->SetExtendedStyle\(\w+->GetExtendedStyle\(\) \| TBSTYLE_EX_DRAWDDARROWS\);\n', ''),
 	(r'\bTBSTYLE_(BUTTON|SEP|CHECK|DROPDOWN)\b', lambda m: 'CModControlBar::' + {'BUTTON': 'Button', 'SEP': 'Separator', 'CHECK': 'Check', 'DROPDOWN': 'DropDown'}[m.group(1)]),
 	(r'(?<!::)\bXBUTTON1\b', r'mfcless::XButton::Back'),
+	(r'(?<!::)\bWA_INACTIVE\b', r'mfcless::activate::Inactive'),
+	(r'(?<!::)\bWA_ACTIVE\b', r'mfcless::activate::Active'),
+	(r'(?<!::)\bWA_CLICKACTIVE\b', r'mfcless::activate::ClickActive'),
+	(r'\b(\w+)\.mfcless::(Begin|End)WaitCursor\(\)', r'mfcless::\2WaitCursor()'),
 	(r'(?<!::)\bXBUTTON2\b', r'mfcless::XButton::Forward'),
 	(r'->mfcless::Window<QComboBox>::ResetContent\(\)', '->clear()'),
 	# Child windows by ID, through the Windows API.
@@ -186,7 +191,17 @@ LATE = [
 	(r'(?<![\w.>])(?:::)?\bGetFocus\(\)', 'mfcless::GetFocus()'),
 	(r'(?<![\w.>])\bSetFocus\(\)', 'setFocus()'),
 	(r'(?<![\w.>])\bGotoDlgCtrl\(', 'mfcless::GotoDlgCtrl('),
+	(r'\bm_hWnd\s*==\s*(?:nullptr|NULL)', '!IsCreated()'),
+	(r'\bm_hWnd\s*!=\s*(?:nullptr|NULL)', 'IsCreated()'),
+	(r'!\s*m_hWnd\b', '!IsCreated()'),
 	(r'\b(\w+)->m_hWnd\b', r'\1'),
+	# Device contexts and GDI objects: the objects themselves.
+	(r'(?:->|\.)m_hDC\b', ''),
+	(r'::GetDC\(this\)', 'GetDC()'),
+	(r'::ReleaseDC\(this,\s*(\w+)\)', r'ReleaseDC(\1)'),
+	(r'\.GetSafeHdc\(\)', '.IsValid()'),
+	(r'!\s*(\w+)\.m_hObject\b', r'\1.IsNull()'),
+	(r'\b(\w+)\.m_hObject\b', r'!\1.IsNull()'),
 	(r'\)->m_hWnd\b', ')'),
 	(r'(?<![\w.>])\bm_hWnd\b', 'this'),
 	(r'\bMB_ICON(WARNING|EXCLAMATION)\b', 'nfIconWarning'),
@@ -553,6 +568,10 @@ def message_map(m):
 			out.append('\tAddScroll(Qt::Vertical, &%s::OnVScroll);%s' % (cls, comment))
 		elif macro.startswith('ON_WM_') and macro[6:] in WINDOW_MESSAGES:
 			out.append('\t// %s (mfcless::Window)%s' % (t, comment))
+		elif macro in ('ON_WM_NCCALCSIZE', 'ON_WM_NCPAINT', 'ON_WM_NCHITTEST', 'ON_WM_NCMOUSEMOVE', 'ON_WM_NCLBUTTONDOWN', 'ON_WM_NCLBUTTONUP', 'ON_WM_NCLBUTTONDBLCLK') and base == 'CModScrollView':
+			out.append('\t// %s (CModScrollView)%s' % (t, comment))
+		elif macro == 'ON_WM_ACTIVATE':
+			out.append('\t// %s (mfcless::Window)%s' % (t, comment))
 		elif macro in ('ON_MESSAGE', 'ON_REGISTERED_MESSAGE'):
 			out.append('\tAddMessage(%s, %s);%s' % (args[0], args[1], comment))
 		else:
@@ -689,15 +708,19 @@ def member_access(text, types):
 			if method == 'GetItemData':
 				return 'mfcless::GetItemData(%s, ' % name
 		return name + (repl if repl else '->' + method + '(')
-	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
+	# Members by their names: m_ ones, and others the header declares.
+	# (only controls, so that locals of other kinds keep their dots)
+	names = sorted((n for n, t in types.items() if not n.startswith('m_') and len(n) > 2 and (t in CONTROL_METHODS or t.startswith('Q') or t.startswith('mfcless::'))), key=len, reverse=True)
+	member = r'(m_\w+' + ''.join('|' + re.escape(n) for n in names) + r')'
+	text = re.sub(r'(?<![\w.>:])' + member + r'\.(\w+)\(', call, text)
 	def array_call(m):
-		inner = call(re.match(r'(m_\w+)\.(\w+)\(', m.group(1) + '.' + m.group(3) + '('))
+		inner = call(re.match(r'(\w+)\.(\w+)\(', m.group(1) + '.' + m.group(3) + '('))
 		if inner.startswith('mfcless::'):
 			return inner.replace('(' + m.group(1) + ', ', '(' + m.group(1) + '[' + m.group(2) + '], ', 1)
 		return inner.replace(m.group(1), m.group(1) + '[' + m.group(2) + ']', 1) if inner != m.group(1) + '.' + m.group(3) + '(' else m.group(0)
-	text = re.sub(r'\b(m_\w+)\[([^\[\]]+)\]\.(\w+)\(', array_call, text)
-	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
-	text = re.sub(r'\(&(m_\w+)\)', lambda m: '(' + m.group(1) + ')' if m.group(1) in types else m.group(0), text)
+	text = re.sub(r'(?<![\w.>:])' + member + r'\[([^\[\]]+)\]\.(\w+)\(', array_call, text)
+	text = re.sub(r'(?<![\w.>:])' + member + r'\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
+	text = re.sub(r'\(&' + member + r'\)', lambda m: '(' + m.group(1) + ')' if m.group(1) in types else m.group(0), text)
 	def deref(name):
 		return '*' + name if name in types else name
 	text = re.sub(r'(&\s*\w+\([^)]*\)\s*(?:const\s*)?\{\s*return )(m_\w+)(;)', lambda m: m.group(1) + deref(m.group(2)) + m.group(3), text)
