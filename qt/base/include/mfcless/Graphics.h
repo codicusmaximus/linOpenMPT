@@ -144,13 +144,23 @@ class Bitmap
 public:
 	Bitmap() = default;
 	explicit Bitmap(QImage img) : image(std::move(img)) {}
+	Bitmap(const Bitmap &other) : image(other.image) {}
+	Bitmap &operator=(const Bitmap &other);
+	// A DC that still draws on it lets go of it first, as deleting a
+	// selected bitmap leaves the DC with none on Windows.
+	~Bitmap();
 	bool CreateCompatibleBitmap(DC *dc, int width, int height);
 	bool CreateBitmap(int width, int height);
-	void DeleteObject() { image = QImage(); }
+	void DeleteObject();
 	bool IsNull() const { return image.isNull(); }
 	Size GetSize() const { return Size(image.width(), image.height()); }
 
 	QImage image;
+
+private:
+	friend class DC;
+	void Release();
+	DC *m_selectedIn = nullptr;
 };
 
 enum class Stock
@@ -284,6 +294,7 @@ public:
 	bool RestoreDC(int saved);
 
 protected:
+	friend class Bitmap;
 	void Begin(QPaintDevice *device);
 	void End();
 	void ApplyPen();

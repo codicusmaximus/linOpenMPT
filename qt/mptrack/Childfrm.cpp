@@ -63,7 +63,7 @@ CChildFrame::CChildFrame()
 {
 	glMdiOpenCount++;
 	setAttribute(Qt::WA_DeleteOnClose);
-	RegisterMessageMap();
+	EnsureMessageMap();
 }
 
 
@@ -238,12 +238,16 @@ bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 		return false;
 	// Get 2nd window handle
 	m_hWndView = view->ViewWidget();
+	// Shown once it is set up, as a view's window is made without a size
+	// and gets one only after OnInitialUpdate.
+	m_hWndView->hide();
 	m_wndSplitter->insertWidget(1, m_hWndView);
 	if(sizes.size() >= 2)
 		m_wndSplitter->setSizes(sizes);
 	view->SetDocument(m_document);
 	m_currentViewClassName = pViewClass->m_lpszClassName;
 	view->OnInitialUpdate();
+	m_hWndView->show();
 	if ((m_hWndView) && (m_hWndCtrl))
 	{
 		mfcless::PostModMessage(m_hWndView, WM_MOD_VIEWMSG, VIEWMSG_SETCTRLWND, reinterpret_cast<intptr_t>(m_hWndCtrl));

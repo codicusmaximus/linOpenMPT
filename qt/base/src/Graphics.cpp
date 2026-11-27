@@ -39,6 +39,37 @@ QPen Pen::ToQPen() const
 }
 
 
+Bitmap &Bitmap::operator=(const Bitmap &other)
+{
+	if(this != &other)
+	{
+		Release();
+		image = other.image;
+	}
+	return *this;
+}
+
+Bitmap::~Bitmap()
+{
+	Release();
+}
+
+void Bitmap::DeleteObject()
+{
+	Release();
+	image = QImage();
+}
+
+void Bitmap::Release()
+{
+	if(m_selectedIn)
+	{
+		m_selectedIn->End();
+		m_selectedIn->m_bitmap = nullptr;
+		m_selectedIn = nullptr;
+	}
+}
+
 bool Bitmap::CreateCompatibleBitmap(DC *, int width, int height)
 {
 	return CreateBitmap(width, height);
@@ -46,6 +77,7 @@ bool Bitmap::CreateCompatibleBitmap(DC *, int width, int height)
 
 bool Bitmap::CreateBitmap(int width, int height)
 {
+	Release();
 	image = QImage(std::max(1, width), std::max(1, height), QImage::Format_RGB32);
 	image.fill(Qt::black);
 	return true;
@@ -76,6 +108,8 @@ DC::DC(QPainter &painter)
 DC::~DC()
 {
 	End();
+	if(m_bitmap)
+		m_bitmap->m_selectedIn = nullptr;
 }
 
 void DC::Begin(QPaintDevice *device)
@@ -106,6 +140,8 @@ void DC::End()
 bool DC::CreateCompatibleDC(DC *)
 {
 	End();
+	if(m_bitmap)
+		m_bitmap->m_selectedIn = nullptr;
 	m_bitmap = nullptr;
 	m_created = true;
 	return true;
@@ -114,6 +150,8 @@ bool DC::CreateCompatibleDC(DC *)
 void DC::DeleteDC()
 {
 	End();
+	if(m_bitmap)
+		m_bitmap->m_selectedIn = nullptr;
 	m_bitmap = nullptr;
 	m_created = false;
 }
@@ -122,7 +160,13 @@ Bitmap *DC::SelectObject(Bitmap *bitmap)
 {
 	Bitmap *old = m_bitmap;
 	End();
+	if(old)
+		old->m_selectedIn = nullptr;
+	if(bitmap && bitmap->m_selectedIn && bitmap->m_selectedIn != this)
+		bitmap->Release();
 	m_bitmap = bitmap;
+	if(bitmap)
+		bitmap->m_selectedIn = this;
 	if(bitmap && !bitmap->image.isNull())
 		Begin(&bitmap->image);
 	return old;

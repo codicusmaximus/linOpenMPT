@@ -116,6 +116,7 @@ protected:
 	virtual void OnCancel() { reject(); }
 	virtual void DoDataExchange(DataExchange & /*dx*/) {}
 	void RegisterMessageMap() override;
+	bool MessageMapReady() const override { return m_controlsBuilt || m_initialized; }
 
 	// DDX_Control: binds member to the control with this ID. A control of a
 	// class of the dialog's own (a derived control) is made as that class.
@@ -227,6 +228,7 @@ private:
 	std::map<uint32, QWidget *> m_items;
 	std::vector<QWidget *> m_templateOrder;
 	bool m_initialized = false;
+	bool m_controlsBuilt = false;
 	QFrame *m_childFrame = nullptr;  // the frame of a child dialog that has one
 	// A modal dialog that ends while OnInitDialog runs (EndDialog there) is never shown.
 	bool m_inModalInit = false;

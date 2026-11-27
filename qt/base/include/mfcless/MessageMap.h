@@ -121,6 +121,11 @@ public:
 	// program's messages) to the handlers. True if e was one.
 	bool HandleModMessage(QEvent *e);
 
+	// Registers the handlers (RegisterMessageMap) the first time, once
+	// MessageMapReady says the window's controls exist: windows on their
+	// first polish, everything on the first message or command it gets.
+	void EnsureMessageMap();
+
 	// The notification being handled (one with id 0 outside of a handler).
 	const NotifyInfo &CurrentNotify() const { return *m_current; }
 	NotifyInfo &CurrentNotify() { return *m_current; }
@@ -129,6 +134,9 @@ protected:
 	// Called once the window's controls exist. Overrides call their base
 	// class's first, as upstream's tables chain to the base class's table.
 	virtual void RegisterMessageMap() {}
+	// False while a window's controls are still to be made (a dialog before
+	// its template is built), so that registering waits for them.
+	virtual bool MessageMapReady() const { return true; }
 
 	template <typename T>
 	void AddCommand(uint32_t id, void (T::*fn)())
@@ -227,6 +235,7 @@ private:
 	std::vector<MessageEntry> m_messages;
 	NotifyInfo m_none;
 	NotifyInfo *m_current = &m_none;
+	bool m_mapRegistered = false;
 };
 
 // Connects a control's Qt signals to the notifications of its kind, sent

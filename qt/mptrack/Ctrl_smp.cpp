@@ -180,7 +180,6 @@ CCtrlSamples::CCtrlSamples(CModControlView &parent, CModDoc &document)
 	: CModControlDlg(parent, document)
 {
 	m_nLockCount = 1;
-	m_EditTimeStretchRatio->SetAccessibleSuffix(UL_("%"));
 }
 
 
@@ -298,6 +297,7 @@ bool CCtrlSamples::OnInitDialog()
 	SubclassDlgItem(IDC_EDIT6, m_EditTimeStretchRatio);
 	m_EditTimeStretchRatio->AllowNegative(false);
 	m_EditTimeStretchRatio->SetDecimalValue(100.0);
+	m_EditTimeStretchRatio->SetAccessibleSuffix(UL_("%"));
 	m_SpinTimeStretchRatio->SetRange(1, 100000);
 
 	SetRedraw(true);

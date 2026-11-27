@@ -60,7 +60,6 @@ void MidiInOutEditor::DoDataExchange(DataExchange &dx)
 MidiInOutEditor::MidiInOutEditor(MidiInOut &plugin)
 	: CAbstractVstEditor{plugin}
 {
-	m_latencyEdit->SetAccessibleSuffix(UL_("milliseconds"));
 }
 
 
@@ -68,6 +67,7 @@ bool MidiInOutEditor::OpenEditor(QWidget *parent)
 {
 	Create(IDD_MIDI_IO_PLUGIN, parent);
 	MidiInOut &plugin = static_cast<MidiInOut &>(m_VstPlugin);
+	m_latencyEdit->SetAccessibleSuffix(UL_("milliseconds"));
 	m_latencyEdit->AllowFractions(true);
 	m_latencyEdit->AllowNegative(true);
 	m_latencyEdit->SetDecimalValue(plugin.m_latency * 1000.0, 4);

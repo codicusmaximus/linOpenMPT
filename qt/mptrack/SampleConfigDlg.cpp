@@ -56,14 +56,14 @@ void COptionsSampleEditor::DoDataExchange(DataExchange &dx)
 
 COptionsSampleEditor::COptionsSampleEditor() : PropertyPage{IDD_OPTIONS_SAMPLEEDITOR}
 {
-	m_undoBufferEdit->SetAccessibleSuffix(UL_("%"));
-	m_finetuneEdit->SetAccessibleSuffix(UL_("cents"));
 }
 
 
 bool COptionsSampleEditor::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
+	m_undoBufferEdit->SetAccessibleSuffix(UL_("%"));
+	m_finetuneEdit->SetAccessibleSuffix(UL_("cents"));
 	SetItemInt(IDC_EDIT_UNDOSIZE, TrackerSettings::Instance().m_SampleUndoBufferSize.Get().GetSizeInPercent());
 	SetItemInt(IDC_EDIT_FINETUNE, TrackerSettings::Instance().m_nFinetuneStep);
 	Item<mfcless::UpDown>(IDC_SPIN1)->SetRange(0, 100);

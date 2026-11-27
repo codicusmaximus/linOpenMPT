@@ -333,8 +333,12 @@ std::map<uint32_t, std::vector<std::string>> DialogInit(uint32_t id)
 		r.Seek(r.Pos() + length);
 		while(!text.empty() && text.back() == '\0')
 			text.pop_back();
+		// The resource compiler writes the 16-bit message numbers (0x0401 for a
+		// list box, 0x0403 for a combo box) and 0x1234 for a ComboBoxEx item.
 		constexpr uint16_t CB_ADDSTRING = 0x0143, LB_ADDSTRING = 0x0180, CBEM_INSERTITEM = 0x040B;
-		if(message == CB_ADDSTRING || message == LB_ADDSTRING || message == CBEM_INSERTITEM)
+		constexpr uint16_t WIN16_LB_ADDSTRING = 0x0401, WIN16_CB_ADDSTRING = 0x0403, AFX_CB_ADDSTRING = 0x1234;
+		if(message == CB_ADDSTRING || message == LB_ADDSTRING || message == CBEM_INSERTITEM
+			|| message == WIN16_LB_ADDSTRING || message == WIN16_CB_ADDSTRING || message == AFX_CB_ADDSTRING)
 			result[control].push_back(text);
 	}
 	return result;

@@ -414,7 +414,7 @@ int CMainFrame::OnCreate()
 	if(TrackerSettings::Instance().midiSetup & MidiSetup::EnableMidiInOnStartup)
 		midiOpenDevice(false);
 
-	RegisterMessageMap();
+	EnsureMessageMap();
 
 	return 0;
 }

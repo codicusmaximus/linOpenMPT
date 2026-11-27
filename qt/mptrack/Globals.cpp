@@ -273,7 +273,7 @@ CModControlView::CModControlView(QWidget *parent)
 	: Window(parent)
 {
 	setFocusPolicy(Qt::StrongFocus);
-	RegisterMessageMap();
+	EnsureMessageMap();
 }
 
 
@@ -437,7 +437,7 @@ bool CModControlView::SetActivePage(Page page, intptr_t lParam)
 			return false;
 		}
 		pDlg->SetViewWnd(m_hWndView);
-		if(!pDlg->Create(this)) // Creation failed.
+		if(!pDlg->Create(nID, this)) // Creation failed.
 		{
 			delete pDlg;
 			return false;
@@ -752,7 +752,6 @@ CModScrollView::CModScrollView(QWidget *parent)
 	setFocusPolicy(Qt::StrongFocus);
 	viewport()->setFocusProxy(this);
 	setFrameShape(QFrame::NoFrame);
-	RegisterMessageMap();
 }
 
 

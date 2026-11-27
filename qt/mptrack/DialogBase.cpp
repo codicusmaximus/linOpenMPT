@@ -104,7 +104,8 @@ void DialogBase::CreateFromTemplate()
 		mfcless::ConnectNotifications(w, id, this);
 		w->installEventFilter(this);
 	}
-	RegisterMessageMap();
+	m_controlsBuilt = true;
+	EnsureMessageMap();
 }
 
 

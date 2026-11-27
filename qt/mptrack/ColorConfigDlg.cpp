@@ -143,8 +143,6 @@ COptionsColors::COptionsColors()
     : PropertyPage{IDD_OPTIONS_COLORS}
     , CustomColors{TrackerSettings::Instance().rgbCustomColors}
 {
-	m_rpbEdit->SetAccessibleSuffix(UL_("rows per beat"));
-	m_rpmEdit->SetAccessibleSuffix(UL_("rows per measure"));
 }
 
 
@@ -163,6 +161,8 @@ static mpt::ustring FormatFontName(const FontSetting &font)
 bool COptionsColors::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
+	m_rpbEdit->SetAccessibleSuffix(UL_("rows per beat"));
+	m_rpmEdit->SetAccessibleSuffix(UL_("rows per measure"));
 	
 	m_pPreviewDib = LoadDib(IDB_COLORSETUP);
 	

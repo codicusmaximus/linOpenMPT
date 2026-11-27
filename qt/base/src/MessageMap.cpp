@@ -30,9 +30,18 @@
 namespace mfcless
 {
 
+void MessageMap::EnsureMessageMap()
+{
+	if(m_mapRegistered || !MessageMapReady())
+		return;
+	m_mapRegistered = true;
+	RegisterMessageMap();
+}
+
 // Later registrations (a derived class's) take precedence over earlier ones.
 bool MessageMap::DispatchCommand(uint32_t id)
 {
+	EnsureMessageMap();
 	for(auto it = m_commands.rbegin(); it != m_commands.rend(); ++it)
 	{
 		if(id >= it->first && id <= it->last && it->fn(id))
@@ -43,6 +52,7 @@ bool MessageMap::DispatchCommand(uint32_t id)
 
 bool MessageMap::DispatchCommandUpdate(uint32_t id, CommandState &state)
 {
+	EnsureMessageMap();
 	for(auto it = m_updates.rbegin(); it != m_updates.rend(); ++it)
 	{
 		if(id >= it->first && id <= it->last)
@@ -57,6 +67,7 @@ bool MessageMap::DispatchCommandUpdate(uint32_t id, CommandState &state)
 
 bool MessageMap::DispatchMessage(uint32_t message, uintptr_t wParam, intptr_t lParam, intptr_t &result)
 {
+	EnsureMessageMap();
 	for(auto it = m_messages.rbegin(); it != m_messages.rend(); ++it)
 	{
 		if(it->message == message)
@@ -82,6 +93,7 @@ bool MessageMap::HandleModMessage(QEvent *e)
 
 bool MessageMap::HasCommand(uint32_t id) const
 {
+	const_cast<MessageMap *>(this)->EnsureMessageMap();
 	for(const auto &c : m_commands)
 	{
 		if(id >= c.first && id <= c.last)
@@ -92,6 +104,7 @@ bool MessageMap::HasCommand(uint32_t id) const
 
 bool MessageMap::DispatchNotify(NotifyInfo &info)
 {
+	EnsureMessageMap();
 	// Buttons send their clicks as commands, as on Windows.
 	if(info.code == Notify::Clicked && DispatchCommand(info.id))
 		return true;
@@ -109,6 +122,7 @@ bool MessageMap::DispatchNotify(NotifyInfo &info)
 
 bool MessageMap::DispatchScroll(Qt::Orientation orientation, ScrollCode code, int pos, QWidget *control)
 {
+	EnsureMessageMap();
 	for(auto it = m_scrolls.rbegin(); it != m_scrolls.rend(); ++it)
 	{
 		if(it->orientation == orientation)

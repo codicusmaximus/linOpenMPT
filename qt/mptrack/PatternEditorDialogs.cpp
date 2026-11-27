@@ -559,7 +559,7 @@ void CEditCommand::DoDataExchange(DataExchange &dx)
 CEditCommand::CEditCommand(CSoundFile &sndFile)
     : sndFile(sndFile), effectInfo(sndFile)
 {
-	DialogBase::Create(IDD_PATTERN_EDITCOMMAND);
+	DialogBase::Create(IDD_PATTERN_EDITCOMMAND, nullptr);
 }
 
 

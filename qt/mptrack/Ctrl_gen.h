@@ -42,7 +42,7 @@ protected:
 	uint32 m_lastVuUpdateTime;
 
 public:
-	CVuMeter() { m_lastVuUpdateTime = mfcless::TickCount(); }
+	explicit CVuMeter(QWidget *parent = nullptr) : Window(parent) { m_lastVuUpdateTime = mfcless::TickCount(); }
 	void SetVuMeter(int level, bool force = false);
 
 protected:

@@ -57,7 +57,9 @@ void UpDown::SetRange(int lower, int upper)
 {
 	m_lower = lower;
 	m_upper = upper;
-	SetPos(m_pos);
+	// As UDM_SETRANGE: the position is kept in range, but the buddy's text
+	// is left alone until the position is set.
+	m_pos = std::clamp(m_pos, std::min(m_lower, m_upper), std::max(m_lower, m_upper));
 }
 
 void UpDown::SetPos(int pos)

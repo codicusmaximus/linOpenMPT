@@ -459,6 +459,8 @@ protected:
 
 	bool event(QEvent *e) override
 	{
+		if(e->type() == QEvent::Polish)
+			this->EnsureMessageMap();
 		if(HandleModMessage(e))
 			return true;
 		if(e->type() == QEvent::ToolTip && ToolTip(static_cast<QHelpEvent *>(e)))

@@ -1030,8 +1030,6 @@ void COptionsMixer::DoDataExchange(DataExchange &dx)
 COptionsMixer::COptionsMixer()
 	: PropertyPage{IDD_OPTIONS_MIXER}
 {
-	m_CEditRampUp->SetAccessibleSuffix(UL_("microseconds up"));
-	m_CEditRampDown->SetAccessibleSuffix(UL_("microseconds down"));
 }
 
 
@@ -1039,6 +1037,8 @@ COptionsMixer::COptionsMixer()
 bool COptionsMixer::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
+	m_CEditRampUp->SetAccessibleSuffix(UL_("microseconds up"));
+	m_CEditRampDown->SetAccessibleSuffix(UL_("microseconds down"));
 
 	// Resampling type
 	{
@@ -1761,13 +1761,13 @@ CMidiSetupDlg::CMidiSetupDlg(FlagSet<MidiSetup> flags, uint32 device)
 	, m_midiSetup{flags}
 	, m_nMidiDevice{device}
 {
-	m_editAmp->SetAccessibleSuffix(UL_("%"));
 }
 
 
 bool CMidiSetupDlg::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
+	m_editAmp->SetAccessibleSuffix(UL_("%"));
 	// Flags
 	if(m_midiSetup[MidiSetup::RecordVelocity]) SetChecked(IDC_CHECK1, 1);
 	if(m_midiSetup[MidiSetup::RecordNoteOff]) SetChecked(IDC_CHECK2, 1);

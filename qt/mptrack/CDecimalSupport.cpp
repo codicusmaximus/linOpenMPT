@@ -117,10 +117,10 @@ void CDecimalSupport<T>::UpdateValidator()
 		return;
 	QString pattern = QStringLiteral("^");
 	if(m_allowNegative)
-		pattern += QStringLiteral("[-%1]?").arg(QRegularExpression::escape(QString(NegativeSign())));
+		pattern += QStringLiteral("(?:-|%1)?").arg(QRegularExpression::escape(QString(NegativeSign())));
 	pattern += QStringLiteral("\\d*");
 	if(m_allowFractions)
-		pattern += QStringLiteral("([.%1]\\d*)?").arg(QRegularExpression::escape(QString(DecimalSeparator())));
+		pattern += QStringLiteral("((?:\\.|%1)\\d*)?").arg(QRegularExpression::escape(QString(DecimalSeparator())));
 	pattern += QStringLiteral("$");
 	if(auto *old = edit->validator(); old && old->parent() == edit)
 		delete old;

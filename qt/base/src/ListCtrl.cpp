@@ -78,6 +78,8 @@ ListCtrl::ListCtrl(QWidget *parent)
 	setRootIsDecorated(false);
 	setUniformRowHeights(true);
 	setAllColumnsShowFocus(true);
+	// Columns keep the widths given them, as a report view's do.
+	header()->setStretchLastSection(false);
 	setColumnCount(0);
 	setItemDelegate(new ListDelegate(this));
 	connect(this, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem *current) {
