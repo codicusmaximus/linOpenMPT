@@ -7,6 +7,7 @@
 
 #include "mfcless/Controls.h"
 
+#include <QtCore/QSignalBlocker>
 #include <QtGui/QPainter>
 #include <QtWidgets/QBoxLayout>
 #include <QtWidgets/QLineEdit>
@@ -200,10 +201,25 @@ TabControl::TabControl(QWidget *parent)
 	m_bar->setExpanding(false);
 }
 
-int TabControl::InsertItem(int index, const QString &text) { return m_bar->insertTab(index, text); }
+// TCM_INSERTITEM and TCM_SETCURSEL do not notify TCN_SELCHANGE; only the
+// user's clicks and keys do.
+int TabControl::InsertItem(int index, const QString &text)
+{
+	const QSignalBlocker block(m_bar);
+	const int inserted = m_bar->insertTab(index, text);
+	// The bar's height comes from its tabs.
+	m_bar->setGeometry(0, 0, width(), m_bar->sizeHint().height());
+	update();
+	return inserted;
+}
 int TabControl::InsertItem(int index, const char8_t *text) { return InsertItem(index, QString::fromUtf8(reinterpret_cast<const char *>(text))); }
 int TabControl::currentIndex() const { return m_bar->currentIndex(); }
-void TabControl::setCurrentIndex(int index) { m_bar->setCurrentIndex(index); }
+void TabControl::setCurrentIndex(int index)
+{
+	const QSignalBlocker block(m_bar);
+	m_bar->setCurrentIndex(index);
+	m_bar->update();
+}
 int TabControl::count() const { return m_bar->count(); }
 
 QRect TabControl::DisplayRect() const
