@@ -199,12 +199,12 @@ class CCtrlPatterns: public CModControlDlg
 	Q_OBJECT
 	friend class COrderList;
 protected:
-	COrderList m_OrderList;
-	AccessibleButton m_BtnPrev, m_BtnNext;
+	COrderList *m_OrderList = nullptr;
+	AccessibleButton *m_BtnPrev = nullptr, *m_BtnNext = nullptr;
 	QComboBox *m_CbnInstrument = nullptr;
 	QLineEdit *m_EditSpacing = nullptr, *m_EditPatName = nullptr, *m_EditSequence = nullptr;
 	mfcless::UpDown *m_SpinInstrument = nullptr, *m_SpinSpacing = nullptr, *m_SpinSequence = nullptr;
-	CModControlBar m_ToolBar;
+	CModControlBar *m_ToolBar = nullptr;
 	INSTRUMENTINDEX m_nInstrument = 0;
 	bool m_bRecord = false, m_bVUMeters = false, m_bPluginNames = false;
 	bool m_instrDropdownOpen = false;

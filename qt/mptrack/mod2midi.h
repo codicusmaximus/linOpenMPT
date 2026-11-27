@@ -44,7 +44,7 @@ class CModToMidi : public CProgressDialog
 {
 protected:
 	QComboBox *m_CbnInstrument = nullptr, *m_CbnChannel = nullptr, *m_CbnProgram = nullptr;
-	AccessibleEdit m_EditSubSong;
+	AccessibleEdit *m_EditSubSong = nullptr;
 	mfcless::UpDown *m_SpinInstrument = nullptr;
 	CModDoc &m_modDoc;
 	MidiExport::InstrMap m_instrMap;

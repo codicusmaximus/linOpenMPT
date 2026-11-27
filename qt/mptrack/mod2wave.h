@@ -81,7 +81,7 @@ private:
 	QComboBox *m_CbnFileType = nullptr, *m_CbnSampleRate = nullptr, *m_CbnChannels = nullptr, *m_CbnDither = nullptr, *m_CbnSampleFormat = nullptr, *m_CbnSampleSlot = nullptr;
 	mfcless::UpDown *m_SpinLoopCount = nullptr, *m_SpinMinOrder = nullptr, *m_SpinMaxOrder = nullptr, *m_SpinSubsongIndex = nullptr;
 
-	AccessibleEdit m_EditLoopCount, m_EditSubSong, m_EditMinOrder;
+	AccessibleEdit *m_EditLoopCount = nullptr, *m_EditSubSong = nullptr, *m_EditMinOrder = nullptr;
 	QLineEdit *m_EditTitle = nullptr, *m_EditAuthor = nullptr, *m_EditURL = nullptr, *m_EditAlbum = nullptr, *m_EditYear = nullptr;
 	QComboBox *m_CbnGenre = nullptr;
 	QLineEdit *m_EditGenre = nullptr;

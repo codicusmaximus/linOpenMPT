@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
 
 #include "CListCtrl.h"
 #include "Globals.h"
@@ -29,10 +30,11 @@ class CViewComments: public CModScrollView
 	Q_OBJECT
 public:
 	CViewComments() = default;
-	Q_OBJECT
+public:
+	static const mfcless::ViewClass classCViewComments;
 protected:
-	CModControlBar m_ToolBar;
-	CListCtrlEx m_ItemList;
+	CModControlBar *m_ToolBar = nullptr;
+	CListCtrlEx *m_ItemList = nullptr;
 	QFont m_fixedFont;
 	HFONT m_oldFont = nullptr;
 	int m_nCurrentListId = 0, m_nListId = 0;

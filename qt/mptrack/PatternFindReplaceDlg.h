@@ -31,7 +31,7 @@ class CFindReplaceTab: public PropertyPage
 	Q_OBJECT
 protected:
 	QComboBox *m_cbnNote = nullptr, *m_cbnVolCmd = nullptr, *m_cbnVolume = nullptr, *m_cbnCommand = nullptr, *m_cbnParam = nullptr, *m_cbnPCParam = nullptr;
-	PluginComboBox m_cbnInstr;
+	PluginComboBox *m_cbnInstr = nullptr;
 
 	const CSoundFile &m_sndFile;
 	FindReplace &m_settings;

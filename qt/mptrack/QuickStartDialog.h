@@ -58,9 +58,9 @@ protected:
 
 	void RegisterMessageMap() override;
 
-	CListCtrlEx m_list;
+	CListCtrlEx *m_list = nullptr;
 	QLineEdit *m_find = nullptr;
-	AccessibleButton m_newButton, m_openButton;
+	AccessibleButton *m_newButton = nullptr, *m_openButton = nullptr;
 	CBitmap m_bmpNew, m_bmpOpen;
 	std::array<std::vector<mpt::PathString>, 3> m_paths;
 	int m_prevDPI = 0;

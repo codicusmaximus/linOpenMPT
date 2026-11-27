@@ -112,8 +112,8 @@ protected:
 
 	QComboBox *m_CbnResampling = nullptr, *m_CbnAmigaType = nullptr;
 
-	AccessibleEdit m_CEditRampUp;
-	AccessibleEdit m_CEditRampDown;
+	AccessibleEdit *m_CEditRampUp = nullptr;
+	AccessibleEdit *m_CEditRampDown = nullptr;
 	QLineEdit *m_CInfoRampUp = nullptr;
 	QLineEdit *m_CInfoRampDown = nullptr;
 
@@ -178,7 +178,7 @@ protected:
 	QSlider *m_SbBitCrushBits = nullptr;
 
 #ifndef NO_EQ
-	CEQSlider m_Sliders[MAX_EQ_BANDS];
+	CEQSlider *m_Sliders[MAX_EQ_BANDS] = {};
 	EQPreset &m_EQPreset;
 	uint32 m_nSliderMenu;
 #endif // !NO_EQ
@@ -236,7 +236,7 @@ protected:
 protected:
 	mfcless::UpDown *m_SpinSpd = nullptr, *m_SpinPat = nullptr, *m_SpinAmp = nullptr;
 	QComboBox *m_InputDevice = nullptr, *m_ATBehaviour = nullptr, *m_Quantize = nullptr, *m_ContinueMode = nullptr, *m_RecordPitchBend = nullptr;
-	AccessibleEdit m_editAmp;
+	AccessibleEdit *m_editAmp = nullptr;
 };
 
 

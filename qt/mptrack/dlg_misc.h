@@ -218,7 +218,7 @@ protected:
 		Zero,     // Set to zero
 	};
 
-	CKeyboardControl m_Keyboard;
+	CKeyboardControl *m_Keyboard = nullptr;
 	QComboBox *m_CbnSample = nullptr;
 	QSlider *m_SbOctave = nullptr;
 
@@ -271,7 +271,7 @@ class CInputDlg : public DialogBase
 {
 	Q_OBJECT
 protected:
-	CNumberEdit m_edit;
+	CNumberEdit *m_edit = nullptr;
 	mfcless::UpDown *m_spin = nullptr;
 	const mpt::ustring m_description;
 	const double m_minValueDbl = 0.0, m_maxValueDbl = 0.0;

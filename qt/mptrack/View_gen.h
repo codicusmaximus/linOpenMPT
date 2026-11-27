@@ -15,6 +15,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
 #include "mfcless/Controls.h"
+#include "DocumentView.h"
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
 #include "PluginComboBox.h"
@@ -37,22 +38,22 @@ OPENMPT_NAMESPACE_BEGIN
 class CModDoc;
 class IMixPlugin;
 
-class CViewGlobals: public DialogBase
+class CViewGlobals: public DialogBase, public mfcless::DocumentView
 {
 	Q_OBJECT
 protected:
 	QRect m_rcClient;
 	mfcless::TabControl *m_TabCtrl = nullptr;
-	PluginComboBox m_CbnEffects[CHANNELS_IN_TAB];
-	PluginComboBox m_CbnPlugin;
+	PluginComboBox *m_CbnEffects[CHANNELS_IN_TAB] = {};
+	PluginComboBox *m_CbnPlugin = nullptr;
 	QComboBox *m_CbnParam = nullptr, *m_CbnOutput = nullptr;
 
-	CSliderCtrl m_sbVolume[CHANNELS_IN_TAB], m_sbPan[CHANNELS_IN_TAB], m_sbValue, m_sbDryRatio;
-	ColorPickerButton m_channelColor[CHANNELS_IN_TAB];
+	QSlider *m_sbVolume[CHANNELS_IN_TAB] = {}, *m_sbPan[CHANNELS_IN_TAB] = {}, *m_sbValue = nullptr, *m_sbDryRatio = nullptr;
+	ColorPickerButton *m_channelColor[CHANNELS_IN_TAB] = {};
 
 	QComboBox *m_CbnPreset = nullptr;
 	QSlider *m_sbWetDry = nullptr;
-	CSpinButtonCtrl m_spinVolume[CHANNELS_IN_TAB], m_spinPan[CHANNELS_IN_TAB];
+	mfcless::UpDown *m_spinVolume[CHANNELS_IN_TAB] = {}, *m_spinPan[CHANNELS_IN_TAB] = {};
 	QAbstractButton *m_BtnSelect = nullptr, *m_BtnEdit = nullptr;
 	int m_nLockCount = 1;
 	PlugParamIndex m_nCurrentParam = 0;
@@ -62,13 +63,14 @@ protected:
 
 	QComboBox *m_CbnSpecialMixProcessing = nullptr;
 	mfcless::UpDown *m_SpinMixGain = nullptr;
-	AccessibleButton m_prevPluginButton, m_nextPluginButton;
+	AccessibleButton *m_prevPluginButton = nullptr, *m_nextPluginButton = nullptr;
 
 	enum {AdjustPattern = true, NoPatternAdjust = false};
 
 protected:
 	CViewGlobals();
-	Q_OBJECT
+public:
+	static const mfcless::ViewClass classCViewGlobals;
 public:
 	CModDoc* GetDocument() const;
 	void RecalcLayout();

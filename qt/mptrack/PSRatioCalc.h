@@ -47,10 +47,10 @@ protected:
 	void OnChangeRows();
 	void OnChangeRatio();
 
-	CNumberEdit m_EditTempo;
-	CNumberEdit m_EditRatio;
-	CNumberEdit m_EditDurationOrig, m_EditDurationNew;
-	CNumberEdit m_EditRowsOrig, m_EditRowsNew;
+	CNumberEdit *m_EditTempo = nullptr;
+	CNumberEdit *m_EditRatio = nullptr;
+	CNumberEdit *m_EditDurationOrig = nullptr, *m_EditDurationNew = nullptr;
+	CNumberEdit *m_EditRowsOrig = nullptr, *m_EditRowsNew = nullptr;
 
 	const CSoundFile &m_sndFile;
 	SAMPLEINDEX m_sampleIndex = 0;

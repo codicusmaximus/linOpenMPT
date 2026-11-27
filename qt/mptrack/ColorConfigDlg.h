@@ -33,10 +33,10 @@ class COptionsColors : public PropertyPage
 protected:
 	std::array<uint32, MAX_MODCOLORS> CustomColors;
 	QComboBox *m_ComboDPIAwareness = nullptr, *m_ComboItem = nullptr, *m_ComboFont = nullptr, *m_ComboPreset = nullptr;
-	ColorPickerButton m_BtnColor[3];
+	ColorPickerButton *m_BtnColor[3] = {};
 	QAbstractButton *m_BtnPreview = nullptr;
 	mfcless::UpDown *m_ColorSpin = nullptr, *m_spinRowsPerBeat = nullptr, *m_spinRowsPerMeasure = nullptr;
-	AccessibleEdit m_rpbEdit, m_rpmEdit;
+	AccessibleEdit *m_rpbEdit = nullptr, *m_rpmEdit = nullptr;
 	QLabel *m_TxtColor[3] = {};
 	MODPLUGDIB *m_pPreviewDib = nullptr;
 	FontSetting patternFont, commentFont;

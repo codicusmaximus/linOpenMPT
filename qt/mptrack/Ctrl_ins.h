@@ -107,22 +107,22 @@ class CCtrlInstruments: public CModControlDlg
 {
 	Q_OBJECT
 protected:
-	CModControlBar m_ToolBar;
+	CModControlBar *m_ToolBar = nullptr;
 	mfcless::UpDown *m_SpinInstrument = nullptr, *m_SpinFadeOut = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinPanning = nullptr;
 	mfcless::UpDown *m_SpinMidiPR = nullptr, *m_SpinPPS = nullptr, *m_SpinMidiBK = nullptr, *m_SpinPWD = nullptr;
 	QComboBox *m_ComboNNA = nullptr, *m_ComboDCT = nullptr, *m_ComboDCA = nullptr, *m_ComboPPC = nullptr, *m_CbnMidiCh = nullptr, *m_CbnResampling = nullptr, *m_CbnFilterMode = nullptr, *m_CbnPluginVolumeHandling = nullptr;
-	PluginComboBox m_CbnMixPlug;
+	PluginComboBox *m_CbnMixPlug = nullptr;
 	QLineEdit *m_EditName = nullptr, *m_EditFileName = nullptr, *m_EditGlobalVol = nullptr, *m_EditPanning = nullptr, *m_EditFadeOut = nullptr;
-	CNumberEdit m_EditPPS, m_EditPWD;
+	CNumberEdit *m_EditPPS = nullptr, *m_EditPWD = nullptr;
 	QAbstractButton *m_CheckPanning = nullptr, *m_CheckCutOff = nullptr, *m_CheckResonance = nullptr, *velocityStyle = nullptr;
 	QSlider *m_SliderVolSwing = nullptr, *m_SliderPanSwing = nullptr, *m_SliderCutSwing = nullptr, *m_SliderResSwing = nullptr, *m_SliderCutOff = nullptr, *m_SliderResonance = nullptr;
-	CNoteMapWnd m_NoteMap;
+	CNoteMapWnd *m_NoteMap = nullptr;
 	QSlider *m_SliderAttack = nullptr;
 	mfcless::UpDown *m_SpinAttack = nullptr;
 	//Tuning
 	QComboBox *m_ComboTuning = nullptr;
 	// Pitch/Tempo lock
-	CNumberEdit m_EditPitchTempoLock;
+	CNumberEdit *m_EditPitchTempoLock = nullptr;
 	QAbstractButton *m_CheckPitchTempoLock = nullptr;
 
 	INSTRUMENTINDEX m_nInstrument = 1;

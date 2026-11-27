@@ -55,13 +55,13 @@ class CCtrlGeneral final : public CModControlDlg
 public:
 	QLineEdit *m_EditTitle = nullptr, *m_EditArtist = nullptr;
 	QLineEdit *m_EditSpeed = nullptr, *m_EditGlobalVol = nullptr, *m_EditRestartPos = nullptr, *m_EditSamplePA = nullptr, *m_EditVSTiVol = nullptr;
-	CNumberEdit m_EditTempo;
+	CNumberEdit *m_EditTempo = nullptr;
 	QAbstractButton *m_BtnModType = nullptr;
 	mfcless::UpDown *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinRestartPos = nullptr, *m_SpinSamplePA = nullptr, *m_SpinVSTiVol = nullptr;
 	QComboBox *m_CbnResampling = nullptr;
 
 	QSlider *m_SliderTempo = nullptr, *m_SliderSamplePreAmp = nullptr, *m_SliderGlobalVol = nullptr, *m_SliderVSTiVol = nullptr;
-	CVuMeter m_VuMeterLeft, m_VuMeterRight;
+	CVuMeter *m_VuMeterLeft = nullptr, *m_VuMeterRight = nullptr;
 	std::unique_ptr<Util::MultimediaClock> m_tapTimer;
 	bool m_editsLocked = false;
 

@@ -68,11 +68,20 @@ CONTROLS = {
 	'CProgressCtrl': 'QProgressBar', 'CRichEditCtrl': 'QTextEdit',
 }
 
+# OpenMPT's own control classes, members of dialogs: pointers too.
+CUSTOM_CONTROLS = [
+	'AccessibleButton', 'AccessibleComboBox', 'AccessibleEdit', 'CAdvancedSettingsList', 'CColourEdit',
+	'CCustEdit', 'CEQSlider', 'CKeyboardControl', 'CListCtrlEx', 'CMFCListCtrlEx', 'CModControlBar',
+	'CModTabCtrl', 'CModTree', 'CNoteMapWnd', 'COctaveEdit', 'COrderList', 'CRippleBitmap', 'CStereoVU',
+	'CTuningRatioMapWnd', 'CTuningTreeCtrl', 'CVuMeter', 'ColorPickerButton', 'PluginComboBox', 'CNumberEdit',
+	'CInlineEdit', 'CSplitterWnd',
+]
+
 # Base classes: MFC windows become the Qt widget that plays the same role.
 BASES = {
 	'CDialog': 'DialogBase', 'CDialogEx': 'DialogBase', 'CPropertyPage': 'PropertyPage',
-	'CFormView': 'DialogBase', 'CPropertySheet': 'QDialog',
-	'CWnd': 'QWidget', 'CView': 'QAbstractScrollArea', 'CScrollView': 'QAbstractScrollArea',
+	'CFormView': 'DialogBase, public mfcless::DocumentView', 'CPropertySheet': 'QDialog',
+	'CWnd': 'QWidget', 'CView': 'QWidget, public mfcless::DocumentView', 'CScrollView': 'QAbstractScrollArea, public mfcless::DocumentView',
 	'CMDIChildWnd': 'QMdiSubWindow', 'CMDIFrameWnd': 'QMainWindow', 'CFrameWnd': 'QMainWindow',
 	'CEdit': 'QLineEdit', 'CStatic': 'QLabel', 'CButton': 'QPushButton', 'CComboBox': 'QComboBox',
 	'CListBox': 'QListWidget', 'CTreeCtrl': 'QTreeWidget', 'CListCtrl': 'QTreeWidget',
@@ -89,20 +98,27 @@ def twin(text):
 		text = re.sub(r'(:\s*(?:public|protected|private)\s+)' + k + r'\b', r'\1' + v, text)
 	# Classes now based on a Qt class get Q_OBJECT.
 	text = re.sub(r'^(class \w+\s*:\s*public\s+(?:Q\w+|DialogBase|PropertyPage|ResizableDialog|CAbstractVstEditor|CModScrollView|CModControlDlg|CModControlView|CModTabCtrl)\b[^\n{]*\n\{\n)', r'\1\tQ_OBJECT\n', text, flags=re.M)
-	for k, v in CONTROLS.items():
-		# member declarations: "\tCEdit m_a, m_b;" -> "\tQLineEdit *m_a = nullptr, *m_b = nullptr;"
-		def members(m):
-			names = [n.strip() for n in m.group(2).split(',')]
-			return '%s%s %s;' % (m.group(1), v, ', '.join('*%s = nullptr' % n for n in names))
-		text = re.sub(r'^(\s*)' + k + r'\s+((?:m_\w+|\w+)(?:\s*,\s*\w+)*);', members, text, flags=re.M)
-		# arrays: "\tCComboBox m_a[N];" -> "\tQComboBox *m_a[N] = {};"
-		text = re.sub(r'^(\s*)' + k + r'\s+(\w+\[[^\]]+\]);', r'\1' + v + r' *\2 = {};', text, flags=re.M)
-		text = re.sub(r'\b' + k + r'\s*&', v + ' &', text)
-		text = re.sub(r'\b' + k + r'\s*\*', v + ' *', text)
+	# Control members become pointers to the widgets the dialog template
+	# creates (or that replace them): "\tCEdit m_a, m_b[4];" ->
+	# "\tQLineEdit *m_a = nullptr, *m_b[4] = {};"
+	def members(qt_type):
+		def repl(m):
+			out = []
+			for n in m.group(2).split(','):
+				n = n.strip()
+				out.append('*%s = {}' % n if '[' in n else '*%s = nullptr' % n)
+			return '%s%s %s;' % (m.group(1), qt_type, ', '.join(out))
+		return repl
+	for k, v in list(CONTROLS.items()) + [(c, c) for c in CUSTOM_CONTROLS]:
+		text = re.sub(r'^(\s*)' + re.escape(k) + r'\s+((?:\w+(?:\[[^\]]+\])?)(?:\s*,\s*\w+(?:\[[^\]]+\])?)*);', members(v), text, flags=re.M)
+		if k in CONTROLS:
+			text = re.sub(r'\b' + k + r'\s*&', v + ' &', text)
+			text = re.sub(r'\b' + k + r'\s*\*', v + ' *', text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
 	text = re.sub(r'\bafx_msg\s+', '', text)
-	text = re.sub(r'^\s*DECLARE_(DYNAMIC|DYNCREATE|SERIAL)\(\w+\)\s*\n', '\tQ_OBJECT\n', text, flags=re.M)
+	text = re.sub(r'^\s*DECLARE_(?:DYNCREATE|SERIAL)\((\w+)\)\s*\n', r'public:\n\tstatic const mfcless::ViewClass class\1;\n', text, flags=re.M)
+	text = re.sub(r'^\s*DECLARE_DYNAMIC\(\w+\)\s*\n', '', text, flags=re.M)
 	text = re.sub(r'^\s*//\{\{AFX_\w+(\(\w+\))?\s*\n', '', text, flags=re.M)
 	text = re.sub(r'^\s*//\}\}AFX_\w+\s*\n', '', text, flags=re.M)
 	text = re.sub(r'void DoDataExchange\(CDataExchange\s*\*\s*\w*\)( override)?;', 'void DoDataExchange(DataExchange &dx) override;', text)
@@ -126,11 +142,13 @@ def twin(text):
 	# Qt-based classes with a message map also take commands and notifications.
 	def add_map(m):
 		head, body = m.group(1), m.group(2)
-		if 'RegisterMessageMap' in body and not re.search(r'public\s+(DialogBase|PropertyPage|ResizableDialog|CModControlDlg|CModControlView|CModScrollView|CAbstractVstEditor)\b', head) and 'MessageMap' not in head:
+		if 'RegisterMessageMap' in body and not re.search(r'public\s+(DialogBase|PropertyPage|ResizableDialog|CModControlDlg|CModControlView|CModScrollView|CAbstractVstEditor)\b', head) and 'MessageMap' not in head and 'DocumentView' not in head:
 			head = head.rstrip() + ', public mfcless::MessageMap'
 			return head + '\n{' + body
 		return m.group(0)
 	text = re.sub(r'^(class \w+\s*:\s*public\s+Q\w+[^\n{]*)\n\{(.*?\n\};)', add_map, text, flags=re.M | re.S)
+	if ('mfcless::DocumentView' in text or 'mfcless::ViewClass' in text) and '"DocumentView.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "DocumentView.h"\n', 1)
 	if 'mfcless::MessageMap' in text and '"mfcless/MessageMap.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/MessageMap.h"\n', 1)
 	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:

@@ -26,7 +26,7 @@ class CScaleEnvPointsDlg : public DialogBase
 {
 	Q_OBJECT
 protected:
-	CNumberEdit m_EditX, m_EditY, m_EditOffset;
+	CNumberEdit *m_EditX = nullptr, *m_EditY = nullptr, *m_EditOffset = nullptr;
 	InstrumentEnvelope &m_Env;
 	static double m_factorX, m_factorY, m_offsetY;
 	const int m_nCenter;

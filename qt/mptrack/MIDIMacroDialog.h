@@ -34,13 +34,13 @@ class CMidiMacroSetup : public DialogBase
 	Q_OBJECT
 protected:
 	QComboBox *m_CbnSFx = nullptr, *m_CbnSFxPreset = nullptr, *m_CbnZxx = nullptr, *m_CbnZxxPreset = nullptr, *m_CbnMacroParam = nullptr, *m_CbnMacroCC = nullptr;
-	PluginComboBox m_CbnMacroPlug;
+	PluginComboBox *m_CbnMacroPlug = nullptr;
 	QLineEdit *m_EditSFx = nullptr, *m_EditZxx = nullptr;
 	struct MacroEdit
 	{
 		QAbstractButton *Button = nullptr;
-		CColourEdit Value;
-		CColourEdit Type;
+		CColourEdit *Value = nullptr;
+		CColourEdit *Type = nullptr;
 		QAbstractButton *ShowAll = nullptr;
 	};
 	std::vector<MacroEdit> m_EditMacro = std::vector<MacroEdit>(static_cast<int>(kSFxMacros));

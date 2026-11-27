@@ -43,11 +43,11 @@ protected:
 
 	// Dialog Data
 	QComboBox *m_ControllerCBox = nullptr;
-	PluginComboBox m_PluginCBox;
+	PluginComboBox *m_PluginCBox = nullptr;
 	QComboBox *m_PlugParamCBox = nullptr;
 	QComboBox *m_ChannelCBox = nullptr;
 	QComboBox *m_EventCBox = nullptr;
-	CListCtrlEx m_List;
+	CListCtrlEx *m_List = nullptr;
 	mfcless::UpDown *m_SpinMoveMapping = nullptr;
 
 	uint8 m_lastCC = uint8_max;

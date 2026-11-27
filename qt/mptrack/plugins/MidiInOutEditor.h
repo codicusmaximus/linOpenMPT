@@ -31,7 +31,7 @@ class MidiInOutEditor : public CAbstractVstEditor
 	Q_OBJECT
 protected:
 	QComboBox *m_inputCombo = nullptr, *m_outputCombo = nullptr, *m_paramCombo = nullptr;
-	CNumberEdit m_latencyEdit;
+	CNumberEdit *m_latencyEdit = nullptr;
 	QLineEdit *m_dumpEdit = nullptr, *m_paramEdit = nullptr;
 	mfcless::UpDown *m_latencySpin = nullptr;
 	std::string m_formattedDump;

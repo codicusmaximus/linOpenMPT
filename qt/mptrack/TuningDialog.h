@@ -270,7 +270,7 @@ private:
 
 	CSoundFile & m_sndFile;
 
-	CTuningRatioMapWnd m_RatioMapWnd;
+	CTuningRatioMapWnd *m_RatioMapWnd = nullptr;
 	TUNINGVECTOR m_TuningCollections;
 	std::vector<CTuningCollection*> m_DeletableTuningCollections;
 
@@ -284,8 +284,8 @@ private:
 
 	//Tuning Edits-->
 	QLineEdit *m_EditSteps = nullptr;
-	CNumberEdit m_EditRatioPeriod;
-	CNumberEdit m_EditRatio;
+	CNumberEdit *m_EditRatioPeriod = nullptr;
+	CNumberEdit *m_EditRatio = nullptr;
 	QLineEdit *m_EditNotename = nullptr;
 	QLineEdit *m_EditMiscActions = nullptr;
 	QLineEdit *m_EditFineTuneSteps = nullptr;
@@ -298,7 +298,7 @@ private:
 	QAbstractButton *m_ButtonImport = nullptr;
 	QAbstractButton *m_ButtonRemove = nullptr;
 
-	CTuningTreeCtrl m_TreeCtrlTuning;
+	CTuningTreeCtrl *m_TreeCtrlTuning = nullptr;
 
 private:
 	using TUNINGTREEITEM = CTuningTreeItem;

@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
 #include "Globals.h"
 #include "Moddoc.h"
 #include "TrackerSettings.h"
@@ -110,7 +111,8 @@ protected:
 
 public:
 	CViewSample();
-	Q_OBJECT
+public:
+	static const mfcless::ViewClass classCViewSample;
 protected:
 	MPT_NOINLINE void SetModified(SampleHint hint, bool updateAll, bool waveformModified);
 	void UpdateScrollSize() { UpdateScrollSize(m_nZoom, true); }

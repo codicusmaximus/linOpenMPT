@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
 
 #include "Globals.h"
 #include "PatternCursor.h"
@@ -202,7 +203,8 @@ public:
 
 	CViewPattern();
 	~CViewPattern();
-	Q_OBJECT
+public:
+	static const mfcless::ViewClass classCViewPattern;
 public:
 	const CSoundFile *GetSoundFile() const;
 	CSoundFile *GetSoundFile();

@@ -30,7 +30,7 @@ class MissingExternalSamplesDlg : public ResizableDialog
 protected:
 	CModDoc &m_modDoc;
 	CSoundFile &m_sndFile;
-	CListCtrlEx m_List;
+	CListCtrlEx *m_List = nullptr;
 	bool m_isScanning = false;
 
 public:
@@ -56,7 +56,7 @@ class ModifiedExternalSamplesDlg : public ResizableDialog
 protected:
 	CModDoc &m_modDoc;
 	CSoundFile &m_sndFile;
-	CListCtrlEx m_List;
+	CListCtrlEx *m_List = nullptr;
 
 public:
 	ModifiedExternalSamplesDlg(CModDoc &modDoc, QWidget *parent);

@@ -40,7 +40,7 @@ protected:
 	void RegisterMessageMap() override;;
 
 	QComboBox *m_cbnDefaultSampleFormat = nullptr, *m_cbnDefaultVolumeHandling = nullptr;
-	AccessibleEdit m_undoBufferEdit, m_finetuneEdit;
+	AccessibleEdit *m_undoBufferEdit = nullptr, *m_finetuneEdit = nullptr;
 };
 
 OPENMPT_NAMESPACE_END

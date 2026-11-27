@@ -85,12 +85,12 @@ class COptionsKeyboard: public PropertyPage
 
 protected:
 	QListWidget *m_lbnHotKeys = nullptr;
-	CListCtrlEx m_lbnCommandKeys;
+	CListCtrlEx *m_lbnCommandKeys = nullptr;
 	QComboBox *m_cmbKeyChoice = nullptr;
 	QComboBox *m_cmbCategory = nullptr;
 	QAbstractButton *m_bKeyDown = nullptr, *m_bKeyHold = nullptr, *m_bKeyUp = nullptr;
 	QAbstractButton *m_bnReset = nullptr;
-	CCustEdit m_eCustHotKey, m_eFindHotKey;
+	CCustEdit *m_eCustHotKey = nullptr, *m_eFindHotKey = nullptr;
 	QLabel *m_warnIconCtl = nullptr, *m_warnText = nullptr;
 	QLineEdit *m_eFind = nullptr;
 	QLineEdit *m_eChordWaitTime = nullptr;

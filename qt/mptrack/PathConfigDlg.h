@@ -20,7 +20,6 @@ OPENMPT_NAMESPACE_BEGIN
 class PathConfigDlg : public PropertyPage
 {
 	Q_OBJECT
-	Q_OBJECT
 public:
 	PathConfigDlg();
 

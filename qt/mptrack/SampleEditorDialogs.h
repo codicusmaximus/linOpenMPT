@@ -51,7 +51,7 @@ public:
 protected:
 	QComboBox *m_fadeBox = nullptr;
 	CImageList m_list;
-	CNumberEdit m_edit, m_editFadeIn, m_editFadeOut;
+	CNumberEdit *m_edit = nullptr, *m_editFadeIn = nullptr, *m_editFadeOut = nullptr;
 	bool m_locked = true;
 
 public:
@@ -140,8 +140,8 @@ public:
 	AddSilenceOptions m_editOption; // See above
 
 protected:
-	AccessibleComboBox m_ComboUnit;
-	CNumberEdit m_EditAmount;
+	AccessibleComboBox *m_ComboUnit = nullptr;
+	CNumberEdit *m_EditAmount = nullptr;
 	static SmpLength m_addSamples;
 	static SmpLength m_createSamples;
 	uint32 m_sampleRate;
@@ -280,7 +280,7 @@ class CMixSampleDlg : public DialogBase
 protected:
 	// Dialog controls
 	QLineEdit *m_EditOffset = nullptr;
-	CNumberEdit m_EditVolOriginal, m_EditVolMix;
+	CNumberEdit *m_EditVolOriginal = nullptr, *m_EditVolMix = nullptr;
 	mfcless::UpDown *m_SpinOffset = nullptr, *m_SpinVolOriginal = nullptr, *m_SpinVolMix = nullptr;
 
 public:

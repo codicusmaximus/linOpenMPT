@@ -115,8 +115,8 @@ protected:
 	UpdateToolTip m_tooltip;
 	CImageListEx m_ImageList, m_ImageListDisabled;
 	QFont m_font;
-	COctaveEdit m_EditOctave;
-	CNumberEdit m_EditTempo;
+	COctaveEdit *m_EditOctave = nullptr;
+	CNumberEdit *m_EditTempo = nullptr;
 	QLineEdit *m_EditSpeed = nullptr, *m_EditRowsPerBeat = nullptr, *m_EditGlobalVolume = nullptr;
 	QLabel *m_StaticTempo = nullptr, *m_StaticSpeed = nullptr, *m_StaticRowsPerBeat = nullptr, *m_StaticGlobalVolume = nullptr;
 	mfcless::UpDown *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinOctave = nullptr, *m_SpinRowsPerBeat = nullptr, *m_SpinGlobalVolume = nullptr;
@@ -124,7 +124,7 @@ protected:
 	TEMPO m_currentTempo{1, 0};
 	bool m_updating = false;
 public:
-	CStereoVU m_VuMeter;
+	CStereoVU *m_VuMeter = nullptr;
 
 public:
 	CMainToolBar() : m_EditOctave{*this} { }

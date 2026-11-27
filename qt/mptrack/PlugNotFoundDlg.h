@@ -26,7 +26,7 @@ class PlugNotFoundDialog : public ResizableDialog
 {
 	Q_OBJECT
 	std::vector<VSTPluginLib *> &m_plugins;
-	CListCtrlEx m_List;
+	CListCtrlEx *m_List = nullptr;
 
 public:
 	PlugNotFoundDialog(std::vector<VSTPluginLib *> &plugins, QWidget *parent);

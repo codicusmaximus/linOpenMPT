@@ -54,12 +54,12 @@ protected:
 		bool selectionActive;	// does sample selection exist or not?
 	};
 
-	CModControlBar m_ToolBar1, m_ToolBar2;
+	CModControlBar *m_ToolBar1 = nullptr, *m_ToolBar2 = nullptr;
 	QLineEdit *m_EditSample = nullptr, *m_EditName = nullptr, *m_EditFileName = nullptr;
 	QLineEdit *m_EditLoopStart = nullptr, *m_EditLoopEnd = nullptr, *m_EditSustainStart = nullptr, *m_EditSustainEnd = nullptr;
 	QLineEdit *m_EditVibSweep = nullptr, *m_EditVibDepth = nullptr, *m_EditVibRate = nullptr;
 	QLineEdit *m_EditVolume = nullptr, *m_EditGlobalVol = nullptr, *m_EditPanning = nullptr;
-	CNumberEdit m_EditFineTune, m_EditTimeStretchRatio, m_EditPitch;
+	CNumberEdit *m_EditFineTune = nullptr, *m_EditTimeStretchRatio = nullptr, *m_EditPitch = nullptr;
 	mfcless::UpDown *m_SpinVolume = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinPanning = nullptr, *m_SpinVibSweep = nullptr, *m_SpinVibDepth = nullptr, *m_SpinVibRate = nullptr;
 	mfcless::UpDown *m_SpinLoopStart = nullptr, *m_SpinLoopEnd = nullptr, *m_SpinSustainStart = nullptr, *m_SpinSustainEnd = nullptr;
 	mfcless::UpDown *m_SpinFineTune = nullptr, *m_SpinSample = nullptr, *m_SpinTimeStretchRatio = nullptr;

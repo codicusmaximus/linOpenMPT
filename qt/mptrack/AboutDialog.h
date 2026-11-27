@@ -66,7 +66,7 @@ class CAboutDlg : public DialogBase
 {
 	Q_OBJECT
 protected:
-	CRippleBitmap m_bmp;
+	CRippleBitmap *m_bmp = nullptr;
 	mfcless::TabControl *m_Tab = nullptr;
 	QLineEdit *m_TabEdit = nullptr;
 	uintptr_t m_TimerID = 0;

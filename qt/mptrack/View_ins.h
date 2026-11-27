@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
 #include "Globals.h"
 #include "Moddoc.h"
 #include "../soundlib/Snd_defs.h"
@@ -80,7 +81,8 @@ protected:
 
 public:
 	CViewInstrument();
-	Q_OBJECT
+public:
+	static const mfcless::ViewClass classCViewInstrument;
 protected:
 	void PrepareUndo(const char *description);
 

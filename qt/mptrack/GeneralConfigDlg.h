@@ -28,7 +28,7 @@ protected:
 	QLineEdit *m_defaultArtist = nullptr;
 	QComboBox *m_defaultTemplate = nullptr, *m_defaultFormat = nullptr;
 	QListWidget *m_CheckList = nullptr;
-	AccessibleButton m_templateBrowseButton;
+	AccessibleButton *m_templateBrowseButton = nullptr;
 
 public:
 	COptionsGeneral();

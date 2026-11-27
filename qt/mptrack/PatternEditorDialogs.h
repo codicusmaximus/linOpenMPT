@@ -92,7 +92,7 @@ class CEditCommand : public DialogBase
 	Q_OBJECT
 protected:
 	QComboBox *cbnNote = nullptr, *cbnVolCmd = nullptr, *cbnCommand = nullptr, *cbnPlugParam = nullptr;
-	PluginComboBox cbnInstr;
+	PluginComboBox *cbnInstr = nullptr;
 	QSlider *sldVolParam = nullptr, *sldParam = nullptr;
 	CSoundFile &sndFile;
 	const CModSpecifications *oldSpecs = nullptr;
@@ -146,8 +146,8 @@ class CChordEditor : public ResizableDialog
 {
 	Q_OBJECT
 protected:
-	CKeyboardControl m_Keyboard;
-	CComboBox m_CbnShortcut, m_CbnBaseNote, m_CbnNote[MPTChord::notesPerChord - 1];
+	CKeyboardControl *m_Keyboard = nullptr;
+	QComboBox *m_CbnShortcut = nullptr, *m_CbnBaseNote = nullptr, *m_CbnNote[MPTChord::notesPerChord - 1] = {};
 	MPTChords m_chords;
 	MPTChord::NoteType m_mouseDownKey = MPTChord::noNote, m_dragKey = MPTChord::noNote;
 
@@ -217,7 +217,7 @@ protected:
 	bool m_settingsChanged = false;
 	bool m_settingColor = false;
 
-	ColorPickerButton m_colorBtn, m_colorBtnPrev, m_colorBtnNext;
+	ColorPickerButton *m_colorBtn = nullptr, *m_colorBtnPrev = nullptr, *m_colorBtnNext = nullptr;
 	QSlider *m_volSlider = nullptr, *m_panSlider = nullptr;
 	mfcless::UpDown *m_volSpin = nullptr, *m_panSpin = nullptr;
 	QLineEdit *m_nameEdit = nullptr;

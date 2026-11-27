@@ -14,11 +14,13 @@
 #include "DialogBase.h"
 #include "../soundlib/Snd_defs.h"
 
+class QAbstractButton;
 class QComboBox;
 class QEvent;
 class QObject;
 class QScrollBar;
 class QSize;
+class QSlider;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -28,8 +30,8 @@ class CSoundFile;
 class OPLInstrDlg : public DialogBase
 {
 	Q_OBJECT
-	CButton m_additive, m_sustain[2], m_scaleEnv[2], m_vibrato[2], m_tremolo[2];
-	CSliderCtrl m_feedback, m_attackRate[2], m_decayRate[2], m_sustainLevel[2], m_releaseRate[2], m_volume[2], m_levelScaling[2], m_freqMultiplier[2];
+	QAbstractButton *m_additive = nullptr, *m_sustain[2] = {}, *m_scaleEnv[2] = {}, *m_vibrato[2] = {}, *m_tremolo[2] = {};
+	QSlider *m_feedback = nullptr, *m_attackRate[2] = {}, *m_decayRate[2] = {}, *m_sustainLevel[2] = {}, *m_releaseRate[2] = {}, *m_volume[2] = {}, *m_levelScaling[2] = {}, *m_freqMultiplier[2] = {};
 	QComboBox *m_waveform[2] = {};
 	QSize m_windowSize;
 	QWidget &m_parent;
