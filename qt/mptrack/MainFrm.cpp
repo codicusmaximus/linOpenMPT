@@ -2,8 +2,11 @@
  * MainFrm.cpp
  * -----------
  * Purpose: Implementation of OpenMPT's main window code.
- * Notes  : mfcless twin of upstream's mptrack/MainFrm.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Notes  : mfcless twin of upstream's mptrack/MainFrm.cpp. The window is a
+ *          QMainWindow: the toolbar and status bar are Qt's, the tree bar and
+ *          the MDI area share a splitter in the middle. What CMDIFrameWnd
+ *          did (the menu, routing commands to the active document, the
+ *          title) is done here too.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -42,6 +45,7 @@
 #include "SelectPluginDialog.h"
 #include "UpdateCheck.h"
 #include "WindowMessages.h"
+#include "View_pat.h"
 
 #include "../common/FileReader.h"
 #include "../common/mptFileIO.h"
@@ -66,8 +70,25 @@
 #include "../common/GzipWriter.h"
 #endif
 
-#include <HtmlHelp.h>
-#include <Dbt.h>  // device change messages
+#include "mfcless/ModMessage.h"
+#include "mfcless/QtString.h"
+#include "mfcless/Resources.h"
+
+#include <QtCore/QCollator>
+#include <QtCore/QDir>
+#include <QtCore/QUrl>
+#include <QtGui/QAccessible>
+#include <QtGui/QCloseEvent>
+#include <QtGui/QInputMethod>
+#include <QtGui/QCursor>
+#include <QtGui/QDesktopServices>
+#include <QtGui/QGuiApplication>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QMdiArea>
+#include <QtWidgets/QMdiSubWindow>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QStatusBar>
 
 
 OPENMPT_NAMESPACE_BEGIN
@@ -77,6 +98,9 @@ static constexpr uint32 TIMERID_NOTIFY = 2;
 
 static constexpr uint32 MPTTIMER_PERIOD = 100;
 
+// mfcless: the status bar's first pane (MFC's ID_SEPARATOR).
+static constexpr uint32 ID_SEPARATOR = 0;
+
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame
 
@@ -84,21 +108,19 @@ void CMainFrame::RegisterMessageMap()
 {
 	mfcless::Window<QMainWindow>::RegisterMessageMap();
 	// ON_WM_TIMER() (mfcless::Window)
-	// ON_WM_CLOSE() (mfcless::Window)
-	// ON_WM_CREATE(): by hand (Qt event override)
+	// ON_WM_CLOSE(): closeEvent
+	// ON_WM_CREATE(): OnCreate, called by Initialize
 	// ON_WM_RBUTTONDOWN() (mfcless::Window)
-	// ON_WM_DEVICECHANGE(): by hand (Qt event override)
+	// ON_WM_DEVICECHANGE(): RtMidi notices lost devices itself
 	// ON_WM_DROPFILES() (mfcless::Window)
-	// ON_WM_QUERYENDSESSION(): by hand (Qt event override)
+	// ON_WM_QUERYENDSESSION(): QGuiApplication::commitDataRequest
 	// ON_WM_MOUSEWHEEL() (mfcless::Window)
 	// ON_WM_SHOWWINDOW() (mfcless::Window)
-	// ON_WM_ACTIVATEAPP(): by hand (Qt event override)
-	// ON_WM_ACTIVATE(): by hand (Qt event override)
-	AddMessage(WM_DPICHANGED, &CMainFrame::OnDPIChanged);
+	// ON_WM_ACTIVATEAPP(), ON_WM_ACTIVATE(): QGuiApplication::applicationStateChanged
 	AddCommand(ID_VIEW_OPTIONS, &CMainFrame::OnViewOptions);
 	AddCommand(ID_PLUGIN_SETUP, &CMainFrame::OnPluginManager);
 	AddCommand(ID_CLIPBOARD_MANAGER, &CMainFrame::OnClipboardManager);
-	//ON_COMMAND(ID_HELP,              &mfcless::Window<QMainWindow>::OnHelp)
+	//ON_COMMAND(ID_HELP,              &CMDIFrameWnd::OnHelp)
 	AddCommand(ID_REPORT_BUG, &CMainFrame::OnReportBug);
 	AddCommand(ID_NEXTOCTAVE, &CMainFrame::OnNextOctave);
 	AddCommand(ID_PREVOCTAVE, &CMainFrame::OnPrevOctave);
@@ -108,6 +130,9 @@ void CMainFrame::RegisterMessageMap()
 	AddCommand(ID_PANIC, &CMainFrame::OnPanic);
 	AddCommand(ID_PLAYER_PAUSE, &CMainFrame::OnPlayerPause);
 	AddCommand(IDD_TREEVIEW, &CMainFrame::OnBarCheck);
+	// CFrameWnd's own: the toolbar's View menu item.
+	AddCommand(ID_VIEW_TOOLBAR, &CMainFrame::OnBarCheck);
+	AddCommandUpdate(ID_VIEW_TOOLBAR, &CMainFrame::OnUpdateControlBarMenu);
 	AddCommand(ID_NETLINK_MODPLUG, &CMainFrame::OnInternetLink);
 	AddCommand(ID_NETLINK_TOP_PICKS, &CMainFrame::OnInternetLink);
 	AddMessage(WM_MOD_UPDATEPOSITION, &CMainFrame::OnUpdatePosition);
@@ -116,18 +141,18 @@ void CMainFrame::RegisterMessageMap()
 	AddMessage(WM_MOD_MIDIMAPPING, &CMainFrame::OnViewMIDIMapping);
 	AddMessage(WM_MOD_UPDATEVIEWS, &CMainFrame::OnUpdateViews);
 	AddMessage(WM_MOD_SETMODIFIED, &CMainFrame::OnSetModified);
-	// #if defined(MPT_ENABLE_UPDATE)
+#if defined(MPT_ENABLE_UPDATE)
 	AddMessage(WM_MOD_UPDATENOTIFY, &CMainFrame::OnToolbarUpdateIndicatorClick);
-	// #endif // MPT_ENABLE_UPDATE
+#endif // MPT_ENABLE_UPDATE
 	AddCommand(ID_INTERNETUPDATE, &CMainFrame::OnInternetUpdate);
 	AddCommand(ID_UPDATE_AVAILABLE, &CMainFrame::OnUpdateAvailable);
-	// #if defined(MPT_ENABLE_UPDATE)
+#if defined(MPT_ENABLE_UPDATE)
 	AddMessage(MPT_WM_APP_UPDATECHECK_START, &CMainFrame::OnUpdateCheckStart);
 	AddMessage(MPT_WM_APP_UPDATECHECK_PROGRESS, &CMainFrame::OnUpdateCheckProgress);
 	AddMessage(MPT_WM_APP_UPDATECHECK_CANCELED, &CMainFrame::OnUpdateCheckCanceled);
 	AddMessage(MPT_WM_APP_UPDATECHECK_FAILURE, &CMainFrame::OnUpdateCheckFailure);
 	AddMessage(MPT_WM_APP_UPDATECHECK_SUCCESS, &CMainFrame::OnUpdateCheckSuccess);
-	// #endif // MPT_ENABLE_UPDATE
+#endif // MPT_ENABLE_UPDATE
 	AddCommand(ID_HELP_SHOWSETTINGSFOLDER, &CMainFrame::OnShowSettingsFolder);
 	AddCommand(ID_HELPSHOW, &CMainFrame::OnHelp);
 	AddCommand(ID_MAINBAR_SHOW_OCTAVE, &CMainFrame::OnToggleMainBarShowOctave);
@@ -141,11 +166,11 @@ void CMainFrame::RegisterMessageMap()
 	AddCommand(ID_MAINBAR_SHOW_PLAY_ICONS, &CMainFrame::OnToggleMainBarShowPlayIcons);
 	AddCommand(ID_MAINBAR_SHOW_MISC_ICONS, &CMainFrame::OnToggleMainBarShowMiscIcons);
 	AddCommand(ID_TREEVIEW_ON_LEFT, &CMainFrame::OnToggleTreeViewOnLeft);
-	// #ifdef MPT_ENABLE_PLAYBACK_TEST_MENU
+#ifdef MPT_ENABLE_PLAYBACK_TEST_MENU
 	AddCommand(ID_CREATE_MIXERDUMP, &CMainFrame::OnCreateMixerDump);
 	AddCommand(ID_VERIFY_MIXERDUMP, &CMainFrame::OnVerifyMixerDump);
 	AddCommand(ID_CONVERT_MIXERDUMP, &CMainFrame::OnConvertMixerDumpToText);
-	// #endif // ENABLE_PLAYBACK_TEST_MENU
+#endif // ENABLE_PLAYBACK_TEST_MENU
 	AddCommandRange(ID_FILE_OPENTEMPLATE, ID_FILE_OPENTEMPLATE_LASTINRANGE, &CMainFrame::OnOpenTemplateModule);
 	AddCommandRange(ID_EXAMPLE_MODULES, ID_EXAMPLE_MODULES_LASTINRANGE, &CMainFrame::OnExampleSong);
 	AddCommandRange(ID_MRU_LIST_FIRST, ID_MRU_LIST_LAST, &CMainFrame::OnOpenMRUItem);
@@ -160,20 +185,19 @@ void CMainFrame::RegisterMessageMap()
 
 // Globals
 OptionsPage CMainFrame::m_nLastOptionsPage = OPTIONS_PAGE_DEFAULT;
-HHOOK CMainFrame::g_focusHook = nullptr;
 
 // GDI
-QIcon CMainFrame::m_hIcon = nullptr;
+QIcon CMainFrame::m_hIcon;
 QFont CMainFrame::m_hGUIFont;
-mfcless::Pen CMainFrame::penDarkGray = nullptr;
-mfcless::Pen CMainFrame::penGray99 = nullptr;
-mfcless::Pen CMainFrame::penHalfDarkGray = nullptr;
+mfcless::Pen CMainFrame::penDarkGray;
+mfcless::Pen CMainFrame::penGray99;
+mfcless::Pen CMainFrame::penHalfDarkGray;
 
-QCursor CMainFrame::curDragging = nullptr;
-QCursor CMainFrame::curArrow = nullptr;
-QCursor CMainFrame::curNoDrop = nullptr;
-QCursor CMainFrame::curNoDrop2 = nullptr;
-QCursor CMainFrame::curVSplit = nullptr;
+QCursor CMainFrame::curDragging;
+QCursor CMainFrame::curArrow;
+QCursor CMainFrame::curNoDrop;
+QCursor CMainFrame::curNoDrop2;
+QCursor CMainFrame::curVSplit;
 MODPLUGDIB *CMainFrame::bmpNotes = nullptr;
 uint32 CMainFrame::gcolrefVuMeter[NUM_VUMETER_PENS * 2];
 
@@ -186,6 +210,8 @@ static constexpr uint32 StatusBarIndicators[] =
 	ID_INDICATOR_TIME,
 };
 
+static CMainFrame *g_mainFrame = nullptr;
+
 
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame construction/destruction
@@ -194,13 +220,22 @@ CMainFrame::CMainFrame()
 	, m_SoundDeviceFillBufferCriticalSection(CriticalSection::InitialState::Unlocked)
 	, m_InputHandler{this}
 {
-	InitCommonControls();
+	g_mainFrame = this;
 	MemsetZero(gcolrefVuMeter);
+	// The title comes from the string table, as CFrameWnd::LoadFrame takes it.
+	m_strTitle = mfcless::FromQString(QString::fromStdU16String(mfcless::res::String(IDR_MAINFRAME)));
+	setAttribute(Qt::WA_DeleteOnClose, false);
+	setAcceptDrops(true);
+	setWindowIcon(QIcon(QPixmap::fromImage(mfcless::res::Icon(IDR_MAINFRAME))));
 }
 
 
 void CMainFrame::Initialize()
 {
+	// mfcless: CFrameWnd::LoadFrame created the window (OnCreate) before
+	// upstream's InitInstance called this.
+	OnCreate();
+
 	//Adding version number to the frame title
 	mpt::ustring title = GetTitle();
 	title += U_(" ") + mpt::ufmt::val(Version::Current());
@@ -232,11 +267,18 @@ void CMainFrame::Initialize()
 	}
 
 	// Setup timer
-	OnUpdateUser(nullptr);
-	m_nTimer = SetTimer(TIMERID_GUI, MPTTIMER_PERIOD, nullptr);
+	{
+		mfcless::CommandState state;
+		OnUpdateUser(state);
+	}
+	SetTimer(TIMERID_GUI, MPTTIMER_PERIOD);
+	m_nTimer = TIMERID_GUI;
 
 	// Setup Keyboard Hook
-	g_focusHook = SetWindowsHookEx(WH_CBT, FocusChangeProc, AfxGetInstanceHandle(), mfcless::CurrentThreadId());
+	// mfcless: the focus changes come from QApplication instead of a CBT hook.
+	connect(qApp, &QApplication::focusChanged, this, &CMainFrame::OnFocusChanged);
+	connect(QGuiApplication::inputMethod(), &QInputMethod::localeChanged, this, &CMainFrame::OnInputLanguageChanged);
+	connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) { OnApplicationStateChanged(state == Qt::ApplicationActive); });
 
 	// Update the tree
 	m_wndTree.Init();
@@ -250,7 +292,7 @@ void CMainFrame::Initialize()
 	if(toolbarMenu)
 	{
 		toolbarMenu->DeleteMenu(toolbarMenuStartPos, mfcless::menu::ByPosition);
-		AddToolBarMenuEntries(*toolbarMenu);
+		AddToolBarMenuEntries(toolbarMenu);
 	}
 
 	m_InputHandler->UpdateMainMenu();
@@ -263,8 +305,9 @@ void CMainFrame::Initialize()
 	debugMenu.AppendMenu(mfcless::menu::String, ID_CREATE_MIXERDUMP, U_("Create Mixer Dump for &File(s)..."));
 	debugMenu.AppendMenu(mfcless::menu::String, ID_VERIFY_MIXERDUMP, U_("&Verify File(s)..."));
 	debugMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_MIXERDUMP, U_("Convert Mixer Dump to &TSV..."));
-	GetMenu()->AppendMenu(mfcless::menu::String | mfcless::menu::Popup, reinterpret_cast<uintptr_t>(debugMenu.Detach()), U_("Debug"));
+	GetMenu()->AppendMenu(mfcless::menu::String | mfcless::menu::Popup, debugMenu, U_("Debug"));
 #endif  // ENABLE_PLAYBACK_TEST_MENU
+	DrawMenuBar();
 }
 
 
@@ -273,143 +316,143 @@ CMainFrame::~CMainFrame()
 	CChannelManagerDlg::DestroySharedInstance();
 	m_metronomeMeasure.FreeSample();
 	m_metronomeBeat.FreeSample();
+	if(g_mainFrame == this)
+		g_mainFrame = nullptr;
 }
 
 
-int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
+int CMainFrame::OnCreate()
 {
-	if(mfcless::Window<QMainWindow>::OnCreate(lpCreateStruct) == -1)
-		return -1;
 	// Load resources
-	m_hIcon = theApp.LoadIcon(IDR_MAINFRAME);
+	m_hIcon = QIcon(QPixmap::fromImage(mfcless::res::Icon(IDR_MAINFRAME)));
 
 	RecreateImageLists();
 
-	penDarkGray = ::CreatePen(mfcless::pen::Solid, 0, GetSysColor(COLOR_BTNSHADOW));
-	penGray99 = ::CreatePen(mfcless::pen::Solid, 0, mfcless::Rgb(0x99, 0x99, 0x99));
-	penHalfDarkGray = ::CreatePen(mfcless::pen::Dot, 0, GetSysColor(COLOR_BTNSHADOW));
+	penDarkGray = mfcless::Pen(mfcless::pen::Solid, 0, mfcless::SystemColor(mfcless::SysColor::ButtonShadow));
+	penGray99 = mfcless::Pen(mfcless::pen::Solid, 0, mfcless::Rgb(0x99, 0x99, 0x99));
+	penHalfDarkGray = mfcless::Pen(mfcless::pen::Dot, 0, mfcless::SystemColor(mfcless::SysColor::ButtonShadow));
 
 	// Cursors
-	curDragging = theApp.LoadCursor(IDC_DRAGGING);
-	curArrow = theApp.LoadStandardCursor(IDC_ARROW);
-	curNoDrop = theApp.LoadStandardCursor(IDC_NO);
-	curNoDrop2 = theApp.LoadCursor(IDC_NODRAG);
-	curVSplit = theApp.LoadCursor(AFX_IDC_HSPLITBAR);
+	curDragging = mfcless::res::Cursor(IDC_DRAGGING);
+	curArrow = QCursor(Qt::ArrowCursor);
+	curNoDrop = QCursor(Qt::ForbiddenCursor);
+	curNoDrop2 = mfcless::res::Cursor(IDC_NODRAG);
+	curVSplit = QCursor(Qt::SplitVCursor);  // AFX_IDC_HSPLITBAR
 
 	// Pattern note bitmap
-	bmpNotes = LoadDib(MAKEINTRESOURCE(IDB_PATTERNVIEW));
+	bmpNotes = LoadDib(IDB_PATTERNVIEW);
+
+	// The menu (CFrameWnd::LoadFrame loads IDR_MAINFRAME)
+	m_menu = mfcless::Menu::Load(IDR_MAINFRAME);
+	mfcless::ConnectMenu(m_menu.Get(), {}, [this](uint32 id, mfcless::CommandState &state) { return UpdateCommandState(id, state); });
+	connect(menuBar(), &QMenuBar::triggered, this, [this](QAction *action)
+	{
+		if(const uint32 id = mfcless::ActionCommand(action))
+			RouteCommand(id);
+	});
+
+	// The MDI client and the tree bar, side by side
+	m_mdiArea = new QMdiArea;
+	m_mdiArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	m_mdiArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	m_mdiArea->setActivationOrder(QMdiArea::ActivationHistoryOrder);
+	connect(m_mdiArea, &QMdiArea::subWindowActivated, this, [this](QMdiSubWindow *window)
+	{
+		static QPointer<CChildFrame> previous;
+		auto *frame = qobject_cast<CChildFrame *>(window);
+		if(previous && previous != frame)
+			previous->OnMDIActivate(false);
+		previous = frame;
+		if(frame)
+			frame->OnMDIActivate(true);
+		OnUpdateFrameTitle(true);
+	});
+	m_centralSplitter = new QSplitter(Qt::Horizontal);
+	m_centralSplitter->setChildrenCollapsible(false);
+	m_centralSplitter->addWidget(&m_wndTree);
+	m_centralSplitter->addWidget(m_mdiArea);
+	m_centralSplitter->setStretchFactor(0, 0);
+	m_centralSplitter->setStretchFactor(1, 1);
+	setCentralWidget(m_centralSplitter);
+
 	// Toolbars
-	EnableDocking(CBRS_ALIGN_ANY);
 	if (!m_wndToolBar.Create(this)) return -1;
+	addToolBar(Qt::TopToolBarArea, &m_wndToolBar);
 	if (!m_wndStatusBar.Create(this)) return -1;
-	if (!m_wndTree.Create(this, IDD_TREEVIEW, TrackerSettings::Instance().treeViewOnLeft ? CBRS_LEFT : CBRS_RIGHT, IDD_TREEVIEW)) return -1;
+	m_wndTree.SetBarOnLeft(TrackerSettings::Instance().treeViewOnLeft);
 	m_wndStatusBar.SetIndicators(StatusBarIndicators, static_cast<int>(std::size(StatusBarIndicators)));
 	SetupStatusBarSizes();
 	m_wndToolBar.Init(this);
 	m_wndTree.RecalcLayout();
 
-	RemoveControlBar(&m_wndStatusBar); //Removing statusbar because corrupted statusbar inifiledata can crash the program.
-	m_wndTree.EnableDocking(0); //To prevent a crash when there's "Docking=1" for treebar in ini-settings.
 	// Restore toobar positions
-	LoadBarState(U_("Toolbars"));
-
-	AddControlBar(&m_wndStatusBar); //Restore statusbar to mainframe.
+	// mfcless: Qt keeps the toolbar's place (saveState), in Display/ToolbarState.
+	{
+		const std::string state = theApp.GetSettings().Read<std::string>(U_("Display"), U_("ToolbarState"), std::string());
+		if(!state.empty())
+			restoreState(QByteArray::fromBase64(QByteArray::fromStdString(state)));
+	}
 
 	UpdateColors();
 
 	if(TrackerSettings::Instance().midiSetup & MidiSetup::EnableMidiInOnStartup)
 		midiOpenDevice(false);
 
-#if MPT_COMPILER_MSVC
-#pragma warning(push)
-#pragma warning(disable:6387) // '_Param_(2)' could be '0':  this does not adhere to the specification for the function 'HtmlHelpW'
-#endif
-	::HtmlHelp(m_hWnd, nullptr, HH_INITIALIZE, reinterpret_cast<uintptr_t>(&m_helpCookie));
-#if MPT_COMPILER_MSVC
-#pragma warning(pop)
-#endif
+	RegisterMessageMap();
 
 	return 0;
 }
 
 
-intptr_t CMainFrame::OnDPIChanged(uintptr_t, intptr_t suggestedRect)
+intptr_t CMainFrame::OnDPIChanged(uintptr_t, intptr_t)
 {
-	// Default() doesn't appear to do the right thing?
-	const auto &rect = *reinterpret_cast<const mfcless::Rect *>(suggestedRect);
-	SetWindowPos(nullptr, rect.left, rect.top, rect.Width(), rect.Height(), SWP_NOZORDER | SWP_NOACTIVATE);
-	auto result = Default();
-
+	// mfcless: Qt moves and scales the window itself.
 	RecreateImageLists();
 	SetupStatusBarSizes();
 	m_wndTree.RecalcLayout();
-	return result;
+	return 0;
 }
 
 
 void CMainFrame::RecreateImageLists()
 {
 	// Toolbar and other icons
-	mfcless::DC *dc = GetDC();
-	const double scaling = HighDPISupport::GetDpiForWindow(m_hWnd) / 96.0;
+	const double scaling = HighDPISupport::GetDpiForWindow(this) / 96.0;
 	static constexpr int miscIconsInvert[] = {IMAGE_PATTERNS, IMAGE_OPLINSTRACTIVE, IMAGE_OPLINSTRMUTE};
 	static constexpr int patternIconsInvert[] = {TIMAGE_PREVIEW, TIMAGE_MACROEDITOR, TIMAGE_PATTERN_OVERFLOWPASTE, TIMAGE_PATTERN_PLUGINS, TIMAGE_SAMPLE_AMPLIFY, TIMAGE_SAMPLE_UNSIGN};
 	static constexpr int envelopeIconsInvert[] = {IIMAGE_VOLENV, IIMAGE_PANENV, IIMAGE_CHECKED, IIMAGE_VOLSWITCH, IIMAGE_PANSWITCH, IIMAGE_PITCHSWITCH, IIMAGE_FILTERSWITCH, IIMAGE_NOPITCHSWITCH, IIMAGE_NOFILTERSWITCH, IIMAGE_GRID};
-	m_MiscIcons.Create(IDB_IMAGELIST, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, false, miscIconsInvert);
-	m_MiscIconsDisabled.Create(IDB_IMAGELIST, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, true, miscIconsInvert);
-	m_PatternIcons.Create(IDB_PATTERNS, 16, 16, PATTERNIMG_NUMIMAGES, 1, dc, scaling, false, patternIconsInvert);
-	m_PatternIconsDisabled.Create(IDB_PATTERNS, 16, 16, PATTERNIMG_NUMIMAGES, 1, dc, scaling, true, patternIconsInvert);
-	m_EnvelopeIcons.Create(IDB_ENVTOOLBAR, 20, 18, ENVIMG_NUMIMAGES, 1, dc, scaling, false, envelopeIconsInvert);
-	m_SampleIcons.Create(IDB_SMPTOOLBAR, 20, 18, SAMPLEIMG_NUMIMAGES, 1, dc, scaling, false);
-	ReleaseDC(dc);
+	m_MiscIcons.Create(IDB_IMAGELIST, 16, 16, IMGLIST_NUMIMAGES, 1, scaling, false, miscIconsInvert);
+	m_MiscIconsDisabled.Create(IDB_IMAGELIST, 16, 16, IMGLIST_NUMIMAGES, 1, scaling, true, miscIconsInvert);
+	m_PatternIcons.Create(IDB_PATTERNS, 16, 16, PATTERNIMG_NUMIMAGES, 1, scaling, false, patternIconsInvert);
+	m_PatternIconsDisabled.Create(IDB_PATTERNS, 16, 16, PATTERNIMG_NUMIMAGES, 1, scaling, true, patternIconsInvert);
+	m_EnvelopeIcons.Create(IDB_ENVTOOLBAR, 20, 18, ENVIMG_NUMIMAGES, 1, scaling, false, envelopeIconsInvert);
+	m_SampleIcons.Create(IDB_SMPTOOLBAR, 20, 18, SAMPLEIMG_NUMIMAGES, 1, scaling, false);
 
-	HighDPISupport::CreateGUIFont(m_hGUIFont, m_hWnd);
+	HighDPISupport::CreateGUIFont(m_hGUIFont, this);
 }
 
 
 void CMainFrame::SetupStatusBarSizes()
 {
-	m_wndStatusBar.SetPaneInfo(0, ID_SEPARATOR, mfcless::pane::Stretch, HighDPISupport::ScalePixels(256, m_hWnd));
+	m_wndStatusBar.SetPaneInfo(0, ID_SEPARATOR, mfcless::pane::Stretch, HighDPISupport::ScalePixels(256, this));
 
-	mfcless::DC *dc = GetDC();
-	MPT_ASSERT(m_hGUIFont.m_hObject);
-	auto oldFont = dc->SelectObject(m_hGUIFont);  // GetFont() seem to give us the font for the previous DPI right after the DPI change
+	// GetFont() seem to give us the font for the previous DPI right after the DPI change
+	const QFontMetrics metrics(m_hGUIFont);
 	for(size_t i = 0; i < std::size(StatusBarIndicators); i++)
 	{
 		if(StatusBarIndicators[i] == ID_SEPARATOR)
 			continue;
-		mpt::ustring text;
-		VERIFY(text.LoadString(StatusBarIndicators[i]));
-		m_wndStatusBar.SetPaneInfo(static_cast<int>(i), StatusBarIndicators[i], mfcless::pane::Normal, dc->GetTextExtent(text).cx);
+		const QString text = QString::fromStdU16String(mfcless::res::String(StatusBarIndicators[i]));
+		MPT_ASSERT(!text.isEmpty());
+		m_wndStatusBar.SetPaneInfo(static_cast<int>(i), StatusBarIndicators[i], mfcless::pane::Normal, metrics.horizontalAdvance(text));
 	}
-	dc->SelectObject(oldFont);
-	ReleaseDC(dc);
-}
-
-
-bool CMainFrame::PreCreateWindow(CREATESTRUCT& cs)
-{
-	return mfcless::Window<QMainWindow>::PreCreateWindow(cs);
 }
 
 
 bool CMainFrame::DestroyWindow()
 {
 	m_unloading = true;
-#if MPT_COMPILER_MSVC
-#pragma warning(push)
-#pragma warning(disable:6387) // '_Param_(2)' could be '0':  this does not adhere to the specification for the function 'HtmlHelpW'
-#endif
-	::HtmlHelp(m_hWnd, nullptr, HH_UNINITIALIZE, reinterpret_cast<uintptr_t>(&m_helpCookie));
-#if MPT_COMPILER_MSVC
-#pragma warning(pop)
-#endif
 
-	if(g_focusHook)
-	{
-		UnhookWindowsHookEx(g_focusHook);
-		g_focusHook = nullptr;
-	}
 	// Kill Timer
 	if(m_nTimer)
 	{
@@ -421,18 +464,24 @@ bool CMainFrame::DestroyWindow()
 	// Delete bitmaps
 	delete bmpNotes;
 	bmpNotes = nullptr;
-	
+
 	PatternFont::DeleteFontData();
 
 	// Kill GDI Objects
-	m_hGUIFont.DeleteObject();
-#define DeleteGDIObject(h) ::DeleteObject(h); h = NULL;
-	DeleteGDIObject(penDarkGray);
-	DeleteGDIObject(penGray99);
-	DeleteGDIObject(penHalfDarkGray);
-#undef DeleteGDIObject
+	m_hGUIFont = QFont();
+	penDarkGray.DeleteObject();
+	penGray99.DeleteObject();
+	penHalfDarkGray.DeleteObject();
 
 	return mfcless::Window<QMainWindow>::DestroyWindow();
+}
+
+
+void CMainFrame::closeEvent(QCloseEvent *e)
+{
+	// The window stays (closing it ends the program); OnClose decides.
+	e->ignore();
+	OnClose();
 }
 
 
@@ -453,7 +502,7 @@ void CMainFrame::OnClose()
 	m_cancelUpdateCheck = true;
 #endif // MPT_ENABLE_UPDATE
 
-	CChildFrame *pMDIActive = (CChildFrame *)MDIGetActive();
+	CChildFrame *pMDIActive = MDIGetActive();
 
 	BeginWaitCursor();
 	if (IsPlaying()) PauseMod();
@@ -468,9 +517,7 @@ void CMainFrame::OnClose()
 	}
 
 	// Save Settings
-	RemoveControlBar(&m_wndStatusBar); // Remove statusbar so that its state won't get saved.
-	SaveBarState(U_("Toolbars"));
-	AddControlBar(&m_wndStatusBar); // Restore statusbar to mainframe.
+	theApp.GetSettings().Write<std::string>(U_("Display"), U_("ToolbarState"), saveState().toBase64().toStdString());
 	TrackerSettings::Instance().SaveSettings();
 
 	if(m_InputHandler->m_activeCommandSet)
@@ -483,38 +530,27 @@ void CMainFrame::OnClose()
 #endif // MPT_ENABLE_UPDATE
 
 	EndWaitCursor();
-	Window::OnClose();
-}
 
-
-bool CMainFrame::OnDeviceChange(uint32 nEventType, uintptr_t dwData)
-{
-	if(nEventType == DBT_DEVNODES_CHANGED && midiInData.inHandle)
-	{
-		// Calling this (or most other MIDI input related functions) makes the MIDI driver realize
-		// that the connection to USB MIDI devices was lost and send a MIM_CLOSE message.
-		// Otherwise, after disconnecting a USB MIDI device, the MIDI callback will stay alive forever but return no data.
-		midiInGetNumDevs();
-	}
-	return mfcless::Window<QMainWindow>::OnDeviceChange(nEventType, dwData);
+	// mfcless: CFrameWnd::OnClose closes all documents (they were saved or
+	// discarded by the dialog above) and ends the program.
+	theApp.GetModDocTemplate()->CloseAllDocuments(true);
+	DestroyWindow();
+	QApplication::quit();
 }
 
 
 // Drop files from Windows
-void CMainFrame::OnDropFiles(HDROP hDropInfo)
+void CMainFrame::OnDropFiles(const QStringList &files)
 {
-	const uint32 nFiles = ::DragQueryFileW(hDropInfo, (uint32)-1, NULL, 0);
-	CMainFrame::GetMainFrame()->SetForegroundWindow();
+	activateWindow();
+	raise();
 #ifdef MPT_BUILD_DEBUG
 	const bool scanAll = CInputHandler::GetModifierMask().test_all(ModCtrl | ModShift | ModAlt);
 #endif
-	for(uint32 f = 0; f < nFiles; f++)
+	for(const QString &fileName : files)
 	{
-		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, L'\0');
-		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(mfcless::FromQString(fileName));
 #ifdef MPT_BUILD_DEBUG
 			// Debug Hack: Quickly scan a folder containing module files (without running out of window handles ;)
 			if(scanAll && mpt::native_fs{}.is_directory(file))
@@ -554,52 +590,43 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
 				continue;
 			}
 #endif
-			theApp.OpenDocumentFile(file.ToUnicode());
+			theApp.OpenDocumentFile(file);
 		}
 	}
-	::DragFinish(hDropInfo);
 }
 
 
-void CMainFrame::OnActivateApp(bool active, uint32 threadID)
+void CMainFrame::OnApplicationStateChanged(bool active)
 {
 	if(active)
 		IPCWindow::UpdateLastUsed();
-	mfcless::Window<QMainWindow>::OnActivateApp(active, threadID);
-}
-
-
-void CMainFrame::OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized)
-{
-	mfcless::Window<QMainWindow>::OnActivate(nState, pWndOther, bMinimized);
 	// Avoid keyboard focus being trapped on MDI client area
-	if(m_quickStartDlg && m_quickStartDlg->m_hWnd && nState != WA_INACTIVE && ::GetFocus() == m_hWndMDIClient)
-		m_quickStartDlg->SetFocus();
+	if(active && m_quickStartDlg && m_quickStartDlg->isVisible() && QApplication::focusWidget() == m_mdiArea)
+		m_quickStartDlg->setFocus();
 }
 
 
-intptr_t CALLBACK CMainFrame::FocusChangeProc(int code, uintptr_t wParam, intptr_t lParam)
+void CMainFrame::OnFocusChanged(QWidget *lostFocusWnd, QWidget *gainFocusWnd)
 {
 	// Hook to keep track of last focussed GUI item. This solves various focus issues when switching between
 	// CModControlDlg / CModScrollView via keyboard shortcuts, or when switching to another application and back.
 	// See https://bugs.openmpt.org/view.php?id=1795 / https://bugs.openmpt.org/view.php?id=1799 / https://bugs.openmpt.org/view.php?id=1800
-	if(code != HCBT_SETFOCUS || !wParam || !lParam)
-		return CallNextHookEx(g_focusHook, code, wParam, lParam);
+	if(!lostFocusWnd || !gainFocusWnd)
+		return;
 
-	const QWidget * mainWnd = CMainFrame::GetMainFrame()->GetSafeHwnd();
-	QWidget * lostFocusWnd = reinterpret_cast<QWidget *>(lParam), gainFocusWnd = reinterpret_cast<QWidget *>(wParam);
+	QWidget *const lostFocus = lostFocusWnd, *const gainFocus = gainFocusWnd;
+	const QWidget *mainWnd = this;
 	CModControlDlg *parentCtrl = nullptr;
 	CModScrollView *parentScroll = nullptr;
 	do
 	{
 		// Does the window that lost focus belong to the upper or lower half of a module view?
-		auto wnd = mfcless::Window<QWidget>::FromHandlePermanent(lostFocusWnd);
-		if(parentCtrl = dynamic_cast<CModControlDlg *>(wnd); parentCtrl != nullptr)
+		if(parentCtrl = dynamic_cast<CModControlDlg *>(lostFocusWnd); parentCtrl != nullptr)
 			break;
-		else if(parentScroll = dynamic_cast<CModScrollView *>(wnd); parentScroll != nullptr)
+		else if(parentScroll = dynamic_cast<CModScrollView *>(lostFocusWnd); parentScroll != nullptr)
 			break;
 
-		lostFocusWnd = ::GetParent(lostFocusWnd);
+		lostFocusWnd = lostFocusWnd->parentWidget();
 	} while(lostFocusWnd && lostFocusWnd != mainWnd);
 
 	if(parentCtrl || parentScroll)
@@ -609,41 +636,28 @@ intptr_t CALLBACK CMainFrame::FocusChangeProc(int code, uintptr_t wParam, intptr
 		bool sameParent = false;
 		do
 		{
-			if((parentCtrl && gainFocusWnd == parentCtrl->m_hWnd) || (parentScroll && gainFocusWnd == parentScroll->m_hWnd))
+			if((parentCtrl && gainFocusWnd == parentCtrl) || (parentScroll && gainFocusWnd == parentScroll))
 			{
 				sameParent = true;
 				break;
 			}
 
-			gainFocusWnd = ::GetParent(gainFocusWnd);
+			gainFocusWnd = gainFocusWnd->parentWidget();
 		} while(gainFocusWnd && gainFocusWnd != mainWnd);
 
-		QWidget * lastFocus = sameParent ? reinterpret_cast<QWidget *>(wParam) : reinterpret_cast<QWidget *>(lParam);
-		if(parentCtrl && parentCtrl->m_hWnd != lastFocus)
+		QWidget *lastFocus = sameParent ? gainFocus : lostFocus;
+		if(parentCtrl && parentCtrl != lastFocus)
 			parentCtrl->SaveLastFocusItem(lastFocus);
-		else if(parentScroll && parentScroll->m_hWnd != lastFocus)
+		else if(parentScroll && parentScroll != lastFocus)
 			parentScroll->SaveLastFocusItem(lastFocus);
 	}
-
-	return CallNextHookEx(g_focusHook, code, wParam, lParam);
 }
 
 
 bool CMainFrame::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	// Right-click menu to disable/enable tree view and main toolbar when right-clicking on either the menu strip or main toolbar
-	if((pMsg->message == mfcless::msg::RButtonUp) || (pMsg->message == WM_NCRBUTTONUP))
-	{
-		CControlBar *pBar = nullptr;
-		if(QWidget *pWnd = mfcless::Window<QWidget>::FromHandlePermanent(pMsg->hwnd); pWnd && (pMsg->message == mfcless::msg::RButtonUp))
-			pBar = dynamic_cast<CControlBar *>(pWnd);
-		if(pBar != nullptr || (pMsg->message == WM_NCRBUTTONUP && pMsg->wParam == HTMENU))
-		{
-			mfcless::Point pt;
-			GetCursorPos(&pt);
-			ShowToolbarMenu(pt);
-		}
-	}
+	// mfcless: QMainWindow offers that menu itself (createPopupMenu); ours replaces it.
 
 	// We handle keypresses before Windows has a chance to handle them (for alt etc..)
 	if(pMsg->message == mfcless::msg::KeyDown || pMsg->message == mfcless::msg::KeyUp || pMsg->message == mfcless::msg::SysKeyUp || pMsg->message == mfcless::msg::SysKeyDown)
@@ -660,13 +674,11 @@ bool CMainFrame::PreTranslateMessage(mfcless::Message *pMsg)
 
 void CMainFrame::OnUpdateFrameTitle(bool bAddToTitle)
 {
-	if ((GetStyle() & FWS_ADDTOTITLE) == 0)	return;     // leave it alone!
-
 	CChildFrame * pActiveChild = nullptr;
-	CDocument* pDocument = GetActiveDocument();
+	CModDoc *pDocument = GetActiveDoc();
 	if (bAddToTitle &&
 	  (pActiveChild = MDIGetActive()) != nullptr &&
-	  (pActiveChild->GetStyle() & WS_MAXIMIZE) == 0 &&
+	  !pActiveChild->isMaximized() &&
 	  (pDocument != nullptr ||
 	   (pDocument = pActiveChild->GetActiveDocument()) != nullptr))
 	{
@@ -676,24 +688,30 @@ void CMainFrame::OnUpdateFrameTitle(bool bAddToTitle)
 		UpdateFrameTitleForDocument(title);
 	} else
 	{
-		const mpt::uchar * lpstrTitle = nullptr;
 		mpt::ustring strTitle;
 
 		if (pActiveChild != nullptr)
 		{
-			strTitle = pActiveChild->GetTitle();
-			if (!strTitle.IsEmpty())
-				lpstrTitle = strTitle;
+			strTitle = mfcless::FromQString(pActiveChild->windowTitle());
 		}
-		UpdateFrameTitleForDocument(lpstrTitle);
+		UpdateFrameTitleForDocument(strTitle);
 	}
 }
 
 
-void CMainFrame::RecalcLayout(bool notify)
+void CMainFrame::UpdateFrameTitleForDocument(const mpt::ustring &docTitle)
 {
-	mfcless::Window<QMainWindow>::RecalcLayout(notify);
-	if(m_quickStartDlg && m_quickStartDlg->m_hWnd)
+	// As CFrameWnd does: "document - application" (FWS_PREFIXTITLE).
+	QString title = mfcless::ToQString(m_strTitle);
+	if(!docTitle.empty())
+		title = mfcless::ToQString(docTitle) + QStringLiteral(" - ") + title;
+	setWindowTitle(title);
+}
+
+
+void CMainFrame::RecalcLayout(bool)
+{
+	if(m_quickStartDlg && m_quickStartDlg->isVisible())
 	{
 		m_quickStartDlg->UpdateHeight();
 		m_quickStartDlg->CenterWindow();
@@ -709,7 +727,139 @@ bool CMainFrame::InGuiThread() const noexcept
 
 CMainFrame *CMainFrame::GetMainFrame() noexcept
 {
-	return static_cast<CMainFrame *>(theApp.m_pMainWnd);
+	return g_mainFrame;
+}
+
+
+// mfcless: CFrameWnd's menu, command routing and MDI client
+
+void CMainFrame::DrawMenuBar()
+{
+	QMenuBar *bar = menuBar();
+	bar->clear();
+	if(m_menu)
+	{
+		for(QAction *action : m_menu.Get()->actions())
+			bar->addAction(action);
+	}
+}
+
+
+bool CMainFrame::RouteCommand(uint32 id)
+{
+	if(CChildFrame *child = MDIGetActive(); child && child->RouteCommand(id))
+		return true;
+	if(DispatchCommand(id))
+		return true;
+	return theApp.RouteCommand(id);
+}
+
+
+bool CMainFrame::RouteCommandUpdate(uint32 id, mfcless::CommandState &state)
+{
+	if(CChildFrame *child = MDIGetActive(); child && child->RouteCommandUpdate(id, state))
+		return true;
+	if(DispatchCommandUpdate(id, state))
+		return true;
+	return theApp.RouteCommandUpdate(id, state);
+}
+
+
+bool CMainFrame::UpdateCommandState(uint32 id, mfcless::CommandState &state)
+{
+	// MFC disables items that nothing would handle (m_bAutoMenuEnable).
+	bool handled = false;
+	if(CChildFrame *child = MDIGetActive())
+	{
+		mfcless::DocumentView *view = child->GetActiveView() ? child->GetActiveView() : child->GetModControlView();
+		if(view && view->GetMessageMap() && view->GetMessageMap()->HasCommand(id))
+			handled = true;
+		else if(child->GetActiveDocument() && child->GetActiveDocument()->HasCommand(id))
+			handled = true;
+		else if(child->HasCommand(id))
+			handled = true;
+	}
+	if(!handled)
+		handled = HasCommand(id) || theApp.HasCommand(id);
+	state.enabled = handled;
+	RouteCommandUpdate(id, state);
+	return true;
+}
+
+
+CChildFrame *CMainFrame::MDIGetActive() const
+{
+	if(!m_mdiArea)
+		return nullptr;
+	if(auto *frame = qobject_cast<CChildFrame *>(m_mdiArea->activeSubWindow()))
+		return frame;
+	// While the main window is inactive, QMdiArea has no active child; MDI
+	// still has one.
+	if(auto *frame = qobject_cast<CChildFrame *>(m_mdiArea->currentSubWindow()))
+		return frame;
+	return nullptr;
+}
+
+
+void CMainFrame::MDIActivate(CChildFrame *frame)
+{
+	if(m_mdiArea && frame)
+		m_mdiArea->setActiveSubWindow(frame);
+}
+
+
+void CMainFrame::MDINext()
+{
+	if(m_mdiArea)
+		m_mdiArea->activateNextSubWindow();
+}
+
+
+void CMainFrame::MDIPrev()
+{
+	if(m_mdiArea)
+		m_mdiArea->activatePreviousSubWindow();
+}
+
+
+bool CMainFrame::OnBarCheck(uint32 id)
+{
+	if(id == IDD_TREEVIEW)
+	{
+		m_wndTree.setVisible(!m_wndTree.isVisible());
+		return true;
+	} else if(id == ID_VIEW_TOOLBAR)
+	{
+		m_wndToolBar.setVisible(!m_wndToolBar.isVisible());
+		return true;
+	}
+	return false;
+}
+
+
+void CMainFrame::OnUpdateControlBarMenu(mfcless::CommandState &state)
+{
+	if(state.id == IDD_TREEVIEW)
+	{
+		state.Enable(true);
+		state.SetCheck(m_wndTree.isVisible());
+	} else if(state.id == ID_VIEW_TOOLBAR)
+	{
+		state.Enable(true);
+		state.SetCheck(m_wndToolBar.isVisible());
+	}
+}
+
+
+void CMainFrame::BeginWaitCursor()
+{
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+}
+
+
+void CMainFrame::EndWaitCursor()
+{
+	QApplication::restoreOverrideCursor();
 }
 
 
@@ -1341,7 +1491,7 @@ void CMainFrame::UpdateColors()
 	CMainFrame *mainFrm = GetMainFrame();
 	if(mainFrm != nullptr)
 	{
-		mainFrm->m_wndToolBar.m_VuMeter.Invalidate();
+		mainFrm->m_wndToolBar.m_VuMeter->Invalidate();
 	}
 }
 
@@ -1384,10 +1534,10 @@ bool CMainFrame::StartPlayback()
 	{
 		if(TrackerSettings::Instance().GUIUpdateInterval.Get() > 0)
 		{
-			m_NotifyTimer = SetTimer(TIMERID_NOTIFY, TrackerSettings::Instance().GUIUpdateInterval, NULL);
+			m_NotifyTimer = SetTimer(TIMERID_NOTIFY, TrackerSettings::Instance().GUIUpdateInterval);
 		} else
 		{
-			m_NotifyTimer = SetTimer(TIMERID_NOTIFY, std::max(int(1), mpt::saturate_round<int>(gpSoundDevice->GetEffectiveBufferAttributes().UpdateInterval * 1000.0)), NULL);
+			m_NotifyTimer = SetTimer(TIMERID_NOTIFY, std::max(int(1), mpt::saturate_round<int>(gpSoundDevice->GetEffectiveBufferAttributes().UpdateInterval * 1000.0)));
 		}
 	}
 	return true;
@@ -1962,30 +2112,30 @@ void CMainFrame::SetupMidi(FlagSet<MidiSetup> d, uint32 n)
 
 void CMainFrame::SetUserText(const mpt::uchar *text)
 {
-	if(text[0] || !m_userText.IsEmpty())
+	if(text[0] || !m_userText.empty())
 	{
 		m_userText = text;
-		OnUpdateUser(nullptr);
+		{ mfcless::CommandState cmdUI; OnUpdateUser(cmdUI); }
 	}
 }
 
 
 void CMainFrame::SetInfoText(const mpt::uchar *text)
 {
-	if(text[0] || !m_infoText.IsEmpty())
+	if(text[0] || !m_infoText.empty())
 	{
 		m_infoText = text;
-		OnUpdateInfo(nullptr);
+		{ mfcless::CommandState cmdUI; OnUpdateInfo(cmdUI); }
 	}
 }
 
 
 void CMainFrame::SetXInfoText(const mpt::uchar *text)
 {
-	if(text[0] || !m_xInfoText.IsEmpty())
+	if(text[0] || !m_xInfoText.empty())
 	{
 		m_xInfoText = text;
-		OnUpdateInfo(nullptr);
+		{ mfcless::CommandState cmdUI; OnUpdateInfo(cmdUI); }
 	}
 }
 
@@ -1998,7 +2148,7 @@ void CMainFrame::SetHelpText(const mpt::uchar *text)
 
 mpt::ustring CMainFrame::GetHelpText() const
 {
-	return m_wndStatusBar.GetPaneText(0);
+	return mfcless::FromQString(m_wndStatusBar.GetPaneText(0));
 }
 
 
@@ -2035,10 +2185,12 @@ void CMainFrame::RefreshDlsBanks()
 // CMainFrame message handlers
 
 
-class CPropertySheetMPT : public CPropertySheet
+class CPropertySheetMPT : public PropertySheet
 {
-	using mfcless::Window<QDialog>::CPropertySheet;
+public:
+	using PropertySheet::PropertySheet;
 
+protected:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override
 	{
 		if(pMsg && DialogBase::HandleGlobalKeyMessage(*pMsg))
@@ -2049,28 +2201,16 @@ class CPropertySheetMPT : public CPropertySheet
 
 	bool OnInitDialog() override
 	{
-		ModifyStyleEx(0, WS_EX_CONTEXTHELP);
-		return mfcless::Window<QDialog>::OnInitDialog();
+		// mfcless: the context help button (WS_EX_CONTEXTHELP) is a Help button.
+		SetHelpButton(true);
+		return PropertySheet::OnInitDialog();
 	}
 
-	afx_msg void OnSysCommand(uint32 id, intptr_t param)
+	void OnHelp() override
 	{
-		if(id == SC_CONTEXTHELP)
-		{
-			CMainFrame::GetMainFrame()->OnHelp();
-			return;
-		}
-		mfcless::Window<QDialog>::OnSysCommand(id, param);
+		CMainFrame::GetMainFrame()->OnHelp();
 	}
-
-	DECLARE_MESSAGE_MAP()
 };
-
-void CPropertySheetMPT::RegisterMessageMap()
-{
-	mfcless::Window<QDialog>::RegisterMessageMap();
-	// ON_WM_SYSCOMMAND(): by hand (Qt event override)
-}
 
 
 void CMainFrame::OnViewOptions()
@@ -2243,7 +2383,7 @@ void CMainFrame::OnTimerGUI()
 		{
 			m_dwTimeSec = time;
 			m_nAvgMixChn = m_nMixChn;
-			OnUpdateTime(nullptr);
+			{ mfcless::CommandState cmdUI; OnUpdateTime(cmdUI); }
 		}
 	}
 
@@ -2266,7 +2406,7 @@ void CMainFrame::OnTimerGUI()
 	{
 		Profiler::Update();
 
-		QWidget * cwnd = mfcless::Window<QWidget>::FromHandle(this->m_hWndMDIClient);
+		QWidget * cwnd = m_mdiArea->viewport();
 		mfcless::PaintDC dc(cwnd);
 
 		int height = 16;
@@ -2325,24 +2465,25 @@ mfcless::DocumentView *CMainFrame::GetActiveView() const
 
 void CMainFrame::SwitchToActiveView()
 {
-	QWidget *wnd = GetActiveView();
-	if (wnd)
+	mfcless::DocumentView *view = GetActiveView();
+	if (view)
 	{
+		QWidget *wnd = view->ViewWidget();
 		// Hack: If the upper view is active, we only get the "container" (the dialog view with the tabs), not the view itself.
-		if(!strcmp(wnd->GetRuntimeClass()->m_lpszClassName, "CModControlView"))
+		if(auto *ctrlView = dynamic_cast<CModControlView *>(view))
 		{
-			wnd = static_cast<CModControlView *>(wnd)->GetCurrentControlDlg();
+			wnd = ctrlView->GetCurrentControlDlg();
 		}
-		wnd->SetFocus();
+		if(wnd)
+			wnd->setFocus();
 	}
 }
 
 
-void CMainFrame::OnUpdateTime(CCmdUI *)
+void CMainFrame::OnUpdateTime(mfcless::CommandState &)
 {
-	mpt::uchar s[64];
 	auto timeSec = m_dwTimeSec / 10u;
-	wsprintf(s, U_("%u:%02u:%02u.%u"),
+	mpt::ustring s = mfcless::PrintF(UL_("%u:%02u:%02u.%u"),
 		timeSec / 3600u, (timeSec / 60u) % 60u, timeSec % 60u, m_dwTimeSec % 10u);
 
 	if(m_pSndFile != nullptr && m_pSndFile != &m_WaveFile && !m_pSndFile->IsPaused())
@@ -2350,29 +2491,29 @@ void CMainFrame::OnUpdateTime(CCmdUI *)
 		PATTERNINDEX nPat = m_pSndFile->m_PlayState.m_nPattern;
 		if(m_pSndFile->Patterns.IsValidIndex(nPat))
 		{
-			if(nPat < 10) _tcscat(s, U_(" "));
-			if(nPat < 100) _tcscat(s, U_(" "));
-			wsprintf(s + _tcslen(s), U_(" [%u]"), nPat);
+			if(nPat < 10) s += UL_(" ");
+			if(nPat < 100) s += UL_(" ");
+			s += mfcless::PrintF(UL_(" [%u]"), nPat);
 		}
-		wsprintf(s + _tcslen(s), U_(" %uch"), m_nAvgMixChn);
+		s += mfcless::PrintF(UL_(" %uch"), m_nAvgMixChn);
 	}
 	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_TIME), s, true);
 }
 
 
-void CMainFrame::OnUpdateUser(CCmdUI *)
+void CMainFrame::OnUpdateUser(mfcless::CommandState &)
 {
 	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_USER), m_userText, true);
 }
 
 
-void CMainFrame::OnUpdateInfo(CCmdUI *)
+void CMainFrame::OnUpdateInfo(mfcless::CommandState &)
 {
 	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_INFO), m_infoText, true);
 }
 
 
-void CMainFrame::OnUpdateXInfo(CCmdUI *)
+void CMainFrame::OnUpdateXInfo(mfcless::CommandState &)
 {
 	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_XINFO), m_xInfoText, true);
 }
@@ -2399,7 +2540,7 @@ void CMainFrame::OpenMenuItemFile(const uint32 nId, const bool isTemplateFile)
 	{
 		const mpt::PathString& sPath = vecFilePaths[nIndex];
 		const bool bExists = mpt::native_fs{}.is_file(sPath);
-		CDocument *pDoc = nullptr;
+		CModDoc *pDoc = nullptr;
 		if(bExists)
 		{
 			pDoc = theApp.GetModDocTemplate()->OpenTemplateFile(sPath, !isTemplateFile);
@@ -2415,7 +2556,7 @@ void CMainFrame::OpenMenuItemFile(const uint32 nId, const bool isTemplateFile)
 		theApp.OpenModulesDialog(files, isTemplateFile ? theApp.GetUserTemplatesPath() : theApp.GetExampleSongsPath());
 		for(const auto &file : files)
 		{
-			theApp.OpenDocumentFile(file.ToUnicode());
+			theApp.OpenDocumentFile(file);
 		}
 	}
 }
@@ -2435,13 +2576,13 @@ void CMainFrame::OnExampleSong(uint32 nId)
 
 void CMainFrame::OnOpenMRUItem(uint32 nId)
 {
-	theApp.OpenDocumentFile(TrackerSettings::Instance().mruFiles[nId - ID_MRU_LIST_FIRST].ToUnicode());
+	theApp.OpenDocumentFile(TrackerSettings::Instance().mruFiles[nId - ID_MRU_LIST_FIRST]);
 }
 
 
 void CMainFrame::OnUpdateMRUItem(mfcless::CommandState &state)
 {
-	cmd->Enable(!TrackerSettings::Instance().mruFiles.empty());
+	state.Enable(!TrackerSettings::Instance().mruFiles.empty());
 }
 
 
@@ -2462,7 +2603,7 @@ intptr_t CMainFrame::OnUpdatePosition(uintptr_t, intptr_t lParam)
 	{
 		if(pnotify->type[Notification::EOS])
 		{
-			PostMessage(WM_COMMAND, ID_PLAYER_STOP);
+			mfcless::PostCommand(this, ID_PLAYER_STOP);
 			m_currentSpeed = 0;
 		}
 		//Log("OnUpdatePosition: row=%d time=%lu\n", pnotify->nRow, pnotify->TimestampSamples);
@@ -2470,7 +2611,7 @@ intptr_t CMainFrame::OnUpdatePosition(uintptr_t, intptr_t lParam)
 		{
 			m_wndTree.UpdatePlayPos(modDoc, pnotify);
 			if (GetFollowSong())
-				::SendMessage(GetFollowSong(), WM_MOD_UPDATEPOSITION, 0, lParam);
+				mfcless::SendModMessage(GetFollowSong(), WM_MOD_UPDATEPOSITION, 0, lParam);
 			if(m_pSndFile->m_pluginDryWetRatioChanged.any())
 			{
 				for(PLUGINDEX i = 0; i < MAX_MIXPLUGINS; i++)
@@ -2517,7 +2658,7 @@ intptr_t CMainFrame::OnUpdatePosition(uintptr_t, intptr_t lParam)
 			countChan += 1;
 		}
 
-		m_wndToolBar.m_VuMeter.SetVuMeter(countChan, vu, pnotify->type[Notification::Stop]);
+		m_wndToolBar.m_VuMeter->SetVuMeter(countChan, vu, pnotify->type[Notification::Stop]);
 
 		m_wndToolBar.SetCurrentSong(m_pSndFile);
 	}
@@ -2621,7 +2762,7 @@ void CMainFrame::AddToolBarMenuEntries(mfcless::Menu &menu) const
 	const FlagSet<MainToolBarItem> visibleItems = TrackerSettings::Instance().mainToolBarVisibleItems.Get();
 
 	mfcless::Menu subMenu;
-	VERIFY(subMenu.CreatePopupMenu());
+	subMenu.CreatePopupMenu();
 
 	subMenu.AppendMenu(mfcless::menu::String | (visibleItems[MainToolBarItem::IconsFile] ? mfcless::menu::Checked : 0), ID_MAINBAR_SHOW_FILE_ICONS, U_("&File Icons"));
 	subMenu.AppendMenu(mfcless::menu::String | (visibleItems[MainToolBarItem::IconsEdit] ? mfcless::menu::Checked : 0), ID_MAINBAR_SHOW_EDIT_ICONS, U_("&Edit Icons"));
@@ -2633,7 +2774,7 @@ void CMainFrame::AddToolBarMenuEntries(mfcless::Menu &menu) const
 	subMenu.AppendMenu(mfcless::menu::String | (visibleItems[MainToolBarItem::GlobalVolume] ? mfcless::menu::Checked : 0), ID_MAINBAR_SHOW_GLOBALVOLUME, U_("&Global Volume"));
 	subMenu.AppendMenu(mfcless::menu::String | (visibleItems[MainToolBarItem::IconsMisc] ? mfcless::menu::Checked : 0), ID_MAINBAR_SHOW_MISC_ICONS, U_("&Misc Icons"));
 	subMenu.AppendMenu(mfcless::menu::String | (visibleItems[MainToolBarItem::VUMeter] ? mfcless::menu::Checked : 0), ID_MAINBAR_SHOW_VUMETER, U_("&VU Meters"));
-	menu.AppendMenu(mfcless::menu::Popup, reinterpret_cast<uintptr_t>(subMenu.Detach()), U_("Main Toolbar &Items"));
+	menu.AppendMenu(mfcless::menu::Popup, subMenu, U_("Main Toolbar &Items"));
 }
 
 
@@ -2686,7 +2827,7 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 		case kcNextDocument: MDINext(); break;
 		case kcPrevDocument: MDIPrev(); break;
 		case kcFileCloseAll:
-			if(GetActiveWindow() != this)
+			if(QApplication::activeWindow() != this)
 				return kcNull;
 			theApp.OnFileCloseAll();
 			break;
@@ -2743,12 +2884,12 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			break;
 
 		case kcSwitchToInstrLibrary:
-			if(!m_wndTree.IsVisible())
+			if(!m_wndTree.isVisible())
 				return kcNull;
 			if(m_bModTreeHasFocus)
 				SwitchToActiveView();
 			else
-				m_wndTree.SetFocus();
+				m_wndTree.setFocus();
 			break;
 
 		default:
@@ -2756,13 +2897,16 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			// Note: MDIGetActive() will return a valid view even if we are currently in a modal dialog!
 			CChildFrame *pMDIActive = MDIGetActive();
 			QWidget *wnd = nullptr;
-			if(pMDIActive)
+			bool isPatternView = false;
+			if(pMDIActive && pMDIActive->GetActiveView())
 			{
-				wnd = pMDIActive->GetActiveView();
+				mfcless::DocumentView *view = pMDIActive->GetActiveView();
+				wnd = view->ViewWidget();
+				isPatternView = dynamic_cast<CViewPattern *>(view) != nullptr;
 				// Hack: If the upper view is active, we only get the "container" (the dialog view with the tabs), not the view itself.
-				if(!strcmp(wnd->GetRuntimeClass()->m_lpszClassName, CModControlView::classCModControlView.m_lpszClassName))
+				if(auto *ctrlView = dynamic_cast<CModControlView *>(view))
 				{
-					wnd = static_cast<CModControlView *>(wnd)->GetCurrentControlDlg();
+					wnd = ctrlView->GetCurrentControlDlg();
 				}
 			}
 
@@ -2771,7 +2915,7 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			if(mpt::is_in_range(cmd, kcPrevNextOrderStart, kcPrevNextOrderEnd)
 				&& m_pSndFile && m_pSndFile->GetpModDoc()
 				&& wnd != nullptr
-				&& strcmp(wnd->GetRuntimeClass()->m_lpszClassName, "CViewPattern"))
+				&& !isPatternView)
 			{
 				CriticalSection cs;
 
@@ -2810,8 +2954,8 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 				return wParam;
 			}
 
-			if(wnd && GetActiveWindow() == this)
-				return wnd->SendMessage(WM_MOD_KEYCOMMAND, wParam, lParam);
+			if(wnd && QApplication::activeWindow() == this)
+				return mfcless::SendModMessage(wnd, WM_MOD_KEYCOMMAND, wParam, lParam);
 			return kcNull;
 	}
 
@@ -2861,11 +3005,22 @@ void CMainFrame::OnShowWindow(bool bShow, uint32 /*nStatus*/)
 	if(bShow && !IsWindowVisible() && firstShow)
 	{
 		firstShow = false;
-		mfcless::WindowPlacement wpl;
-		GetWindowPlacement(&wpl);
-		wpl = theApp.GetSettings().Read<mfcless::WindowPlacement>(U_("Display"), U_("WindowPlacement"), wpl);
-		HighDPISupport::SetWindowPlacement(m_hWnd, wpl);
+		RestoreWindowGeometry(theApp.GetSettings());
 	}
+}
+
+
+void CMainFrame::SaveWindowGeometry(SettingsContainer &conf)
+{
+	conf.Write<std::string>(U_("Display"), U_("WindowGeometry"), saveGeometry().toBase64().toStdString());
+}
+
+
+void CMainFrame::RestoreWindowGeometry(SettingsContainer &conf)
+{
+	const std::string geometry = conf.Read<std::string>(U_("Display"), U_("WindowGeometry"), std::string());
+	if(!geometry.empty())
+		restoreGeometry(QByteArray::fromBase64(QByteArray::fromStdString(geometry)));
 }
 
 
@@ -3126,7 +3281,7 @@ void CMainFrame::OnHelp()
 		}
 	} else if(view != nullptr)
 	{
-		const char *className = view->GetRuntimeClass()->m_lpszClassName;
+		const char *className = view->GetRuntimeClass() ? view->GetRuntimeClass()->m_lpszClassName : "";
 		if(!strcmp("CViewGlobals", className))
 			page = "::/General.html";
 		else if(!strcmp("CViewPattern", className))
@@ -3152,10 +3307,20 @@ void CMainFrame::OnHelp()
 		}
 	}
 
-	const mpt::PathString helpFile = theApp.GetInstallPath() + P_("OpenMPT Manual.chm") + mpt::PathString::FromUTF8(page) + P_(">OpenMPT");
-	if(!::HtmlHelp(m_hWnd, helpFile.ToUnicode(), strcmp(page, "") ? HH_DISPLAY_TOC : HH_DISPLAY_TOPIC, NULL))
+	// mfcless: the manual is the online one (the .chm file is made from it);
+	// its pages have the same names, with sub pages in folders.
+	QString wikiPage = QString::fromLatin1(page);
+	wikiPage.remove(QStringLiteral("::/"));
+	wikiPage.remove(QStringLiteral(".html"));
+	if(wikiPage.startsWith(QStringLiteral("Setup_")))
 	{
-		Reporting::Error(U_("Could not find help file:\n") + helpFile.ToUnicode());
+		wikiPage = QStringLiteral("Setup/") + wikiPage.mid(6);
+		wikiPage.replace(QStringLiteral("Paths_"), QStringLiteral("Paths/"));
+	}
+	const QString url = QStringLiteral("https://wiki.openmpt.org/Manual") + (wikiPage.isEmpty() ? QString() : QStringLiteral(":_") + wikiPage);
+	if(!QDesktopServices::openUrl(QUrl(url)))
+	{
+		Reporting::Error(U_("Could not find help file:\n") + mfcless::FromQString(url));
 		return;
 	}
 	//::ShowWindow(hwndHelp, mfcless::show::ShowMaximized);
@@ -3274,15 +3439,13 @@ mfcless::Menu CMainFrame::CreateFileMenu(const size_t maxCount, std::vector<mpt:
 			paths.push_back(std::move(fileName));
 		}
 	}
-	uint32 stringCompareFlags = mfcless::compare::IgnoreCase | mfcless::compare::IgnoreWidth;
-#if MPT_WINNT_AT_LEAST(MPT_WIN_7)
-	// Wine does not support natural sorting with mfcless::compare::DigitsAsNumbers, fall back to normal sorting
-	if(::CompareString(LOCALE_USER_DEFAULT, stringCompareFlags | mfcless::compare::DigitsAsNumbers, U_(""), -1, U_(""), -1) == CSTR_EQUAL)
-		stringCompareFlags |= mfcless::compare::DigitsAsNumbers;
-#endif
-	std::sort(paths.begin(), paths.end(), [stringCompareFlags](const mpt::PathString &left, const mpt::PathString &right)
+	// mfcless: natural sorting, ignoring case (CompareString with SORT_DIGITSASNUMBERS).
+	QCollator collator;
+	collator.setCaseSensitivity(Qt::CaseInsensitive);
+	collator.setNumericMode(true);
+	std::sort(paths.begin(), paths.end(), [&collator](const mpt::PathString &left, const mpt::PathString &right)
 	{
-		return ::CompareString(LOCALE_USER_DEFAULT, stringCompareFlags, left.ToWide().c_str(), -1, right.ToWide().c_str(), -1) == CSTR_LESS_THAN;
+		return collator.compare(mfcless::ToQString(left.ToUnicode()), mfcless::ToQString(right.ToUnicode())) < 0;
 	});
 
 	mfcless::Menu hMenu = mfcless::Menu::CreatePopup();
@@ -3293,8 +3456,7 @@ mfcless::Menu CMainFrame::CreateFileMenu(const size_t maxCount, std::vector<mpt:
 	uintptr_t filesAdded = 0;
 	for(const auto &fileName : paths)
 	{
-		mpt::ustring file = fileName.GetFilename().ToUnicode();
-		file.Replace(U_("&"), U_("&&"));
+		const mpt::ustring file = mfcless::FromQString(mfcless::ToQString(fileName.GetFilename().ToUnicode()).replace(QLatin1Char('&'), QStringLiteral("&&")));
 		hMenu.AppendMenu(mfcless::menu::String, idRangeBegin + filesAdded, file);
 		filesAdded++;
 		if(filesAdded >= maxCount)
@@ -3306,7 +3468,7 @@ mfcless::Menu CMainFrame::CreateFileMenu(const size_t maxCount, std::vector<mpt:
 		hMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed | mfcless::menu::Disabled, 0, U_("No items found"));
 	} else
 	{
-		hMenu.AppendMenu(mfcless::menu::Separator, 0, 0);
+		hMenu.AppendMenu(mfcless::menu::Separator);
 		hMenu.AppendMenu(mfcless::menu::String, idRangeBegin + maxCount, U_("&Browse..."));
 	}
 
@@ -3318,10 +3480,10 @@ void CMainFrame::CreateExampleModulesMenu()
 {
 	static_assert(nMaxItemsInExampleModulesMenu == ID_EXAMPLE_MODULES_LASTINRANGE - ID_EXAMPLE_MODULES,
 				  "Make sure that there's a proper range for menu commands in resources.");
-	mfcless::Menu hMenu = CreateFileMenu(nMaxItemsInExampleModulesMenu, m_ExampleModulePaths, P_("ExampleSongs\\"), ID_EXAMPLE_MODULES);
-	mfcless::Menu const pMainMenu = GetMenu();
+	mfcless::Menu hMenu = CreateFileMenu(nMaxItemsInExampleModulesMenu, m_ExampleModulePaths, P_("ExampleSongs/"), ID_EXAMPLE_MODULES);
+	mfcless::Menu *const pMainMenu = GetMenu();
 	if (hMenu && pMainMenu)
-		VERIFY(pMainMenu->ModifyMenu(ID_EXAMPLE_MODULES, mfcless::menu::ByCommand | mfcless::menu::Popup, (uintptr_t)hMenu, m_InputHandler->GetMenuText(ID_EXAMPLE_MODULES)));
+		pMainMenu->ModifyMenu(ID_EXAMPLE_MODULES, mfcless::menu::ByCommand | mfcless::menu::Popup, hMenu, m_InputHandler->GetMenuText(ID_EXAMPLE_MODULES));
 	else
 		MPT_ASSERT(false);
 }
@@ -3332,12 +3494,12 @@ std::pair<mfcless::Menu , int> CMainFrame::FindMenuItemByCommand(mfcless::Menu &
 	const int numItems = menu.GetMenuItemCount();
 	for(int item = 0; item < numItems; item++)
 	{
-		if(menu.GetMenuItemID(item) == commandID)
-			return {&menu, item};
+		if(menu.GetMenuItemID(item) == static_cast<int>(commandID))
+			return {menu, item};
 		mfcless::Menu subMenu = menu.GetSubMenu(item);
 		if(subMenu != nullptr)
 		{
-			if(auto result = FindMenuItemByCommand(*subMenu, commandID); result.first != nullptr)
+			if(auto result = FindMenuItemByCommand(subMenu, commandID); result.first != nullptr)
 				return result;
 		}
 	}
@@ -3349,12 +3511,12 @@ void CMainFrame::CreateTemplateModulesMenu()
 {
 	static_assert(nMaxItemsInTemplateModulesMenu == ID_FILE_OPENTEMPLATE_LASTINRANGE - ID_FILE_OPENTEMPLATE,
 				  "Make sure that there's a proper range for menu commands in resources.");
-	mfcless::Menu hMenu = CreateFileMenu(nMaxItemsInTemplateModulesMenu, m_TemplateModulePaths, P_("TemplateModules\\"), ID_FILE_OPENTEMPLATE);
+	mfcless::Menu hMenu = CreateFileMenu(nMaxItemsInTemplateModulesMenu, m_TemplateModulePaths, P_("TemplateModules/"), ID_FILE_OPENTEMPLATE);
 	auto [fileMenu, position] = FindMenuItemByCommand(*GetMenu(), ID_FILE_OPEN);
 	if(hMenu && fileMenu)
 	{
-		VERIFY(fileMenu->RemoveMenu(position + 1, mfcless::menu::ByPosition));
-		VERIFY(fileMenu->InsertMenu(position + 1, mfcless::menu::ByPosition | mfcless::menu::Popup, (uintptr_t)hMenu, m_InputHandler->GetMenuText(ID_FILE_OPENTEMPLATE)));
+		fileMenu->RemoveMenu(position + 1, mfcless::menu::ByPosition);
+		fileMenu->InsertMenu(position + 1, mfcless::menu::ByPosition | mfcless::menu::Popup, hMenu, m_InputHandler->GetMenuText(ID_FILE_OPENTEMPLATE));
 	}
 	else
 		MPT_ASSERT_NOTREACHED();
@@ -3395,7 +3557,7 @@ void CMainFrame::UpdateMRUList()
 			}
 
 			const mpt::PathString &pathMPT = TrackerSettings::Instance().mruFiles[i];
-			mpt::ustring path = pathMPT.ToWide();
+			mpt::ustring path = pathMPT.ToUnicode();
 			if(!mpt::PathCompareNoCase(workDir, pathMPT.GetDirectoryWithDrive()))
 			{
 				// Only show filename
@@ -3444,7 +3606,7 @@ void CMainFrame::UpdateDocumentCount()
 	const bool shouldLoad = !m_unloading && !theApp.GetOpenDocumentCount();
 	if(shouldLoad && !isLoaded)
 	{
-		m_quickStartDlg = std::make_unique<QuickStartDlg>(m_TemplateModulePaths, m_ExampleModulePaths, mfcless::Window<QWidget>::FromHandle(m_hWndMDIClient));
+		m_quickStartDlg = std::make_unique<QuickStartDlg>(m_TemplateModulePaths, m_ExampleModulePaths, m_mdiArea);
 		m_quickStartDlg->CenterWindow();
 		m_quickStartDlg->ShowWindow(true);
 	} else if(isLoaded && !shouldLoad)
@@ -3586,94 +3748,18 @@ void CMainFrame::OnConvertMixerDumpToText()
 void CMainFrame::NotifyAccessibilityUpdate(QWidget &source)
 {
 	if(!IsPlaying() || m_pSndFile->m_PlayState.m_flags[SONG_PAUSED])
-		source.NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, OBJID_CLIENT, CHILDID_SELF);
-}
-
-// ITfLanguageProfileNotifySink implementation
-
-TfLanguageProfileNotifySink::TfLanguageProfileNotifySink()
-{
-	HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER, IID_ITfInputProcessorProfiles, (void**)&m_pProfiles);
-	if(SUCCEEDED(hr))
 	{
-		hr = m_pProfiles->QueryInterface(IID_ITfSource, (void**)&m_pSource);
-		if(SUCCEEDED(hr))
-		{
-			hr = m_pSource->AdviseSink(IID_ITfLanguageProfileNotifySink,
-				static_cast<ITfLanguageProfileNotifySink *>(this),
-				&m_dwCookie);
-			MPT_ASSERT(SUCCEEDED(hr));
-			MPT_ASSERT(m_dwCookie != TF_INVALID_COOKIE);
-		}
+		QAccessibleEvent event(&source, QAccessible::NameChanged);
+		QAccessible::updateAccessibility(&event);
 	}
 }
 
-
-TfLanguageProfileNotifySink::~TfLanguageProfileNotifySink()
+// mfcless: what upstream's ITfLanguageProfileNotifySink does, on Qt's input
+// method: when the keyboard layout changes, key positions might have
+// changed too.
+void CMainFrame::OnInputLanguageChanged()
 {
-	if(mpt::OS::Windows::IsWine())
-	{
-		// Calling UnadviseSink causes a random crash in Wine when computing its function pointer for some reason.
-		// Probably a race condition I don't understand, and probably a bug in Wine.
-		return;
-	}
-	if(m_pSource && (m_dwCookie != TF_INVALID_COOKIE))
-	{
-		m_pSource->UnadviseSink(m_dwCookie);
-	}
-	m_dwCookie = TF_INVALID_COOKIE;
-	if(m_pSource)
-	{
-		m_pSource->Release();
-	}
-	m_pSource = nullptr;
-	if(m_pProfiles) m_pProfiles->Release();
-	m_pProfiles = nullptr;
-}
-
-
-HRESULT TfLanguageProfileNotifySink::OnLanguageChange(LANGID /*langid*/, __RPC__out bool *pfAccept)
-{
-	*pfAccept = true;
-	return ResultFromScode(S_OK);
-}
-
-
-HRESULT TfLanguageProfileNotifySink::OnLanguageChanged()
-{
-	// Input language has changed, so key positions might have changed too.
-	CMainFrame *mainFrm = CMainFrame::GetMainFrame();
-	if(mainFrm != nullptr)
-	{
-		mainFrm->UpdateEffectKeys(mainFrm->GetActiveDoc());
-	}
-	return ResultFromScode(S_OK);
-}
-
-
-HRESULT TfLanguageProfileNotifySink::QueryInterface(REFIID riid, void **ppvObject)
-{
-	if(riid == IID_ITfLanguageProfileNotifySink || riid == IID_IUnknown)
-	{
-		*ppvObject = static_cast<ITfLanguageProfileNotifySink *>(this);
-		AddRef();
-		return ResultFromScode(S_OK);
-	}
-	*ppvObject = nullptr;
-	return ResultFromScode(E_NOINTERFACE);
-}
-
-
-ULONG TfLanguageProfileNotifySink::AddRef()
-{
-	// Don't let COM do anything to this object
-	return 1;
-}
-
-ULONG TfLanguageProfileNotifySink::Release()
-{
-	// Don't let COM do anything to this object
-	return 1;
+	UpdateEffectKeys(GetActiveDoc());
 }
 
 OPENMPT_NAMESPACE_END

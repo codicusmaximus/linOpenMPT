@@ -213,7 +213,7 @@ void CChildFrame::OnUpdateFrameTitle(bool bAddToTitle)
 bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 {
 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-	if (pViewClass->name == m_currentViewClassName) return true;
+	if (pViewClass->m_lpszClassName == m_currentViewClassName) return true;
 	if(!m_currentViewClassName.empty() && m_wndSplitter && m_wndSplitter->count() > 1)
 	{
 		m_currentViewClassName.clear();
@@ -242,7 +242,7 @@ bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 	if(sizes.size() >= 2)
 		m_wndSplitter->setSizes(sizes);
 	view->SetDocument(m_document);
-	m_currentViewClassName = pViewClass->name;
+	m_currentViewClassName = pViewClass->m_lpszClassName;
 	if(auto *scrollView = dynamic_cast<CModScrollView *>(view))
 		scrollView->OnInitialUpdate();
 	if ((m_hWndView) && (m_hWndCtrl))
@@ -280,15 +280,15 @@ void CChildFrame::SavePosition(bool force)
 				return;
 			int l = HighDPISupport::ScalePixelsInv(rect.height(), this);
 			//rewbs.varWindowSize - not the nicest piece of code, but we need to distinguish between the views:
-			if(CViewGlobals::classCViewGlobals.name == m_currentViewClassName)
+			if(CViewGlobals::classCViewGlobals.m_lpszClassName == m_currentViewClassName)
 				TrackerSettings::Instance().glGeneralWindowHeight = l;
-			else if(CViewPattern::classCViewPattern.name == m_currentViewClassName)
+			else if(CViewPattern::classCViewPattern.m_lpszClassName == m_currentViewClassName)
 				TrackerSettings::Instance().glPatternWindowHeight = l;
-			else if(CViewSample::classCViewSample.name == m_currentViewClassName)
+			else if(CViewSample::classCViewSample.m_lpszClassName == m_currentViewClassName)
 				TrackerSettings::Instance().glSampleWindowHeight = l;
-			else if(CViewInstrument::classCViewInstrument.name == m_currentViewClassName)
+			else if(CViewInstrument::classCViewInstrument.m_lpszClassName == m_currentViewClassName)
 				TrackerSettings::Instance().glInstrumentWindowHeight = l;
-			else if(CViewComments::classCViewComments.name == m_currentViewClassName)
+			else if(CViewComments::classCViewComments.m_lpszClassName == m_currentViewClassName)
 				TrackerSettings::Instance().glCommentsWindowHeight = l;
 		}
 	}
@@ -352,6 +352,34 @@ intptr_t CChildFrame::OnInstrumentSelected(uintptr_t wParam, intptr_t lParam)
 void CChildFrame::SetActiveView(mfcless::DocumentView *view)
 {
 	m_activeView = view;
+}
+
+
+bool CChildFrame::RouteCommand(uint32 id)
+{
+	mfcless::DocumentView *view = m_activeView ? m_activeView : GetModControlView();
+	if(view)
+	{
+		if(mfcless::MessageMap *map = view->GetMessageMap(); map && map->DispatchCommand(id))
+			return true;
+	}
+	if(m_document && m_document->DispatchCommand(id))
+		return true;
+	return DispatchCommand(id);
+}
+
+
+bool CChildFrame::RouteCommandUpdate(uint32 id, mfcless::CommandState &state)
+{
+	mfcless::DocumentView *view = m_activeView ? m_activeView : GetModControlView();
+	if(view)
+	{
+		if(mfcless::MessageMap *map = view->GetMessageMap(); map && map->DispatchCommandUpdate(id, state))
+			return true;
+	}
+	if(m_document && m_document->DispatchCommandUpdate(id, state))
+		return true;
+	return DispatchCommandUpdate(id, state);
 }
 
 
@@ -420,22 +448,22 @@ intptr_t CChildFrame::OnChangeViewClass(uintptr_t wParam, intptr_t lParam)
 
 bool CChildFrame::IsPatternView() const
 {
-	return CViewPattern::classCViewPattern.name == m_currentViewClassName;
+	return CViewPattern::classCViewPattern.m_lpszClassName == m_currentViewClassName;
 }
 
 
 void CChildFrame::SaveAllViewStates()
 {
 	void *ptr = nullptr;
-	if(CViewPattern::classCViewPattern.name == m_currentViewClassName)
+	if(CViewPattern::classCViewPattern.m_lpszClassName == m_currentViewClassName)
 		ptr = &m_ViewPatterns;
-	else if(CViewSample::classCViewSample.name == m_currentViewClassName)
+	else if(CViewSample::classCViewSample.m_lpszClassName == m_currentViewClassName)
 		ptr = &m_ViewSamples;
-	else if(CViewInstrument::classCViewInstrument.name == m_currentViewClassName)
+	else if(CViewInstrument::classCViewInstrument.m_lpszClassName == m_currentViewClassName)
 		ptr = &m_ViewInstruments;
-	else if(CViewGlobals::classCViewGlobals.name == m_currentViewClassName)
+	else if(CViewGlobals::classCViewGlobals.m_lpszClassName == m_currentViewClassName)
 		ptr = &m_ViewGeneral;
-	else if(CViewComments::classCViewComments.name == m_currentViewClassName)
+	else if(CViewComments::classCViewComments.m_lpszClassName == m_currentViewClassName)
 		ptr = &m_ViewComments;
 	mfcless::SendModMessage(m_hWndView, WM_MOD_VIEWMSG, VIEWMSG_SAVESTATE, reinterpret_cast<intptr_t>(ptr));
 }

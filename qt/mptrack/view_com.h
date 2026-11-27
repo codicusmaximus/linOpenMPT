@@ -32,6 +32,7 @@ public:
 	CViewComments() = default;
 public:
 	static const mfcless::ViewClass classCViewComments;
+	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCViewComments; }
 protected:
 	CModControlBar *m_ToolBar = nullptr;
 	CListCtrlEx *m_ItemList = nullptr;

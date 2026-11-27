@@ -195,8 +195,14 @@ protected:
 	CModTreeBar m_wndTree;
 	mfcless::StatusBar m_wndStatusBar;
 	CMainToolBar m_wndToolBar;
-	// mfcless: the MDI client window, in the middle of the main window.
+	// mfcless: the MDI client window, in the middle of the main window, and
+	// the splitter that holds it and the tree bar.
 	QMdiArea *m_mdiArea = nullptr;
+	class QSplitter *m_centralSplitter = nullptr;
+	// mfcless: the main menu (IDR_MAINFRAME); the menu bar shows its popups.
+	mfcless::Menu m_menu;
+	// mfcless: the window's title without the document's (CFrameWnd::m_strTitle).
+	mpt::ustring m_strTitle;
 	CSoundFile *m_pSndFile = nullptr; // != NULL only when currently playing or rendering
 	QWidget * m_hWndMidi = nullptr;
 	std::function<void(mpt::const_byte_span)> m_midiSysExCallback;
@@ -386,6 +392,30 @@ public:
 
 	void UpdateDocumentCount();
 
+	// mfcless: what CFrameWnd did with its menu and title.
+	mfcless::Menu *GetMenu() { return &m_menu; }
+	// Shows the main menu's changes in the menu bar.
+	void DrawMenuBar();
+	mpt::ustring GetTitle() const { return m_strTitle; }
+	void SetTitle(const mpt::ustring &title) { m_strTitle = title; }
+	void UpdateFrameTitleForDocument(const mpt::ustring &docTitle);
+	// Commands go to the active MDI child (its view and document), then this
+	// window, then the application (CMDIFrameWnd::OnCmdMsg). Items without
+	// any handler are disabled, as MFC does.
+	bool RouteCommand(uint32 id) override;
+	bool RouteCommandUpdate(uint32 id, mfcless::CommandState &state) override;
+	bool UpdateCommandState(uint32 id, mfcless::CommandState &state);
+	// The control bars' shown state (View > Tree View): CFrameWnd::OnBarCheck.
+	bool OnBarCheck(uint32 id);
+	void OnUpdateControlBarMenu(mfcless::CommandState &state);
+	// The window's activation (WM_ACTIVATE and WM_ACTIVATEAPP).
+	void OnApplicationStateChanged(bool active);
+	// Keeps the last focussed item of the views (upstream: a CBT hook).
+	void OnFocusChanged(QWidget *lostFocus, QWidget *gainFocus);
+	void BeginWaitCursor();
+	void EndWaitCursor();
+	void OnInputLanguageChanged();
+
 	// mfcless: what CMDIFrameWnd did with its MDI client.
 	QMdiArea *GetMDIClient() const { return m_mdiArea; }
 	CChildFrame *MDIGetActive() const;
@@ -434,6 +464,7 @@ public:
 	void OnHelp();
 protected:
 	int OnCreate();
+	void closeEvent(class QCloseEvent *e) override;
 	void OnRButtonDown(uint32, mfcless::Point);
 	void OnClose();
 	void OnTimer(uintptr_t);
@@ -475,11 +506,10 @@ protected:
 	intptr_t OnUpdateCheckSuccess(uintptr_t wparam, intptr_t lparam);
 	intptr_t OnToolbarUpdateIndicatorClick(uintptr_t wparam, intptr_t lparam);
 #endif // MPT_ENABLE_UPDATE
-	bool OnDeviceChange(uint32 nEventType, uintptr_t dwData);
 	void OnDropFiles(const QStringList &files);
 	bool OnQueryEndSession();
-	void OnActivateApp(bool active, uint32 threadID);
-	void OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized);
+
+
 
 	void OnToggleMainBarShowOctave();
 	void OnToggleMainBarShowTempo();
@@ -500,7 +530,7 @@ protected:
 	void RegisterMessageMap() override;
 public:
 	bool UpdateEffectKeys(const CModDoc *modDoc);
-	void OnShowWindow(bool bShow, uint32 nStatus);
+	void OnShowWindow(bool bShow, uint32 nStatus) override;
 
 	// Defines maximum number of items in example modules menu.
 	static constexpr size_t nMaxItemsInExampleModulesMenu = 50;

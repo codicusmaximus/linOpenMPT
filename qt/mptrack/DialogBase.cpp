@@ -26,6 +26,10 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QDialogButtonBox>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QTabWidget>
+#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -573,6 +577,250 @@ void PropertyPage::SetModified(bool changed)
 		return;
 	m_modified = changed;
 	emit modifiedChanged(changed);
+}
+
+
+PropertySheet::PropertySheet(const mpt::ustring &caption, QWidget *parent, uint32 selectPage)
+	: Window(parent)
+	, m_startPage(selectPage)
+{
+	setWindowTitle(mfcless::ToQString(caption));
+	setWindowFlag(Qt::WindowContextHelpButtonHint, false);
+	auto *layout = new QVBoxLayout(this);
+	m_tabs = new QTabWidget(this);
+	layout->addWidget(m_tabs);
+	m_buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply, this);
+	layout->addWidget(m_buttons);
+	m_buttons->button(QDialogButtonBox::Apply)->setEnabled(false);
+	connect(m_buttons, &QDialogButtonBox::clicked, this, [this](QAbstractButton *button)
+	{
+		switch(m_buttons->standardButton(button))
+		{
+		case QDialogButtonBox::Ok:
+			if(Apply())
+				accept();
+			break;
+		case QDialogButtonBox::Cancel:
+			reject();
+			break;
+		case QDialogButtonBox::Apply:
+			Apply();
+			break;
+		case QDialogButtonBox::Help:
+			OnHelp();
+			break;
+		default:
+			break;
+		}
+	});
+	connect(this, &QDialog::rejected, this, [this]
+	{
+		for(PropertyPage *page : m_pages)
+		{
+			if(page->m_initialized)
+				page->OnCancel();
+		}
+	});
+	connect(m_tabs, &QTabWidget::currentChanged, this, [this](int index)
+	{
+		if(m_switching)
+			return;
+		if(m_current >= 0 && m_current != index && m_current < GetPageCount() && !m_pages[m_current]->OnKillActive())
+		{
+			m_switching = true;
+			m_tabs->setCurrentIndex(m_current);
+			m_switching = false;
+			return;
+		}
+		Activate(index);
+	});
+}
+
+
+PropertySheet::~PropertySheet()
+{
+	// The pages belong to the caller.
+	for(PropertyPage *page : m_pages)
+	{
+		if(page->parent())
+			page->setParent(nullptr);
+		page->m_sheet = nullptr;
+	}
+}
+
+
+void PropertySheet::AddPage(PropertyPage *page)
+{
+	page->m_sheet = this;
+	m_pages.push_back(page);
+	if(m_built)
+	{
+		auto *holder = new QWidget;
+		new QVBoxLayout(holder);
+		holder->layout()->setContentsMargins(0, 0, 0, 0);
+		m_tabs->addTab(holder, page->windowTitle());
+	}
+}
+
+
+PropertyPage *PropertySheet::GetPage(int index) const
+{
+	return (index >= 0 && index < GetPageCount()) ? m_pages[index] : nullptr;
+}
+
+
+int PropertySheet::GetActiveIndex() const
+{
+	return m_built ? m_tabs->currentIndex() : static_cast<int>(m_startPage);
+}
+
+
+bool PropertySheet::SetActivePage(int index)
+{
+	if(index < 0 || index >= GetPageCount())
+		return false;
+	if(!m_built)
+	{
+		m_startPage = index;
+		return true;
+	}
+	m_tabs->setCurrentIndex(index);
+	return m_tabs->currentIndex() == index;
+}
+
+
+bool PropertySheet::SetActivePage(PropertyPage *page)
+{
+	const auto it = std::find(m_pages.begin(), m_pages.end(), page);
+	return it != m_pages.end() && SetActivePage(static_cast<int>(it - m_pages.begin()));
+}
+
+
+void PropertySheet::SetTitle(const mpt::ustring &title)
+{
+	setWindowTitle(mfcless::ToQString(title));
+}
+
+
+QAbstractButton *PropertySheet::GetButton(uint32 id) const
+{
+	switch(id)
+	{
+	case 1: return m_buttons->button(QDialogButtonBox::Ok);
+	case 2: return m_buttons->button(QDialogButtonBox::Cancel);
+	case 9: return m_buttons->button(QDialogButtonBox::Help);
+	case 0x3021: return m_buttons->button(QDialogButtonBox::Apply);
+	default: return nullptr;
+	}
+}
+
+
+void PropertySheet::EnableItem(uint32 id, bool enable)
+{
+	if(QAbstractButton *button = GetButton(id))
+		button->setEnabled(enable);
+}
+
+
+void PropertySheet::SetHelpButton(bool show)
+{
+	m_hasHelp = show;
+	if(show && !m_buttons->button(QDialogButtonBox::Help))
+		m_buttons->addButton(QDialogButtonBox::Help);
+	else if(!show)
+		m_buttons->setStandardButtons(m_buttons->standardButtons() & ~QDialogButtonBox::Help);
+}
+
+
+void PropertySheet::keyPressEvent(QKeyEvent *e)
+{
+	if(e->key() == Qt::Key_F1 && e->modifiers() == Qt::NoModifier)
+	{
+		OnHelp();
+		return;
+	}
+	Window::keyPressEvent(e);
+}
+
+
+void PropertySheet::Build()
+{
+	if(m_built)
+		return;
+	m_built = true;
+	// Every page's template is made now (as MFC does to find the largest
+	// page), so that the tabs have their captions and the sheet its size.
+	for(PropertyPage *page : m_pages)
+	{
+		auto *holder = new QWidget;
+		auto *layout = new QVBoxLayout(holder);
+		layout->setContentsMargins(0, 0, 0, 0);
+		page->CreateFromTemplate();
+		m_tabs->addTab(holder, page->windowTitle());
+		connect(page, &PropertyPage::modifiedChanged, this, [this](bool) { UpdateApply(); });
+	}
+	OnInitDialog();
+	int start = static_cast<int>(m_startPage);
+	if(start < 0 || start >= GetPageCount())
+		start = 0;
+	m_switching = true;
+	m_tabs->setCurrentIndex(start);
+	m_switching = false;
+	Activate(start);
+}
+
+
+void PropertySheet::Activate(int index)
+{
+	PropertyPage *page = GetPage(index);
+	if(!page)
+		return;
+	QWidget *holder = m_tabs->widget(index);
+	if(page->parentWidget() != holder)
+	{
+		page->setParent(holder, Qt::Widget);
+		holder->layout()->addWidget(page);
+	}
+	if(!page->m_initialized)
+	{
+		page->m_initialized = true;
+		if(page->OnInitDialog())
+			page->SetFocusToFirstControl();
+	}
+	page->show();
+	m_current = index;
+	page->OnSetActive();
+}
+
+
+bool PropertySheet::Apply()
+{
+	if(PropertyPage *active = GetPage(m_current); active && !active->OnKillActive())
+		return false;
+	for(PropertyPage *page : m_pages)
+	{
+		if(!page->m_initialized)
+			continue;
+		if(!page->OnApply())
+			return false;
+		page->SetModified(false);
+	}
+	UpdateApply();
+	return true;
+}
+
+
+void PropertySheet::UpdateApply()
+{
+	const bool modified = std::any_of(m_pages.begin(), m_pages.end(), [](const PropertyPage *page) { return page->IsModified(); });
+	EnableItem(0x3021, modified);
+}
+
+
+int PropertySheet::DoModal()
+{
+	Build();
+	return exec() == QDialog::Accepted ? 1 : 2;  // IDOK, IDCANCEL
 }
 
 

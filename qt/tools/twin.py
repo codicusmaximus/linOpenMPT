@@ -28,6 +28,10 @@ TYPES = [
 	(r'\bSBPS_(STRETCH|NORMAL|NOBORDERS|POPOUT|DISABLED)\b', lambda m: 'mfcless::pane::' + {'STRETCH': 'Stretch', 'NORMAL': 'Normal', 'NOBORDERS': 'NoBorders', 'POPOUT': 'PopOut', 'DISABLED': 'Disabled'}[m.group(1)]),
 	(r'\bGetCurrentThreadId\(\)', 'mfcless::CurrentThreadId()'),
 	(r'\bCStatusBar\b', 'mfcless::StatusBar'),
+	# Path literals: Windows' separators become '/'.
+	(r'\bP_\("((?:[^"\\]|\\.)*)"\)', lambda m: 'P_("' + m.group(1).replace('\\\\', '/') + '")'),
+	(r'dynamic_cast<CPropertySheet \*>\(GetParent\(\)\)', 'GetSheet()'),
+	(r'\bCPropertySheet\b(?!\s*\{)', 'PropertySheet'),
 	(r'\bSleep\(', 'mfcless::SleepMs('),
 	(r'\bASSERT_VALID\((\w+)\)', r'MPT_ASSERT(\1)'),
 	(r'\b(\w+)\.Format\((U_|_T|UL_)\(', r'\1 = mfcless::PrintF(UL_('),
@@ -164,7 +168,7 @@ CUSTOM_CONTROLS = [
 # handlers (OnLButtonDown, OnPaint, ...) for the Qt events.
 BASES = {
 	'CDialog': 'DialogBase', 'CDialogEx': 'DialogBase', 'CPropertyPage': 'PropertyPage',
-	'CFormView': 'DialogBase, public mfcless::DocumentView', 'CPropertySheet': 'mfcless::Window<QDialog>',
+	'CFormView': 'DialogBase, public mfcless::DocumentView', 'CPropertySheet': 'PropertySheet',
 	'CWnd': 'mfcless::Window<QWidget>', 'CView': 'mfcless::Window<QWidget>, public mfcless::DocumentView',
 	'CScrollView': 'mfcless::Window<QAbstractScrollArea>, public mfcless::DocumentView',
 	'CMDIChildWnd': 'mfcless::Window<QMdiSubWindow>', 'CMDIFrameWnd': 'mfcless::Window<QMainWindow>', 'CFrameWnd': 'mfcless::Window<QMainWindow>',
@@ -248,7 +252,7 @@ def twin(text):
 	text = dialog_helpers(text)
 	text = member_access(text, member_types(text))
 	text = re.sub(r'\bafx_msg\s+', '', text)
-	text = re.sub(r'^\s*DECLARE_(?:DYNCREATE|SERIAL)\((\w+)\)\s*\n', r'public:\n\tstatic const mfcless::ViewClass class\1;\n', text, flags=re.M)
+	text = re.sub(r'^\s*DECLARE_(?:DYNCREATE|SERIAL)\((\w+)\)\s*\n', r'public:\n\tstatic const mfcless::ViewClass class\1;\n\tconst mfcless::ViewClass *GetRuntimeClass() const override { return &class\1; }\n', text, flags=re.M)
 	text = re.sub(r'^\s*DECLARE_DYNAMIC\(\w+\)\s*\n', '', text, flags=re.M)
 	text = re.sub(r'^\s*//\{\{AFX_\w+(\(\w+\))?\s*\n', '', text, flags=re.M)
 	text = re.sub(r'^\s*//\}\}AFX_\w+\s*\n', '', text, flags=re.M)
@@ -501,7 +505,8 @@ def twin_cpp(text, header):
 	text = pointer_handles(text)
 	text = re.sub(r'^#include "stdafx.h"\n', '', text, flags=re.M)
 	text = re.sub(r'^BEGIN_MESSAGE_MAP\((\w+),\s*(\w+)\)\n(.*?)^END_MESSAGE_MAP\(\)', message_map, text, flags=re.M | re.S)
-	text = re.sub(r'^IMPLEMENT_(DYNAMIC|DYNCREATE|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
+	text = re.sub(r'^IMPLEMENT_DYNCREATE\((\w+),\s*\w+\)\s*\n', r'const mfcless::ViewClass \1::class\1{"\1", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new \1(); if(parent) view->setParent(parent); return view; }};\n', text, flags=re.M)
+	text = re.sub(r'^IMPLEMENT_(DYNAMIC|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
 	# Data exchange
 	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
 	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)).split(',')[0] + '::DoDataExchange(dx)', text)

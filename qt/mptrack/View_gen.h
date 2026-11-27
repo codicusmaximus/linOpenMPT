@@ -70,6 +70,7 @@ protected:
 	CViewGlobals();
 public:
 	static const mfcless::ViewClass classCViewGlobals;
+	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCViewGlobals; }
 public:
 	CModDoc* GetDocument() const;
 	void RecalcLayout();

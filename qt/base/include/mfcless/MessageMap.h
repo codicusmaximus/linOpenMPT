@@ -100,6 +100,11 @@ public:
 	bool DispatchNotify(NotifyInfo &info);
 	bool DispatchScroll(Qt::Orientation orientation, ScrollCode code, int pos, QWidget *control);
 	bool HasCommand(uint32_t id) const;
+	// Where a command and its state requests go (upstream: OnCmdMsg). By
+	// default to this map's handlers; frames pass them on to their views and
+	// documents first.
+	virtual bool RouteCommand(uint32_t id) { return DispatchCommand(id); }
+	virtual bool RouteCommandUpdate(uint32_t id, CommandState &state) { return DispatchCommandUpdate(id, state); }
 	// Window messages of the program's own (WM_MOD_*, mfcless::ModMessage).
 	bool DispatchMessage(uint32_t message, uintptr_t wParam, intptr_t lParam, intptr_t &result);
 	// For a widget's event(): hands a ModMessage (a command or one of the

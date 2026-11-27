@@ -142,6 +142,23 @@ void Document::OnCloseDocument()
 }
 
 
+void Document::UpdateFrameCounts()
+{
+	std::vector<OPENMPT_NAMESPACE::CChildFrame *> frames;
+	for(DocumentView *view : m_views)
+	{
+		if(auto *frame = view->GetParentFrame(); frame && std::find(frames.begin(), frames.end(), frame) == frames.end())
+			frames.push_back(frame);
+	}
+	int number = 1;
+	for(auto *frame : frames)
+	{
+		frame->SetWindowNumber(frames.size() > 1 ? number++ : 0);
+		frame->OnUpdateFrameTitle(true);
+	}
+}
+
+
 void Document::OnFileClose()
 {
 	if(!SaveModified())

@@ -42,7 +42,7 @@ class Document;
 // The class of a view, for creating one by class (upstream: CRuntimeClass).
 struct ViewClass
 {
-	const char *name;  // upstream's m_lpszClassName
+	const char *m_lpszClassName;
 	DocumentView *(*create)(QWidget *parent);
 };
 
@@ -69,6 +69,9 @@ public:
 	OPENMPT_NAMESPACE::CChildFrame *GetParentFrame();
 	// The view's message map (its window's).
 	MessageMap *GetMessageMap() { return dynamic_cast<MessageMap *>(this); }
+
+	// The view's class (upstream: CObject::GetRuntimeClass).
+	virtual const ViewClass *GetRuntimeClass() const { return nullptr; }
 
 	// Called once the view has its document and frame.
 	virtual void OnInitialUpdate() {}
@@ -103,6 +106,9 @@ public:
 	virtual void OnCloseDocument();
 	// Asks whether to save a modified document. False if the user cancels.
 	virtual bool SaveModified();
+	// Numbers the document's frames (":1", ":2") when it has more than one,
+	// and updates their titles.
+	void UpdateFrameCounts();
 	// The File > Close command: asks to save, then closes.
 	void OnFileClose();
 	// Saves to pathName, or asks for a name (saveAs, or no path yet).

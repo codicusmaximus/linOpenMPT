@@ -24,6 +24,7 @@
 #include "mfcless/ModMessage.h"
 
 #include <QtCore/QThread>
+#include <QtGui/QScreen>
 
 #include <QtCore/QBasicTimer>
 #include <QtCore/QMimeData>
@@ -168,9 +169,10 @@ public:
 	}
 
 	// Timers by ID, as SetTimer / KillTimer.
-	void SetTimer(uintptr_t id, int milliseconds)
+	uintptr_t SetTimer(uintptr_t id, int milliseconds)
 	{
 		m_timers[id].start(milliseconds, this);
+		return id;
 	}
 	void KillTimer(uintptr_t id)
 	{
@@ -252,6 +254,21 @@ public:
 	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
 	void SetWindowText(const QString &text) { this->setWindowTitle(text); }
 	QString GetWindowText() const { return this->windowTitle(); }
+	// Centres the window over its parent (or another window, or the screen).
+	void CenterWindow(QWidget *alternate = nullptr)
+	{
+		QWidget *over = alternate ? alternate : this->parentWidget();
+		QRect area;
+		if(over && !this->isWindow())
+			area = QRect(QPoint(), over->size());
+		else if(over)
+			area = QRect(over->mapToGlobal(QPoint()), over->size());
+		else if(this->screen())
+			area = this->screen()->availableGeometry();
+		QRect r = this->frameGeometry();
+		r.moveCenter(area.center());
+		this->move(r.topLeft());
+	}
 	// Hides the window; PostNcDestroy follows from the event loop.
 	virtual bool DestroyWindow()
 	{

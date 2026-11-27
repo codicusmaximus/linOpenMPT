@@ -258,6 +258,9 @@ void CModControlView::RegisterMessageMap()
 }
 
 
+const mfcless::ViewClass CModControlView::classCModControlView{"CModControlView", [](QWidget *parent) -> mfcless::DocumentView * { return new CModControlView(parent); }};
+
+
 CModControlView::CModControlView(QWidget *parent)
 	: Window(parent)
 {

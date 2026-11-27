@@ -170,6 +170,8 @@ protected:
 
 public: // mfcless: created by CChildFrame
 	explicit CModControlView(QWidget *parent = nullptr);
+	static const mfcless::ViewClass classCModControlView;
+	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCModControlView; }
 
 public:
 	~CModControlView() override;

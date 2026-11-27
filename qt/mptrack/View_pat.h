@@ -205,6 +205,7 @@ public:
 	~CViewPattern();
 public:
 	static const mfcless::ViewClass classCViewPattern;
+	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCViewPattern; }
 public:
 	const CSoundFile *GetSoundFile() const;
 	CSoundFile *GetSoundFile();

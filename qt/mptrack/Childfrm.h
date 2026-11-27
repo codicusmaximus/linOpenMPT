@@ -161,6 +161,10 @@ public:
 	mfcless::DocumentView *GetActiveView() const { return m_activeView; }
 	void SetActiveView(mfcless::DocumentView *view);
 	void SetWindowNumber(int n) { m_nWindow = n; }
+	// Commands go to the active view, its document, then the frame (as
+	// CFrameWnd::OnCmdMsg routes them).
+	bool RouteCommand(uint32 id) override;
+	bool RouteCommandUpdate(uint32 id, mfcless::CommandState &state) override;
 
 // Overrides
 public:

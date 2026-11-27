@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include <QtGui/QCursor>
 #include <QtGui/QImage>
 
 namespace mfcless::res
@@ -113,6 +114,8 @@ std::vector<Accelerator> Accelerators(uint32_t id);
 QImage Bitmap(uint32_t id);
 // The icon image closest to the size (largest if 0).
 QImage Icon(uint32_t id, int size = 0);
+// A cursor (with its hot spot); the arrow if missing.
+QCursor Cursor(uint32_t id);
 // A file resource of a named type, such as PNG.
 QImage Image(const char16_t *type, uint32_t id);
 

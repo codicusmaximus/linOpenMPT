@@ -8,6 +8,8 @@
 
 #include "mfcless/Resources.h"
 
+#include <QtGui/QPixmap>
+
 #include <QtCore/QBuffer>
 #include <QtCore/QByteArray>
 #include <QtGui/QImageReader>
@@ -541,6 +543,63 @@ QImage Icon(uint32_t id, int size)
 	if(!image.loadFromData(file, "ICO"))
 		image.loadFromData(QByteArray(reinterpret_cast<const char *>(icon.data), static_cast<int>(icon.size)));
 	return image;
+}
+
+
+QCursor Cursor(uint32_t id)
+{
+	const auto group = FindData(ResourceType::GroupCursor, static_cast<uint16_t>(id));
+	if(!group)
+		return QCursor(Qt::ArrowCursor);
+	Reader r(group.data, group.size);
+	r.U16();  // reserved
+	r.U16();  // type
+	const uint16_t count = r.U16();
+	uint16_t cursorId = 0, bits = 0;
+	int width = 0;
+	for(uint16_t i = 0; i < count && r.Ok(); i++)
+	{
+		const int w = r.U16();
+		r.U16();  // height (both masks)
+		r.U16();  // planes
+		const uint16_t b = r.U16();
+		r.U32();  // bytes
+		const uint16_t cid = r.U16();
+		if(!cursorId || w > width || (w == width && b > bits))
+		{
+			cursorId = cid;
+			width = w;
+			bits = b;
+		}
+	}
+	const auto cursor = FindData(ResourceType::Cursor, cursorId);
+	if(!cursor || cursor.size < 4 + 40)
+		return QCursor(Qt::ArrowCursor);
+	const int hotX = cursor.data[0] | (cursor.data[1] << 8), hotY = cursor.data[2] | (cursor.data[3] << 8);
+	const unsigned char *dib = cursor.data + 4;
+	const std::size_t dibSize = cursor.size - 4;
+	// As a one-image .ico file, which Qt reads with its AND mask.
+	QByteArray file;
+	auto put16 = [&](uint16_t v) { file.append(static_cast<char>(v & 0xFF)); file.append(static_cast<char>(v >> 8)); };
+	auto put32 = [&](uint32_t v) { put16(static_cast<uint16_t>(v & 0xFFFF)); put16(static_cast<uint16_t>(v >> 16)); };
+	const int w = dib[4] | (dib[5] << 8);
+	const int h = (dib[8] | (dib[9] << 8)) / 2;
+	put16(0);
+	put16(1);
+	put16(1);
+	file.append(static_cast<char>(w >= 256 ? 0 : w));
+	file.append(static_cast<char>(h >= 256 ? 0 : h));
+	file.append('\0');
+	file.append('\0');
+	put16(1);
+	put16(static_cast<uint16_t>(dib[14] | (dib[15] << 8)));
+	put32(static_cast<uint32_t>(dibSize));
+	put32(22);
+	file.append(reinterpret_cast<const char *>(dib), static_cast<int>(dibSize));
+	QImage image;
+	if(!image.loadFromData(file, "ICO"))
+		return QCursor(Qt::ArrowCursor);
+	return QCursor(QPixmap::fromImage(image), hotX, hotY);
 }
 
 

@@ -83,6 +83,7 @@ public:
 	CViewInstrument();
 public:
 	static const mfcless::ViewClass classCViewInstrument;
+	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCViewInstrument; }
 protected:
 	void PrepareUndo(const char *description);
 

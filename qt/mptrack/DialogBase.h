@@ -162,6 +162,7 @@ protected:
 	void showEvent(QShowEvent *e) override;
 
 private:
+	friend class PropertySheet;
 	void CreateFromTemplate();
 
 	uint32 m_templateID = 0;
@@ -178,11 +179,20 @@ protected:
 // mfcless: the role of MFC's CPropertyPage (one page of a tabbed dialog such
 // as the options). Created from its dialog template like any dialog; the
 // sheet calls these as MFC's property sheet does.
+class PropertySheet;
+OPENMPT_NAMESPACE_END
+class QAbstractButton;
+class QKeyEvent;
+OPENMPT_NAMESPACE_BEGIN
+
 class PropertyPage : public DialogBase
 {
 	Q_OBJECT
 public:
 	using DialogBase::DialogBase;
+
+	// The sheet the page is on (upstream: its parent window).
+	PropertySheet *GetSheet() const { return m_sheet; }
 
 	virtual bool OnSetActive() { return true; }
 	virtual bool OnKillActive() { return true; }
@@ -197,7 +207,57 @@ signals:
 	void modifiedChanged(bool changed);
 
 private:
+	friend class PropertySheet;
+	PropertySheet *m_sheet = nullptr;
 	bool m_modified = false;
+};
+
+
+// mfcless: the role of MFC's CPropertySheet: a dialog with a tab for each
+// page and OK, Cancel and Apply buttons. Pages are made when first shown, and
+// asked (OnKillActive) before another page is shown.
+class PropertySheet : public mfcless::Window<QDialog>
+{
+	Q_OBJECT
+public:
+	PropertySheet(const mpt::ustring &caption, QWidget *parent = nullptr, uint32 selectPage = 0);
+	~PropertySheet() override;
+
+	void AddPage(PropertyPage *page);
+	int GetPageCount() const { return static_cast<int>(m_pages.size()); }
+	PropertyPage *GetPage(int index) const;
+	int GetActiveIndex() const;
+	PropertyPage *GetActivePage() const { return GetPage(GetActiveIndex()); }
+	bool SetActivePage(int index);
+	bool SetActivePage(PropertyPage *page);
+	void SetTitle(const mpt::ustring &title);
+
+	// IDOK (1), IDCANCEL (2), ID_APPLY_NOW (0x3021)
+	void EnableItem(uint32 id, bool enable = true);
+	QAbstractButton *GetButton(uint32 id) const;
+
+	int DoModal();
+
+protected:
+	virtual bool OnInitDialog() { return true; }
+	// The Help button and F1 (upstream: the caption's ? button).
+	virtual void OnHelp() {}
+	void SetHelpButton(bool show);
+
+	void keyPressEvent(QKeyEvent *e) override;
+
+private:
+	void Build();
+	void Activate(int index);
+	bool Apply();
+	void UpdateApply();
+
+	std::vector<PropertyPage *> m_pages;
+	class QTabWidget *m_tabs = nullptr;
+	class QDialogButtonBox *m_buttons = nullptr;
+	int m_current = -1;
+	uint32 m_startPage = 0;
+	bool m_built = false, m_switching = false, m_hasHelp = false;
 };
 
 OPENMPT_NAMESPACE_END

@@ -69,7 +69,7 @@ bool MessageMap::HandleModMessage(QEvent *e)
 		return false;
 	auto *m = static_cast<ModMessage *>(e);
 	if(m->message == CommandMessage)
-		m->result = DispatchCommand(static_cast<uint32_t>(m->wParam)) ? 1 : 0;
+		m->result = RouteCommand(static_cast<uint32_t>(m->wParam)) ? 1 : 0;
 	else
 		DispatchMessage(m->message, m->wParam, m->lParam, m->result);
 	return true;

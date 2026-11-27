@@ -25,6 +25,7 @@
 #include <QtCore/QObject>
 
 #include "mfcless/Graphics.h"
+#include "mfcless/MessageMap.h"
 
 class QComboBox;
 class QLineEdit;
@@ -129,7 +130,7 @@ struct DRAGONDROP
 
 class CMPTCommandLineInfo;
 
-class CTrackApp : public QObject
+class CTrackApp : public QObject, public mfcless::MessageMap
 {
 	Q_OBJECT
 	friend class CMainFrame;
@@ -387,6 +388,11 @@ protected:
 	void UninitializeDXPlugins();
 
 	bool MoveConfigFile(const mpt::PathString &fileName, mpt::PathString subDir = {}, mpt::PathString newFileName = {});
+
+public:
+	// mfcless: the application's commands (upstream's message map); the main
+	// frame passes it the commands that no window took.
+	void RegisterMessageMap() override;
 };
 
 
