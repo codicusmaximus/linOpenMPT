@@ -33,9 +33,16 @@ target_compile_definitions(mpt_common PUBLIC
   $<$<CONFIG:Debug>:MPT_BUILD_DEBUG>)
 target_compile_options(mpt_common PRIVATE ${MPT_WARN_OPTS})
 target_compile_options(mpt_common PUBLIC ${LINOPENMPT_FORCE_INCLUDES})
-target_link_libraries(mpt_common PUBLIC mfcqt_win32 Threads::Threads ${CMAKE_DL_LIBS})
-# Upstream builds its Windows code with MFC (mfc-qt's headers here).
-target_compile_definitions(mpt_common PUBLIC MPT_WITH_MFC)
+target_link_libraries(mpt_common PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+if(LINOPENMPT_UI STREQUAL "mfc")
+  # Upstream builds its Windows code with MFC (mfc-qt's headers here).
+  target_link_libraries(mpt_common PUBLIC mfcqt_win32)
+  target_compile_definitions(mpt_common PUBLIC MPT_WITH_MFC)
+else()
+  # mfcless: no MFC and no Win32 headers; qt/base supplies what upstream's
+  # tracker configuration needs instead.
+  target_link_libraries(mpt_common PUBLIC mfcless_base)
+endif()
 target_include_directories(mpt_common PUBLIC ${LINOPENMPT_COMPAT_INCLUDE_DIR})
 
 # ---- mpt_soundlib (tracker configuration, step 2) -------------------------
@@ -48,6 +55,7 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   target_compile_options(mpt_soundlib PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_soundlib PUBLIC mpt_common PkgConfig::MPT_DEPS linopenmpt_external)
 
+  if(LINOPENMPT_UI STREQUAL "mfc")
   # The non-UI half of upstream's tracker application (mptrack/), compiled
   # unchanged against compat/. Files are added here as they are ported; the
   # list is the running record of plan step 2.
@@ -112,6 +120,7 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})
   target_compile_options(mpt_tracker_ui PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_tracker_ui PUBLIC mpt_tracker_logic)
+  endif() # mfc
 endif()
 
 # ---- mpt_libopenmpt (player configuration, stepping stone) ----------------
