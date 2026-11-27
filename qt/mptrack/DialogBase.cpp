@@ -722,8 +722,10 @@ PropertySheet::PropertySheet(const mpt::ustring &caption, QWidget *parent, uint3
 PropertySheet::~PropertySheet()
 {
 	// The pages belong to the caller.
-	for(PropertyPage *page : m_pages)
+	for(PropertyPage *page : m_livePages)
 	{
+		if(!page)
+			continue;
 		if(page->parent())
 			page->setParent(nullptr);
 		page->m_sheet = nullptr;
@@ -735,6 +737,7 @@ void PropertySheet::AddPage(PropertyPage *page)
 {
 	page->m_sheet = this;
 	m_pages.push_back(page);
+	m_livePages.emplace_back(page);
 	if(m_built)
 	{
 		auto *holder = new QWidget;
@@ -832,12 +835,18 @@ void PropertySheet::Build()
 	m_built = true;
 	// Every page's template is made now (as MFC does to find the largest
 	// page), so that the tabs have their captions and the sheet its size.
+	QSize largest;
+	for(PropertyPage *page : m_pages)
+	{
+		page->CreateFromTemplate();
+		largest = largest.expandedTo(page->size());
+	}
 	for(PropertyPage *page : m_pages)
 	{
 		auto *holder = new QWidget;
 		auto *layout = new QVBoxLayout(holder);
 		layout->setContentsMargins(0, 0, 0, 0);
-		page->CreateFromTemplate();
+		holder->setMinimumSize(largest);
 		m_tabs->addTab(holder, page->windowTitle());
 		connect(page, &PropertyPage::modifiedChanged, this, [this](bool) { UpdateApply(); });
 	}

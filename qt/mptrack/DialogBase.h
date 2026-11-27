@@ -23,6 +23,7 @@
 #include "mfcless/DialogBuilder.h"
 #include "mfcless/Window.h"
 
+#include <QtCore/QPointer>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QFrame>
 
@@ -322,6 +323,9 @@ private:
 	void UpdateApply();
 
 	std::vector<PropertyPage *> m_pages;
+	// The pages may be gone before the sheet (upstream's callers declare
+	// them after it).
+	std::vector<QPointer<PropertyPage>> m_livePages;
 	class QTabWidget *m_tabs = nullptr;
 	class QDialogButtonBox *m_buttons = nullptr;
 	int m_current = -1;

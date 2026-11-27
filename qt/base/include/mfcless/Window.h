@@ -53,6 +53,10 @@
 namespace mfcless
 {
 
+// The text of a control of any kind (Widgets.cpp).
+QString WidgetText(const QWidget *w);
+void SetWidgetText(QWidget *w, const QString &text);
+
 // Sizes of OnSize.
 namespace size
 {
@@ -330,11 +334,12 @@ public:
 	void ScreenToClient(Rect *r) { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
 	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
 	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
-	void SetWindowText(const Text &text) { this->setWindowTitle(text.value); }
+	// The control's text (an edit's, a button's), or a window's title.
+	void SetWindowText(const Text &text) { SetWidgetText(this, text.value); }
 	bool SetWindowPos(QWidget *insertAfter, int x, int y, int cx, int cy, uint32_t flags) { return mfcless::SetWindowPos(this, insertAfter, x, y, cx, cy, flags); }
 	void BeginWaitCursor() { QApplication::setOverrideCursor(Qt::WaitCursor); }
 	void EndWaitCursor() { QApplication::restoreOverrideCursor(); }
-	QString GetWindowText() const { return this->windowTitle(); }
+	QString GetWindowText() const { return WidgetText(this); }
 	// Centres the window over its parent (or another window, or the screen).
 	void CenterWindow(QWidget *alternate = nullptr)
 	{

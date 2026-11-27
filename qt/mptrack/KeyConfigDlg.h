@@ -59,6 +59,8 @@ public:
 	FlagSet<Modifiers> mod = ModNone;
 	uint32 code = 0;
 
+	explicit CCustEdit(QWidget *parent = nullptr) : Window(parent) {}
+
 	void SetOwner(COptionsKeyboard &dlg) { m_pOptKeyDlg = &dlg; }
 	void SetKey(FlagSet<Modifiers> mod, uint32 code);
 	bool HasKey() const noexcept { return mod || code; }

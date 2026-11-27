@@ -42,6 +42,18 @@ namespace mfcless
 
 namespace
 {
+// A read-only edit (ES_READONLY) has the dialog's background, as on Windows.
+void ShowReadOnly(QWidget *edit)
+{
+	QPalette p = edit->palette();
+	p.setColor(QPalette::Base, p.color(QPalette::Window));
+	edit->setPalette(p);
+}
+}  // namespace
+
+
+namespace
+{
 
 QString Q(const std::u16string &s) { return QString::fromStdU16String(s); }
 
@@ -319,6 +331,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		e->setText(text);
 		e->setAlignment(TextAlignment(s, false));
 		e->setReadOnly(s & 0x800);
+		if(s & 0x800)
+			ShowReadOnly(e);
 		if(s & 0x20)
 			e->setEchoMode(QLineEdit::Password);
 		e->setProperty("mfclessNumber", (s & 0x2000) != 0);
@@ -335,6 +349,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		if(!e) break;
 		e->setPlainText(text);
 		e->setReadOnly(s & 0x800);
+		if(s & 0x800)
+			ShowReadOnly(e);
 		e->setVerticalScrollBarPolicy((s & Style::VScroll) ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
 		e->setHorizontalScrollBarPolicy((s & Style::HScroll) ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
 		e->setLineWrapMode((s & Style::HScroll) || (s & 0x80) ? QPlainTextEdit::NoWrap : QPlainTextEdit::WidgetWidth);
