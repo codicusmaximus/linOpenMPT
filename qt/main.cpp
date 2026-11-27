@@ -36,6 +36,7 @@
 
 #include "mfcless/ModMessage.h"
 #include "mfcless/QtString.h"
+#include "mfcless/Window.h"
 
 #include <QtCore/QTimer>
 #include <QtGui/QPixmap>
@@ -390,6 +391,10 @@ int main(int argc, char *argv[])
 	QApplication::setOrganizationName(QStringLiteral("OpenMPT"));
 
 	linopenmpt::SetCrashRescue(RescueModifiedModules);
+
+	// The message loop's PreTranslateMessage pass, for every key and mouse
+	// event of the application.
+	mfcless::InstallMessageFilter();
 
 	// Before InitInstance, so that a dialog shown while starting is
 	// captured too.
