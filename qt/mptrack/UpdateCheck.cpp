@@ -476,12 +476,7 @@ void CUpdateCheck::WaitForUpdateCheckFinished()
 {
 	while(GetNumCurrentRunningInstances() > 0)
 	{
-		MSG msg;
-		while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		{
-			::TranslateMessage(&msg);
-			::DispatchMessage(&msg);
-		}
+		QCoreApplication::processEvents();
 		if(GetNumCurrentRunningInstances() > 0)
 		{
 			mfcless::SleepMs(1);
@@ -1631,7 +1626,7 @@ bool CUpdateSetupDlg::OnInitDialog()
 
 	SetChecked(IDC_CHECK1, TrackerSettings::Instance().UpdateStatistics ? 1 : 0);
 
-	GetDlgItem(IDC_STATIC_UPDATEPRIVACYTEXT)->SetWindowText(mpt::ToUnicode(CUpdateCheck::GetStatisticsUserInformation(true)));
+	SetItemText(IDC_STATIC_UPDATEPRIVACYTEXT, mpt::ToUnicode(CUpdateCheck::GetStatisticsUserInformation(true)));
 
 	EnableDisableDialog();
 

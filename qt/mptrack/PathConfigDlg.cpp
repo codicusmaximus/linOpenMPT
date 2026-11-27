@@ -3,7 +3,7 @@
  * -----------------
  * Purpose: Default paths and auto save setup dialog.
  * Notes  : mfcless twin of upstream's mptrack/PathConfigDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -144,7 +144,7 @@ void PathConfigDlg::OnOK()
 	settings.AutosaveHistoryDepth = GetItemInt(IDC_AUTOSAVE_HISTORY);
 	settings.AutosaveIntervalMinutes = GetItemInt(IDC_AUTOSAVE_INTERVAL);
 	if(IsChecked(IDC_CHECK2))
-		settings.AutosaveRetentionTimeDays = std::max(GetItemInt(IDC_EDIT1), uint32(1));
+		settings.AutosaveRetentionTimeDays = std::max(static_cast<uint32>(GetItemInt(IDC_EDIT1)), uint32(1));
 	else
 		settings.AutosaveRetentionTimeDays = 0;
 	settings.AutosaveUseOriginalPath = IsChecked(IDC_AUTOSAVE_USEORIGDIR) != 0;

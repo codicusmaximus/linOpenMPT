@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Implementation of various OpenMPT dialogs.
  * Notes  : mfcless twin of upstream's mptrack/dlg_misc.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Draft from qt/tools/twin.py, partly edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -1475,7 +1475,7 @@ void CInputDlg::DoDataExchange(DataExchange &dx)
 }
 
 
-CInputDlg::CInputDlg(QWidget *parent, const mpt::uchar *desc, const mpt::uchar *defaultString, int32 maxLength, double minValDbl, double maxValDbl, double defaultDbl, int32 minValInt, int32 maxValInt, int32 defaultInt)
+CInputDlg::CInputDlg(QWidget *parent, const mpt::ustring &desc, const mpt::ustring &defaultString, int32 maxLength, double minValDbl, double maxValDbl, double defaultDbl, int32 minValInt, int32 maxValInt, int32 defaultInt)
 	: DialogBase{IDD_INPUT, parent}
 	, m_description{desc}
 	, m_minValueDbl{minValDbl}

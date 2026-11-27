@@ -284,16 +284,16 @@ public:
 	mpt::ustring resultAsString;
 
 protected:
-	CInputDlg(QWidget *parent, const mpt::uchar *desc, const mpt::uchar *defaultString, int32 maxLength, double minValDbl, double maxValDbl = 0.0, double defaultDbl = 0.0, int32 minValInt = 0, int32 maxValInt = 0, int32 defaultInt = 0);
+	CInputDlg(QWidget *parent, const mpt::ustring &desc, const mpt::ustring &defaultString, int32 maxLength, double minValDbl, double maxValDbl = 0.0, double defaultDbl = 0.0, int32 minValInt = 0, int32 maxValInt = 0, int32 defaultInt = 0);
 
 public:
 	// Initialize text input box
-	CInputDlg(QWidget *parent, const mpt::uchar *desc, const mpt::uchar *defaultString, int32 maxLength = -1) : CInputDlg{parent, desc, defaultString, maxLength, 0.0} { }
+	CInputDlg(QWidget *parent, const mpt::ustring &desc, const mpt::ustring &defaultString, int32 maxLength = -1) : CInputDlg{parent, desc, defaultString, maxLength, 0.0} { }
 	// Initialize numeric input box (float)
-	CInputDlg(QWidget *parent, const mpt::uchar *desc, double minVal, double maxVal, double defaultNumber) : CInputDlg{parent, desc, {}, -1, minVal, maxVal, defaultNumber} { }
-	CInputDlg(QWidget *parent, const mpt::uchar *desc, float minVal, float maxVal, float defaultNumber) : CInputDlg{parent, desc, {}, -1, minVal, maxVal, defaultNumber } { }
+	CInputDlg(QWidget *parent, const mpt::ustring &desc, double minVal, double maxVal, double defaultNumber) : CInputDlg{parent, desc, {}, -1, minVal, maxVal, defaultNumber} { }
+	CInputDlg(QWidget *parent, const mpt::ustring &desc, float minVal, float maxVal, float defaultNumber) : CInputDlg{parent, desc, {}, -1, minVal, maxVal, defaultNumber } { }
 	// Initialize numeric input box (int)
-	CInputDlg(QWidget *parent, const mpt::uchar *desc, int32 minVal, int32 maxVal, int32 defaultNumber) : CInputDlg{parent, desc, {}, -1, 0.0, 0.0, 0.0, minVal, maxVal, defaultNumber } { }
+	CInputDlg(QWidget *parent, const mpt::ustring &desc, int32 minVal, int32 maxVal, int32 defaultNumber) : CInputDlg{parent, desc, {}, -1, 0.0, 0.0, 0.0, minVal, maxVal, defaultNumber } { }
 
 protected:
 	void DoDataExchange(DataExchange &dx) override;

@@ -56,13 +56,13 @@ bool CAmpDlg::OnInitDialog()
 	DialogBase::OnInitDialog();
 	mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN1);
 	spin->SetRange(m_nFactorMin, m_nFactorMax);
-	spin->SetPos32(m_settings.factor);
+	spin->SetPos(m_settings.factor);
 	spin = Item<mfcless::UpDown>(IDC_SPIN2);
 	spin->SetRange(0, 100);
-	spin->SetPos32(m_settings.fadeInStart);
+	spin->SetPos(m_settings.fadeInStart);
 	spin = Item<mfcless::UpDown>(IDC_SPIN3);
 	spin->SetRange(0, 100);
-	spin->SetPos32(m_settings.fadeOutEnd);
+	spin->SetPos(m_settings.fadeOutEnd);
 
 	SetItemInt(IDC_EDIT1, m_settings.factor);
 	SetItemInt(IDC_EDIT2, m_settings.fadeInStart);
@@ -510,7 +510,7 @@ bool AddSilenceDlg::OnInitDialog()
 	if(spin)
 	{
 		spin->SetRange(0, int32_max);
-		spin->SetPos32(m_numSamples);
+		spin->SetPos(m_numSamples);
 	}
 
 	m_ComboUnit->SetAccessibleName(UL_("Length unit"));
@@ -868,10 +868,10 @@ bool CResamplingDlg::OnInitDialog()
 	SetItemInt(IDC_EDIT1, m_lastFrequency);
 	mfcless::UpDown *spin = Item<mfcless::UpDown>(IDC_SPIN1);
 	spin->SetRange(1, 999999);
-	spin->SetPos32(m_lastFrequency);
+	spin->SetPos(m_lastFrequency);
 
 	QComboBox *cbnResampling = Item<QComboBox>(IDC_COMBO_FILTER);
-	cbnResampling->SetRedraw(false);
+	cbnResampling->setUpdatesEnabled(false);
 	const auto resamplingModes = Resampling::AllModesWithDefault();
 	for(auto mode : resamplingModes)
 	{
@@ -884,7 +884,7 @@ bool CResamplingDlg::OnInitDialog()
 		if(m_srcMode == mode)
 			cbnResampling->setCurrentIndex(index);
 	}
-	cbnResampling->SetRedraw(true);
+	cbnResampling->setUpdatesEnabled(true);
 
 	SetChecked(IDC_CHECK1, m_updatePatternCommands ? 1 : 0);
 	SetChecked(IDC_CHECK2, (m_updatePatternNotes && m_allowAdjustNotes) ? 1 : 0);

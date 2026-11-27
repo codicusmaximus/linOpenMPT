@@ -5,6 +5,7 @@
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
 
+#include <QtCore/QSignalBlocker>
 #include "mfcless/MessageMap.h"
 #include "mfcless/Controls.h"
 #include "mfcless/ListCtrl.h"
@@ -12,6 +13,8 @@
 
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
+#include <QtGui/QMouseEvent>
+#include <functional>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QAbstractSlider>
 #include <QtWidgets/QComboBox>
@@ -149,6 +152,37 @@ private:
 	MessageMap *m_target;
 };
 
+// Right clicks on a list or tree view (NM_RCLICK), which leave the
+// view's own context menu handling alone.
+class RightClickWatcher : public QObject
+{
+public:
+	RightClickWatcher(QTreeWidget *tree, uint32_t id, MessageMap *target, std::function<int(QTreeWidgetItem *)> indexOf)
+		: QObject(tree), m_tree(tree), m_id(id), m_target(target), m_indexOf(std::move(indexOf)) {}
+	bool eventFilter(QObject *watched, QEvent *e) override
+	{
+		if(e->type() == QEvent::MouseButtonRelease && static_cast<QMouseEvent *>(e)->button() == Qt::RightButton)
+		{
+			const QPoint pos = static_cast<QMouseEvent *>(e)->position().toPoint();
+			NotifyInfo info;
+			info.id = m_id;
+			info.code = Notify::RightClick;
+			info.control = m_tree;
+			info.item = m_indexOf(m_tree->itemAt(pos));
+			info.subItem = m_tree->columnAt(pos.x());
+			info.point = m_tree->viewport()->mapToGlobal(pos);
+			m_target->DispatchNotify(info);
+		}
+		return QObject::eventFilter(watched, e);
+	}
+
+private:
+	QTreeWidget *m_tree;
+	uint32_t m_id;
+	MessageMap *m_target;
+	std::function<int(QTreeWidgetItem *)> m_indexOf;
+};
+
 } // namespace
 
 
@@ -258,6 +292,7 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 			info.subItem = column;
 			target->DispatchNotify(info);
 		});
+		tree->viewport()->installEventFilter(new RightClickWatcher(tree, id, target, [=](QTreeWidgetItem *item) { return item ? indexOf(item) : -1; }));
 		QObject::connect(tree, &QTreeWidget::itemClicked, context, [=](QTreeWidgetItem *item, int column) {
 			NotifyInfo info;
 			info.id = id;
@@ -267,7 +302,27 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 			info.subItem = column;
 			target->DispatchNotify(info);
 		});
-		QObject::connect(tree, &QTreeWidget::itemChanged, context, [=](QTreeWidgetItem *item, int) { Send(target, id, Notify::CheckChange, control, indexOf(item)); });
+		// A list view's LVN_ITEMCHANGED also tells of a changed check box;
+		// other item changes (texts) are no notification.
+		QObject::connect(tree, &QTreeWidget::itemChanged, context, [=](QTreeWidgetItem *item, int column) {
+			if(column != 0 || !(item->flags() & Qt::ItemIsUserCheckable))
+				return;
+			constexpr int LastCheckRole = Qt::UserRole + 0x4D43;
+			const int state = item->checkState(0);
+			const QVariant last = item->data(0, LastCheckRole);
+			if(last.isValid() && last.toInt() == state)
+				return;
+			const bool known = last.isValid();
+			{
+				const QSignalBlocker blocker(tree);
+				item->setData(0, LastCheckRole, state);
+			}
+			if(!known && state == Qt::Unchecked)
+				return;  // a new item's check box appearing
+			Send(target, id, Notify::CheckChange, control, indexOf(item));
+			if(listCtrl)
+				Send(target, id, Notify::ItemChanged, control, indexOf(item));
+		});
 		return;
 	}
 	if(auto *upDown = qobject_cast<UpDown *>(control))

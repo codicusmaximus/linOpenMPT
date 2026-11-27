@@ -263,7 +263,7 @@ intptr_t CViewComments::OnCustomKeyMsg(uintptr_t wParam, intptr_t)
 		return wParam;
 	} else if(wParam == kcExecuteSmpInsListItem)
 	{
-		OnDblClickListItem(nullptr, nullptr);
+		OnDblClickListItem();
 		return wParam;
 	} else if(wParam == kcRenameSmpInsListItem)
 	{
@@ -580,7 +580,7 @@ void CViewComments::OnBeginLabelEdit()
 		m_editLabel = true;
 		const CModSpecifications &specs = GetDocument()->GetSoundFile().GetModSpecifications();
 		const auto maxStrLen = (m_nListId == IDC_LIST_SAMPLES) ? specs.sampleNameLengthMax : specs.instrNameLengthMax;
-		editCtrl->LimitText(maxStrLen);
+		editCtrl->setMaxLength(maxStrLen);
 		CMainFrame::GetInputHandler()->Bypass(true);
 	}
 }

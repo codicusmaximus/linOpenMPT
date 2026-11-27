@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Implementation of various player setup dialogs.
  * Notes  : mfcless twin of upstream's mptrack/Mpdlgs.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Draft from qt/tools/twin.py, partly edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -610,7 +610,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
 			QComboBox *combo = &m_CbnChannelMapping[mch];
-			combo->EnableWindow(true);
+			combo->setEnabled(true);
 		}
 	}
 	int usedChannels = static_cast<int>(mfcless::GetItemData(m_CbnChannels, m_CbnChannels->currentIndex()));
@@ -632,7 +632,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 	for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)	// Host channels
 	{
 		QComboBox *combo = &m_CbnChannelMapping[mch];
-		combo->EnableWindow((m_CurrentDeviceCaps.CanChannelMapping && mch < usedChannels) ? true : false);
+		combo->setEnabled((m_CurrentDeviceCaps.CanChannelMapping && mch < usedChannels) ? true : false);
 		combo->clear();
 		if(m_CurrentDeviceCaps.CanChannelMapping)
 		{
@@ -660,7 +660,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
 			QComboBox *combo = &m_CbnChannelMapping[mch];
-			combo->EnableWindow(false);
+			combo->setEnabled(false);
 		}
 	}
 }
@@ -1864,14 +1864,11 @@ void CMidiSetupDlg::RefreshDeviceList(uint32 currentDevice)
 {
 	m_InputDevice->setUpdatesEnabled(false);
 	m_InputDevice->clear();
-	uint32 ndevs = midiInGetNumDevs();
-	for(uint32 i = 0; i < ndevs; i++)
+	const auto names = MidiInputNames();
+	for(uint32 i = 0; i < names.size(); i++)
 	{
-		MIDIINCAPS mic;
-		mic.szPname[0] = 0;
-		if(midiInGetDevCaps(i, &mic, sizeof(mic)) == MMSYSERR_NOERROR)
 		{
-			int item = mfcless::AddItem(m_InputDevice, theApp.GetFriendlyMIDIPortName(mpt::ToUnicode(mpt::String::ReadWinBuf(mic.szPname)), true));
+			int item = mfcless::AddItem(m_InputDevice, theApp.GetFriendlyMIDIPortName(names[i], true));
 			mfcless::SetItemData(m_InputDevice, item, i);
 			if(i == currentDevice)
 			{
@@ -1890,10 +1887,8 @@ void CMidiSetupDlg::OnRenameDevice()
 	if(n >= 0)
 	{
 		uint32 device = static_cast<uint32>(mfcless::GetItemData(m_InputDevice, n));
-		MIDIINCAPS mic;
-		mic.szPname[0] = 0;
-		midiInGetDevCaps(device, &mic, sizeof(mic));
-		mpt::ustring name = mic.szPname;
+		const auto names = MidiInputNames();
+		mpt::ustring name = device < names.size() ? names[device] : mpt::ustring{};
 		mpt::ustring friendlyName = theApp.GetSettings().Read(U_("MIDI Input Ports"), mpt::ToUnicode(name), name);
 		CInputDlg dlg(this, UL_("New name for ") + name + UL_(":"), friendlyName);
 		if(dlg.DoModal() == IDOK)

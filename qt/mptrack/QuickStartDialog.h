@@ -31,6 +31,8 @@ class QuickStartDlg : public ResizableDialog
 public:
 	QuickStartDlg(const std::vector<mpt::PathString> &templates, const std::vector<mpt::PathString> &examples, QWidget *parent);
 	~QuickStartDlg() override { DestroyWindow(); }
+	// mfcless: WM_DESTROY's handler runs from here.
+	bool DestroyWindow() override { OnDestroy(); return ResizableDialog::DestroyWindow(); }
 
 	void UpdateHeight();
 
@@ -61,10 +63,10 @@ protected:
 	CListCtrlEx *m_list = nullptr;
 	QLineEdit *m_find = nullptr;
 	AccessibleButton *m_newButton = nullptr, *m_openButton = nullptr;
-	mfcless::Bitmap m_bmpNew, m_bmpOpen;
 	std::array<std::vector<mpt::PathString>, 3> m_paths;
 	int m_prevDPI = 0;
 	bool m_groupsEnabled = false;
+	bool m_destroyed = false;
 };
 
 OPENMPT_NAMESPACE_END

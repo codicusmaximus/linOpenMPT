@@ -1,13 +1,15 @@
 /*
-* IPCWindow.h
-* -----------
-* Purpose: Hidden window to receive file open commands from another OpenMPT instance
-* Notes  : mfcless twin of upstream's mptrack/IPCWindow.h. The window that
- *          other instances send WM_COPYDATA to is a local socket server
- *          (QLocalServer), found by its name; an "IPC window" is that name.
-* Authors: OpenMPT Devs
-* The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
-*/
+ * IPCWindow.h
+ * -----------
+ * Purpose: Hidden window to receive file open commands from another OpenMPT instance
+ * Notes  : mfcless twin of upstream's mptrack/IPCWindow.h. Instead of a
+ *          hidden window found by its class name and WM_COPYDATA, each
+ *          instance listens on a local socket in a folder of the user's
+ *          runtime directory; an instance is named by its socket's path.
+ *          Requests and answers are the same functions and results.
+ * Authors: OpenMPT Devs
+ * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+ */
 
 #pragma once
 
@@ -29,6 +31,7 @@ namespace IPCWindow
 		HasSameBinaryPath                  = 0x05,
 		HasSameSettingsPath                = 0x06,
 		PlayCurrent                        = 0x07,
+		GetLastUsed                        = 0x100,  // mfcless: upstream's GWLP_USERDATA of the window
 	};
 
 	void Open();

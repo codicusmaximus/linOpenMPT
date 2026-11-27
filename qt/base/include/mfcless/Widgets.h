@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QTimer>
 
 #include <algorithm>

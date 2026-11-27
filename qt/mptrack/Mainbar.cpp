@@ -3,7 +3,7 @@
  * -----------
  * Purpose: Implementation of OpenMPT's window toolbar and parent container of the tree view.
  * Notes  : mfcless twin of upstream's mptrack/Mainbar.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Draft from qt/tools/twin.py, partly edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -854,17 +854,13 @@ void CMainToolBar::OnTbnDropDownToolBar()
 		// Show a list of MIDI devices
 		{
 			mfcless::Menu hMenu = mfcless::Menu::CreatePopup();
-			MIDIINCAPS mic;
-			uint32 numDevs = midiInGetNumDevs();
+			const auto names = MidiInputNames();
+			uint32 numDevs = static_cast<uint32>(names.size());
 			if(numDevs > MAX_MIDI_DEVICES) numDevs = MAX_MIDI_DEVICES;
 			uint32 current = TrackerSettings::Instance().GetCurrentMIDIDevice();
 			for(uint32 i = 0; i < numDevs; i++)
 			{
-				mic.szPname[0] = 0;
-				if(midiInGetDevCaps(i, &mic, sizeof(mic)) == MMSYSERR_NOERROR)
-				{
-					hMenu.AppendMenu(mfcless::menu::String | (i == current ? mfcless::menu::Checked : 0), ID_SELECT_MIDI_DEVICE + i, theApp.GetFriendlyMIDIPortName(mpt::String::ReadCStringBuf(mic.szPname), true));
-				}
+				hMenu.AppendMenu(mfcless::menu::String | (i == current ? mfcless::menu::Checked : 0), ID_SELECT_MIDI_DEVICE + i, theApp.GetFriendlyMIDIPortName(names[i], true));
 			}
 			if(!numDevs)
 			{

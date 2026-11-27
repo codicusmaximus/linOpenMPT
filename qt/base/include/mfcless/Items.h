@@ -10,10 +10,15 @@
 
 #include "mfcless/QtString.h"
 
+#include <utility>
+
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtGui/QTextCursor>
+#include <QtGui/QTextDocument>
 
 namespace mfcless
 {
@@ -195,5 +200,43 @@ inline int GetCheck(const QAbstractButton *button)
 		return 2;
 	return button->isChecked() ? 1 : 0;
 }
+
+// Multi-line edits. start -1 removes the selection (the caret stays);
+// end -1 is the end of the text.
+inline void SetSel(QPlainTextEdit *edit, int start, int end, bool noScroll = false)
+{
+	QTextCursor cursor = edit->textCursor();
+	const int length = edit->document()->characterCount() - 1;
+	if(start < 0)
+	{
+		cursor.clearSelection();
+	} else
+	{
+		if(end < 0 || end > length)
+			end = length;
+		cursor.setPosition(std::min(start, length));
+		cursor.setPosition(end, QTextCursor::KeepAnchor);
+	}
+	edit->setTextCursor(cursor);
+	if(!noScroll)
+		edit->ensureCursorVisible();
+}
+inline void GetSel(const QPlainTextEdit *edit, int &start, int &end)
+{
+	const QTextCursor cursor = edit->textCursor();
+	start = cursor.selectionStart();
+	end = cursor.selectionEnd();
+}
+
+// List views (mfcless::ListCtrl and the classes derived from it), so that
+// the same free calls work on every list.
+template <typename List, typename = decltype(std::declval<List &>().SetItemData(0, uintptr_t{}))>
+inline void SetItemData(List *list, int index, uintptr_t data) { list->SetItemData(index, data); }
+template <typename List, typename = decltype(std::declval<const List &>().GetItemData(0))>
+inline uintptr_t GetItemData(const List *list, int index) { return list->GetItemData(index); }
+template <typename List, typename = decltype(std::declval<List &>().SetCheck(0, true))>
+inline void SetCheck(List *list, int index, int check) { list->SetCheck(index, check != 0); }
+template <typename List, typename = decltype(std::declval<const List &>().GetCheck(0))>
+inline int GetCheck(const List *list, int index) { return list->GetCheck(index) ? 1 : 0; }
 
 } // namespace mfcless

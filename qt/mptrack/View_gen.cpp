@@ -199,15 +199,15 @@ void CViewGlobals::OnInitialUpdate()
 		// Color select
 		SubclassDlgItem(IDC_BUTTON9 + ichn, m_channelColor[ichn]);
 		// Volume Slider
-		m_sbVolume[ichn].SetRange(0, 64);
-		m_sbVolume[ichn].SetTicFreq(8);
+		m_sbVolume[ichn]->setRange(0, 64);
+		m_sbVolume[ichn]->setTickInterval(8);
 		// Pan Slider
-		m_sbPan[ichn].SetRange(0, 64);
-		m_sbPan[ichn].SetTicFreq(8);
+		m_sbPan[ichn]->setRange(0, 64);
+		m_sbPan[ichn]->setTickInterval(8);
 		// Volume Spin
-		m_spinVolume[ichn].SetRange(0, 64);
+		m_spinVolume[ichn]->SetRange(0, 64);
 		// Pan Spin
-		m_spinPan[ichn].SetRange(0, 256);
+		m_spinPan[ichn]->SetRange(0, 256);
 	}
 	m_sbValue->setValue(0);
 	m_sbValue->setRange(0, 100);
@@ -378,21 +378,21 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 					s = UL_("");
 				SetItemText(IDC_TEXT1 + ichn, s);
 				// Channel color
-				m_channelColor[ichn].SetColor(chnSettings.color);
-				m_channelColor[ichn].EnableWindow(bEnable);
+				m_channelColor[ichn]->SetColor(chnSettings.color);
+				m_channelColor[ichn]->setEnabled(bEnable);
 				// Mute
 				SetChecked(IDC_CHECK1 + ichn * 2, chnSettings.dwFlags[CHN_MUTE] ? true : false);
 				// Surround
 				SetChecked(IDC_CHECK2 + ichn * 2, chnSettings.dwFlags[CHN_SURROUND] ? true : false);
 				// Volume
 				int vol = chnSettings.nVolume;
-				m_sbVolume[ichn].SetPos(vol);
-				m_sbVolume[ichn].Invalidate(false);
+				m_sbVolume[ichn]->setValue(vol);
+				m_sbVolume[ichn]->update();
 				SetItemInt(IDC_EDIT1+ichn*2, vol);
 				// Pan
 				int pan = chnSettings.nPan;
-				m_sbPan[ichn].SetPos(pan/4);
-				m_sbPan[ichn].Invalidate(false);
+				m_sbPan[ichn]->setValue(pan/4);
+				m_sbPan[ichn]->update();
 				SetItemInt(IDC_EDIT2+ichn*2, pan);
 
 				// Channel name
@@ -403,7 +403,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 			{
 				SetItemText(IDC_TEXT1 + ichn, UL_(""));
 				SetItemText(IDC_EDIT9 + ichn, UL_(""));
-				m_channelColor[ichn].EnableWindow(false);
+				m_channelColor[ichn]->setEnabled(false);
 			}
 
 			// Enable/Disable controls for this channel
@@ -411,15 +411,15 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 			EnableItem(IDC_CHECK1 + ichn * 2, bEnable);
 			EnableItem(IDC_CHECK2 + ichn * 2, bIT);
 
-			m_sbVolume[ichn].EnableWindow(bIT);
-			m_spinVolume[ichn].EnableWindow(bIT);
+			m_sbVolume[ichn]->setEnabled(bIT);
+			m_spinVolume[ichn]->setEnabled(bIT);
 
-			m_sbPan[ichn].EnableWindow(bEnable && !(sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_MOD)));
-			m_spinPan[ichn].EnableWindow(bEnable && !(sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_MOD)));
+			m_sbPan[ichn]->setEnabled(bEnable && !(sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_MOD)));
+			m_spinPan[ichn]->setEnabled(bEnable && !(sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_MOD)));
 			EnableItem(IDC_EDIT1 + ichn * 2, bIT);	// channel vol
 			EnableItem(IDC_EDIT2 + ichn * 2, bEnable && !(sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_MOD)));	// channel pan
 			EnableItem(IDC_EDIT9 + ichn, ((bEnable) && (sndFile.GetType() & (MOD_TYPE_XM|MOD_TYPE_IT|MOD_TYPE_MPT))));	// channel name
-			m_CbnEffects[ichn].EnableWindow(bEnable & (sndFile.GetModSpecifications().supportsPlugins ? true : false));
+			m_CbnEffects[ichn]->setEnabled(bEnable & (sndFile.GetModSpecifications().supportsPlugins ? true : false));
 		}
 		UnlockControls();
 	}
@@ -606,7 +606,7 @@ void CViewGlobals::PopulateChannelPlugins(UpdateHint hint, const QObject *pObj)
 		if(const CHANNELINDEX nChn = m_nActiveTab * CHANNELS_IN_TAB + ichn; nChn < sndFile.GetNumChannels())
 		{
 			PLUGINDEX sel = sndFile.ChnSettings[nChn].nMixPlugin ? sndFile.ChnSettings[nChn].nMixPlugin - 1 : PLUGINDEX_INVALID;
-			m_CbnEffects[ichn].Update(PluginComboBox::Config{PluginComboBox::ShowNoPlugin}.Hint(hint, pObj).CurrentSelection(sel), sndFile);
+			m_CbnEffects[ichn]->Update(PluginComboBox::Config{PluginComboBox::ShowNoPlugin}.Hint(hint, pObj).CurrentSelection(sel), sndFile);
 		}
 	}
 }
@@ -693,7 +693,7 @@ void CViewGlobals::OnEditColor(const CHANNELINDEX chnMod4)
 	auto *modDoc = GetDocument();
 	auto &sndFile = modDoc->GetSoundFile();
 	const CHANNELINDEX chn = static_cast<CHANNELINDEX>(m_nActiveTab * CHANNELS_IN_TAB) + chnMod4;
-	if(auto color = m_channelColor[chnMod4].PickColor(sndFile, chn); color.has_value())
+	if(auto color = m_channelColor[chnMod4]->PickColor(sndFile, chn); color.has_value())
 	{
 		PrepareUndo(chnMod4);
 		sndFile.ChnSettings[chn].color = *color;
@@ -758,7 +758,7 @@ void CViewGlobals::OnEditVol(const CHANNELINDEX chnMod4, const uint32 itemID)
 		PrepareUndo(chnMod4);
 		if (pModDoc->SetChannelGlobalVolume(nChn, static_cast<uint16>(vol)))
 		{
-			m_sbVolume[chnMod4].SetPos(vol);
+			m_sbVolume[chnMod4]->setValue(vol);
 			pModDoc->UpdateAllViews(this, GeneralHint(nChn).Channels());
 		}
 	}
@@ -780,7 +780,7 @@ void CViewGlobals::OnEditPan(const CHANNELINDEX chnMod4, const uint32 itemID)
 		PrepareUndo(chnMod4);
 		if (pModDoc->SetChannelDefaultPan(nChn, static_cast<uint16>(pan)))
 		{
-			m_sbPan[chnMod4].SetPos(pan / 4);
+			m_sbPan[chnMod4]->setValue(pan / 4);
 			pModDoc->UpdateAllViews(this, GeneralHint(nChn).Channels());
 			// Surround is forced off when changing pan, so uncheck the checkbox.
 			SetChecked(IDC_CHECK2 + chnMod4 * 2, 0);
@@ -813,7 +813,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pSc
 			if(static_cast<QWidget*>(pScrollBar) == &m_sbVolume[iCh])
 			{
 				// Volume sliders
-				pos = (short int)m_sbVolume[iCh].GetPos();
+				pos = (short int)m_sbVolume[iCh]->value();
 				if ((pos >= 0) && (pos <= 64))
 				{
 					PrepareUndo(iCh);
@@ -826,7 +826,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pSc
 			} else if(static_cast<QWidget*>(pScrollBar) == &m_sbPan[iCh])
 			{
 				// Pan sliders
-				pos = (short int)m_sbPan[iCh].GetPos();
+				pos = (short int)m_sbPan[iCh]->value();
 				if(pos >= 0 && pos <= 64 && (static_cast<uint16>(pos) != pModDoc->GetSoundFile().ChnSettings[nChn+iCh].nPan / 4u))
 				{
 					PrepareUndo(iCh);
@@ -951,7 +951,7 @@ void CViewGlobals::OnFxChanged(const CHANNELINDEX chnMod4)
 	{
 		CSoundFile &sndFile = pModDoc->GetSoundFile();
 		CHANNELINDEX nChn = m_nActiveTab * CHANNELS_IN_TAB + chnMod4;
-		PLUGINDEX nfx = m_CbnEffects[chnMod4].GetSelection().value_or(PLUGINDEX_INVALID);
+		PLUGINDEX nfx = m_CbnEffects[chnMod4]->GetSelection().value_or(PLUGINDEX_INVALID);
 		if(nfx == PLUGINDEX_INVALID)
 			nfx = 0;
 		else

@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: Dialogs for locating missing external samples and handling modified samples
  * Notes  : mfcless twin of upstream's mptrack/ExternalSamples.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -60,7 +60,7 @@ bool MissingExternalSamplesDlg::OnInitDialog()
 	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::FullRowSelect);
 
 	GenerateList();
-	SetWindowText((UL_("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+	SetWindowText((UL_("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToUnicode()).c_str());
 
 	return true;
 }
@@ -138,7 +138,7 @@ void MissingExternalSamplesDlg::OnScanFolder()
 		EnableItem(IDOK, false);
 		mfcless::BeginWaitCursor();
 
-		DWORD64 lastTick = Util::GetTickCount64();
+		uint64 lastTick = Util::GetTickCount64();
 		int foundFiles = 0;
 
 		bool anyMissing = true;
@@ -162,17 +162,12 @@ void MissingExternalSamplesDlg::OnScanFolder()
 				}
 			}
 
-			const DWORD64 tick = Util::GetTickCount64();
+			const uint64 tick = Util::GetTickCount64();
 			if(tick < lastTick || tick > lastTick + 100)
 			{
 				lastTick = tick;
 				SetItemText(IDC_STATIC1, fileName.ToUnicode());
-				MSG msg;
-				while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-				{
-					::TranslateMessage(&msg);
-					::DispatchMessage(&msg);
-				}
+				QCoreApplication::processEvents();
 			}
 		}
 		mfcless::EndWaitCursor();
@@ -201,7 +196,7 @@ bool MissingExternalSamplesDlg::SetSample(SAMPLEINDEX smp, const mpt::PathString
 	const mpt::PathString oldPath = m_sndFile.GetSamplePath(smp);
 	if(!m_sndFile.LoadExternalSample(smp, fileName))
 	{
-		Reporting::Information(UL_("Unable to load sample:\n") + fileName.ToWide());
+		Reporting::Information(UL_("Unable to load sample:\n") + fileName.ToUnicode());
 		m_modDoc.GetSampleUndo().RemoveLastUndoStep(smp);
 		return false;
 	} else
@@ -255,7 +250,7 @@ bool ModifiedExternalSamplesDlg::OnInitDialog()
 	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | mfcless::list::FullRowSelect | mfcless::list::CheckBoxes);
 
 	GenerateList();
-	SetWindowText((UL_("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+	SetWindowText((UL_("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToUnicode()).c_str());
 
 	return true;
 }
@@ -294,7 +289,7 @@ void ModifiedExternalSamplesDlg::GenerateList()
 	m_List->setUpdatesEnabled(true);
 
 	SetChecked(IDC_CHECK1, 1);
-	OnSelectionChanged(nullptr, nullptr);
+	OnSelectionChanged();
 
 	// Nothing modified?
 	if(!m_List->GetItemCount())
@@ -337,8 +332,8 @@ void ModifiedExternalSamplesDlg::OnSelectionChanged()
 		saveText = UL_("&Save Selected");
 	}
 
-	GetDlgItem(IDOK)->SetWindowText(embedText);
-	GetDlgItem(IDC_SAVE)->SetWindowText(saveText);
+	SetItemText(IDOK, embedText);
+	SetItemText(IDC_SAVE, saveText);
 }
 
 

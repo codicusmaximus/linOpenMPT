@@ -11,8 +11,8 @@
 OPENMPT_NAMESPACE_BEGIN
 
 
-namespace
-{
+// Declared in qt/mptrack/Mainfrm.h: the names of RtMidi's input ports, in
+// the order the device numbers count them (winmm's midiInGetDevCaps).
 std::vector<mpt::ustring> MidiInputNames()
 {
 	std::vector<mpt::ustring> names;
@@ -27,7 +27,6 @@ std::vector<mpt::ustring> MidiInputNames()
 	}
 	return names;
 }
-} // namespace
 
 
 void TrackerSettings::SetMIDIDevice(uint32 id)

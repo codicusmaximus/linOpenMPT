@@ -686,14 +686,14 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 		m_bKeyUp->setChecked(0);
 		m_curCommand = kcNull;
 
-		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(UL_("&Key setup for selected command"));
+		SetItemText(IDC_GROUPBOX_KEYSETUP, UL_("&Key setup for selected command"));
 		UpdateWarning();
 	}
 
 	//Fill "choice" list
 	else if((cmd >= kcFirst && cmd != m_curCommand) || m_forceUpdate)  // Have we changed command?
 	{
-		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(UL_("&Key setup for ") + m_localCmdSet->GetCommandText(cmd));
+		SetItemText(IDC_GROUPBOX_KEYSETUP, UL_("&Key setup for ") + m_localCmdSet->GetCommandText(cmd));
 
 		m_forceUpdate = false;
 
@@ -844,7 +844,7 @@ void COptionsKeyboard::EnableKeyChoice(bool enable)
 	if(!enable && mfcless::GetFocus() == &m_eCustHotKey)
 		mfcless::GotoDlgCtrl(GetDlgItem(IDC_BUTTON1));
 	m_eCustHotKey->Bypass(!enable);
-	GetDlgItem(IDC_BUTTON1)->SetWindowText(enable ? UL_("Cancel") : UL_("&Set"));
+	SetItemText(IDC_BUTTON1, enable ? UL_("Cancel") : UL_("&Set"));
 	if(enable)
 		mfcless::GotoDlgCtrl(m_eCustHotKey);
 }

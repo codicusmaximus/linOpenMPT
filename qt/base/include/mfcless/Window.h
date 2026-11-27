@@ -278,6 +278,7 @@ public:
 	// Qt paints from the event loop; this paints what is due now.
 	void UpdateWindow() { ClientWidget()->repaint(); }
 	void GetClientRect(Rect *r) { *r = GetClientRect(); }
+	void GetClientRect(Rect &r) { r = GetClientRect(); }
 	// In screen coordinates.
 	void GetWindowRect(Rect *r) const
 	{

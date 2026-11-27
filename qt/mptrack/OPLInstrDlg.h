@@ -14,6 +14,7 @@
 #include "mfcless/Geometry.h"
 #include "mfcless/Keyboard.h"
 #include "DialogBase.h"
+#include <QtCore/QPointer>
 #include "../soundlib/Snd_defs.h"
 
 class QAbstractButton;
@@ -34,7 +35,7 @@ class OPLInstrDlg : public DialogBase
 	QComboBox *m_waveform[2] = {};
 	mfcless::Size m_windowSize;
 	QWidget &m_parent;
-	QWidget * m_lastFocusItem = nullptr;
+	QPointer<QWidget> m_lastFocusItem;
 	const CSoundFile &m_sndFile;
 	OPLPatch *m_patch;
 

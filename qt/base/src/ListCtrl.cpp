@@ -316,7 +316,8 @@ bool ListCtrl::SetItemImage(int index, int image)
 bool ListCtrl::EnableGroupView(bool enable)
 {
 	m_groupView = enable;
-	setRootIsDecorated(false);
+	// The groups' headers have the arrows that collapse them.
+	setRootIsDecorated(enable);
 	setIndentation(enable ? 8 : 0);
 	return true;
 }
@@ -349,6 +350,27 @@ void ListCtrl::RemoveAllGroups()
 		delete header;
 	}
 	m_groups.clear();
+}
+
+
+void ListCtrl::SetGroupCollapsed(int groupId, bool collapsed)
+{
+	for(auto &[id, header] : m_groups)
+	{
+		if(id == groupId)
+			header->setExpanded(!collapsed);
+	}
+}
+
+
+bool ListCtrl::IsGroupCollapsed(int groupId) const
+{
+	for(const auto &[id, header] : m_groups)
+	{
+		if(id == groupId)
+			return !header->isExpanded();
+	}
+	return false;
 }
 
 

@@ -147,6 +147,14 @@ TYPES = [
 
 # Applied last to the .cpp twins, once control members are pointers.
 LATE = [
+	(r'\bMAKEINTRESOURCE\(([^()]+)\)', r'\1'),
+	(r'->SetImageList\(&([\w:>()-]+(?:->|\.)m_\w+), LVSIL_SMALL\)', r'->SetImageList(\1.GetIcons())'),
+	(r'\bGetDlgItem\(([^()]+)\)->SetWindowText\(', r'SetItemText(\1, '),
+	(r'\b(On\w+)\((?:nullptr|NULL), (?:nullptr|NULL)\)', r'\1()'),
+	(r'\bDWORD64\b', 'uint64'),
+	(r'\.ToWide\(\)', '.ToUnicode()'),
+	# A message pump while busy
+	(r'MSG msg;\s*while\s*\(::PeekMessage\(&msg,\s*(?:NULL|nullptr|0),\s*0,\s*0,\s*PM_REMOVE\)\)\s*\{\s*::TranslateMessage\(&msg\);\s*::DispatchMessage\(&msg\);\s*\}', 'QCoreApplication::processEvents();'),
 	# A control's text (Windows' window text).
 	(r'(?<![\w>.:])((?:\w+(?:\[[^\]\[]*\])?(?:->|\.))*\w+(?:\[[^\]\[]*\])?)->GetWindowTextLength\(\)', r'mfcless::GetWindowTextLength(\1)'),
 	(r'(?<![\w>.:])((?:\w+(?:\[[^\]\[]*\])?(?:->|\.))*\w+(?:\[[^\]\[]*\])?)->(SetWindowText|GetWindowText)\(', r'mfcless::\2(\1, '),
@@ -539,6 +547,25 @@ CONTROL_METHODS = {
 	},
 }
 
+def typed_local_calls(text):
+	# Item<T>(id)->Method( and calls on locals declared as T *name.
+	qt_types = [t for t in CONTROL_METHODS if t != '*']
+	def method_for(t, method):
+		return CONTROL_METHODS.get(t, {}).get(method) or CONTROL_METHODS['*'].get(method)
+	def item_call(m):
+		repl = method_for(m.group(1), m.group(3))
+		return m.group(0) if not repl else 'Item<%s>(%s)%s' % (m.group(1), m.group(2), repl)
+	text = re.sub(r'Item<(' + '|'.join(map(re.escape, qt_types)) + r')>\(([^()]+)\)->(\w+)\(', item_call, text)
+	locals_ = {}
+	for m in re.finditer(r'\b(' + '|'.join(map(re.escape, qt_types)) + r')\s*\*\s*(\w+)\s*=', text):
+		locals_.setdefault(m.group(2), m.group(1))
+	def local_call(m):
+		t = locals_.get(m.group(1))
+		repl = method_for(t, m.group(2)) if t else None
+		return m.group(0) if not repl else m.group(1) + repl
+	text = re.sub(r'(?<![\w.>])(\w+)->(\w+)\(', local_call, text)
+	return text
+
 def dialog_helpers(text):
 	# Dialog item helpers
 	text = re.sub(r'GetDlgItem\(([^()]+)\)->EnableWindow\(', r'EnableItem(\1, ', text)
@@ -591,6 +618,12 @@ def member_access(text, types):
 				return 'mfcless::GetItemData(%s, ' % name
 		return name + (repl if repl else '->' + method + '(')
 	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
+	def array_call(m):
+		inner = call(re.match(r'(m_\w+)\.(\w+)\(', m.group(1) + '.' + m.group(3) + '('))
+		if inner.startswith('mfcless::'):
+			return inner.replace('(' + m.group(1) + ', ', '(' + m.group(1) + '[' + m.group(2) + '], ', 1)
+		return inner.replace(m.group(1), m.group(1) + '[' + m.group(2) + ']', 1) if inner != m.group(1) + '.' + m.group(3) + '(' else m.group(0)
+	text = re.sub(r'\b(m_\w+)\[([^\[\]]+)\]\.(\w+)\(', array_call, text)
 	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
 	text = re.sub(r'\(&(m_\w+)\)', lambda m: '(' + m.group(1) + ')' if m.group(1) in types else m.group(0), text)
 	def deref(name):
@@ -645,6 +678,7 @@ def twin_cpp(text, header):
 		text = re.sub(a, b, text)
 	for a, b in LATE:
 		text = re.sub(a, b, text)
+	text = typed_local_calls(text)
 	if not PATCH_MODE:
 		text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)
 		if DRAFT_MARK not in text:

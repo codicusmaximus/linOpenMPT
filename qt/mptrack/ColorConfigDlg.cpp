@@ -514,7 +514,7 @@ void COptionsColors::SelectColor(int colorIndex)
 	if(::ChooseColor(&cc))
 	{
 		color = cc.rgbResult;
-		m_BtnColor[colorIndex].SetColor(color);
+		m_BtnColor[colorIndex]->SetColor(color);
 		OnSettingsChanged();
 	}
 }
@@ -564,10 +564,10 @@ void COptionsColors::OnUpdateDialog()
 		if(cd.descText[i])
 		{
 			mfcless::SetWindowText(m_TxtColor[i], cd.descText[i]);
-			m_BtnColor[i].SetColor(CustomColors[cd.colorIndex[i]]);
+			m_BtnColor[i]->SetColor(CustomColors[cd.colorIndex[i]]);
 		}
-		m_TxtColor[i].ShowWindow(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
-		m_BtnColor[i].ShowWindow(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
+		m_TxtColor[i]->setVisible(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
+		m_BtnColor[i]->setVisible(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
 	}
 
 	m_BtnPreview->update();
@@ -580,7 +580,7 @@ void COptionsColors::OnPreviewChanged()
 	m_BtnPreview->update();
 	for(int i = 0; i < 3; i++)
 	{
-		m_BtnColor[i].SetColor(CustomColors[colorDefs[m_nColorItem].colorIndex[i]]);
+		m_BtnColor[i]->SetColor(CustomColors[colorDefs[m_nColorItem].colorIndex[i]]);
 	}
 }
 

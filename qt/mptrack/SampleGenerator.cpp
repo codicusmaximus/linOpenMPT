@@ -722,7 +722,7 @@ void CSmpGenPresetDlg::OnRemovePreset()
 void CSmpGenPresetDlg::RefreshList()
 {
 	QListWidget *clist = Item<QListWidget>(IDC_LIST_SAMPLEGEN_PRESETS);
-	clist->SetRedraw(false);	//disable lisbox refreshes during fill to avoid flicker
+	clist->setUpdatesEnabled(false);	//disable lisbox refreshes during fill to avoid flicker
 	clist->clear();
 	for(size_t i = 0; i < presets->GetNumPresets(); i++)
 	{
@@ -730,7 +730,7 @@ void CSmpGenPresetDlg::RefreshList()
 		if(preset != nullptr)
 			mfcless::AddItem(clist, (preset->description).c_str());
 	}
-	clist->SetRedraw(true);		//re-enable lisbox refreshes
+	clist->setUpdatesEnabled(true);		//re-enable lisbox refreshes
 	if(currentItem == 0 || currentItem > presets->GetNumPresets())
 	{
 		currentItem = presets->GetNumPresets();

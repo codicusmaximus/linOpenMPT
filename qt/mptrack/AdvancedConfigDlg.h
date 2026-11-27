@@ -32,9 +32,10 @@ class CAdvancedSettingsList : public CMFCListCtrlEx
 {
 	Q_OBJECT
 private:
-	std::vector<SettingPath> & m_indexToPath;
+	const std::vector<SettingPath> *m_indexToPath = nullptr;
 public:
-	CAdvancedSettingsList(std::vector<SettingPath> & indexToPath) : m_indexToPath(indexToPath) {}
+	CAdvancedSettingsList(QWidget *parent = nullptr) : CMFCListCtrlEx(parent) {}
+	void SetIndexToPath(const std::vector<SettingPath> &indexToPath) { m_indexToPath = &indexToPath; }
 	uint32 OnGetCellBkColor(int nRow, int nColumn) override;
 	uint32 OnGetCellTextColor(int nRow, int nColumn) override;
 };
@@ -52,7 +53,7 @@ class COptionsAdvanced: public PropertyPage
 #endif // !_AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
 protected:
-	ListCtrl m_List;
+	ListCtrl *m_List = nullptr;
 #if MPT_USTRING_MODE_WIDE
 	using GroupMap = std::unordered_map<mpt::ustring, int>;
 #else
@@ -77,13 +78,10 @@ protected:
 	void OnSettingsChanged() { SetModified(true); }
 	void OnFindStringChanged() { ReInit(); }
 	void OnSaveNow();
-#ifdef _AFX_NO_MFC_CONTROLS_IN_DIALOGS
-	void OnCustomDrawList();
-#endif // _AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
 	void ReInit();
 
-	void RegisterMessageMap() override;;
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

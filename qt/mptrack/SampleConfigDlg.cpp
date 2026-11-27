@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: Implementation of the sample/instrument editor settings dialog.
  * Notes  : mfcless twin of upstream's mptrack/SampleConfigDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -78,9 +78,9 @@ bool COptionsSampleEditor::OnInitDialog()
 	m_cbnDefaultSampleFormat->setCurrentIndex(TrackerSettings::Instance().m_defaultSampleFormat);
 
 	QSlider *slider = Item<QSlider>(IDC_SLIDER1);
-	slider->SetRange(0, 8);
-	slider->SetTicFreq(1);
-	slider->SetPos(TrackerSettings::Instance().m_FLACCompressionLevel);
+	slider->setRange(0, 8);
+	slider->setTickInterval(1);
+	slider->setValue(TrackerSettings::Instance().m_FLACCompressionLevel);
 
 	CheckRadio(IDC_RADIO1, IDC_RADIO3, IDC_RADIO1 + TrackerSettings::Instance().sampleEditorKeyBehaviour);
 	CheckRadio(IDC_RADIO4, IDC_RADIO6, IDC_RADIO4 + static_cast<int>(TrackerSettings::Instance().m_followSamplePlayCursor.Get()));
@@ -108,7 +108,7 @@ void COptionsSampleEditor::OnOK()
 	TrackerSettings::Instance().m_SampleUndoBufferSize = SampleUndoBufferSize(GetItemInt(IDC_EDIT_UNDOSIZE));
 	TrackerSettings::Instance().m_defaultSampleFormat = static_cast<SampleEditorDefaultFormat>(mfcless::GetItemData(m_cbnDefaultSampleFormat, m_cbnDefaultSampleFormat->currentIndex()));
 	TrackerSettings::Instance().m_followSamplePlayCursor = static_cast<FollowSamplePlayCursor>(GetCheckedRadio(IDC_RADIO4, IDC_RADIO6) - IDC_RADIO4);
-	TrackerSettings::Instance().m_FLACCompressionLevel = Item<QSlider>(IDC_SLIDER1)->GetPos();
+	TrackerSettings::Instance().m_FLACCompressionLevel = Item<QSlider>(IDC_SLIDER1)->value();
 	TrackerSettings::Instance().sampleEditorKeyBehaviour = static_cast<SampleEditorKeyBehaviour>(GetCheckedRadio(IDC_RADIO1, IDC_RADIO3) - IDC_RADIO1);
 	TrackerSettings::Instance().compressITI = IsChecked(IDC_COMPRESS_ITI) != 0;
 	TrackerSettings::Instance().DefaultPlugVolumeHandling = static_cast<PlugVolumeHandling>(mfcless::GetItemData(m_cbnDefaultVolumeHandling, m_cbnDefaultVolumeHandling->currentIndex()));

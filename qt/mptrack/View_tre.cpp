@@ -1803,7 +1803,7 @@ void CModTree::DeleteTreeItem(QTreeWidgetItem * hItem, const bool permanently)
 	case MODITEM_INSLIB_INSTRUMENT:
 		{
 			// Create double-null-terminated path
-			const mpt::ustring fullPath = InsLibGetFullPath(hItem).ToWide() + u8'\0';
+			const mpt::ustring fullPath = InsLibGetFullPath(hItem).ToUnicode() + u8'\0';
 			SHFILEOPSTRUCT fos;
 			MemsetZero(fos);
 			fos.hwnd = this;
@@ -2109,7 +2109,7 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 					if(type == FILTER_UNKNOWN_FILE)
 					{
 						// Try resolving file as link if it wasn't a module or instrument
-						const auto nativePath = (m_InstrLibPath.ToWide() + wfd.cFileName);
+						const auto nativePath = (m_InstrLibPath.ToUnicode() + wfd.cFileName);
 						if(const auto resolvedName = linkResolver.Resolve(nativePath.c_str()); !resolvedName.empty())
 						{
 							if(mpt::native_fs{}.is_directory(resolvedName) && showDirs)
@@ -2328,7 +2328,7 @@ void CModTree::MonitorInstrumentLibrary()
 	uint32 result;
 	mpt::PathString lastWatchDir;
 	void * hWatchDir = INVALID_HANDLE_VALUE;
-	DWORD64 lastRefresh = Util::GetTickCount64();
+	uint64 lastRefresh = Util::GetTickCount64();
 	uint32 timeout = INFINITE;
 	uint32 interval = TrackerSettings::Instance().FSUpdateInterval;
 	do
@@ -2352,7 +2352,7 @@ void CModTree::MonitorInstrumentLibrary()
 		}
 		const void * waitHandles[3] = {m_hWatchDirKillThread, m_hSwitchWatchDir, hWatchDir};
 		result = WaitForMultipleObjects(hWatchDir != INVALID_HANDLE_VALUE ? 3 : 2, waitHandles, false, timeout);
-		DWORD64 now = Util::GetTickCount64();
+		uint64 now = Util::GetTickCount64();
 		if(result == WAIT_TIMEOUT)
 		{
 			mfcless::PostCommand(this, ID_MODTREE_REFRESHINSTRLIB);
@@ -2452,7 +2452,7 @@ void CModTree::InstrumentLibraryChDir(mpt::PathString dir, bool isSong)
 			} else
 			{
 				// Go one dir up.
-				mpt::ustring prevDir = m_InstrLibPath.GetDirectoryWithDrive().ToWide();
+				mpt::ustring prevDir = m_InstrLibPath.GetDirectoryWithDrive().ToUnicode();
 				mpt::ustring::size_type pos = prevDir.find_last_of(UL_("\\/"), prevDir.length() - 2);
 				if(pos != mpt::ustring::npos)
 				{
@@ -3968,7 +3968,7 @@ void CModTree::OnReloadItem()
 		if(!sndFile.LoadExternalSample(smpID, sndFile.GetSamplePath(smpID)))
 		{
 			pModDoc->GetSampleUndo().RemoveLastUndoStep(smpID);
-			Reporting::Error(UL_("Unable to load sample:\n") + sndFile.GetSamplePath(smpID).ToWide());
+			Reporting::Error(UL_("Unable to load sample:\n") + sndFile.GetSamplePath(smpID).ToUnicode());
 		} else
 		{
 			if(!sndFile.GetSample(smpID).uFlags[SMP_KEEPONDISK])
@@ -4513,7 +4513,7 @@ void CModTree::OnBeginLabelEdit()
 		{
 		case MODITEM_HDR_SONG:
 			text = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_songName);
-			editCtrl->SetLimitText(modSpecs.modNameLengthMax);
+			editCtrl->setMaxLength(modSpecs.modNameLengthMax);
 			m_doLabelEdit = true;
 			break;
 
@@ -4548,7 +4548,7 @@ void CModTree::OnBeginLabelEdit()
 			if(modItem.val1 < sndFile.Patterns.GetNumPatterns() && modSpecs.hasPatternNames)
 			{
 				text = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Patterns[modItem.val1].GetName());
-				editCtrl->SetLimitText(MAX_PATTERNNAME - 1);
+				editCtrl->setMaxLength(MAX_PATTERNNAME - 1);
 				m_doLabelEdit = true;
 			}
 			break;
@@ -4557,7 +4557,7 @@ void CModTree::OnBeginLabelEdit()
 			if(modItem.val1 <= sndFile.GetNumSamples())
 			{
 				text = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[modItem.val1]);
-				editCtrl->SetLimitText(modSpecs.sampleNameLengthMax);
+				editCtrl->setMaxLength(modSpecs.sampleNameLengthMax);
 				m_doLabelEdit = true;
 			}
 			break;
@@ -4566,7 +4566,7 @@ void CModTree::OnBeginLabelEdit()
 			if(modItem.val1 <= sndFile.GetNumInstruments() && sndFile.Instruments[modItem.val1] != nullptr)
 			{
 				text = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Instruments[modItem.val1]->name);
-				editCtrl->SetLimitText(modSpecs.instrNameLengthMax);
+				editCtrl->setMaxLength(modSpecs.instrNameLengthMax);
 				m_doLabelEdit = true;
 			}
 			break;

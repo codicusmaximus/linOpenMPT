@@ -3,7 +3,7 @@
  * --------------------
  * Purpose: Dialog to show inside the MDI client area when no modules are loaded.
  * Notes  : mfcless twin of upstream's mptrack/QuickStartDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +11,8 @@
 
 #include "QuickStartDialog.h"
 #include "mfcless/Widgets.h"
+
+#include <QtCore/QRegularExpression>
 #include "Image.h"
 #include "ImageLists.h"
 #include "Mainfrm.h"
@@ -49,9 +51,9 @@ void QuickStartDlg::DoDataExchange(DataExchange &dx)
 
 QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, const std::vector<mpt::PathString> &examples, QWidget *parent)
 {
+	Create(IDD_QUICKSTART, parent);
 	m_newButton->SetAccessibleText(UL_("New Module"));
 	m_openButton->SetAccessibleText(UL_("Open Module"));
-	Create(IDD_QUICKSTART, parent);
 
 	m_groupsEnabled = m_list->EnableGroupView();
 	m_list->setUpdatesEnabled(false);
@@ -70,31 +72,10 @@ QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, cons
 	{
 		if(m_groupsEnabled)
 		{
-			LVGROUP group{};
-#if MPT_WINNT_AT_LEAST(MPT_WIN_VISTA)
-			group.cbSize = LVGROUP_V5_SIZE;
-#else
-			group.cbSize = sizeof(group);
-#endif
-			group.mask = LVGF_HEADER | LVGF_GROUPID;
-#if defined(UNICODE)
-			group.pszHeader = const_cast<mpt::uchar *>(PathGroups[groupId].second);
-#else
-			std::wstring titlew = mpt::ToWide(mpt::ustring(PathGroups[groupId].second));
-			group.pszHeader = const_cast<WCHAR *>(titlew.c_str());
-#endif
-			group.cchHeader = 0;
-			group.pszFooter = nullptr;
-			group.cchFooter = 0;
-			group.iGroupId = static_cast<int>(groupId);
-			group.stateMask = 0;
-			group.state = 0;
-			group.uAlign = LVGA_HEADER_LEFT;
-			ListView_InsertGroup(m_list, -1, &group);
-			ListView_SetGroupState(m_list, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
+			m_list->InsertGroup(static_cast<int>(groupId), PathGroups[groupId].second);
 			if((TrackerSettings::Instance().quickStartGroupsCollapsed & (1 << groupId)) != 0)
 			{
-				ListView_SetGroupState(m_list, group.iGroupId, LVGS_COLLAPSED, LVGS_COLLAPSED);
+				m_list->SetGroupCollapsed(static_cast<int>(groupId), true);
 			}
 		}
 
@@ -105,7 +86,7 @@ QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, cons
 	m_list->SetColumnWidth(1, mfcless::list::AutoSizeUseHeader);
 	m_list->setUpdatesEnabled(true);
 	m_list->update();
-	OnItemChanged(nullptr, nullptr);
+	OnItemChanged();
 	UpdateHeight();
 }
 
@@ -122,48 +103,34 @@ void QuickStartDlg::OnDPIChanged()
 {
 	const double scaling = GetDPI() / 96.0;
 
-	if(m_prevDPI)
-	{
-		// We don't use this as a stand-alone dialog but rather embed it in the MDI child area, and it is not resized automatically.
-		MPT_ASSERT(GetStyle() & WS_CHILD);
-		mfcless::Rect windowRect;
-		GetClientRect(windowRect);
-		windowRect.right = Util::muldiv(windowRect.right, GetDPI(), m_prevDPI);
-		windowRect.bottom = Util::muldiv(windowRect.bottom, GetDPI(), m_prevDPI);
-		HighDPISupport::AdjustWindowRectEx(windowRect, GetStyle(), false, GetExStyle(), GetDPI());
-		SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoMove);
-	}
+	// mfcless: Qt scales the dialog with the screen; nothing to resize here.
 	m_prevDPI = GetDPI();
 
-	m_list->SetImageList(&CMainFrame::GetMainFrame()->m_PatternIcons, LVSIL_SMALL);
+	m_list->SetImageList(CMainFrame::GetMainFrame()->m_PatternIcons.GetIcons());
 	m_list->SetColumnWidth(0, mfcless::list::AutoSize);
 	m_list->SetColumnWidth(1, mfcless::list::AutoSizeUseHeader);
-
-	m_bmpNew.DeleteObject();
-	m_bmpOpen.DeleteObject();
 
 	std::unique_ptr<RawGDIDIB> bitmapNew, bitmapOpen;
 	try
 	{
-		bitmapNew = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_NEW_BIG), UL_("PNG")), scaling);
-		bitmapOpen = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_OPEN_BIG), UL_("PNG")), scaling);
+		bitmapNew = LoadPixelImage(GetResource(IDB_NEW_BIG, UL_("PNG")), scaling);
+		bitmapOpen = LoadPixelImage(GetResource(IDB_OPEN_BIG, UL_("PNG")), scaling);
 	} catch(...)
 	{
 		return;
 	}
-	auto *dc = GetDC();
-	CopyToCompatibleBitmap(m_bmpNew, *dc, *bitmapNew);
-	CopyToCompatibleBitmap(m_bmpOpen, *dc, *bitmapOpen);
-	ReleaseDC(dc);
-	m_newButton->SetBitmap(m_bmpNew);
-	m_openButton->SetBitmap(m_bmpOpen);
+	const QPixmap pixmapNew = QPixmap::fromImage(ToQImage(*bitmapNew)), pixmapOpen = QPixmap::fromImage(ToQImage(*bitmapOpen));
+	m_newButton->setIcon(pixmapNew);
+	m_newButton->setIconSize(pixmapNew.size());
+	m_openButton->setIcon(pixmapOpen);
+	m_openButton->setIconSize(pixmapOpen.size());
 }
 
 
 bool QuickStartDlg::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	// Use up/down keys to navigate in list, even if search field is focussed. This also skips the group headers during navigation
-	if(pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() == &m_find)
+	if(pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() == m_find)
 	{
 		const int curSel = m_list->GetSelectionMark();
 		const int selItem = std::clamp(curSel + (pMsg->wParam == mfcless::vk::UP ? -1 : 1), 0, m_list->GetItemCount() - 1);
@@ -190,14 +157,13 @@ void QuickStartDlg::UpdateHeight()
 
 	mfcless::Rect windowRect, parentRect, itemRect;
 	GetClientRect(windowRect);
-	GetParent()->GetClientRect(parentRect);
+	parentRect = mfcless::Rect(parentWidget() ? parentWidget()->rect() : QRect());
 	m_list->GetItemRect(0, itemRect, mfcless::list::Bounds);
 	viewRect.bottom += itemRect.Height() * 2;  // View height calculation seems to be a bit off and would still cause a vertical scrollbar to appear without this adjustment
 	if(viewRect.bottom > listRect.bottom)
 		windowRect.bottom += viewRect.bottom - listRect.bottom;
 	const int maxHeight = std::max(HighDPISupport::ScalePixels(154, this), Util::muldiv(parentRect.bottom, 9, 10));
 	LimitMax(windowRect.bottom, maxHeight);
-	HighDPISupport::AdjustWindowRectEx(windowRect, GetStyle(), false, GetExStyle(), GetDPI());
 	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoMove);
 }
 
@@ -216,7 +182,7 @@ void QuickStartDlg::OnOpen()
 
 void QuickStartDlg::OnOK()
 {
-	OnOpenFile(nullptr, nullptr);
+	OnOpenFile();
 }
 
 
@@ -272,33 +238,19 @@ void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 	if(applyFilter)
 		filter = UL_("*") + filter + UL_("*");
 
-	LVITEM lvi;
-	lvi.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
-	if(m_groupsEnabled)
-		lvi.mask |= LVIF_GROUPID;
-	lvi.iSubItem = 0;
-	lvi.state = 0;
-	lvi.stateMask = 0;
-	lvi.cchTextMax = 0;
-	lvi.iImage = TIMAGE_MODULE_FILE;
-	lvi.iIndent = 0;
-
 	bool highlightFound = false;
 	int itemId = -1;
 	for(size_t groupId = 0; groupId < m_paths.size(); groupId++)
 	{
-		lvi.iGroupId = static_cast<int>(groupId);
 		for(size_t i = 0; i < m_paths[groupId].size(); i++)
 		{
-			if(m_paths[groupId][i].empty() || (applyFilter && !PathMatchSpec(m_paths[groupId][i].ToUnicode(), filter)))
+			if(m_paths[groupId][i].empty() || (applyFilter && !QRegularExpression(QRegularExpression::wildcardToRegularExpression(mfcless::ToQString(filter), QRegularExpression::UnanchoredWildcardConversion), QRegularExpression::CaseInsensitiveOption).match(mfcless::ToQString(m_paths[groupId][i].ToUnicode())).hasMatch()))
 				continue;
-			const auto filename = m_paths[groupId][i].GetFilename().ToWide();
-			lvi.iItem = ++itemId;
-			lvi.lParam = static_cast<intptr_t>(i | (groupId << 24));
-			lvi.pszText = const_cast<mpt::uchar *>(filename.c_str());
-			m_list->InsertItem(&lvi);
+			const auto filename = m_paths[groupId][i].GetFilename().ToUnicode();
+			const intptr_t lParam = static_cast<intptr_t>(i | (groupId << 24));
+			m_list->InsertItem(++itemId, filename, TIMAGE_MODULE_FILE, m_groupsEnabled ? static_cast<int>(groupId) : -1, static_cast<uintptr_t>(lParam));
 			m_list->SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().ToUnicode());
-			if(lvi.lParam == highlight)
+			if(lParam == highlight)
 			{
 				m_list->SetItemState(itemId, mfcless::list::Selected, mfcless::list::Selected);
 				m_list->SetSelectionMark(itemId);
@@ -334,7 +286,7 @@ void QuickStartDlg::OnOpenFile()
 	for(const auto &item : files)
 	{
 		if(item.group != 1)
-			success |= (theApp.OpenDocumentFile(item.path.ToUnicode()) != nullptr);
+			success |= (theApp.OpenDocumentFile(item.path) != nullptr);
 		else
 			success |= (theApp.OpenTemplateFile(item.path) != nullptr);
 	}
@@ -352,13 +304,12 @@ void QuickStartDlg::OnOpenFile()
 
 void QuickStartDlg::OnRightClickFile()
 {
-	const NMITEMACTIVATE *item = reinterpret_cast<NMITEMACTIVATE *>(nmhdr);
-	if(item->iItem < 0)
+	const mfcless::NotifyInfo &item = CurrentNotify();
+	if(item.item < 0)
 		return;
-	mfcless::Point point = item->ptAction;
-	m_list->ClientToScreen(&point);
+	const mfcless::Point point{item.point.x(), item.point.y()};
 	// Can only remove MRU items
-	if(GetItemGroup(item->iItem) != 0)
+	if(GetItemGroup(item.item) != 0)
 		return;
 	mfcless::Menu menu;
 	menu.CreatePopupMenu();
@@ -377,17 +328,19 @@ void QuickStartDlg::OnItemChanged()
 
 void QuickStartDlg::OnDestroy()
 {
-	if(m_groupsEnabled)
+	if(m_destroyed)
+		return;
+	m_destroyed = true;
+	if(m_groupsEnabled && m_list)
 	{
 		uint8 state = 0;
 		for(size_t groupId = 0; groupId < m_paths.size(); groupId++)
 		{
-			if((ListView_GetGroupState(m_list, groupId, LVGS_COLLAPSED) & LVGS_COLLAPSED) != 0)
+			if(m_list->IsGroupCollapsed(static_cast<int>(groupId)))
 				state |= static_cast<uint8>(1 << groupId);
 		}
 		TrackerSettings::Instance().quickStartGroupsCollapsed = state;
 	}
-	ResizableDialog::OnDestroy();
 }
 
 OPENMPT_NAMESPACE_END

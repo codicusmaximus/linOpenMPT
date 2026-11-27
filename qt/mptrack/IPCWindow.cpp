@@ -1,16 +1,19 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
 /*
-* IPCWindow.cpp
-* -------------
-* Purpose: Hidden window to receive file open commands from another OpenMPT instance
-* Notes  : (currently none)
-* Authors: OpenMPT Devs
-* The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
-*/
+ * IPCWindow.cpp
+ * -------------
+ * Purpose: Hidden window to receive file open commands from another OpenMPT instance
+ * Notes  : mfcless twin of upstream's mptrack/IPCWindow.cpp. See the header:
+ *          a QLocalServer per instance in $XDG_RUNTIME_DIR/openmpt-ipc (or
+ *          the temporary folder). A request is the function and the data's
+ *          size (two 32-bit numbers) and the data; the answer is a 64-bit
+ *          result. Strings are sent as UTF-8.
+ * Authors: OpenMPT Devs
+ * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+ */
 
 
 #include "IPCWindow.h"
-#include "mfcless/Widgets.h"
+#include "mfcless/QtString.h"
 #include "Mainfrm.h"
 #include "ModDocTemplate.h"
 #include "Mptrack.h"
@@ -18,128 +21,164 @@
 
 #include "../common/version.h"
 
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
+#include <QtCore/QStandardPaths>
+#include <QtNetwork/QLocalServer>
+#include <QtNetwork/QLocalSocket>
+
+#include <cstring>
+
 
 OPENMPT_NAMESPACE_BEGIN
 
 namespace IPCWindow
 {
 
-	static constexpr mpt::uchar ClassName[] = UL_("OpenMPT_IPC_Wnd");
-	static QWidget * ipcWindow = nullptr;
+	static QLocalServer *ipcServer = nullptr;
+	static uint64 lastUsed = 0;
 
-	static intptr_t CALLBACK IPCWindowProc(QWidget * hwnd, uint32 uMsg, uintptr_t wParam, intptr_t lParam)
+	static constexpr int TimeoutMs = 5000;
+
+	static QString SocketFolder()
 	{
-		if(uMsg == WM_COPYDATA)
-		{
-			const auto &copyData = *reinterpret_cast<const COPYDATASTRUCT *>(lParam);
-			intptr_t result = 0;
-			switch(static_cast<Function>(copyData.dwData))
-			{
-			case Function::Open:
-				{
-					std::size_t count = copyData.cbData / sizeof(WCHAR);
-					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
-					const std::wstring name = std::wstring(data, data + count);
-					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).ToUnicode()) ? 1 : 2;
-				}
-				break;
-			case Function::SetWindowForeground:
-				{
-					auto mainWnd = theApp.GetMainWnd();
-					if(mainWnd)
-					{
-						if(mainWnd->IsIconic())
-						{
-							mainWnd->ShowWindow(mfcless::show::Restore);
-						}
-						mainWnd->SetForegroundWindow();
-						result = 1;
-					} else
-					{
-						result = 0;
-					}
-				}
-				break;
-			case Function::GetVersion:
-				{
-					result = Version::Current().GetRawVersion();
-				}
-				break;
-			case Function::GetArchitecture:
-				{
-					#if MPT_OS_WINDOWS
-						result = static_cast<int32>(mpt::OS::Windows::GetProcessArchitecture());
-					#else
-						result = -1;
-					#endif
-				}
-				break;
-			case Function::HasSameBinaryPath:
-				{
-					std::size_t count = copyData.cbData / sizeof(WCHAR);
-					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
-					const std::wstring path = std::wstring(data, data + count);
-					result = (theApp.GetInstallBinArchPath().ToWide() == path) ? 1 : 0;
-				}
-				break;
-			case Function::HasSameSettingsPath:
-				{
-					std::size_t count = copyData.cbData / sizeof(WCHAR);
-					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
-					const std::wstring path = std::wstring(data, data + count);
-					result = (theApp.GetConfigPath().ToWide() == path) ? 1 : 0;
-				}
-				break;
-			case Function::PlayCurrent:
-				if(CMainFrame::GetMainFrame())
-				{
-					if(CMainFrame::GetMainFrame()->PlayMod(CMainFrame::GetMainFrame()->GetActiveDoc()))
-						result = 1;
-				}
-				break;
-			default:
-				result = 0;
-				break;
-			}
-			return result;
-		}
-		return ::DefWindowProc(hwnd, uMsg, wParam, lParam);
+		QString base = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+		if(base.isEmpty())
+			base = QDir::tempPath();
+		return QDir(base).filePath(QStringLiteral("openmpt-ipc"));
 	}
 
-	void Open(HINSTANCE hInstance)
+	static mpt::ustring DataToString(const QByteArray &data)
 	{
-		WNDCLASS ipcWindowClass =
+		return mpt::ToUnicode(mpt::Charset::UTF8, std::string(data.constData(), static_cast<std::size_t>(data.size())));
+	}
+
+	static std::string PathToBytes(const mpt::PathString &path)
+	{
+		return mpt::ToCharset(mpt::Charset::UTF8, path.ToUnicode());
+	}
+
+	static int64 Architecture()
+	{
+		return static_cast<int64>(sizeof(void *) * 8);
+	}
+
+	static int64 HandleRequest(Function function, const QByteArray &data)
+	{
+		int64 result = 0;
+		switch(function)
 		{
-			0,
-			IPCWindowProc,
-			0,
-			0,
-			hInstance,
-			nullptr,
-			nullptr,
-			nullptr,
-			nullptr,
-			ClassName
-		};
-		auto ipcAtom = RegisterClass(&ipcWindowClass);
-		ipcWindow = CreateWindow(MAKEINTATOM(ipcAtom), UL_("OpenMPT IPC Window"), 0, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, 0);
+		case Function::Open:
+			result = theApp.OpenDocumentFile(mpt::PathString::FromUnicode(DataToString(data))) ? 1 : 2;
+			break;
+		case Function::SetWindowForeground:
+			{
+				auto mainWnd = CMainFrame::GetMainFrame();
+				if(mainWnd)
+				{
+					if(mainWnd->isMinimized())
+					{
+						mainWnd->showNormal();
+					}
+					mainWnd->raise();
+					mainWnd->activateWindow();
+					result = 1;
+				} else
+				{
+					result = 0;
+				}
+			}
+			break;
+		case Function::GetVersion:
+			result = Version::Current().GetRawVersion();
+			break;
+		case Function::GetArchitecture:
+			result = Architecture();
+			break;
+		case Function::HasSameBinaryPath:
+			result = (theApp.GetInstallBinArchPath().ToUnicode() == DataToString(data)) ? 1 : 0;
+			break;
+		case Function::HasSameSettingsPath:
+			result = (theApp.GetConfigPath().ToUnicode() == DataToString(data)) ? 1 : 0;
+			break;
+		case Function::PlayCurrent:
+			if(CMainFrame::GetMainFrame())
+			{
+				if(CMainFrame::GetMainFrame()->PlayMod(CMainFrame::GetMainFrame()->GetActiveDoc()))
+					result = 1;
+			}
+			break;
+		case Function::GetLastUsed:
+			result = static_cast<int64>(lastUsed);
+			break;
+		default:
+			result = 0;
+			break;
+		}
+		return result;
+	}
+
+	static void OnConnection()
+	{
+		while(QLocalSocket *socket = ipcServer->nextPendingConnection())
+		{
+			QObject::connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
+			QObject::connect(socket, &QLocalSocket::readyRead, socket, [socket]() {
+				for(;;)
+				{
+					uint32 header[2];
+					if(socket->bytesAvailable() < static_cast<qint64>(sizeof(header)))
+						return;
+					socket->peek(reinterpret_cast<char *>(header), sizeof(header));
+					if(socket->bytesAvailable() < static_cast<qint64>(sizeof(header) + header[1]))
+						return;
+					socket->read(reinterpret_cast<char *>(header), sizeof(header));
+					const QByteArray data = socket->read(header[1]);
+					const int64 result = HandleRequest(static_cast<Function>(header[0]), data);
+					socket->write(reinterpret_cast<const char *>(&result), sizeof(result));
+					socket->flush();
+				}
+			});
+		}
+	}
+
+	void Open()
+	{
+		if(ipcServer)
+			return;
+		const QString folder = SocketFolder();
+		QDir().mkpath(folder);
+		QFile::setPermissions(folder, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+		const QString name = QDir(folder).filePath(QString::number(QCoreApplication::applicationPid()));
+		QLocalServer::removeServer(name);
+		ipcServer = new QLocalServer(qApp);
+		ipcServer->setSocketOptions(QLocalServer::UserAccessOption);
+		QObject::connect(ipcServer, &QLocalServer::newConnection, ipcServer, &OnConnection);
+		if(!ipcServer->listen(name))
+		{
+			delete ipcServer;
+			ipcServer = nullptr;
+		}
 	}
 
 	void Close()
 	{
-		::DestroyWindow(ipcWindow);
-		ipcWindow = nullptr;
+		if(ipcServer)
+		{
+			ipcServer->close();
+			delete ipcServer;
+			ipcServer = nullptr;
+		}
 	}
 
 	void UpdateLastUsed()
 	{
-		if(ipcWindow)
-			SetWindowLongPtr(ipcWindow, GWLP_USERDATA, mpt::saturate_cast<LONG_PTR>(Util::GetTickCount64() / 100));
+		lastUsed = Util::GetTickCount64() / 100;
 	}
 
-	intptr_t SendIPC(QWidget * ipcWnd, Function function, mpt::const_byte_span data)
+	intptr_t SendIPC(const QString &ipcWnd, Function function, mpt::const_byte_span data)
 	{
-		if(!ipcWnd)
+		if(ipcWnd.isEmpty())
 		{
 			return 0;
 		}
@@ -147,97 +186,103 @@ namespace IPCWindow
 		{
 			return 0;
 		}
-		COPYDATASTRUCT copyData{};
-		copyData.dwData = static_cast<ULONG>(function);
-		copyData.cbData = mpt::saturate_cast<uint32>(data.size());
-		copyData.lpData = const_cast<void*>(mpt::void_cast<const void*>(data.data()));
-		return ::SendMessage(ipcWnd, WM_COPYDATA, 0, reinterpret_cast<intptr_t>(&copyData));
+		QLocalSocket socket;
+		socket.connectToServer(ipcWnd);
+		if(!socket.waitForConnected(TimeoutMs))
+			return -1;
+		const uint32 header[2] = {static_cast<uint32>(function), static_cast<uint32>(data.size())};
+		socket.write(reinterpret_cast<const char *>(header), sizeof(header));
+		if(!data.empty())
+			socket.write(reinterpret_cast<const char *>(data.data()), static_cast<qint64>(data.size()));
+		socket.flush();
+		// As SendMessage, opening a file waits for the other instance however long it takes.
+		const int timeout = (function == Function::Open) ? -1 : TimeoutMs;
+		while(socket.bytesAvailable() < static_cast<qint64>(sizeof(int64)))
+		{
+			if(!socket.waitForReadyRead(timeout))
+				return -1;
+		}
+		int64 result = 0;
+		socket.read(reinterpret_cast<char *>(&result), sizeof(result));
+		return static_cast<intptr_t>(result);
 	}
 
-	struct EnumWindowState
+	static intptr_t SendIPC(const QString &ipcWnd, Function function, const std::string &data)
 	{
-		uintptr_t lastActive = 0;
-		QWidget * result = nullptr;
-		FlagSet<InstanceRequirements> require;
-	};
+		return SendIPC(ipcWnd, function, mpt::const_byte_span(reinterpret_cast<const std::byte *>(data.data()), data.size()));
+	}
 
-	static bool CALLBACK EnumWindowsProc(QWidget * hwnd, intptr_t lParam)
+	QString FindIPCWindow(FlagSet<InstanceRequirements> require)
 	{
-		EnumWindowState &state = *reinterpret_cast<EnumWindowState *>(lParam);
-		if(hwnd)
+		const QString ownName = ipcServer ? ipcServer->fullServerName() : QString();
+		QDir folder(SocketFolder());
+		QString result;
+		int64 resultLastActive = 0;
+		for(const QString &entry : folder.entryList(QDir::System | QDir::Files | QDir::NoDotAndDotDot))
 		{
-			mpt::uchar className[256];
-			MemsetZero(className);
-			if(::GetClassName(hwnd, className, 256) > 0)
+			const QString hwnd = folder.filePath(entry);
+			if(hwnd == ownName)
+				continue;
+			const int64 version = SendIPC(hwnd, Function::GetVersion);
+			if(version == -1)
 			{
-				if(!_tcscmp(className, IPCWindow::ClassName))
+				// Left behind by an instance that has gone
+				QLocalSocket probe;
+				probe.connectToServer(hwnd);
+				if(!probe.waitForConnected(100) && probe.error() == QLocalSocket::ConnectionRefusedError)
+					QLocalServer::removeServer(hwnd);
+				continue;
+			}
+			if(require[SameVersion])
+			{
+				if(Version(static_cast<uint32>(version)) != Version::Current())
 				{
-					if(state.require[SameVersion])
-					{
-						if(Version(static_cast<uint32>(SendIPC(hwnd, Function::GetVersion))) != Version::Current())
-						{
-							return true; // continue
-						}
-					}
-					if(state.require[SameArchitecture])
-					{
-						if(SendIPC(hwnd, Function::GetArchitecture) != static_cast<int>(mpt::OS::Windows::GetProcessArchitecture()))
-						{
-							return true; // continue
-						}
-					}
-					if(state.require[SamePath])
-					{
-						if(SendIPC(hwnd, Function::HasSameBinaryPath, mpt::as_span(theApp.GetInstallBinArchPath().ToWide())) != 1)
-						{
-							return true; // continue
-						}
-					}
-					if(state.require[SameSettings])
-					{
-						if(SendIPC(hwnd, Function::HasSameSettingsPath, mpt::as_span(theApp.GetConfigPath().ToWide())) != 1)
-						{
-							return true; // continue
-						}
-					}
-					uintptr_t lastActive = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-					if(!state.result || lastActive >= state.lastActive)
-					{
-						state.result = hwnd;
-						state.lastActive = lastActive;
-					}
-					return true; // continue
+					continue;
 				}
 			}
+			if(require[SameArchitecture])
+			{
+				if(SendIPC(hwnd, Function::GetArchitecture) != Architecture())
+				{
+					continue;
+				}
+			}
+			if(require[SamePath])
+			{
+				if(SendIPC(hwnd, Function::HasSameBinaryPath, PathToBytes(theApp.GetInstallBinArchPath())) != 1)
+				{
+					continue;
+				}
+			}
+			if(require[SameSettings])
+			{
+				if(SendIPC(hwnd, Function::HasSameSettingsPath, PathToBytes(theApp.GetConfigPath())) != 1)
+				{
+					continue;
+				}
+			}
+			const int64 lastActive = SendIPC(hwnd, Function::GetLastUsed);
+			if(result.isEmpty() || lastActive >= resultLastActive)
+			{
+				result = hwnd;
+				resultLastActive = lastActive;
+			}
 		}
-		return true; // continue
-	}
-
-	QWidget * FindIPCWindow(FlagSet<InstanceRequirements> require)
-	{
-		EnumWindowState state;
-		state.require = require;
-		if(::EnumWindows(&EnumWindowsProc, reinterpret_cast<intptr_t>(&state)) == 0)
-		{
-			return nullptr;
-		}
-		return state.result;
+		return result;
 	}
 
 	bool SendToIPC(const std::vector<mpt::PathString> &filenames, bool autoplay)
 	{
-		QWidget * ipcWnd = FindIPCWindow();
-		if(!ipcWnd)
+		const QString ipcWnd = FindIPCWindow();
+		if(ipcWnd.isEmpty())
 		{
 			return false;
 		}
-		uint32 processID = 0;
-		GetWindowThreadProcessId(ipcWnd, &processID);
-		AllowSetForegroundWindow(processID);
 		SendIPC(ipcWnd, Function::SetWindowForeground);
 		for(const auto &filename : filenames)
 		{
-			if(SendIPC(ipcWnd, Function::Open, mpt::as_span(filename.ToWide())) == 0)
+			const intptr_t result = SendIPC(ipcWnd, Function::Open, PathToBytes(filename));
+			if(result == 0 || result == -1)
 			{
 				return false;
 			}

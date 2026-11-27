@@ -30,6 +30,13 @@ public:
 	QPixmap GetImage(int index) const { return (index >= 0 && index < GetImageCount()) ? m_images[index] : QPixmap(); }
 	QIcon GetIcon(int index) const { return QIcon(GetImage(index)); }
 	QSize GetImageSize() const { return m_size; }
+	std::vector<QIcon> GetIcons() const
+	{
+		std::vector<QIcon> icons;
+		for(const auto &image : m_images)
+			icons.emplace_back(image);
+		return icons;
+	}
 
 private:
 	std::vector<QPixmap> m_images;

@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Song comments tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_com.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -84,10 +84,9 @@ bool CCtrlComments::OnInitDialog()
 	CModControlDlg::OnInitDialog();
 	// Initialize comments
 	uint32 margin = HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN, m_EditComments);
-	m_EditComments->SetMargins(margin, margin);
+	m_EditComments->document()->setDocumentMargin(margin);
 	UpdateView(CommentHint().ModType());
 	m_EditComments->setFocus();
-	m_EditComments->FmtLines(false);
 	m_initialized = true;
 	return false;
 }
@@ -102,9 +101,8 @@ void CCtrlComments::RecalcLayout()
 	int cx0, cy0;
 	
 	if ((!this) || (!m_EditComments)) return;
-	GetClientRect(&rcClient);
-	m_EditComments->GetWindowRect(&rect);
-	ScreenToClient(&rect);
+	rcClient = GetClientRect();
+	rect = mfcless::Rect(m_EditComments->geometry());
 	cx0 = rect.Width();
 	cy0 = rect.Height();
 	rect.bottom = rcClient.bottom - 3;
@@ -125,7 +123,7 @@ void CCtrlComments::RecalcLayout()
 			//SetWindowLong(m_EditComments, GWL_STYLE, GetWindowLong(m_EditComments, GWL_STYLE) | WS_HSCROLL);
 		}
 		if(cx != cx0 || cy != cy0)
-			m_EditComments->SetWindowPos(NULL, 0,0, cx, cy, mfcless::swp::NoMove|mfcless::swp::NoZOrder|mfcless::swp::FrameChanged);
+			m_EditComments->resize(cx, cy);
 	}
 }
 
@@ -156,26 +154,21 @@ void CCtrlComments::UpdateView(UpdateHint hint, QObject *pHint)
 	{
 		previousFont = font;
 		previousFontSize = fontSize;
-		hFont.DeleteObject();
-		hFont.CreateFont(fontSize, 0, 0, 0, font.flags[FontSetting::Bold] ? FW_BOLD : FW_NORMAL,
-			font.flags[FontSetting::Italic] ? true :false, false, false,
-			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-			FIXED_PITCH | FF_MODERN, mpt::ToUnicode(font.name));
+		hFont = QFont(mfcless::ToQString(mpt::ToUnicode(font.name)));
+		hFont.setPixelSize(std::max(1, -fontSize));
+		hFont.setBold(font.flags[FontSetting::Bold]);
+		hFont.setItalic(font.flags[FontSetting::Italic]);
+		hFont.setFixedPitch(true);
+		hFont.setStyleHint(QFont::Monospace);
 	}
-	m_EditComments->SendMessage(WM_SETFONT, reinterpret_cast<uintptr_t>(hFont.m_hObject));
-	mfcless::DC *pDC = m_EditComments->GetDC();
-	pDC->SelectObject(hFont);
-	TEXTMETRIC tm;
-	pDC->GetTextMetrics(&tm);
-	charWidth = tm.tmAveCharWidth;
-	m_EditComments->ReleaseDC(pDC);
+	m_EditComments->setFont(hFont);
+	charWidth = QFontMetrics(hFont).averageCharWidth();
 
 	RecalcLayout();
 
 	m_EditComments->setUpdatesEnabled(false);
 
-	std::string text = m_sndFile.m_songMessage.GetFormatted(SongMessage::leCRLF);
+	std::string text = m_sndFile.m_songMessage.GetFormatted(SongMessage::leLF);
 	for(std::size_t i = 0; i < text.length(); ++i)
 	{
 		// replace control characters
@@ -334,12 +327,12 @@ void CCtrlComments::OnCommentsChanged()
 {
 	if(m_nLockCount)
 		return;
-	if(!m_initialized || !m_EditComments || !m_EditComments->isModified())
+	if(!m_initialized || !m_EditComments || !m_EditComments->document()->isModified())
 		return;
 	mpt::ustring text;
 	mfcless::GetWindowText(m_EditComments, text);
-	m_EditComments->setModified(false);
-	if(m_sndFile.m_songMessage.SetFormatted(mpt::ToCharset(m_sndFile.GetCharsetInternal(), text), SongMessage::leCRLF))
+	m_EditComments->document()->setModified(false);
+	if(m_sndFile.m_songMessage.SetFormatted(mpt::ToCharset(m_sndFile.GetCharsetInternal(), text), SongMessage::leLF))
 	{
 		m_modDoc.SetModified();
 		m_modDoc.UpdateAllViews(nullptr, CommentHint(), this);
@@ -349,7 +342,7 @@ void CCtrlComments::OnCommentsChanged()
 
 bool CCtrlComments::PreTranslateMessage(mfcless::Message *pMsg)
 {
-	if(pMsg->message == mfcless::msg::KeyDown && pMsg->wParam == 'A' && GetKeyState(mfcless::vk::CONTROL) < 0)
+	if(pMsg->message == mfcless::msg::KeyDown && pMsg->wParam == 'A' && mfcless::IsKeyDown(mfcless::vk::CONTROL))
 	{
 		// Ctrl-A is not handled by multiline edit boxes
 		if(mfcless::GetFocus() == m_EditComments)
@@ -358,10 +351,12 @@ bool CCtrlComments::PreTranslateMessage(mfcless::Message *pMsg)
 	{
 		int selStart, selEnd;
 		mfcless::GetSel(m_EditComments, selStart, selEnd);
-		int posInLine = (selStart - m_EditComments->LineIndex(m_EditComments->LineFromChar(selStart)));
-		mpt::ustring tabs(u8' ', 4 - (posInLine % 4));
-		m_EditComments->ReplaceSel(tabs, true);
-		mfcless::SetSel(m_EditComments, -1, -1, true);
+		QTextCursor cursor = m_EditComments->textCursor();
+		cursor.setPosition(selStart);
+		const int posInLine = cursor.positionInBlock();
+		cursor.setPosition(selEnd, QTextCursor::KeepAnchor);
+		cursor.insertText(QString(4 - (posInLine % 4), u' '));
+		m_EditComments->setTextCursor(cursor);
 		return true;
 	}
 	return CModControlDlg::PreTranslateMessage(pMsg);

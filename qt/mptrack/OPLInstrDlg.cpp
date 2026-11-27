@@ -3,7 +3,7 @@
  * ---------------
  * Purpose: Editor for OPL-based synth instruments
  * Notes  : mfcless twin of upstream's mptrack/OPLInstrDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -68,9 +68,8 @@ OPLInstrDlg::OPLInstrDlg(QWidget &parent, const CSoundFile &sndFile)
 	, m_sndFile(sndFile)
 {
 	Create(IDD_OPL_PARAMS, &parent);
-	mfcless::Rect rect;
-	GetClientRect(rect);
-	m_windowSize = rect.BottomRight();
+	const mfcless::Rect rect = GetClientRect();
+	m_windowSize = mfcless::Size(rect.Width(), rect.Height());
 }
 
 
@@ -86,14 +85,14 @@ bool OPLInstrDlg::OnInitDialog()
 	m_feedback->setRange(0, 7);
 	for(int op = 0; op < 2; op++)
 	{
-		m_attackRate[op].SetRange(0, 15);
-		m_decayRate[op].SetRange(0, 15);
-		m_sustainLevel[op].SetRange(0, 15);
-		m_releaseRate[op].SetRange(0, 15);
-		m_volume[op].SetRange(0, 63);
-		m_volume[op].SetTicFreq(4);
-		m_levelScaling[op].SetRange(0, 3);
-		m_freqMultiplier[op].SetRange(0, 15);
+		m_attackRate[op]->setRange(0, 15);
+		m_decayRate[op]->setRange(0, 15);
+		m_sustainLevel[op]->setRange(0, 15);
+		m_releaseRate[op]->setRange(0, 15);
+		m_volume[op]->setRange(0, 63);
+		m_volume[op]->setTickInterval(4);
+		m_levelScaling[op]->setRange(0, 3);
+		m_freqMultiplier[op]->setRange(0, 15);
 	}
 
 	return true;
@@ -104,24 +103,14 @@ bool OPLInstrDlg::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	if(pMsg)
 	{
-		// Forward key presses and drag&drop support to parent editor
+		// Forward key presses and drag&drop support to parent editor: the
+		// message filter passes them on to the parent's PreTranslateMessage
+		// next (the dialog is its child).
 		if(pMsg->message == mfcless::msg::SysKeyUp || pMsg->message == mfcless::msg::KeyUp ||
 			pMsg->message == mfcless::msg::SysKeyDown || pMsg->message == mfcless::msg::KeyDown ||
-			pMsg->message == WM_DROPFILES || pMsg->message == mfcless::msg::XButtonUp)
+			pMsg->message == mfcless::msg::XButtonUp)
 		{
-			if(pMsg->hwnd == this)
-			{
-				pMsg->hwnd = m_parent.m_hWnd;
-			}
-			if(m_parent.PreTranslateMessage(pMsg))
-			{
-				return true;
-			}
-		} else if(pMsg->message == mfcless::msg::Char)
-		{
-			// Avoid Windows sounds on note key repeats
-			if(HIWORD(pMsg->lParam) & 0x4000)
-				return true;
+			return false;
 		}
 	}
 	return DialogBase::PreTranslateMessage(pMsg);
@@ -130,7 +119,7 @@ bool OPLInstrDlg::PreTranslateMessage(mfcless::Message *pMsg)
 
 intptr_t OPLInstrDlg::OnDragonDropping(uintptr_t wParam, intptr_t lParam)
 {
-	return m_parent.SendMessage(WM_MOD_DRAGONDROPPING, wParam, lParam);
+	return mfcless::SendModMessage(&m_parent, WM_MOD_DRAGONDROPPING, wParam, lParam);
 }
 
 
@@ -146,21 +135,17 @@ void OPLInstrDlg::SetEnabled(bool enabled)
 {
 	if(!enabled)
 		m_lastFocusItem = mfcless::GetFocus();
-	
-	const auto EnableProc = [](QWidget * hwnd, intptr_t lParam) -> bool
-	{
-		::EnableWindow(hwnd, lParam ? true : false);
-		return true;
-	};
-	EnumChildWindows(this, EnableProc, enabled);
-	ShowWindow(enabled ? mfcless::show::Show : mfcless::show::Hide);
 
-	if(enabled && !IsChild(mfcless::GetFocus()))
+	for(QWidget *child : findChildren<QWidget *>())
+		child->setEnabled(enabled);
+	setVisible(enabled);
+
+	if(enabled && !isAncestorOf(mfcless::GetFocus()))
 	{
-		if(::IsChild(this, m_lastFocusItem))
-			::SetFocus(m_lastFocusItem);
+		if(m_lastFocusItem && isAncestorOf(m_lastFocusItem))
+			m_lastFocusItem->setFocus();
 		else
-			NextDlgCtrl();
+			focusNextChild();
 	}
 }
 
@@ -173,24 +158,24 @@ void OPLInstrDlg::SetPatch(OPLPatch &patch)
 	m_feedback->setValue((patch[10] & OPL::FEEDBACK_MASK) >> 1);
 	for(int op = 0; op < 2; op++)
 	{
-		m_attackRate[op].SetPos(15 - (patch[4 + op] >> 4));
-		m_decayRate[op].SetPos(15 - (patch[4 + op] & 0x0F));
-		m_sustainLevel[op].SetPos(15 - (patch[6 + op] >> 4));
-		m_releaseRate[op].SetPos(15 - (patch[6 + op] & 0x0F));
-		m_volume[op].SetPos(63 - (patch[2 + op] & OPL::TOTAL_LEVEL_MASK));
-		m_levelScaling[op].SetPos(KeyScaleLevel(patch[2 + op]) >> 6);
-		m_freqMultiplier[op].SetPos(patch[0 + op] & OPL::MULTIPLE_MASK);
+		m_attackRate[op]->setValue(15 - (patch[4 + op] >> 4));
+		m_decayRate[op]->setValue(15 - (patch[4 + op] & 0x0F));
+		m_sustainLevel[op]->setValue(15 - (patch[6 + op] >> 4));
+		m_releaseRate[op]->setValue(15 - (patch[6 + op] & 0x0F));
+		m_volume[op]->setValue(63 - (patch[2 + op] & OPL::TOTAL_LEVEL_MASK));
+		m_levelScaling[op]->setValue(KeyScaleLevel(patch[2 + op]) >> 6);
+		m_freqMultiplier[op]->setValue(patch[0 + op] & OPL::MULTIPLE_MASK);
 
-		m_sustain[op].SetCheck((patch[0 + op] & OPL::SUSTAIN_ON) ? 1 : 0);
-		m_scaleEnv[op].SetCheck((patch[0 + op] & OPL::KSR) ? 1 : 0);
-		m_vibrato[op].SetCheck((patch[0 + op] & OPL::VIBRATO_ON) ? 1 : 0);
-		m_tremolo[op].SetCheck((patch[0 + op] & OPL::TREMOLO_ON) ? 1 : 0);
+		m_sustain[op]->setChecked((patch[0 + op] & OPL::SUSTAIN_ON) ? 1 : 0);
+		m_scaleEnv[op]->setChecked((patch[0 + op] & OPL::KSR) ? 1 : 0);
+		m_vibrato[op]->setChecked((patch[0 + op] & OPL::VIBRATO_ON) ? 1 : 0);
+		m_tremolo[op]->setChecked((patch[0 + op] & OPL::TREMOLO_ON) ? 1 : 0);
 
 		const auto waveform = patch[8 + op];
 		const int numWaveforms = (m_sndFile.GetType() == MOD_TYPE_S3M && waveform < 4) ? 4 : 8;
-		if(numWaveforms != m_waveform[op].GetCount())
+		if(numWaveforms != m_waveform[op]->count())
 		{
-			m_waveform[op].ResetContent();
+			m_waveform[op]->clear();
 			static constexpr const mpt::uchar *waveformNames[] =
 			{
 				UL_("Sine"), UL_("Half Sine"), UL_("Absolute Sine"), UL_("Pulse Sine"),
@@ -198,10 +183,10 @@ void OPLInstrDlg::SetPatch(OPLPatch &patch)
 			};
 			for(int i = 0; i < numWaveforms; i++)
 			{
-				m_waveform[op].AddString(waveformNames[i]);
+				mfcless::AddItem(m_waveform[op], waveformNames[i]);
 			}
 		}
-		m_waveform[op].SetCurSel(waveform);
+		m_waveform[op]->setCurrentIndex(waveform);
 	}
 	SetRedraw(true);
 	m_patch = &patch;
@@ -215,22 +200,22 @@ void OPLInstrDlg::ParamsChanged()
 	patch[10] |= static_cast<uint8>(m_feedback->value() << 1);
 	for(int op = 0; op < 2; op++)
 	{
-		patch[op] = static_cast<uint8>(m_freqMultiplier[op].GetPos());
-		if(m_sustain[op].GetCheck() != 0) patch[op] |= OPL::SUSTAIN_ON;
-		if(m_scaleEnv[op].GetCheck() != 0) patch[op] |= OPL::KSR;
-		if(m_vibrato[op].GetCheck() != 0) patch[op] |= OPL::VIBRATO_ON;
-		if(m_tremolo[op].GetCheck() != 0) patch[op] |= OPL::TREMOLO_ON;
-		patch[2 + op] = static_cast<uint8>((63 - m_volume[op].GetPos()) | KeyScaleLevel(static_cast<uint8>(m_levelScaling[op].GetPos() << 6)));
-		patch[4 + op] = static_cast<uint8>(((15 - m_attackRate[op].GetPos()) << 4) | (15 - m_decayRate[op].GetPos()));
-		patch[6 + op] = static_cast<uint8>(((15 - m_sustainLevel[op].GetPos()) << 4) | (15 - m_releaseRate[op].GetPos()));
-		patch[8 + op] = static_cast<uint8>(m_waveform[op].GetCurSel());
+		patch[op] = static_cast<uint8>(m_freqMultiplier[op]->value());
+		if(m_sustain[op]->isChecked() != 0) patch[op] |= OPL::SUSTAIN_ON;
+		if(m_scaleEnv[op]->isChecked() != 0) patch[op] |= OPL::KSR;
+		if(m_vibrato[op]->isChecked() != 0) patch[op] |= OPL::VIBRATO_ON;
+		if(m_tremolo[op]->isChecked() != 0) patch[op] |= OPL::TREMOLO_ON;
+		patch[2 + op] = static_cast<uint8>((63 - m_volume[op]->value()) | KeyScaleLevel(static_cast<uint8>(m_levelScaling[op]->value() << 6)));
+		patch[4 + op] = static_cast<uint8>(((15 - m_attackRate[op]->value()) << 4) | (15 - m_decayRate[op]->value()));
+		patch[6 + op] = static_cast<uint8>(((15 - m_sustainLevel[op]->value()) << 4) | (15 - m_releaseRate[op]->value()));
+		patch[8 + op] = static_cast<uint8>(m_waveform[op]->currentIndex());
 	}
 
 	if(*m_patch != patch)
 	{
-		m_parent.SendMessage(WM_MOD_VIEWMSG, VIEWMSG_PREPAREUNDO);
+		mfcless::SendModMessage(&m_parent, WM_MOD_VIEWMSG, VIEWMSG_PREPAREUNDO);
 		*m_patch = patch;
-		m_parent.SendMessage(WM_MOD_VIEWMSG, VIEWMSG_SETMODIFIED, SampleHint().Data().AsLPARAM());
+		mfcless::SendModMessage(&m_parent, WM_MOD_VIEWMSG, VIEWMSG_SETMODIFIED, SampleHint().Data().AsLPARAM());
 	}
 }
 
@@ -247,7 +232,7 @@ mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 	{
 	case IDC_SLIDER1:
 		// Feedback
-		text = mpt::ToUnicode(mpt::Charset::UTF8, feedback[slider->GetPos() & 7]);
+		text = mpt::ToUnicode(mpt::Charset::UTF8, feedback[slider->value() & 7]);
 		break;
 
 	case IDC_SLIDER2:
@@ -257,33 +242,33 @@ mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 	case IDC_SLIDER10:
 	case IDC_SLIDER12:
 		// Attack / Decay / Release
-		text = UL_("faster < ") + mpt::ufmt::val(slider->GetPos()) + UL_(" > slower");
+		text = UL_("faster < ") + mpt::ufmt::val(slider->value()) + UL_(" > slower");
 		break;
 	case IDC_SLIDER4:
 	case IDC_SLIDER11:
 		// Sustain Level
 		{
-			const int pos = slider->GetPos();
+			const int pos = slider->value();
 			text = mpt::ufmt::val((pos == 0) ? -93 : ((-15 + pos) * 3)) + UL_(" dB");
 		}
 		break;
 	case IDC_SLIDER6:
 	case IDC_SLIDER13:
 		// Volume Level
-		text = mpt::ufmt::fix((-63 + slider->GetPos()) * 0.75, 2) + UL_(" dB");
+		text = mpt::ufmt::fix((-63 + slider->value()) * 0.75, 2) + UL_(" dB");
 		break;
 	case IDC_SLIDER7:
 	case IDC_SLIDER14:
 		// Key Scale Level
-		text = ksl[slider->GetPos() & 3];
+		text = ksl[slider->value() & 3];
 		break;
 	case IDC_SLIDER8:
 	case IDC_SLIDER15:
 		// Frequency Multiplier
-		if(slider->GetPos() == 0)
+		if(slider->value() == 0)
 			text = UL_("0.5");
 		else
-			text = mpt::ufmt::val(slider->GetPos());
+			text = mpt::ufmt::val(slider->value());
 		break;
 	}
 

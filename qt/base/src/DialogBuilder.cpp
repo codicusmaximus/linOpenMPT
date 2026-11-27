@@ -617,7 +617,7 @@ DialogLayout::DialogLayout(QWidget *dialog, const BuiltDialog &built, std::vecto
 
 bool DialogLayout::eventFilter(QObject *watched, QEvent *e)
 {
-	if(watched == m_dialog && e->type() == QEvent::Resize)
+	if(watched == m_dialog && e->type() == QEvent::Resize && m_enabled)
 		Apply();
 	return false;
 }
@@ -629,6 +629,14 @@ void DialogLayout::Replace(QWidget *old, QWidget *now)
 		if(entry.widget == old)
 			entry.widget = now;
 	}
+}
+
+
+void DialogLayout::SetEnabled(bool enable)
+{
+	m_enabled = enable;
+	if(enable)
+		Apply();
 }
 
 

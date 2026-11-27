@@ -119,7 +119,7 @@ bool CSelectPluginDlg::OnInitDialog()
 	SetWindowPlacement(&wnd);
 
 	UpdatePluginsList();
-	OnSelChanged(NULL, NULL);
+	OnSelChanged();
 	return true;
 }
 
@@ -779,12 +779,7 @@ VSTPluginLib *CSelectPluginDlg::ScanPlugins(const mpt::PathString &path, QWidget
 			QWidget *text = pluginScanDlg.GetDlgItem(IDC_SCANTEXT);
 			mpt::ustring scanStr = UL_("Scanning Plugin...\n") + fileName.ToUnicode();
 			mfcless::SetWindowText(text, scanStr);
-			MSG msg;
-			while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-			{
-				::TranslateMessage(&msg);
-				::DispatchMessage(&msg);
-			}
+			QCoreApplication::processEvents();
 
 			for(VSTPluginLib *lib : pManager->AddPlugin(fileName, maskCrashes, false))
 			{

@@ -182,7 +182,7 @@ bool CPatternPropertiesDlg::OnInitDialog()
 	m_spinPattern->SetRange(-1, 1);
 	SetItemInt(IDC_EDIT1, m_nPattern);
 	CheckRadio(IDC_RADIO1, IDC_RADIO2, IDC_RADIO2);
-	Item<QLineEdit>(IDC_EDIT2)->SetLimitText(MAX_PATTERNNAME - 1);
+	Item<QLineEdit>(IDC_EDIT2)->setMaxLength(MAX_PATTERNNAME - 1);
 
 	m_locked = false;
 	SetCurrentPattern(m_nPattern);
@@ -1290,7 +1290,7 @@ void CChordEditor::OnChordChanged()
 			note = 0;
 		else
 			note += 1 - CHORD_MIN;
-		m_CbnNote[i].SetCurSel(note);
+		m_CbnNote[i]->setCurrentIndex(note);
 	}
 	UpdateKeyboard();
 }
@@ -1330,10 +1330,10 @@ void CChordEditor::OnBaseNoteChanged()
 void CChordEditor::OnNoteChanged(int noteIndex)
 {
 	MPTChord &chord = GetChord();
-	int note = m_CbnNote[noteIndex].GetCurSel();
+	int note = m_CbnNote[noteIndex]->currentIndex();
 	if(note < 0)
 		return;
-	chord.notes[noteIndex] = static_cast<int8>(m_CbnNote[noteIndex].GetItemData(note));
+	chord.notes[noteIndex] = static_cast<int8>(mfcless::GetItemData(m_CbnNote[noteIndex], note));
 	UpdateKeyboard();
 }
 
@@ -1987,7 +1987,7 @@ bool MetronomeSettingsDlg::OnInitDialog()
 	}
 	SetSampleInfo(TrackerSettings::Instance().metronomeSampleMeasure, m_measureCombo, m_measureEdit, m_measureButton);
 	SetSampleInfo(TrackerSettings::Instance().metronomeSampleBeat, m_beatCombo, m_beatEdit, m_beatButton);
-	GetDlgItem(IDC_VOLUME)->SetWindowText(GetVolumeString());
+	SetItemText(IDC_VOLUME, GetVolumeString());
 	return true;
 }
 
@@ -2006,7 +2006,7 @@ void MetronomeSettingsDlg::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWid
 	{
 		TrackerSettings::Instance().metronomeVolume = m_volumeSlider->value() * METRONOME_VOLUME_SCALE;
 		CMainFrame::GetMainFrame()->UpdateMetronomeVolume();
-		GetDlgItem(IDC_VOLUME)->SetWindowText(GetVolumeString());
+		SetItemText(IDC_VOLUME, GetVolumeString());
 	}
 }
 

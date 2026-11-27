@@ -49,6 +49,10 @@ class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
 
+// mfcless: RtMidi's input ports, as winmm numbers its MIDI input devices
+// (qt/logic/TrackerSettingsMIDI.cpp).
+std::vector<mpt::ustring> MidiInputNames();
+
 class CAutoSaver;
 class CDLSBank;
 class CChildFrame;

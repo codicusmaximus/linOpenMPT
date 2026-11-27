@@ -161,7 +161,7 @@ bool CWaveConvert::OnInitDialog()
 	SetItemInt(IDC_EDIT12, static_cast<uint32>(m_selectedSong + 1));
 	if(m_subSongs.size() <= 1)
 	{
-		GetDlgItem(IDC_RADIO3)->SetWindowText(UL_("&Entire Song"));
+		SetItemText(IDC_RADIO3, UL_("&Entire Song"));
 		EnableItem(IDC_RADIO1, false);
 		EnableItem(IDC_EDIT12, false);
 	}

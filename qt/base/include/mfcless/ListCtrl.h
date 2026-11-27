@@ -78,6 +78,9 @@ public:
 	bool IsGroupViewEnabled() const { return m_groupView; }
 	int InsertGroup(int groupId, const Text &header);
 	void RemoveAllGroups();
+	// Groups can be collapsed by the user (LVGS_COLLAPSIBLE).
+	void SetGroupCollapsed(int groupId, bool collapsed);
+	bool IsGroupCollapsed(int groupId) const;
 
 	bool SetCheck(int index, bool check = true);
 	bool GetCheck(int index) const;

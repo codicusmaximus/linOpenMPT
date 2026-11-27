@@ -1,7 +1,7 @@
 # The mfcless tracker: upstream OpenMPT's engine and logic with a native Qt6
 # UI and no MFC. Each upstream mptrack/ UI file has a twin here with the same
 # name, classes and functions (docs/MFCLESS-MAP.md).
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets Network)
 set(CMAKE_AUTOMOC ON)
 
 add_subdirectory(resources)
@@ -32,12 +32,12 @@ list(APPEND MFCLESS_TWIN_SOURCES ${MFCLESS_UPSTREAM_UI_FILES})
 # Base helpers that need upstream's string types.
 add_library(mfcless_ui STATIC ${MFCLESS_TWIN_SOURCES} ${CMAKE_SOURCE_DIR}/platform/ExceptionHandler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/base/src/Widgets.cpp)
 target_include_directories(mfcless_ui PRIVATE ${CMAKE_SOURCE_DIR}/platform)
-target_link_libraries(mfcless_ui PUBLIC mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets)
+target_link_libraries(mfcless_ui PUBLIC mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets Qt6::Network)
 target_compile_options(mfcless_ui PRIVATE -fpermissive -w)
 
 if(MFCLESS_DRAFT_SOURCES)
   add_library(mfcless_drafts OBJECT EXCLUDE_FROM_ALL ${MFCLESS_DRAFT_SOURCES})
-  target_link_libraries(mfcless_drafts PRIVATE mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets)
+  target_link_libraries(mfcless_drafts PRIVATE mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets Qt6::Network)
   target_compile_options(mfcless_drafts PRIVATE -fpermissive -w)
 endif()
 

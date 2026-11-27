@@ -3,7 +3,9 @@
  * ------------
  * Purpose: MIDI Input handling code.
  * Notes  : mfcless twin of upstream's mptrack/Mpt_midi.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft: MIDI input runs on RtMidi
+ *          (the copy upstream bundles for its MIDI I/O plugin) instead of
+ *          winmm, with the same device numbers (MidiInputNames).
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -17,6 +19,12 @@
 #include "TrackerSettings.h"
 #include "WindowMessages.h"
 #include "../soundlib/MIDIEvents.h"
+#include "mfcless/ModMessage.h"
+
+#include "rtmidi/RtMidi.h"
+
+#include <chrono>
+#include <memory>
 
 
 
@@ -77,99 +85,114 @@ void ApplyTransposeKeyboardSetting(CMainFrame &rMainFrm, uint32 &midiMsg)
 
 
 /////////////////////////////////////////////////////////////////////////////
-// MMSYSTEM Midi Record
+// RtMidi Midi Record
 
-void CALLBACK MidiInCallBack(HMIDIIN inHandle, uint32 wMsg, uintptr_t instance, uintptr_t midiMsg, uintptr_t timestamp)
+namespace
 {
-	CMainFrame *pMainFrm = reinterpret_cast<CMainFrame *>(instance);
-	if(!pMainFrm)
+
+struct MidiInPort
+{
+	RtMidiIn in;
+	CMainFrame *mainFrame = nullptr;
+	std::chrono::steady_clock::time_point startTime;
+
+	MidiInPort() : in(RtMidi::UNSPECIFIED, "OpenMPT") { }
+};
+
+// Called on RtMidi's thread, as winmm calls its callback on a driver thread.
+void MidiInCallBack(double, std::vector<unsigned char> *message, void *userData)
+{
+	auto &port = *static_cast<MidiInPort *>(userData);
+	CMainFrame *pMainFrm = port.mainFrame;
+	if(!pMainFrm || message == nullptr || message->empty())
 		return;
+	const auto timestamp = static_cast<uintptr_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - port.startTime).count());
+
+	if((*message)[0] == 0xF0)
+	{
+		// SysEx
+		std::lock_guard<mpt::mutex> guard{pMainFrm->midiInData.dataMutex};
+		if(auto callback = pMainFrm->GetMidiSysexCallback())
+			callback(mpt::const_byte_span{mpt::byte_cast<const std::byte *>(message->data()), message->size()});
+		return;
+	}
+
+	// Short messages, packed status byte first as winmm does
+	uint32 data = 0;
+	for(std::size_t i = 0; i < std::min<std::size_t>(message->size(), 3); i++)
+		data |= static_cast<uint32>((*message)[i]) << (8 * i);
 
 #ifdef MPTMIDI_RECORDLOG
-	uint32 dwMidiStatus = midiMsg & 0xFF;
-	uint32 dwMidiByte1 = (midiMsg >> 8) & 0xFF;
-	uint32 dwMidiByte2 = (midiMsg >> 16) & 0xFF;
+	uint32 dwMidiStatus = data & 0xFF;
+	uint32 dwMidiByte1 = (data >> 8) & 0xFF;
+	uint32 dwMidiByte2 = (data >> 16) & 0xFF;
 	MPT_LOG_GLOBAL(LogDebug, "MIDI", MPT_UFORMAT("time={}ms status={} data={}.{}")(mpt::ufmt::dec(timestamp), mpt::ufmt::HEX0<2>(dwMidiStatus), mpt::ufmt::HEX0<2>(dwMidiByte1), mpt::ufmt::HEX0<2>(dwMidiByte2)));
 #endif
 
-	QWidget * hWndMidi = pMainFrm->GetMidiRecordWnd();
-	if(wMsg == MIM_DATA || wMsg == MIM_MOREDATA)
+	QWidget *hWndMidi = pMainFrm->GetMidiRecordWnd();
+	if(hWndMidi)
 	{
-		uint32 data = static_cast<uint32>(midiMsg);
-		if(::IsWindow(hWndMidi))
+		switch(MIDIEvents::GetTypeFromEvent(data))
 		{
-			switch(MIDIEvents::GetTypeFromEvent(data))
-			{
-			case MIDIEvents::evNoteOff:	// Note Off
-			case MIDIEvents::evNoteOn:	// Note On
-				ApplyTransposeKeyboardSetting(*pMainFrm, data);
-				[[fallthrough]];
-			default:
-				if(::PostMessage(hWndMidi, WM_MOD_MIDIMSG, data, timestamp))
-					return;	// Message has been handled
-				break;
-			}
-		}
-		// Pass MIDI to keyboard handler
-		CMainFrame::GetInputHandler()->HandleMIDIMessage(kCtxAllContexts, data);
-	} else if(wMsg == MIM_LONGDATA)
-	{
-		// SysEx
-		if(MIDIHDR &sysex = *reinterpret_cast<MIDIHDR *>(midiMsg); sysex.dwBytesRecorded)
-		{
-			std::lock_guard<mpt::mutex> guard{pMainFrm->midiInData.dataMutex};
-			if(auto callback = pMainFrm->GetMidiSysexCallback())
-				callback(mpt::const_byte_span{mpt::byte_cast<const std::byte *>(sysex.lpData), sysex.dwBytesRecorded});
-			midiInAddBuffer(inHandle, &sysex, sizeof(sysex));
-		}
-	} else if(wMsg == MIM_CLOSE)
-	{
-		// midiInClose will trigger this, but also disconnecting a USB MIDI device (although delayed, seems to be coupled to calling something like midiInGetNumDevs).
-		// In the latter case, we need to inform the UI.
-		if(pMainFrm->midiInData.inHandle != nullptr)
-		{
-			mfcless::SendCommand(pMainFrm, ID_MIDI_RECORD);
+		case MIDIEvents::evNoteOff:	// Note Off
+		case MIDIEvents::evNoteOn:	// Note On
+			ApplyTransposeKeyboardSetting(*pMainFrm, data);
+			[[fallthrough]];
+		default:
+			mfcless::PostModMessage(hWndMidi, WM_MOD_MIDIMSG, data, timestamp);
+			return;	// Message has been handled
 		}
 	}
+	// Pass MIDI to keyboard handler
+	CMainFrame::GetInputHandler()->HandleMIDIMessage(kCtxAllContexts, data);
 }
+
+
+bool OpenPort(CMainFrame &mainFrame, void *&handle)
+{
+	const uint32 device = TrackerSettings::Instance().GetCurrentMIDIDevice();
+	try
+	{
+		auto port = std::make_unique<MidiInPort>();
+		if(device >= port->in.getPortCount())
+			return false;
+		port->mainFrame = &mainFrame;
+		// winmm passes on everything, including SysEx, clock and active sensing
+		port->in.ignoreTypes(false, false, false);
+		port->in.setCallback(MidiInCallBack, port.get());
+		port->startTime = std::chrono::steady_clock::now();
+		port->in.openPort(device, "MIDI In");
+		handle = port.release();
+		return true;
+	} catch(const RtMidiError &)
+	{
+		return false;
+	}
+}
+
+} // namespace
 
 
 bool CMainFrame::midiOpenDevice(bool showSettings)
 {
 	if (midiInData.inHandle) return true;
 	
-	if (midiInOpen(&midiInData.inHandle, TrackerSettings::Instance().GetCurrentMIDIDevice(), MidiInCallBack, this, CALLBACK_FUNCTION) != MMSYSERR_NOERROR)
+	if(!OpenPort(*this, midiInData.inHandle))
 	{
 		midiInData.inHandle = nullptr;
-
 		// Show MIDI configuration on fail.
 		if(showSettings)
 		{
 			CMainFrame::m_nLastOptionsPage = OPTIONS_PAGE_MIDI;
 			CMainFrame::GetMainFrame()->OnViewOptions();
 		}
-
 		// Let's see if the user updated the settings.
-		if(midiInOpen(&midiInData.inHandle, TrackerSettings::Instance().GetCurrentMIDIDevice(), MidiInCallBack, this, CALLBACK_FUNCTION) != MMSYSERR_NOERROR)
+		if(!OpenPort(*this, midiInData.inHandle))
 		{
 			midiInData.inHandle = nullptr;
 			return false;
 		}
 	}
-
-	midiInData.sysexBuffers.resize(16);
-	for(auto &buffer : midiInData.sysexBuffers)
-	{
-		buffer.data.resize(4096);
-		buffer.header.lpData = mpt::byte_cast<char *>(buffer.data.data());
-		buffer.header.dwBufferLength = mpt::saturate_cast<uint32>(buffer.data.size());
-		buffer.header.dwFlags = 0;
-
-		midiInPrepareHeader(midiInData.inHandle, &buffer.header, sizeof(buffer.header));
-		midiInAddBuffer(midiInData.inHandle, &buffer.header, sizeof(buffer.header));
-	}
-
-	midiInStart(midiInData.inHandle);
 	return true;
 }
 
@@ -178,19 +201,17 @@ void CMainFrame::midiCloseDevice()
 {
 	if(midiInData.inHandle)
 	{
-		// Prevent infinite loop in MIM_CLOSE
-		auto handle = midiInData.inHandle;
+		auto *port = static_cast<MidiInPort *>(midiInData.inHandle);
 		midiInData.inHandle = nullptr;
-
-		std::lock_guard<mpt::mutex> guard{midiInData.dataMutex};
-		midiInReset(handle);
-		midiInStop(handle);
-
-		for(auto &buffer : midiInData.sysexBuffers)
+		try
 		{
-			midiInUnprepareHeader(handle, &buffer.header, sizeof(buffer.header));
+			port->in.cancelCallback();
+			port->in.closePort();
+		} catch(const RtMidiError &)
+		{
 		}
-		midiInClose(handle);
+		std::lock_guard<mpt::mutex> guard{midiInData.dataMutex};
+		delete port;
 	}
 }
 
@@ -209,7 +230,7 @@ void CMainFrame::OnMidiRecord()
 
 void CMainFrame::OnUpdateMidiRecord(mfcless::CommandState &state)
 {
-	if (pCmdUI) state.SetCheck((midiInData.inHandle) ? true : false);
+	state.SetCheck((midiInData.inHandle) ? true : false);
 }
 
 

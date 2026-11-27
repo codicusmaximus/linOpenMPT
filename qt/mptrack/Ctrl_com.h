@@ -17,7 +17,7 @@
 #include "DocumentView.h"
 #include "Globals.h"
 
-class QLineEdit;
+class QPlainTextEdit;
 class QObject;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -25,7 +25,7 @@ OPENMPT_NAMESPACE_BEGIN
 class CCtrlComments final : public CModControlDlg
 {
 protected:
-	QLineEdit *m_EditComments = nullptr;
+	QPlainTextEdit *m_EditComments = nullptr;
 	int charWidth = 0;
 	bool m_Reformatting = false;
 

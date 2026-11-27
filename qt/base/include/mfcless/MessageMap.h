@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <QtCore/QPoint>
 #include <QtCore/QString>
 #include <QtCore/Qt>
 
@@ -68,6 +69,7 @@ struct NotifyInfo
 	int item = -1;    // list and tree notifications: the item (row)
 	int subItem = 0;  // column
 	int key = 0;      // KeyDown: Windows virtual-key code
+	QPoint point;     // RightClick: the mouse position, in screen coordinates
 	QString text;     // EndLabelEdit: the new text (empty if cancelled)
 	bool textValid = false;
 	intptr_t result = 0;  // set by the handler

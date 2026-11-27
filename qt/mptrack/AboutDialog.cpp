@@ -277,7 +277,7 @@ bool CAboutDlg::OnInitDialog()
 	if(mpt::OS::Windows::IsWine()) m_Tab->InsertItem(TCIF_TEXT, 5, UL_("Wine"), 0, 0, 0, 0);
 	m_Tab->setCurrentIndex(0);
 
-	OnTabChange(nullptr, nullptr);
+	OnTabChange();
 
 	if(m_TimerID != 0)
 	{

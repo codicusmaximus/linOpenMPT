@@ -76,9 +76,12 @@ public:
 	void Rebase(QWidget *control);
 	// A control made again in the place of another (SubclassDlgItem).
 	void Replace(QWidget *old, QWidget *now);
+	// Stops or resumes following the dialog's size (a minimized plugin editor).
+	void SetEnabled(bool enable);
+	void Apply();
 
 private:
-	void Apply();
+	bool m_enabled = true;
 	struct Entry
 	{
 		QWidget *widget;
