@@ -340,6 +340,8 @@ void ScheduleTestHooks()
 		// first, as a click elsewhere would.
 		for(QWidget *w : QApplication::topLevelWidgets())
 		{
+			if(w->isVisible() && w->windowType() == Qt::ToolTip)
+				Grab(w).save(QStringLiteral("%1-tip%2").arg(base, suffix));
 			if(w->isVisible() && w->windowType() == Qt::Popup)
 			{
 				Grab(w).save(QStringLiteral("%1-menu%2").arg(base, suffix));
