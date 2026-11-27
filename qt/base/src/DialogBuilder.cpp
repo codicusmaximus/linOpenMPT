@@ -351,9 +351,9 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		e->setReadOnly(s & 0x800);
 		if(s & 0x800)
 			ShowReadOnly(e);
-		// An edit's WS_VSCROLL bar stays, disabled, while there is nothing to scroll.
+		// An edit's WS_VSCROLL and WS_HSCROLL bars stay, disabled, while there is nothing to scroll.
 		e->setVerticalScrollBarPolicy((s & Style::VScroll) ? Qt::ScrollBarAlwaysOn : Qt::ScrollBarAlwaysOff);
-		e->setHorizontalScrollBarPolicy((s & Style::HScroll) ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+		e->setHorizontalScrollBarPolicy((s & Style::HScroll) ? Qt::ScrollBarAlwaysOn : Qt::ScrollBarAlwaysOff);
 		e->setLineWrapMode((s & Style::HScroll) || (s & 0x80) ? QPlainTextEdit::NoWrap : QPlainTextEdit::WidgetWidth);
 		FrameFor(e, item);
 		w = e;

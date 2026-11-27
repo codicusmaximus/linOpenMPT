@@ -300,6 +300,10 @@ bool ListCtrl::SetItemText(int index, int subItem, const Text &text)
 	if(!item || subItem < 0)
 		return false;
 	item->setText(subItem, text.value);
+	// Sub-items follow their column's alignment; the first column is always
+	// left-aligned, as LVCFMT is ignored for it.
+	if(subItem > 0)
+		item->setTextAlignment(subItem, headerItem()->textAlignment(subItem));
 	return true;
 }
 
@@ -610,7 +614,11 @@ void ListCtrl::RefreshVirtual()
 	for(int i = 0; i < GetItemCount(); i++)
 	{
 		for(int c = 0; c < columnCount(); c++)
+		{
 			m_items[i]->setText(c, GetItemText(i, c));
+			if(c > 0)
+				m_items[i]->setTextAlignment(c, headerItem()->textAlignment(c));
+		}
 	}
 }
 
