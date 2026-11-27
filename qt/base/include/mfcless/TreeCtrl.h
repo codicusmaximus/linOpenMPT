@@ -78,6 +78,11 @@ public:
 	void ModifyStyle(uint32_t remove, uint32_t add) { SetStyle((m_style & ~remove) | add); }
 
 	void SetImageList(std::vector<QIcon> icons);
+	// Adds an icon after the image list's own (ImageList_AddIcon); returns
+	// its index.
+	int AddImage(const QIcon &icon) { m_icons.push_back(icon); return static_cast<int>(m_icons.size()) - 1; }
+	int GetImageCount() const { return static_cast<int>(m_icons.size()); }
+	const QIcon &GetImage(int index) const { return m_icons[index]; }
 	void SetIndent(int indent) { setIndentation(indent); }
 	int GetIndent() const { return indentation(); }
 

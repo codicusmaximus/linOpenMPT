@@ -49,6 +49,7 @@
 #include <QtCore/QFile>
 #include <QtCore/QLocale>
 #include <QtCore/QStorageInfo>
+#include <QtWidgets/QStyle>
 #include <QtCore/QMimeData>
 #include <QtCore/QUrl>
 
@@ -1950,14 +1951,46 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 			std::vector<QString> places{QStringLiteral("/"), QDir::homePath()};
 			for(const QStorageInfo &volume : QStorageInfo::mountedVolumes())
 			{
-				if(volume.isValid() && volume.isReady() && !volume.isRoot() && (volume.rootPath().startsWith(QStringLiteral("/media/")) || volume.rootPath().startsWith(QStringLiteral("/run/media/")) || volume.rootPath().startsWith(QStringLiteral("/mnt/"))))
-					places.push_back(volume.rootPath());
+				if(!volume.isValid() || !volume.isReady() || volume.isRoot())
+					continue;
+				// Drives are mounted at /mnt/<name>, /media/<name>,
+				// /media/<user>/<name> or /run/media/<user>/<name>; deeper
+				// mounts are parts of something else.
+				const QString root = volume.rootPath();
+				const auto depthBelow = [&root](const QString &prefix)
+				{
+					if(!root.startsWith(prefix) || root.size() <= prefix.size())
+						return -1;
+					QString rest = root.mid(prefix.size());
+					while(rest.endsWith(QLatin1Char('/')))
+						rest.chop(1);
+					return rest.isEmpty() ? -1 : static_cast<int>(rest.count(QLatin1Char('/'))) + 1;
+				};
+				const int mnt = depthBelow(QStringLiteral("/mnt/")), media = depthBelow(QStringLiteral("/media/")), runMedia = depthBelow(QStringLiteral("/run/media/"));
+				if(mnt == 1 || media == 1 || media == 2 || runMedia == 2)
+					places.push_back(root);
 			}
+			// The places have their own icons, as drives have on Windows
+			// (SHGetFileInfo), which also sorts them after the folders.
+			const auto placeImage = [this](QStyle::StandardPixmap pixmap)
+			{
+				const QIcon icon = style()->standardIcon(pixmap);
+				while(GetImageCount() < IMGLIST_NUMIMAGES)
+					AddImage(QIcon());
+				for(int i = IMGLIST_NUMIMAGES; i < GetImageCount(); i++)
+				{
+					if(GetImage(i).cacheKey() == icon.cacheKey())
+						return i;
+				}
+				return AddImage(icon);
+			};
+			const QString home = QDir::homePath() + QLatin1Char('/');
 			for(QString place : places)
 			{
 				if(!place.endsWith(QLatin1Char('/')))
 					place += QLatin1Char('/');
-				m_fileBrowserEntries.push_back({mfcless::FromQString(place), 0, 0, static_cast<uint32>(IMAGE_FOLDER), false});
+				const int image = placeImage(place == home ? QStyle::SP_DirHomeIcon : QStyle::SP_DriveHDIcon);
+				m_fileBrowserEntries.push_back({mfcless::FromQString(place), 0, 0, static_cast<uint32>(image), false});
 			}
 		}
 
