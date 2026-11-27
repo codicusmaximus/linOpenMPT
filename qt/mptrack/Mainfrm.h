@@ -15,6 +15,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "Notification.h"
+#include "UpdateHints.h"  // mfcless: upstream gets it through Mainbar.h
 #include "openmpt/soundbase/Dither.hpp"
 #include "Settings.h"
 #include "../soundlib/AudioCriticalSection.h"

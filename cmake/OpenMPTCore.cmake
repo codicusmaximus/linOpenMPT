@@ -120,7 +120,35 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   add_library(mpt_tracker_ui OBJECT ${MPT_TRACKER_UI_SOURCES})
   target_compile_options(mpt_tracker_ui PRIVATE ${MPT_WARN_OPTS})
   target_link_libraries(mpt_tracker_ui PUBLIC mpt_tracker_logic)
-  endif() # mfc
+  else() # qt
+  # mfcless: the same non-UI files of mptrack/ (patched by
+  # patches/mfcless/0002), plus the parts of them that are rewritten
+  # (qt/logic/). The rest of mptrack/ is built from its Qt twins in qt/.
+  set(MPT_TRACKER_LOGIC_SOURCES
+    ${MPT_UPSTREAM_DIR}/mptrack/MIDIMapping.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Settings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/StreamEncoderSettings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/TrackerSettings.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/Undo.cpp
+    ${MPT_UPSTREAM_DIR}/mptrack/VstPresets.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoder.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderAU.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderFLAC.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderMP3.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderOpus.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderRAW.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderVorbis.cpp
+    ${MPT_UPSTREAM_DIR}/src/openmpt/streamencoder/StreamEncoderWAV.cpp
+    ${MPT_UPSTREAM_DIR}/tracklib/SampleEdit.cpp
+    ${MPT_UPSTREAM_DIR}/tracklib/TimeStretchPitchShift.cpp
+    ${MPT_UPSTREAM_DIR}/include/r8brain/r8bbase.cpp)
+  file(GLOB MFCLESS_LOGIC_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/qt/logic/*.cpp)
+  add_library(mpt_tracker_logic STATIC ${MPT_TRACKER_LOGIC_SOURCES} ${MFCLESS_LOGIC_SOURCES})
+  add_library(linopenmpt::tracker_logic ALIAS mpt_tracker_logic)
+  target_include_directories(mpt_tracker_logic PUBLIC ${MPT_UPSTREAM_DIR}/mptrack PRIVATE ${MPT_UPSTREAM_DIR}/include/SignalsmithStretch ${MPT_UPSTREAM_DIR}/include/r8brain)
+  target_compile_options(mpt_tracker_logic PRIVATE ${MPT_WARN_OPTS})
+  target_link_libraries(mpt_tracker_logic PUBLIC mpt_soundlib mpt_sounddevice)
+  endif() # mfc / qt
 endif()
 
 # ---- mpt_libopenmpt (player configuration, stepping stone) ----------------

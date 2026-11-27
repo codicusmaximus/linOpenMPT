@@ -33,6 +33,7 @@
 #include <system_error>
 
 #include <strings.h>
+#include <dlfcn.h>
 
 #include "mpt/fs/fs.hpp"
 #include "mpt/string/buffer.hpp"

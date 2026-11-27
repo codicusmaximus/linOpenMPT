@@ -478,9 +478,18 @@ index 9ea3868..cd4f093 100644
  	bool HasEditor() const override { return false; }
  #endif
 diff --git a/soundlib/plugins/LFOPlugin.cpp b/soundlib/plugins/LFOPlugin.cpp
-index f9c3be3..7d19ebc 100644
+index f9c3be3..e376d1e 100644
 --- a/soundlib/plugins/LFOPlugin.cpp
 +++ b/soundlib/plugins/LFOPlugin.cpp
+@@ -173,7 +173,7 @@ void LFOPlugin::SetParameter(PlugParamIndex index, PlugParamValue value, PlaySta
+ #ifdef MODPLUG_TRACKER
+ 	if(GetEditor() != nullptr)
+ 	{
+-		GetEditor()->PostMessage(WM_PARAM_UDPATE, GetSlot(), index);
++		GetEditor()->PostModMessage(WM_PARAM_UDPATE, GetSlot(), index);
+ 	}
+ #endif
+ }
 @@ -367,62 +367,62 @@ std::pair<PlugParamValue, PlugParamValue> LFOPlugin::GetParamUIRange(PlugParamIn
  		return {0.0f, 1.0f};
  }
@@ -578,10 +587,23 @@ index f9c3be3..7d19ebc 100644
  	return s;
  }
 diff --git a/soundlib/plugins/LFOPlugin.h b/soundlib/plugins/LFOPlugin.h
-index 2adf42c..3771cda 100644
+index 2adf42c..ae02583 100644
 --- a/soundlib/plugins/LFOPlugin.h
 +++ b/soundlib/plugins/LFOPlugin.h
-@@ -111,16 +111,16 @@ public:
+@@ -68,8 +68,12 @@ protected:
+ 	mpt::fast_prng m_PRNG;
+ 
+ #ifdef MODPLUG_TRACKER
++#if defined(MPT_MFCLESS)
++	static constexpr int WM_PARAM_UDPATE = 1000 + 500;  // QEvent::User + 500
++#else
+ 	static constexpr int WM_PARAM_UDPATE = WM_USER + 500;
+ #endif
++#endif
+ 
+ public:
+ 	static IMixPlugin* Create(VSTPluginLib &factory, CSoundFile &sndFile, SNDMIXPLUGIN &mixStruct);
+@@ -111,16 +115,16 @@ public:
  	bool ShouldProcessSilence() override { return true; }
  
  #ifdef MODPLUG_TRACKER
@@ -606,7 +628,7 @@ index 2adf42c..3771cda 100644
  	bool HasEditor() const override { return true; }
  protected:
 diff --git a/soundlib/plugins/PlugInterface.cpp b/soundlib/plugins/PlugInterface.cpp
-index e52d026..374ebb8 100644
+index e52d026..e3f9900 100644
 --- a/soundlib/plugins/PlugInterface.cpp
 +++ b/soundlib/plugins/PlugInterface.cpp
 @@ -102,46 +102,46 @@ void IMixPlugin::SetScaledUIParam(PlugParamIndex param, PlugParamValue value)
@@ -663,9 +685,10 @@ index e52d026..374ebb8 100644
  	index++;
  
 -	CString formattedName;
-+	mpt::ustring formattedName;
- 	if(rawname[0] >= 0 && rawname[0] < _T(' '))
+-	if(rawname[0] >= 0 && rawname[0] < _T(' '))
 -		formattedName = MPT_CFORMAT("{} - Program {}")(mpt::cfmt::dec0<2>(index), index);
++	mpt::ustring formattedName;
++	if(rawname[0] >= 0 && rawname[0] < UL_(' '))
 +		formattedName = MPT_UFORMAT("{} - Program {}")(mpt::ufmt::dec0<2>(index), index);
  	else
 -		formattedName = MPT_CFORMAT("{} - {}")(mpt::cfmt::dec0<2>(index), rawname);
@@ -673,6 +696,35 @@ index e52d026..374ebb8 100644
  
  	return formattedName;
  }
+@@ -573,7 +573,7 @@ void IMixPlugin::CloseEditor()
+ {
+ 	if(m_pEditor)
+ 	{
+-		if (m_pEditor->m_hWnd) m_pEditor->DoClose();
++		if (m_pEditor->HasWindow()) m_pEditor->DoClose();
+ 		delete m_pEditor;
+ 		m_pEditor = nullptr;
+ 	}
+@@ -599,16 +599,16 @@ void IMixPlugin::AutomateParameter(PlugParamIndex param)
+ 
+ 	modDoc->SendNotifyMessageToAllViews(WM_MOD_PLUGPARAMAUTOMATE, m_nSlot, param);
+ 
+-	if(auto *vstEditor = GetEditor(); vstEditor && vstEditor->m_hWnd)
++	if(auto *vstEditor = GetEditor(); vstEditor && vstEditor->HasWindow())
+ 	{
+ 		// Mark track modified if GUI is open and format supports plugins
+ 		SetModified();
+ 
+ 		// Do not use InputHandler in case we are coming from a bridged plugin editor
+-		if((GetAsyncKeyState(VK_SHIFT) & 0x8000) && TrackerSettings::Instance().midiMappingInPluginEditor)
++		if(CInputHandler::ShiftPressed() && TrackerSettings::Instance().midiMappingInPluginEditor)
+ 		{
+ 			// Shift pressed -> Open MIDI mapping dialog
+-			CMainFrame::GetMainFrame()->PostMessage(WM_MOD_MIDIMAPPING, m_nSlot, param);
++			CMainFrame::GetMainFrame()->PostModMessage(WM_MOD_MIDIMAPPING, m_nSlot, param);
+ 		}
+ 
+ 		// Learn macro
 @@ -641,7 +641,7 @@ bool IMixPlugin::SaveProgram()
  		defaultDir = m_Factory.dllPath.GetDirectoryWithDrive();
  	}
@@ -682,6 +734,15 @@ index e52d026..374ebb8 100644
  	progName = mpt::SanitizePathComponent(progName);
  
  	FileDialog dlg = SaveFileDialog()
+@@ -1039,7 +1039,7 @@ void IMidiPlugin::ReceiveMidi(mpt::const_byte_span midiData)
+ 		// Spam MIDI data to all views
+ 		uint32 midiCode = 0;
+ 		memcpy(&midiCode, midiData.data(), std::min(sizeof(midiCode), midiData.size()));
+-		::PostMessage(CMainFrame::GetMainFrame()->GetMidiRecordWnd(), WM_MOD_MIDIMSG, midiCode, reinterpret_cast<LPARAM>(this));
++		mfcless::PostModMessage(CMainFrame::GetMainFrame()->GetMidiRecordWnd(), WM_MOD_MIDIMSG, midiCode, reinterpret_cast<intptr_t>(this));
+ 	}
+ #endif  // MODPLUG_TRACKER
+ }
 diff --git a/soundlib/plugins/PlugInterface.h b/soundlib/plugins/PlugInterface.h
 index 7561f94..bdb2438 100644
 --- a/soundlib/plugins/PlugInterface.h
@@ -720,6 +781,70 @@ index 7561f94..bdb2438 100644
  
  	virtual bool HasEditor() const = 0;
  protected:
+diff --git a/soundlib/plugins/PluginManager.cpp b/soundlib/plugins/PluginManager.cpp
+index be3c7f4..c03f2e4 100644
+--- a/soundlib/plugins/PluginManager.cpp
++++ b/soundlib/plugins/PluginManager.cpp
+@@ -206,7 +206,7 @@ void VSTPluginLib::WriteToCache() const
+ 	const mpt::ustring IDs = mpt::ufmt::HEX0<8>(static_cast<uint32>(pluginId1)) + mpt::ufmt::HEX0<8>(static_cast<uint32>(pluginId2)) + mpt::ufmt::HEX0<8>(crc.result());
+ 
+ 	cacheFile.Write<mpt::ustring>(cacheSection, pathStr, IDs);
+-	cacheFile.Write<CString>(cacheSection, IDs + U_(".Vendor"), vendor);
++	cacheFile.Write<mpt::ustring>(cacheSection, IDs + U_(".Vendor"), vendor);
+ 	cacheFile.Write<int32>(cacheSection, IDs + U_(".Flags"), EncodeCacheFlags());
+ }
+ #endif // MODPLUG_TRACKER
+@@ -314,7 +314,7 @@ CVstPluginManager::CVstPluginManager()
+ 		plug->isInstrument = plugin.isInstrument;
+ #ifdef MODPLUG_TRACKER
+ 		if(plugin.isOurs)
+-			plug->vendor = _T("OpenMPT Project");
++			plug->vendor = U_("OpenMPT Project");
+ #endif // MODPLUG_TRACKER
+ 	}
+ 
+@@ -509,7 +509,7 @@ std::vector<VSTPluginLib *> CVstPluginManager::AddPlugin(const mpt::PathString &
+ 
+ 			const mpt::ustring flagKey = IDs + U_(".Flags");
+ 			plug->DecodeCacheFlags(cacheFile.Read<int32>(cacheSection, flagKey, 0));
+-			plug->vendor = cacheFile.Read<CString>(cacheSection, IDs + U_(".Vendor"), CString());
++			plug->vendor = cacheFile.Read<mpt::ustring>(cacheSection, IDs + U_(".Vendor"), mpt::ustring());
+ 			plug->shellPluginID = shellPluginID;
+ 
+ #ifdef VST_LOG
+@@ -557,7 +557,11 @@ std::vector<VSTPluginLib *> CVstPluginManager::AddPlugin(const mpt::PathString &
+ 		}
+ 		if(loadResult.library)
+ 		{
++#if defined(MPT_MFCLESS)
++			dlclose(loadResult.library);
++#else
+ 			FreeLibrary(loadResult.library);
++#endif
+ 		}
+ 	}
+ 	if(exception != 0)
+@@ -698,7 +702,11 @@ bool CVstPluginManager::CreateMixPlugin(SNDMIXPLUGIN &mixPlugin, CSoundFile &snd
+ 
+ 		if(!plugin && loadResult.library)
+ 		{
++#if defined(MPT_MFCLESS)
++			dlclose(loadResult.library);
++#else
+ 			FreeLibrary(loadResult.library);
++#endif
+ 			CVstPluginManager::ReportPlugException(MPT_UFORMAT("Unable to create plugin \"{}\"!\n")(pFound->libraryName));
+ 		}
+ 	}
+@@ -807,7 +815,7 @@ void CVstPluginManager::OnIdle()
+ 			p->Idle();
+ 			//We need to update all open editors
+ 			CAbstractVstEditor *editor = p->GetEditor();
+-			if (editor && editor->m_hWnd)
++			if (editor && editor->HasWindow())
+ 			{
+ 				editor->UpdateParamDisplays();
+ 			}
 diff --git a/soundlib/plugins/PluginManager.h b/soundlib/plugins/PluginManager.h
 index 7304282..b1c0611 100644
 --- a/soundlib/plugins/PluginManager.h

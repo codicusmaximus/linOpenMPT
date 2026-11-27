@@ -15,73 +15,74 @@ namespace
 {
 std::wstring Section(const SettingPath &path) { return mpt::ToWide(path.GetSection()); }
 std::wstring Key(const SettingPath &path) { return mpt::ToWide(path.GetKey()); }
+std::string File(const mpt::PathString &filename) { return std::string(filename.AsNative().c_str()); }
 } // namespace
 
 
 std::vector<std::byte> IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, const std::vector<std::byte> &def) const
 {
-	auto result = mfcless::IniFile::ReadBinary(filename.AsNative(), Section(path), Key(path), def.size());
+	auto result = mfcless::IniFile::ReadBinary(File(filename), Section(path), Key(path), def.size());
 	return result ? *result : def;
 }
 
 mpt::ustring IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, const mpt::ustring &def) const
 {
-	auto result = mfcless::IniFile::ReadString(filename.AsNative(), Section(path), Key(path));
+	auto result = mfcless::IniFile::ReadString(File(filename), Section(path), Key(path));
 	return result ? mpt::ToUnicode(*result) : def;
 }
 
 double IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, double def) const
 {
-	auto result = mfcless::IniFile::ReadString(filename.AsNative(), Section(path), Key(path));
+	auto result = mfcless::IniFile::ReadString(File(filename), Section(path), Key(path));
 	return result ? mpt::parse<double>(*result) : def;
 }
 
 int32 IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, int32 def) const
 {
-	return mfcless::IniFile::ReadInt(filename.AsNative(), Section(path), Key(path), def);
+	return mfcless::IniFile::ReadInt(File(filename), Section(path), Key(path), def);
 }
 
 bool IniFileSettingsBackend::ReadSettingRaw(const SettingPath &path, bool def) const
 {
-	return mfcless::IniFile::ReadInt(filename.AsNative(), Section(path), Key(path), def ? 1 : 0) ? true : false;
+	return mfcless::IniFile::ReadInt(File(filename), Section(path), Key(path), def ? 1 : 0) ? true : false;
 }
 
 
 void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, const std::vector<std::byte> &val)
 {
-	mfcless::IniFile::WriteBinary(filename.AsNative(), Section(path), Key(path), val);
+	mfcless::IniFile::WriteBinary(File(filename), Section(path), Key(path), val);
 }
 
 void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, const mpt::ustring &val)
 {
 	// Files are UTF-8, so any string is stored as it is (upstream re-encodes
 	// ANSI files to UTF-16 here, which Windows needs).
-	mfcless::IniFile::WriteString(filename.AsNative(), Section(path), Key(path), mpt::ToWide(val));
+	mfcless::IniFile::WriteString(File(filename), Section(path), Key(path), mpt::ToWide(val));
 }
 
 void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, double val)
 {
-	mfcless::IniFile::WriteString(filename.AsNative(), Section(path), Key(path), mpt::wfmt::val(val));
+	mfcless::IniFile::WriteString(File(filename), Section(path), Key(path), mpt::wfmt::val(val));
 }
 
 void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, int32 val)
 {
-	mfcless::IniFile::WriteString(filename.AsNative(), Section(path), Key(path), mpt::wfmt::val(val));
+	mfcless::IniFile::WriteString(File(filename), Section(path), Key(path), mpt::wfmt::val(val));
 }
 
 void IniFileSettingsBackend::WriteSettingRaw(const SettingPath &path, bool val)
 {
-	mfcless::IniFile::WriteString(filename.AsNative(), Section(path), Key(path), mpt::wfmt::val(val));
+	mfcless::IniFile::WriteString(File(filename), Section(path), Key(path), mpt::wfmt::val(val));
 }
 
 void IniFileSettingsBackend::RemoveSettingRaw(const SettingPath &path)
 {
-	mfcless::IniFile::RemoveKey(filename.AsNative(), Section(path), Key(path));
+	mfcless::IniFile::RemoveKey(File(filename), Section(path), Key(path));
 }
 
 void IniFileSettingsBackend::RemoveSectionRaw(const mpt::ustring &section)
 {
-	mfcless::IniFile::RemoveSection(filename.AsNative(), mpt::ToWide(section));
+	mfcless::IniFile::RemoveSection(File(filename), mpt::ToWide(section));
 }
 
 

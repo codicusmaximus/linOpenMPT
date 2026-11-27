@@ -14,6 +14,8 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 
+#include "mfcless/ModMessage.h"
+
 OPENMPT_NAMESPACE_BEGIN
 
 // Custom window messages
