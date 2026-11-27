@@ -22,7 +22,7 @@ Upstream: 8bc4cd9
 | `CleanupSong.cpp` | 1125 | twin | todo |
 | `CloseMainDialog.cpp` | 142 | twin | todo |
 | `ColorConfigDlg.cpp` | 654 | twin | todo |
-| `ColorPickerButton.cpp` | 99 | reuse | todo |
+| `ColorPickerButton.cpp` | 99 | twin | done |
 | `ColourEdit.cpp` | 68 | twin | todo |
 | `CommandSet.cpp` | 2330 | reuse | todo |
 | `Ctrl_com.cpp` | 370 | twin | todo |

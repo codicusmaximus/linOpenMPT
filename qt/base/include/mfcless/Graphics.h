@@ -259,6 +259,31 @@ protected:
 	std::vector<Saved> m_saved;
 };
 
+// Owner-drawn controls: the item states of DrawItemInfo.
+namespace ods
+{
+	inline constexpr uint32_t Selected = 0x1, Grayed = 0x2, Disabled = 0x4, Checked = 0x8, Focus = 0x10, Default = 0x20;
+}
+// Control types of DrawItemInfo.
+namespace odt
+{
+	inline constexpr uint32_t Menu = 1, ListBox = 2, ComboBox = 3, Button = 4, Static = 5;
+}
+
+// What an owner-drawn control asks its owner (or itself) to draw.
+struct DrawItemInfo
+{
+	uint32_t CtlType = odt::Button;
+	uint32_t CtlID = 0;
+	uint32_t itemID = 0;
+	uint32_t itemAction = 0;
+	uint32_t itemState = 0;
+	QWidget *hwndItem = nullptr;
+	DC *hDC = nullptr;
+	Rect rcItem;
+	uintptr_t itemData = 0;
+};
+
 // The DC of OnPaint: draws on the widget being painted (a scroll area's
 // viewport). rcPaint is the area to paint.
 class PaintDC : public DC

@@ -63,6 +63,8 @@ struct ToolInfo
 };
 
 // What all windows have, whatever their Qt class.
+struct DrawItemInfo;
+
 class WindowBase : public MessageMap
 {
 public:
@@ -78,6 +80,12 @@ public:
 	// before they are delivered (for mouse messages, lParam holds the
 	// position in the receiver's coordinates). True if the message was handled (and is not delivered).
 	virtual bool PreTranslateMessage(Message * /*msg*/) { return false; }
+
+	// The name a screen reader announces for the window's current state.
+	virtual QString GetAccessibleName() { return {}; }
+
+	// An owner-drawn child control (with this resource ID) asks to be drawn.
+	virtual void OnDrawItem(int /*id*/, DrawItemInfo * /*info*/) {}
 
 	// The widget.
 	virtual QWidget *GetWidget() = 0;

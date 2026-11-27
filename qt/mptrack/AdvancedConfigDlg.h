@@ -13,8 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
-#include "mfcless/Window.h"
-#include <QtWidgets/QTreeWidget>
+#include "mfcless/Keyboard.h"
 
 #include "CListCtrl.h"
 #if MPT_USTRING_MODE_WIDE
@@ -29,7 +28,7 @@ class SettingPath;
 
 #ifndef _AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
-class CAdvancedSettingsList : public mfcless::Window<QTreeWidget>
+class CAdvancedSettingsList : public CMFCListCtrlEx
 {
 	Q_OBJECT
 private:

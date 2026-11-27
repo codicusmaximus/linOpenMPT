@@ -13,9 +13,9 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/DropTarget.h"
 #include "mfcless/Menus.h"
 #include "mfcless/Window.h"
-#include <QtCore/QObject>
 #include <QtWidgets/QTreeWidget>
 
 #include "../soundlib/modcommand.h"
@@ -28,6 +28,8 @@
 #include <vector>
 #include <bitset>
 
+class QMimeData;
+class QObject;
 class QTreeWidgetItem;
 class QWidget;
 
@@ -57,9 +59,8 @@ struct ModTreeDocInfo
 };
 
 
-class CModTreeDropTarget: public QObject
+class CModTreeDropTarget: public mfcless::DropTarget
 {
-	Q_OBJECT
 protected:
 	CModTree *m_pModTree = nullptr;
 
@@ -68,9 +69,9 @@ public:
 	bool Register(CModTree *pWnd);
 
 public:
-	DROPEFFECT OnDragEnter(QWidget *pWnd, COleDataObject* pDataObject, uint32 dwKeyState, mfcless::Point point) override;
-	DROPEFFECT OnDragOver(QWidget *pWnd, COleDataObject* pDataObject, uint32 dwKeyState, mfcless::Point point) override;
-	bool OnDrop(QWidget *pWnd, COleDataObject* pDataObject, DROPEFFECT dropEffect, mfcless::Point point) override;
+	uint32 OnDragEnter(QWidget *pWnd, const QMimeData *pDataObject, uint32 dwKeyState, mfcless::Point point) override;
+	uint32 OnDragOver(QWidget *pWnd, const QMimeData *pDataObject, uint32 dwKeyState, mfcless::Point point) override;
+	bool OnDrop(QWidget *pWnd, const QMimeData *pDataObject, uint32 dropEffect, mfcless::Point point) override;
 };
 
 
@@ -174,9 +175,9 @@ protected:
 	CModTree *m_pDataTree = nullptr;  // Pointer to instrument browser (lower part of tree view) - if it's a nullptr, this object is the instrument browser itself.
 	QWidget * m_hDropWnd = nullptr;
 	mpt::mutex m_WatchDirMutex;
-	HANDLE m_hSwitchWatchDir = nullptr;
+	void * m_hSwitchWatchDir = nullptr;
 	mpt::PathString m_WatchDir;
-	HANDLE m_hWatchDirKillThread = nullptr;
+	void * m_hWatchDirKillThread = nullptr;
 	std::thread m_WatchDirThread;
 	ModItem m_itemDrag;
 	uint32 m_dwStatus = 0;
@@ -278,9 +279,9 @@ public:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 // Drag & Drop operations
 public:
-	DROPEFFECT OnDragEnter(COleDataObject* pDataObject, uint32 dwKeyState, mfcless::Point point);
-	DROPEFFECT OnDragOver(COleDataObject* pDataObject, uint32 dwKeyState, mfcless::Point point);
-	bool OnDrop(COleDataObject* pDataObject, DROPEFFECT dropEffect, mfcless::Point point);
+	uint32 OnDragEnter(const QMimeData *pDataObject, uint32 dwKeyState, mfcless::Point point);
+	uint32 OnDragOver(const QMimeData *pDataObject, uint32 dwKeyState, mfcless::Point point);
+	bool OnDrop(const QMimeData *pDataObject, uint32 dropEffect, mfcless::Point point);
 
 protected:
 	int ImageToSortOrder(int image) const;
@@ -322,16 +323,16 @@ protected:
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 	void OnMouseMove(uint32 nFlags, mfcless::Point point);
 	void OnBeginDrag(QTreeWidgetItem *, bool bLeft, intptr_t *pResult);
-	void OnBeginLDrag(LPNMHDR, intptr_t *pResult);
-	void OnBeginRDrag(LPNMHDR, intptr_t *pResult);
+	void OnBeginLDrag();
+	void OnBeginRDrag();
 	void OnEndDrag(uint32 dwMask);
-	void OnItemDblClk(LPNMHDR phdr, intptr_t *pResult);
-	void OnItemReturn(LPNMHDR, intptr_t *pResult);
-	void OnItemLeftClick(LPNMHDR pNMHDR, intptr_t *pResult);
-	void OnItemRightClick(LPNMHDR, intptr_t *pResult);
-	void OnItemExpanded(LPNMHDR pnmhdr, intptr_t *pResult);
-	void OnGetDispInfo(LPNMHDR pnmhdr, intptr_t *pResult);
-	void OnSelChanged(LPNMHDR pnmhdr, intptr_t *pResult);
+	void OnItemDblClk();
+	void OnItemReturn();
+	void OnItemLeftClick();
+	void OnItemRightClick();
+	void OnItemExpanded();
+	void OnGetDispInfo();
+	void OnSelChanged();
 	void OnRefreshTree();
 	void OnExecuteItem();
 	void OnPlayTreeItem();

@@ -84,7 +84,7 @@ public:
 public:
 	void OnInitialUpdate() override;
 	void DoDataExchange(DataExchange &dx) override;
-	void OnUpdate(CView *pSender, intptr_t lHint, QObject *pHint) override;
+	void OnUpdate(mfcless::DocumentView *pSender, intptr_t lHint, QObject *pHint) override;
 	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr);

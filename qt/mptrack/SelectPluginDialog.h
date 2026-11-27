@@ -72,7 +72,7 @@ public:
 	static bool VerifyPlugin(VSTPluginLib *plug, QWidget *parent);
 
 protected:
-	QTreeWidgetItem * AddTreeItem(const mpt::uchar *title, int image, bool sort, QTreeWidgetItem * hParent = TVI_ROOT, intptr_t lParam = NULL);
+	QTreeWidgetItem * AddTreeItem(const mpt::uchar *title, int image, bool sort, QTreeWidgetItem * hParent = nullptr, intptr_t lParam = NULL);
 
 	VSTPluginLib *GetSelectedPlugin();
 	void SaveWindowPos() const;

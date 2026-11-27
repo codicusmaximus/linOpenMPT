@@ -4,11 +4,19 @@
 #include "mfcless/System.h"
 
 #include <QtCore/QStandardPaths>
+
+#include <chrono>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QPalette>
 
 namespace mfcless
 {
+
+uint32 TickCount()
+{
+	using namespace std::chrono;
+	return static_cast<uint32>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+}
 
 uint32 SystemColor(SysColor role)
 {

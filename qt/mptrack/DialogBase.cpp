@@ -55,8 +55,15 @@ void DialogBase::CreateFromTemplate()
 {
 	if(!m_templateID || !m_items.empty())
 		return;
+	DataExchange collect;
+	collect.collect = true;
+	DoDataExchange(collect);
 	mfcless::BuiltDialog built;
-	if(!mfcless::BuildDialog(this, m_templateID, built))
+	const bool ok = mfcless::BuildDialog(this, m_templateID, built, [&collect](const mfcless::res::DialogItem &item, QWidget *parent) -> QWidget * {
+		auto it = collect.factories.find(item.id);
+		return it != collect.factories.end() ? it->second(item, parent) : nullptr;
+	});
+	if(!ok)
 		return;
 	m_items.insert(built.items.begin(), built.items.end());
 	m_templateOrder = built.all;
@@ -382,6 +389,8 @@ bool DialogBase::UpdateData(bool save)
 
 void DialogBase::ExchangeText(DataExchange &dx, uint32 id, mpt::ustring &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 		value = GetItemText(id);
 	else
@@ -391,6 +400,8 @@ void DialogBase::ExchangeText(DataExchange &dx, uint32 id, mpt::ustring &value)
 
 void DialogBase::ExchangeText(DataExchange &dx, uint32 id, int32 &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 	{
 		bool ok = false;
@@ -413,6 +424,8 @@ void DialogBase::ExchangeText(DataExchange &dx, uint32 id, int32 &value)
 
 void DialogBase::ExchangeText(DataExchange &dx, uint32 id, uint32 &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 	{
 		bool ok = false;
@@ -435,6 +448,8 @@ void DialogBase::ExchangeText(DataExchange &dx, uint32 id, uint32 &value)
 
 void DialogBase::ExchangeText(DataExchange &dx, uint32 id, double &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 	{
 		bool ok = false;
@@ -457,6 +472,8 @@ void DialogBase::ExchangeText(DataExchange &dx, uint32 id, double &value)
 
 void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, int &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 		value = IsChecked(id);
 	else
@@ -466,6 +483,8 @@ void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, int &value)
 
 void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, bool &value)
 {
+	if(dx.collect)
+		return;
 	if(dx.save)
 		value = IsChecked(id) != 0;
 	else
@@ -475,6 +494,8 @@ void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, bool &value)
 
 void DialogBase::ExchangeRadio(DataExchange &dx, uint32 id, int &value)
 {
+	if(dx.collect)
+		return;
 	// The group runs from id to the next control that starts a group.
 	QWidget *first = GetDlgItem(id);
 	auto it = std::find(m_templateOrder.begin(), m_templateOrder.end(), first);
@@ -506,6 +527,8 @@ void DialogBase::ExchangeRadio(DataExchange &dx, uint32 id, int &value)
 
 void DialogBase::ExchangeSlider(DataExchange &dx, uint32 id, int &value)
 {
+	if(dx.collect)
+		return;
 	auto *s = qobject_cast<QAbstractSlider *>(GetDlgItem(id));
 	if(!s)
 		return;
@@ -518,6 +541,8 @@ void DialogBase::ExchangeSlider(DataExchange &dx, uint32 id, int &value)
 
 void DialogBase::ExchangeComboIndex(DataExchange &dx, uint32 id, int &value)
 {
+	if(dx.collect)
+		return;
 	auto *c = qobject_cast<QComboBox *>(GetDlgItem(id));
 	if(!c)
 		return;
@@ -530,6 +555,8 @@ void DialogBase::ExchangeComboIndex(DataExchange &dx, uint32 id, int &value)
 
 void DialogBase::ValidateMinMax(DataExchange &dx, int64 value, int64 min, int64 max)
 {
+	if(dx.collect)
+		return;
 	if(!dx.save || dx.failed)
 		return;
 	if(value < min || value > max)

@@ -7,6 +7,7 @@
 
 #include "mfcless/MessageMap.h"
 #include "mfcless/Controls.h"
+#include "mfcless/ListCtrl.h"
 #include "mfcless/ModMessage.h"
 
 #include <QtCore/QEvent>
@@ -241,17 +242,19 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 	}
 	if(auto *tree = qobject_cast<QTreeWidget *>(control))
 	{
+		auto *listCtrl = qobject_cast<ListCtrl *>(control);
+		auto indexOf = [=](QTreeWidgetItem *item) { return listCtrl ? listCtrl->IndexOf(item) : tree->indexOfTopLevelItem(item); };
 		QObject::connect(tree, &QTreeWidget::itemSelectionChanged, context, [=] {
-			const QModelIndex current = tree->currentIndex();
-			Send(target, id, Notify::SelChange, control, current.isValid() ? current.row() : -1);
-			Send(target, id, Notify::ItemChanged, control, current.isValid() ? current.row() : -1);
+			const int current = indexOf(tree->currentItem());
+			Send(target, id, Notify::SelChange, control, current);
+			Send(target, id, Notify::ItemChanged, control, current);
 		});
 		QObject::connect(tree, &QTreeWidget::itemDoubleClicked, context, [=](QTreeWidgetItem *item, int column) {
 			NotifyInfo info;
 			info.id = id;
 			info.code = Notify::DoubleClicked;
 			info.control = control;
-			info.item = tree->indexOfTopLevelItem(item);
+			info.item = indexOf(item);
 			info.subItem = column;
 			target->DispatchNotify(info);
 		});
@@ -260,11 +263,11 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 			info.id = id;
 			info.code = Notify::Click;
 			info.control = control;
-			info.item = tree->indexOfTopLevelItem(item);
+			info.item = indexOf(item);
 			info.subItem = column;
 			target->DispatchNotify(info);
 		});
-		QObject::connect(tree, &QTreeWidget::itemChanged, context, [=](QTreeWidgetItem *item, int) { Send(target, id, Notify::CheckChange, control, tree->indexOfTopLevelItem(item)); });
+		QObject::connect(tree, &QTreeWidget::itemChanged, context, [=](QTreeWidgetItem *item, int) { Send(target, id, Notify::CheckChange, control, indexOf(item)); });
 		return;
 	}
 	if(auto *upDown = qobject_cast<UpDown *>(control))

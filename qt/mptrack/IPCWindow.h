@@ -1,9 +1,10 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
 /*
 * IPCWindow.h
 * -----------
 * Purpose: Hidden window to receive file open commands from another OpenMPT instance
-* Notes  : (currently none)
+* Notes  : mfcless twin of upstream's mptrack/IPCWindow.h. The window that
+ *          other instances send WM_COPYDATA to is a local socket server
+ *          (QLocalServer), found by its name; an "IPC window" is that name.
 * Authors: OpenMPT Devs
 * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
 */
@@ -12,14 +13,14 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 
-class QWidget;
+#include <QtCore/QString>
 
 OPENMPT_NAMESPACE_BEGIN
 
 namespace IPCWindow
 {
 
-	enum class Function : ULONG
+	enum class Function : uint32
 	{
 		Open                               = 0x01,
 		SetWindowForeground                = 0x02,
@@ -30,15 +31,16 @@ namespace IPCWindow
 		PlayCurrent                        = 0x07,
 	};
 
-	void Open(HINSTANCE hInstance);
+	void Open();
 
 	void Close();
 
 	void UpdateLastUsed();
 
-	intptr_t SendIPC(QWidget * ipcWnd, Function function, mpt::const_byte_span data = mpt::const_byte_span());
+	// -1 if the other instance did not answer.
+	intptr_t SendIPC(const QString &ipcWnd, Function function, mpt::const_byte_span data = mpt::const_byte_span());
 
-	template <typename Tdata> intptr_t SendIPC(QWidget * ipcWnd, Function function, mpt::span<const Tdata> data) { return SendIPC(ipcWnd, function, mpt::const_byte_span(reinterpret_cast<const std::byte*>(data.data()), data.size() * sizeof(Tdata))); }
+	template <typename Tdata> intptr_t SendIPC(const QString &ipcWnd, Function function, mpt::span<const Tdata> data) { return SendIPC(ipcWnd, function, mpt::const_byte_span(reinterpret_cast<const std::byte*>(data.data()), data.size() * sizeof(Tdata))); }
 
 	enum InstanceRequirements
 	{
@@ -50,7 +52,7 @@ namespace IPCWindow
 	};
 	MPT_DECLARE_ENUM(InstanceRequirements)
 
-	QWidget * FindIPCWindow(FlagSet<InstanceRequirements> require = None);
+	QString FindIPCWindow(FlagSet<InstanceRequirements> require = None);
 
 	// Send file open requests to other OpenMPT instance, if there is one
 	bool SendToIPC(const std::vector<mpt::PathString> &filenames, bool autoplay);

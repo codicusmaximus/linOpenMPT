@@ -28,6 +28,7 @@
 
 class QObject;
 class QScrollBar;
+class QString;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -555,7 +556,7 @@ private:
 public:
 	void OnRButtonUp(uint32 nFlags, mfcless::Point point);
 
-	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
+	QString GetAccessibleName() override;
 };
 
 DECLARE_FLAGSET(CViewPattern::PatternStatus);

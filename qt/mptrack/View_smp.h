@@ -186,7 +186,7 @@ protected:
 	// cppcheck-suppress duplInheritedMember
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnSize(uint32 nType, int cx, int cy);
-	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
+	void OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp);
 	intptr_t OnNcHitTest(mfcless::Point point);
 	void OnNcPaint();
 	void OnChar(uint32 nChar, uint32 nRepCnt, uint32 nFlags);

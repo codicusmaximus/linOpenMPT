@@ -71,7 +71,7 @@ protected:
 
 	void RegisterMessageMap() override;
 
-	void OnSelectionChanged(NMHDR *pNMHDR = nullptr, intptr_t *pResult = nullptr);
+	void OnSelectionChanged();
 	
 	void OnBnClickedCheckactive();
 	void OnBnClickedCheckCapture();

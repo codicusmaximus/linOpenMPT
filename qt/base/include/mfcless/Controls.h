@@ -27,7 +27,10 @@ class UpDown : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit UpDown(bool vertical, QWidget *parent = nullptr);
+	explicit UpDown(QWidget *parent = nullptr);
+
+	void SetVertical(bool vertical);
+	bool IsVertical() const { return m_vertical; }
 
 	void SetBuddy(QLineEdit *buddy) { m_buddy = buddy; }
 	QLineEdit *GetBuddy() const { return m_buddy; }

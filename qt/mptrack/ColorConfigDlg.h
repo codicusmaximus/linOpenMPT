@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Controls.h"
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
@@ -59,7 +60,7 @@ protected:
 	void OnChoosePatternFont();
 	void OnChooseCommentFont();
 	void OnUpdateDialog();
-	void OnDrawItem(int nIdCtl, LPDRAWITEMSTRUCT lpdis);
+	void OnDrawItem(int nIdCtl, mfcless::DrawItemInfo * lpdis);
 	void OnColorSelChanged();
 	void OnHighlightsChanged();
 	void OnSettingsChanged();

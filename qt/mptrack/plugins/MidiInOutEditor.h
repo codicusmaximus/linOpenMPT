@@ -44,7 +44,7 @@ public:
 	// Refresh current input / output device in GUI
 	void SetCurrentDevice(bool asInputDevice, MidiDevice::ID device)
 	{
-		QComboBox &combo = asInputDevice ? m_inputCombo : m_outputCombo;
+		QComboBox &combo = asInputDevice ? *m_inputCombo : *m_outputCombo;
 		SetCurrentDevice(combo, device);
 	}
 

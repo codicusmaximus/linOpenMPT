@@ -21,6 +21,7 @@
 #include "../soundlib/Snd_defs.h"
 
 class QObject;
+class QString;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -196,7 +197,7 @@ public:
 	bool OnDragonDrop(bool, const DRAGONDROP *) override;
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	intptr_t OnPlayerNotify(Notification *) override;
-	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
+	QString GetAccessibleName() override;
 	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 protected:
 	bool OnEraseBkgnd(mfcless::DC *) { return true; }
@@ -204,7 +205,7 @@ protected:
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnSize(uint32 nType, int cx, int cy);
 	// cppcheck-suppress duplInheritedMember
-	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
+	void OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp);
 	intptr_t OnNcHitTest(mfcless::Point point);
 	void OnNcPaint();
 	void OnPrevInstrument();

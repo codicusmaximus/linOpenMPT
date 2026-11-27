@@ -61,7 +61,7 @@ protected:
 
 public:
 	CFindReplaceTab(uint32 dlgID, bool isReplaceTab, const CSoundFile &sf, FindReplace &settings, const ModCommand &initialValues)
-		: CPropertyPage{dlgID}
+		: PropertyPage{dlgID}
 		, m_sndFile{sf}
 		, m_settings{settings}
 		, m_effectInfo{sf}

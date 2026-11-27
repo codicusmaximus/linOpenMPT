@@ -17,6 +17,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "Snd_defs.h"
 
+#include "mfcless/DialogBuilder.h"
 #include "mfcless/Window.h"
 
 #include <QtWidgets/QDialog>
@@ -28,10 +29,15 @@ OPENMPT_NAMESPACE_BEGIN
 
 // mfcless: the direction of a DoDataExchange pass: true reads the controls
 // into the members, false shows the members in the controls.
+// mfcless: before the controls are made, a first pass (collect) only
+// gathers the controls that the dialog binds with ExchangeControl, so that
+// those of a class of the dialog's own are made as that class.
 struct DataExchange
 {
 	bool save = false;
 	bool failed = false;
+	bool collect = false;
+	std::map<uint32, mfcless::ControlFactory> factories;
 };
 
 class DialogBase : public mfcless::Window<QDialog>
@@ -95,6 +101,43 @@ protected:
 	virtual void OnCancel() { reject(); }
 	virtual void DoDataExchange(DataExchange & /*dx*/) {}
 	void RegisterMessageMap() override;
+
+	// DDX_Control: binds member to the control with this ID. A control of a
+	// class of the dialog's own (a derived control) is made as that class.
+	template <typename T>
+	void ExchangeControl(DataExchange &dx, uint32 id, T *&member)
+	{
+		if(!dx.collect)
+		{
+			if(!member)
+				member = dynamic_cast<T *>(GetDlgItem(id));
+			return;
+		}
+		dx.factories[id] = [&member](const mfcless::res::DialogItem &item, QWidget *parent) -> QWidget * {
+			QWidget *made = mfcless::CreateControl(item, parent);
+			if(auto *t = dynamic_cast<T *>(made))
+			{
+				member = t;
+				return made;
+			}
+			if constexpr(std::is_constructible_v<T, QWidget *> && !std::is_abstract_v<T>)
+			{
+				delete made;
+				member = new T(parent);
+				return member;
+			} else
+			{
+				return made;
+			}
+		};
+	}
+	// The same for a control that is a member of the dialog.
+	template <typename T>
+	void ExchangeControl(DataExchange &dx, uint32 id, T &member)
+	{
+		if(dx.collect)
+			dx.factories[id] = [&member](const mfcless::res::DialogItem &, QWidget *) -> QWidget * { return &member; };
+	}
 
 	void ExchangeText(DataExchange &dx, uint32 id, mpt::ustring &value);
 	void ExchangeText(DataExchange &dx, uint32 id, int32 &value);

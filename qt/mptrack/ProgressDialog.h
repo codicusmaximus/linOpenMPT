@@ -3,7 +3,6 @@
  * ----------------
  * Purpose: An abortable, progress-indicating dialog, e.g. for showing conversion progress.
  * Notes  : mfcless twin of upstream's mptrack/ProgressDialog.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -22,7 +21,7 @@ class CProgressDialog : public DialogBase
 {
 	Q_OBJECT
 private:
-	ITaskbarList3 *m_taskBarList = nullptr;
+	bool m_taskBarProgress = false;  // mfcless: no taskbar progress on the desktop; kept as a flag
 	uint64 m_min = 0, m_max = 0, m_shift = 0;
 	const bool m_customDialog;
 

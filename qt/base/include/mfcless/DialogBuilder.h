@@ -17,6 +17,7 @@
 #include <QtCore/QSize>
 #include <QtGui/QFont>
 
+#include <functional>
 #include <map>
 #include <vector>
 
@@ -51,12 +52,17 @@ res::DialogUnits UnitsFor(const QWidget *dialog);
 // The font for a template: the application's, at the template's size.
 QFont DialogFont(const res::DialogTemplate &tmpl);
 
+// Makes the dialog's own control for a template item (one of a class of
+// its own, as upstream's DDX_Control binds), or returns nullptr for the
+// template's usual control.
+using ControlFactory = std::function<QWidget *(const res::DialogItem &item, QWidget *parent)>;
+
 // Creates the template's controls as children of dialog and sizes it. False
 // if the template is missing.
-bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out);
+bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out, const ControlFactory &factory = {});
 
-// Creates one control of a template.
-QWidget *CreateControl(const res::DialogItem &item, QWidget *parent);
+// Creates one control of a template, or sets up given as that control.
+QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *given = nullptr);
 
 // AFX_DIALOG_LAYOUT: moves and resizes the controls as the dialog grows.
 class DialogLayout : public QObject

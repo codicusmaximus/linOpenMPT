@@ -31,7 +31,7 @@ bool CImageListEx::Create(uint32 resourceID, int cx, int cy, int /*nInitial*/, i
 		return false;
 	}
 
-	const RawGDIDIB::Pixel buttonColor = mfcless::SystemColor(mfcless::SysColor::BtnFace);
+	const RawGDIDIB::Pixel buttonColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 	const bool isDark = mpt::Color::GetLuma(buttonColor.r, buttonColor.g, buttonColor.b) < 128;
 	if(isDark)
 	{

@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/System.h"
 #include "mfcless/Controls.h"
 #include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
@@ -41,7 +42,7 @@ protected:
 	uint32 m_lastVuUpdateTime;
 
 public:
-	CVuMeter() { m_lastVuUpdateTime = timeGetTime(); }
+	CVuMeter() { m_lastVuUpdateTime = mfcless::TickCount(); }
 	void SetVuMeter(int level, bool force = false);
 
 protected:

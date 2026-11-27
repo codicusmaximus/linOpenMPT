@@ -22,6 +22,9 @@ constexpr uint8 RedOf(uint32 c) noexcept { return static_cast<uint8>(c & 0xFF); 
 constexpr uint8 GreenOf(uint32 c) noexcept { return static_cast<uint8>((c >> 8) & 0xFF); }
 constexpr uint8 BlueOf(uint32 c) noexcept { return static_cast<uint8>((c >> 16) & 0xFF); }
 
+// Milliseconds since an arbitrary start, wrapping as Windows' tick counts do.
+uint32 TickCount();
+
 // The desktop's colours for the roles upstream reads with GetSysColor, from
 // the Qt style's palette.
 enum class SysColor

@@ -13,6 +13,26 @@ import re
 import sys
 
 TYPES = [
+	(r'(\w+)\((?:LP)?NMHDR\s*\*?\s*(?:/\*\s*\w*\s*\*/|\w*)\s*(?:=\s*nullptr)?\s*,\s*(?:LRESULT|intptr_t)\s*\*\s*(?:/\*\s*\w*\s*\*/|\w*)\s*(?:=\s*nullptr)?\)', r'\1()'),
+	(r'\bLPDRAWITEMSTRUCT\b', 'mfcless::DrawItemInfo *'),
+	(r'\bDRAWITEMSTRUCT\b', 'mfcless::DrawItemInfo'),
+	(r'\bODS_(SELECTED|GRAYED|DISABLED|CHECKED|FOCUS|DEFAULT)\b', lambda m: 'mfcless::ods::' + m.group(1).capitalize()),
+	(r'\bODT_(MENU|LISTBOX|COMBOBOX|BUTTON|STATIC)\b', lambda m: 'mfcless::odt::' + {'MENU': 'Menu', 'LISTBOX': 'ListBox', 'COMBOBOX': 'ComboBox', 'BUTTON': 'Button', 'STATIC': 'Static'}[m.group(1)]),
+	(r'\bCF_TEXT\b', 'mfcless::clip::Text'),
+	(r'\bCF_UNICODETEXT\b', 'mfcless::clip::UnicodeText'),
+	(r'\bCF_WAVE\b', 'mfcless::clip::Wave'),
+	(r'\bIsClipboardFormatAvailable\(', 'mfcless::clip::IsFormatAvailable('),
+	(r'\bRegisterClipboardFormat\(_T\(("[^"]*")\)\)', r'mfcless::clip::RegisterFormat(QStringLiteral(\1))'),
+	(r'\bTVI_ROOT\b', 'nullptr'),
+	(r'\bCOleDataObject\s*\*\s*', 'const QMimeData *'),
+	(r'\bDROPEFFECT_(NONE|COPY|MOVE|LINK|SCROLL)\b', lambda m: 'mfcless::drop::' + m.group(1).capitalize()),
+	(r'\bDROPEFFECT\b', 'uint32'),
+	(r'\bHANDLE\b', 'void *'),
+	(r'\bCView\s*\*', 'mfcless::DocumentView *'),
+	(r'\bMSG (\w+) = \{(\w+), (\w+), (\w+), (\w+), 0, \{\}\};', r'mfcless::Message \1{\2, \3, \4, \5, nullptr};'),
+	(r'\btimeGetTime\(\)', 'mfcless::TickCount()'),
+	(r'\bNCCALCSIZE_PARAMS\s*\*\s*', 'mfcless::Rect *'),
+	(r'HRESULT get_accName\(VARIANT \w+, BSTR \*\w+\) override;', 'QString GetAccessibleName() override;'),
 	(r'(\w+)\(NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1()'),
 	(r'(\w+)\(UINT\s*(\w*),\s*NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1(uint32 \2)'),
 	(r'\bRGB\(', 'mfcless::Rgb('),
@@ -104,7 +124,7 @@ CONTROLS = {
 	'CEdit': 'QLineEdit', 'CStatic': 'QLabel', 'CComboBoxEx': 'QComboBox',
 	'CButton': 'QAbstractButton', 'CComboBox': 'QComboBox', 'CListBox': 'QListWidget',
 	'CSliderCtrl': 'QSlider', 'CSpinButtonCtrl': 'mfcless::UpDown', 'CScrollBar': 'QScrollBar',
-	'CListCtrl': 'QTreeWidget', 'CTreeCtrl': 'QTreeWidget', 'CTabCtrl': 'mfcless::TabControl', 'CCheckListBox': 'QListWidget',
+	'CListCtrl': 'mfcless::ListCtrl', 'CTreeCtrl': 'QTreeWidget', 'CTabCtrl': 'mfcless::TabControl', 'CCheckListBox': 'QListWidget',
 	'CProgressCtrl': 'QProgressBar', 'CRichEditCtrl': 'QTextEdit',
 }
 
@@ -126,13 +146,13 @@ BASES = {
 	'CWnd': 'mfcless::Window<QWidget>', 'CView': 'mfcless::Window<QWidget>, public mfcless::DocumentView',
 	'CScrollView': 'mfcless::Window<QAbstractScrollArea>, public mfcless::DocumentView',
 	'CMDIChildWnd': 'mfcless::Window<QMdiSubWindow>', 'CMDIFrameWnd': 'mfcless::Window<QMainWindow>', 'CFrameWnd': 'mfcless::Window<QMainWindow>',
-	'CEdit': 'mfcless::Window<QLineEdit>', 'CStatic': 'mfcless::Window<QLabel>', 'CButton': 'mfcless::Window<QPushButton>',
+	'CEdit': 'mfcless::Window<QLineEdit>', 'CStatic': 'mfcless::Window<QLabel>', 'CButton': 'mfcless::Button',
 	'CComboBox': 'mfcless::Window<QComboBox>', 'CListBox': 'mfcless::Window<QListWidget>', 'CTreeCtrl': 'mfcless::Window<QTreeWidget>',
-	'CListCtrl': 'mfcless::Window<QTreeWidget>', 'CMFCListCtrl': 'mfcless::Window<QTreeWidget>', 'CMFCListCtrlEx': 'mfcless::Window<QTreeWidget>',
+	'CListCtrl': 'mfcless::ListCtrl', 'CMFCListCtrl': 'mfcless::ListCtrl', 'CMFCListCtrlEx': 'CMFCListCtrlEx',
 	'CTabCtrl': 'mfcless::Window<QTabBar>', 'CSliderCtrl': 'mfcless::Window<QSlider>', 'CSpinButtonCtrl': 'mfcless::UpDown',
 	'CToolBar': 'mfcless::Window<QToolBar>', 'CToolBarCtrl': 'mfcless::Window<QToolBar>', 'CDialogBar': 'mfcless::Window<QWidget>',
 	'CReBar': 'mfcless::Window<QWidget>',
-	'CToolTipCtrl': 'QObject', 'COleDropTarget': 'QObject', 'CMultiDocTemplate': 'QObject',
+	'CToolTipCtrl': 'QObject', 'COleDropTarget': 'mfcless::DropTarget', 'CMultiDocTemplate': 'QObject',
 	'CDocManager': 'QObject', 'CDocument': 'QObject', 'CImageList': 'QObject',
 	'CSplitterWnd': 'QSplitter', 'CMFCDynamicLayout': 'QObject',
 }
@@ -179,7 +199,7 @@ def twin(text):
 	for k, v in BASES.items():
 		text = re.sub(r'(:\s*(?:public|protected|private)\s+)' + k + r'\b', r'\1' + v, text)
 	# Classes now based on a Qt class get Q_OBJECT.
-	text = re.sub(r'^(class \w+\s*:\s*public\s+(?:Q\w+|mfcless::Window<\w+>|DialogBase|PropertyPage|ResizableDialog|CAbstractVstEditor|CModScrollView|CModControlDlg|CModControlView|CModTabCtrl)[^\n{]*\n\{\n)', r'\1\tQ_OBJECT\n', text, flags=re.M)
+	text = re.sub(r'^(class \w+\s*:\s*public\s+(?:Q\w+|mfcless::Window<\w+>|mfcless::Button|mfcless::ListCtrl|mfcless::UpDown|CListCtrlEx|CMFCListCtrlEx|DialogBase|PropertyPage|ResizableDialog|CAbstractVstEditor|CModScrollView|CModControlDlg|CModControlView|CModTabCtrl)[^\n{]*\n\{\n)', r'\1\tQ_OBJECT\n', text, flags=re.M)
 	# Control members become pointers to the widgets the dialog template
 	# creates (or that replace them): "\tCEdit m_a, m_b[4];" ->
 	# "\tQLineEdit *m_a = nullptr, *m_b[4] = {};"
@@ -196,10 +216,15 @@ def twin(text):
 		if k in CONTROLS:
 			text = re.sub(r'\b' + k + r'\s*&', v + ' &', text)
 			text = re.sub(r'\b' + k + r'\s*\*', v + ' *', text)
+	# Base classes in constructors' initialiser lists.
+	for k, v in BASES.items():
+		base = v.split(',')[0]
+		text = re.sub(r'([:,]\s*)' + k + r'(\s*[({])', lambda m: m.group(1) + base + m.group(2), text)
 	text = keys(text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
 	text = dialog_helpers(text)
+	text = member_access(text, member_types(text))
 	text = re.sub(r'\bafx_msg\s+', '', text)
 	text = re.sub(r'^\s*DECLARE_(?:DYNCREATE|SERIAL)\((\w+)\)\s*\n', r'public:\n\tstatic const mfcless::ViewClass class\1;\n', text, flags=re.M)
 	text = re.sub(r'^\s*DECLARE_DYNAMIC\(\w+\)\s*\n', '', text, flags=re.M)
@@ -210,6 +235,14 @@ def twin(text):
 	text = re.sub(r'void (On[HV]Scroll)\(uint32\s*\w*,\s*uint32\s*\w*,\s*CScrollBar\s*\*\s*\w*\)( override)?;', r'void \1(mfcless::ScrollCode code, int pos, QWidget *control);', text)
 	text = re.sub(r'void (\w+)\(CCmdUI\s*\*\s*\w*\)', r'void \1(mfcless::CommandState &state)', text)
 	# Forward declarations of the Qt classes now named, outside the namespace.
+	# Controls that a dialog binds are made by it with a parent: classes of
+	# controls without a constructor of their own take the base's.
+	def add_ctor(m):
+		name, base, body = m.group(1), m.group(2), m.group(3)
+		if re.search(r'\b' + name + r'\s*\(', body):
+			return m.group(0)
+		return m.group(0).replace('\tQ_OBJECT\n', '\tQ_OBJECT\npublic:\n\tusing ' + base + '::' + base.split('::')[-1] + ';\n', 1)
+	text = re.sub(r'^class (\w+)\s*:\s*public\s+(mfcless::Button|mfcless::ListCtrl|CListCtrlEx|CMFCListCtrlEx)\s*\n\{\n(.*?)\n\};', add_ctor, text, flags=re.M | re.S)
 	used = sorted(set(re.findall(r'\b(Q[A-Z][A-Za-z]+)\b', text)) - {'Q_OBJECT', 'QStringList'})
 	# Base classes must be complete: include them rather than declare them.
 	bases = sorted(set(re.findall(r':\s*public\s+(?:mfcless::Window<)?(Q[A-Z][A-Za-z]+)\b', text)))
@@ -249,6 +282,18 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Menus.h"\n', 1)
 	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Controls.h"\n', 1)
+	if 'mfcless::Button' in text and '"mfcless/Button.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Button.h"\n', 1)
+	if re.search(r'mfcless::(DrawItemInfo|ods|odt)\b', text) and '"mfcless/Graphics.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Graphics.h"\n', 1)
+	if re.search(r'mfcless::(DropTarget|drop::)', text) and '"mfcless/DropTarget.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/DropTarget.h"\n', 1)
+	if 'mfcless::clip::' in text and '"mfcless/Clipboard.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Clipboard.h"\n', 1)
+	if 'mfcless::TickCount' in text and '"mfcless/System.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/System.h"\n', 1)
+	if 'mfcless::ListCtrl' in text and '"mfcless/ListCtrl.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/ListCtrl.h"\n', 1)
 	# Dialog bases need their header.
 	if re.search(r'public\s+(DialogBase|PropertyPage)\b', text) and '"DialogBase.h"' not in text and '"ResizableDialog.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "DialogBase.h"\n', 1)
@@ -388,6 +433,35 @@ def member_types(header):
 			types[n] = m.group(1)
 	return types
 
+def member_access(text, types):
+	"""Members that became pointers: m_a.F() -> m_a->F(), and references to
+	them (return m_a; from a function returning a reference, a reference
+	bound to one of two) dereference them."""
+	item_lists = ('QComboBox', 'QListWidget', 'mfcless::Window<QComboBox>', 'mfcless::Window<QListWidget>')
+	def call(m):
+		name, method = m.group(1), m.group(2)
+		t = types.get(name)
+		if t is None:
+			return m.group(0)
+		repl = CONTROL_METHODS.get(t, {}).get(method) or CONTROL_METHODS['*'].get(method)
+		if t in item_lists:
+			if method in ('AddString',):
+				return 'mfcless::AddItem(%s, ' % name
+			if method == 'InsertString':
+				return 'mfcless::InsertItem(%s, ' % name
+			if method == 'SetItemData':
+				return 'mfcless::SetItemData(%s, ' % name
+			if method == 'GetItemData':
+				return 'mfcless::GetItemData(%s, ' % name
+		return name + (repl if repl else '->' + method + '(')
+	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
+	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
+	def deref(name):
+		return '*' + name if name in types else name
+	text = re.sub(r'(&\s*\w+\([^)]*\)\s*(?:const\s*)?\{\s*return )(m_\w+)(;)', lambda m: m.group(1) + deref(m.group(2)) + m.group(3), text)
+	text = re.sub(r'(\w+\s*&\s*\w+\s*=\s*[^;?]+\?\s*)(m_\w+)(\s*:\s*)(m_\w+)(;)', lambda m: m.group(1) + deref(m.group(2)) + m.group(3) + deref(m.group(4)) + m.group(5), text)
+	return text
+
 def twin_cpp(text, header):
 	text = pointer_handles(text)
 	text = re.sub(r'^#include "stdafx.h"\n', '', text, flags=re.M)
@@ -396,7 +470,7 @@ def twin_cpp(text, header):
 	# Data exchange
 	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
 	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)) + '::DoDataExchange(dx)', text)
-	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'Bind(\1, \2)', text)
+	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'ExchangeControl(dx, \1, \2)', text)
 	for k, v in DDX.items():
 		text = re.sub(k + r'\(pDX,', v + '(dx,', text)
 	text = re.sub(r'DDV_MinMax\w+\(pDX,', 'ValidateMinMax(dx,', text)
@@ -413,23 +487,7 @@ def twin_cpp(text, header):
 	text = re.sub(r'(\w+)->iPos\b', 'CurrentNotify().pos', text)
 	# Controls
 	types = member_types(header)
-	def call(m):
-		name, method = m.group(1), m.group(2)
-		t = types.get(name)
-		if t is None:
-			return m.group(0)
-		repl = CONTROL_METHODS.get(t, {}).get(method) or CONTROL_METHODS['*'].get(method)
-		if method in ('AddString',):
-			return 'mfcless::AddItem(%s, ' % name
-		if method == 'InsertString':
-			return 'mfcless::InsertItem(%s, ' % name
-		if method == 'SetItemData':
-			return 'mfcless::SetItemData(%s, ' % name
-		if method == 'GetItemData':
-			return 'mfcless::GetItemData(%s, ' % name
-		return name + (repl if repl else '->' + method + '(')
-	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
-	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
+	text = member_access(text, types)
 	text = re.sub(r'\b(?:' + '|'.join(BASES) + r')::(' + WINDOW_HANDLERS + r')\(', r'Window::\1(', text)
 	text = re.sub(r'(?:BOOL|bool) (\w+)::PreTranslateMessage\(MSG\s*\*\s*(\w*)\)', r'bool \1::PreTranslateMessage(mfcless::Message *\2)', text)
 	text = re.sub(r'\b(?:' + '|'.join(BASES) + r')::PreTranslateMessage\((\w+)\)', r'WindowBase::PreTranslateMessage(\1)', text)

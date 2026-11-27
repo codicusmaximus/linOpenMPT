@@ -138,7 +138,7 @@ protected:
 	void UpdateDialog();
 	void OnKeyboardChanged();
 	void OnKeyChoiceSelect();
-	void OnCommandKeySelChanged(NMHDR *pNMHDR = nullptr, intptr_t *pResult = nullptr);
+	void OnCommandKeySelChanged();
 	void OnListenForKeysFromList();
 	void OnCategorySelChanged();
 	void OnSearchTermChanged();

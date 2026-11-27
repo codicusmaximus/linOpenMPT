@@ -7,12 +7,15 @@
 
 #include "mfcless/DialogBuilder.h"
 #include "mfcless/Controls.h"
+#include "mfcless/Button.h"
+#include "mfcless/ListCtrl.h"
 
 #include <QtCore/QEvent>
 #include <QtGui/QFontInfo>
 #include <QtGui/QFontMetrics>
 
 #include <cmath>
+#include <type_traits>
 #include <QtGui/QRegularExpressionValidator>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
@@ -135,6 +138,20 @@ Qt::Alignment TextAlignment(uint32_t style, bool isStatic)
 	return a;
 }
 
+// The control of type T for a template item: a new one, or the one the
+// dialog made itself if it is a T. Null if the dialog's control is another
+// kind of widget, which is then left as it is.
+template <typename T, typename New = std::nullptr_t>
+T *Make(QWidget *given, QWidget *parent, New make = nullptr)
+{
+	if(given)
+		return qobject_cast<T *>(given);
+	if constexpr(std::is_same_v<New, std::nullptr_t>)
+		return new T(parent);
+	else
+		return make(parent);
+}
+
 void FrameFor(QFrame *f, const res::DialogItem &item)
 {
 	if(item.exStyle & 0x200)  // WS_EX_CLIENTEDGE
@@ -177,16 +194,20 @@ res::DialogUnits UnitsFor(const QWidget *dialog)
 }
 
 
-QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
+QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *given)
 {
 	const QString text = Q(item.text);
 	const uint32_t s = item.style;
-	QWidget *w = nullptr;
+	// A control the dialog made itself is set up as the template's control
+	// would be if it is of the same Qt class, and taken as it is otherwise.
+	QWidget *w = given;
 	switch(KindOf(item))
 	{
 	case Kind::PushButton:
 	{
-		auto *b = new QPushButton(text, parent);
+		auto *b = Make<QPushButton>(given, parent, [](QWidget *p) { return new Button(p); });
+		if(!b) break;
+		b->setText(text);
 		b->setDefault((s & 0x0F) == 1);  // BS_DEFPUSHBUTTON
 		b->setAutoDefault(false);
 		w = b;
@@ -195,13 +216,17 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	case Kind::CheckBox:
 		if(s & 0x1000)  // BS_PUSHLIKE
 		{
-			auto *b = new QPushButton(text, parent);
+			auto *b = Make<QPushButton>(given, parent);
+			if(!b) break;
+			b->setText(text);
 			b->setCheckable(true);
 			b->setAutoDefault(false);
 			w = b;
 		} else
 		{
-			auto *b = new QCheckBox(text, parent);
+			auto *b = Make<QCheckBox>(given, parent);
+			if(!b) break;
+			b->setText(text);
 			b->setTristate((s & 0x0F) == 5 || (s & 0x0F) == 6);
 			w = b;
 		}
@@ -209,20 +234,26 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	case Kind::RadioButton:
 		if(s & 0x1000)
 		{
-			auto *b = new QPushButton(text, parent);
+			auto *b = Make<QPushButton>(given, parent);
+			if(!b) break;
+			b->setText(text);
 			b->setCheckable(true);
 			b->setAutoDefault(false);
 			w = b;
 		} else
 		{
-			auto *b = new QRadioButton(text, parent);
+			auto *b = Make<QRadioButton>(given, parent);
+			if(!b) break;
+			b->setText(text);
 			b->setAutoExclusive(false);  // grouped by WS_GROUP in BuildDialog
 			w = b;
 		}
 		break;
 	case Kind::GroupBox:
 	{
-		auto *g = new GroupFrame(text, parent);
+		auto *g = Make<QGroupBox>(given, parent, [](QWidget *p) { return new GroupFrame(QString(), p); });
+		if(!g) break;
+		g->setTitle(text);
 		if((s & 0x300) == 0x300)  // BS_CENTER
 			g->setAlignment(Qt::AlignHCenter);
 		else if(s & 0x200)  // BS_RIGHT
@@ -232,7 +263,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 		break;
 	case Kind::Label:
 	{
-		auto *l = new QLabel(parent);
+		auto *l = Make<QLabel>(given, parent);
+		if(!l) break;
 		l->setTextFormat(Qt::PlainText);
 		l->setAlignment(TextAlignment(s, true));
 		// SS_LEFTNOWORDWRAP 0xB, SS_SIMPLE 0xC, SS_ENDELLIPSIS etc. do not wrap.
@@ -250,7 +282,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::Icon:
 	{
-		auto *l = new QLabel(parent);
+		auto *l = Make<QLabel>(given, parent);
+		if(!l) break;
 		l->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 		if(item.textResource)
 		{
@@ -262,7 +295,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::Frame:
 	{
-		auto *f = new QFrame(parent);
+		auto *f = Make<QFrame>(given, parent);
+		if(!f) break;
 		f->setFrameStyle(QFrame::Box | QFrame::Sunken);
 		w = f;
 		break;
@@ -270,7 +304,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	case Kind::HLine:
 	case Kind::VLine:
 	{
-		auto *f = new QFrame(parent);
+		auto *f = Make<QFrame>(given, parent);
+		if(!f) break;
 		f->setFrameShape(KindOf(item) == Kind::HLine ? QFrame::HLine : QFrame::VLine);
 		f->setFrameShadow(QFrame::Sunken);
 		w = f;
@@ -278,7 +313,9 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::Edit:
 	{
-		auto *e = new QLineEdit(text, parent);
+		auto *e = Make<QLineEdit>(given, parent);
+		if(!e) break;
+		e->setText(text);
 		e->setAlignment(TextAlignment(s, false));
 		e->setReadOnly(s & 0x800);
 		if(s & 0x20)
@@ -292,7 +329,9 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::MultiEdit:
 	{
-		auto *e = new QPlainTextEdit(text, parent);
+		auto *e = Make<QPlainTextEdit>(given, parent);
+		if(!e) break;
+		e->setPlainText(text);
 		e->setReadOnly(s & 0x800);
 		e->setVerticalScrollBarPolicy((s & Style::VScroll) ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
 		e->setHorizontalScrollBarPolicy((s & Style::HScroll) ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
@@ -303,7 +342,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::ComboBox:
 	{
-		auto *c = new QComboBox(parent);
+		auto *c = Make<QComboBox>(given, parent);
+		if(!c) break;
 		const uint32_t type = s & 0x3;  // CBS_SIMPLE 1, CBS_DROPDOWN 2, CBS_DROPDOWNLIST 3
 		c->setEditable(type != 3);
 		c->setMaxVisibleItems(20);
@@ -312,7 +352,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::ListBox:
 	{
-		auto *l = new QListWidget(parent);
+		auto *l = Make<QListWidget>(given, parent);
+		if(!l) break;
 		if(s & 0x8)  // LBS_MULTIPLESEL
 			l->setSelectionMode(QAbstractItemView::MultiSelection);
 		else if(s & 0x800)  // LBS_EXTENDEDSEL
@@ -324,11 +365,17 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 		break;
 	}
 	case Kind::ScrollBar:
-		w = new QScrollBar((s & 0x1) ? Qt::Vertical : Qt::Horizontal, parent);
+		if(auto *sb = Make<QScrollBar>(given, parent))
+		{
+			sb->setOrientation((s & 0x1) ? Qt::Vertical : Qt::Horizontal);
+			w = sb;
+		}
 		break;
 	case Kind::Slider:
 	{
-		auto *sl = new QSlider((s & 0x2) ? Qt::Vertical : Qt::Horizontal, parent);
+		auto *sl = Make<QSlider>(given, parent);
+		if(!sl) break;
+		sl->setOrientation((s & 0x2) ? Qt::Vertical : Qt::Horizontal);
 		sl->setRange(0, 100);
 		if(s & 0x10)  // TBS_NOTICKS
 			sl->setTickPosition(QSlider::NoTicks);
@@ -343,7 +390,9 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::UpDown:
 	{
-		auto *u = new UpDown(!(s & 0x40), parent);  // UDS_HORZ 0x40
+		auto *u = Make<UpDown>(given, parent);
+		if(!u) break;
+		u->SetVertical(!(s & 0x40));  // UDS_HORZ 0x40
 		u->SetBuddyInt(s & 0x2);
 		u->SetWrap(s & 0x1);
 		w = u;
@@ -351,7 +400,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	}
 	case Kind::Progress:
 	{
-		auto *p = new QProgressBar(parent);
+		auto *p = Make<QProgressBar>(given, parent);
+		if(!p) break;
 		p->setOrientation((s & 0x4) ? Qt::Vertical : Qt::Horizontal);
 		p->setTextVisible(false);
 		w = p;
@@ -360,16 +410,15 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	case Kind::ListView:
 		if((s & 0x3) == 1)  // LVS_REPORT
 		{
-			auto *t = new QTreeWidget(parent);
-			t->setRootIsDecorated(false);
-			t->setUniformRowHeights(true);
+			auto *t = Make<QTreeWidget>(given, parent, [](QWidget *p) { return new ListCtrl(p); });
+			if(!t) break;
 			t->setHeaderHidden(s & 0x4000);  // LVS_NOCOLUMNHEADER
 			t->setSelectionMode((s & 0x4) ? QAbstractItemView::SingleSelection : QAbstractItemView::ExtendedSelection);
-			t->setColumnCount(0);
 			w = t;
 		} else
 		{
-			auto *l = new QListWidget(parent);
+			auto *l = Make<QListWidget>(given, parent);
+			if(!l) break;
 			l->setViewMode((s & 0x3) == 0 ? QListView::IconMode : QListView::ListMode);
 			l->setSelectionMode((s & 0x4) ? QAbstractItemView::SingleSelection : QAbstractItemView::ExtendedSelection);
 			w = l;
@@ -377,25 +426,30 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 		break;
 	case Kind::TreeView:
 	{
-		auto *t = new QTreeWidget(parent);
+		auto *t = Make<QTreeWidget>(given, parent);
+		if(!t) break;
 		t->setHeaderHidden(true);
 		t->setRootIsDecorated(s & 0x4);  // TVS_LINESATROOT
 		w = t;
 		break;
 	}
 	case Kind::Tab:
-		w = new TabControl(parent);
+		if(auto *t = Make<TabControl>(given, parent))
+			w = t;
 		break;
 	case Kind::ToolBar:
 	{
-		auto *t = new QToolBar(parent);
+		auto *t = Make<QToolBar>(given, parent);
+		if(!t) break;
 		t->setIconSize(QSize(16, 16));
 		w = t;
 		break;
 	}
 	case Kind::Link:
 	{
-		auto *l = new QLabel(text, parent);
+		auto *l = Make<QLabel>(given, parent);
+		if(!l) break;
+		l->setText(text);
 		l->setTextFormat(Qt::RichText);
 		l->setOpenExternalLinks(false);
 		l->setTextInteractionFlags(Qt::TextBrowserInteraction);
@@ -405,9 +459,10 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 	case Kind::Unknown:
 		// Custom window classes: a placeholder the dialog replaces with
 		// its own widget.
-		w = new QWidget(parent);
+		w = given ? given : new QWidget(parent);
 		break;
 	}
+	w->setProperty("mfcless_built", true);
 	w->setProperty("mfcless_id", item.id);
 	w->setProperty("mfcless_class", Q(item.className));
 	w->setProperty("mfcless_style", item.style);
@@ -421,7 +476,7 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 }
 
 
-bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out)
+bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out, const ControlFactory &factory)
 {
 	auto tmpl = res::Dialog(templateId);
 	if(!tmpl)
@@ -442,7 +497,11 @@ bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out)
 	for(std::size_t i = 0; i < tmpl->items.size(); i++)
 	{
 		const res::DialogItem &item = tmpl->items[i];
-		QWidget *w = CreateControl(item, dialog);
+		QWidget *given = factory ? factory(item, dialog) : nullptr;
+		if(given && given->parentWidget() != dialog)
+			given->setParent(dialog);
+		// A control that the factory made from the template is set up already.
+		QWidget *w = (given && given->property("mfcless_built").toBool()) ? given : CreateControl(item, dialog, given);
 		QRect rect(u.X(item.x), u.Y(item.y), u.X(item.cx), u.Y(item.cy));
 		const Kind kind = KindOf(item);
 		if(kind == Kind::ComboBox)

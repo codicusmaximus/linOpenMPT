@@ -30,6 +30,7 @@ class QLineEdit;
 class QObject;
 class QScrollBar;
 class QSlider;
+class QString;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -76,7 +77,7 @@ public:
 
 public:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
-	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
+	QString GetAccessibleName() override;
 protected:
 	void OnLButtonDown(uint32, mfcless::Point);
 	void OnMButtonDown(uint32 flags, mfcless::Point pt) { OnLButtonDown(flags, pt); }

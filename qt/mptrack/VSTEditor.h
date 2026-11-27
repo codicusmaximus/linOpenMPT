@@ -56,7 +56,7 @@ protected:
 	intptr_t OnPreTranslateSysKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::SysKeyUp, wParam, lParam); }
 	intptr_t HandlePreTranslateMessage(uint32 message, uintptr_t wParam, intptr_t lParam)
 	{
-		MSG msg = {m_plugWindow, message, wParam, lParam, 0, {}};
+		mfcless::Message msg{m_plugWindow, message, wParam, lParam, nullptr};
 		return HandleKeyMessage(msg, true);
 	}
 

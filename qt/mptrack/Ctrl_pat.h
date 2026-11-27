@@ -27,6 +27,7 @@ class QFont;
 class QLineEdit;
 class QObject;
 class QScrollBar;
+class QString;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -138,7 +139,7 @@ public:
 	void DeleteUpdatePlaystate(ORDERINDEX first, ORDERINDEX last);
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo* pTI) const override;
-	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
+	QString GetAccessibleName() override;
 protected:
 	ModSequence& Order();
 	const ModSequence& Order() const;
@@ -220,7 +221,7 @@ public:
 	bool SetCurrentInstrument(uint32 nIns);
 	bool GetFollowSong() const;
 	bool GetLoopPattern() const;
-	COrderList &GetOrderList() { return m_OrderList; }
+	COrderList &GetOrderList() { return *m_OrderList; }
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
 	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support

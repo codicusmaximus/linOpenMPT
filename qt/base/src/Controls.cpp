@@ -20,33 +20,35 @@
 namespace mfcless
 {
 
-UpDown::UpDown(bool vertical, QWidget *parent)
-	: QWidget(parent), m_vertical(vertical)
+UpDown::UpDown(QWidget *parent)
+	: QWidget(parent)
 {
-	auto *layout = vertical ? static_cast<QBoxLayout *>(new QVBoxLayout(this)) : new QHBoxLayout(this);
+	auto *layout = new QBoxLayout(QBoxLayout::TopToBottom, this);
 	layout->setContentsMargins(0, 0, 0, 0);
 	layout->setSpacing(0);
 	m_up = new QToolButton(this);
 	m_down = new QToolButton(this);
-	m_up->setArrowType(vertical ? Qt::UpArrow : Qt::RightArrow);
-	m_down->setArrowType(vertical ? Qt::DownArrow : Qt::LeftArrow);
 	for(QToolButton *b : {m_up, m_down})
 	{
 		b->setAutoRepeat(true);
 		b->setFocusPolicy(Qt::NoFocus);
 		b->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
 	}
-	if(vertical)
-	{
-		layout->addWidget(m_up);
-		layout->addWidget(m_down);
-	} else
-	{
-		layout->addWidget(m_down);
-		layout->addWidget(m_up);
-	}
+	layout->addWidget(m_up);
+	layout->addWidget(m_down);
+	SetVertical(true);
 	connect(m_up, &QToolButton::clicked, this, [this] { Step(1); });
 	connect(m_down, &QToolButton::clicked, this, [this] { Step(-1); });
+}
+
+void UpDown::SetVertical(bool vertical)
+{
+	m_vertical = vertical;
+	// Vertical: up above down. Horizontal: left (down) before right (up).
+	static_cast<QBoxLayout *>(layout())->setDirection(vertical ? QBoxLayout::TopToBottom : QBoxLayout::RightToLeft);
+	m_up->setArrowType(vertical ? Qt::UpArrow : Qt::RightArrow);
+	m_down->setArrowType(vertical ? Qt::DownArrow : Qt::LeftArrow);
+	updateGeometry();
 }
 
 void UpDown::SetRange(int lower, int upper)

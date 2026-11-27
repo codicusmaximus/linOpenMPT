@@ -61,8 +61,8 @@ protected:
 	void OnShowSamples();
 	void OnShowInstruments();
 	void OnShowPatterns();
-	void OnEndLabelEdit(LPNMHDR pnmhdr, intptr_t *pLResult);
-	void OnBeginLabelEdit(LPNMHDR pnmhdr, intptr_t *pLResult);
+	void OnEndLabelEdit();
+	void OnBeginLabelEdit();
 	void OnDblClickListItem();
 	void OnRClickListItem();
 	void OnCustomDrawList();

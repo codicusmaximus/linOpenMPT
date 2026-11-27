@@ -3,7 +3,6 @@
  * -------------
  * Purpose: About dialog with credits, system information and a fancy demo effect.
  * Notes  : mfcless twin of upstream's mptrack/AboutDialog.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -33,7 +32,7 @@ public:
 
 protected:
 
-	BITMAPINFOHEADER m_bi;
+	struct { int32 biWidth = 0, biHeight = 0; } m_bi;  // mfcless: what the bitmap header held that the ripple uses
 	std::unique_ptr<RawGDIDIB> m_bitmapSrc, m_bitmapTarget;
 	std::vector<int32> m_offset1, m_offset2;
 	int32 *m_frontBuf, *m_backBuf;

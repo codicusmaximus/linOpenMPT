@@ -183,7 +183,7 @@ protected:
 
 	void OnSettingsChanged();
 	void OnCheckNow();
-	void OnShowStatisticsData(NMHDR * /*pNMHDR*/, intptr_t * /*pResult*/);
+	void OnShowStatisticsData();
 	void EnableDisableDialog();
 	void RegisterMessageMap() override;
 

@@ -3,7 +3,6 @@
  * ---------
  * Purpose: Implementation of OpenMPT's window toolbar and parent container of the tree view.
  * Notes  : mfcless twin of upstream's mptrack/Mainbar.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -12,6 +11,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/System.h"
 #include "mfcless/Controls.h"
 #include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
@@ -47,7 +47,7 @@ protected:
 	bool allowRightToLeft = false;
 
 public:
-	CStereoVU() { lastVuUpdateTime = timeGetTime(); }
+	CStereoVU() { lastVuUpdateTime = mfcless::TickCount(); }
 	void SetVuMeter(uint8 validChannels, const uint32 channels[4], bool force = false);
 	void SetOrientation(bool h) { horizontal = h; }
 
@@ -65,7 +65,7 @@ class COctaveEdit : public mfcless::Window<QLineEdit>
 {
 	Q_OBJECT
 public:
-	COctaveEdit(CMainToolBar &owner) : m_owner{owner} { }
+	COctaveEdit(CMainToolBar &owner, QWidget *parent = nullptr) : Window(parent), m_owner{owner} { }
 
 protected:
 	void OnChar(uint32 nChar, uint32 nRepCnt, uint32 nFlags);
@@ -100,7 +100,8 @@ public:
 	void SetButtonVisibility(int index, bool visible);
 
 public:
-	mfcless::Size CalcDynamicLayout(int nLength, uint32 dwMode) override;
+	// mfcless: the size for a docked or floating bar, as MFC asked control bars.
+	mfcless::Size CalcDynamicLayout(int nLength, uint32 dwMode);
 	virtual void SetHorizontal();
 	virtual void SetVertical();
 };
@@ -112,7 +113,7 @@ protected:
 	UpdateToolTip m_tooltip;
 	CImageListEx m_ImageList, m_ImageListDisabled;
 	QFont m_font;
-	COctaveEdit *m_EditOctave = nullptr;
+	COctaveEdit m_EditOctave;
 	CNumberEdit *m_EditTempo = nullptr;
 	QLineEdit *m_EditSpeed = nullptr, *m_EditRowsPerBeat = nullptr, *m_EditGlobalVolume = nullptr;
 	QLabel *m_StaticTempo = nullptr, *m_StaticSpeed = nullptr, *m_StaticRowsPerBeat = nullptr, *m_StaticGlobalVolume = nullptr;
@@ -189,6 +190,7 @@ protected:
 	mfcless::Point ptDragging;
 	uint32 m_cxOriginal = 0, m_cyOriginal = 0, m_nTrackPos = 0;
 	uint32 m_nTreeSplitRatio = 0;
+	bool m_barOnLeft = true;  // mfcless: CBRS_ALIGN_LEFT of the bar style
 
 	QLineEdit *m_filterEdit = nullptr;
 	CModTree *m_filterSource = nullptr;
@@ -200,7 +202,7 @@ public:
 	CModTreeBar();
 	~CModTreeBar() override;
 
-	void DelayShow(bool show) override;
+	void DelayShow(bool show);
 
 public:
 	void Init();
@@ -222,10 +224,10 @@ public:
 	void StartTreeFilter(CModTree &source);
 
 	void SetBarOnLeft(const bool left);
-	bool BarOnLeft() { return (GetBarStyle() & CBRS_ALIGN_LEFT); }
+	bool BarOnLeft() { return m_barOnLeft; }
 
 protected:
-	mfcless::Size CalcFixedLayout(bool bStretch, bool bHorz) override;
+	mfcless::Size CalcFixedLayout(bool bStretch, bool bHorz);
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void CloseTreeFilter();
 	void CancelTimer();
@@ -235,7 +237,7 @@ protected:
 protected:
 	void OnNcPaint();
 	intptr_t OnNcHitTest(mfcless::Point point);
-	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
+	void OnNcCalcSize(bool bCalcValidRects, mfcless::Rect *lpncsp);
 	void OnSize(uint32 nType, int cx, int cy);
 	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
 	void OnMouseMove(uint32 nFlags, mfcless::Point point);

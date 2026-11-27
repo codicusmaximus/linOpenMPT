@@ -43,8 +43,8 @@ protected:
 	void OnCancel() override { DestroyWindow(); }
 
 	void UpdateFileList(intptr_t highlight = intptr_t(-1), mpt::ustring filter = {});
-	size_t GetItemIndex(int index) const { return static_cast<size_t>(m_list.GetItemData(index) & 0x00FF'FFFF); }
-	int GetItemGroup(int index) const { return static_cast<int>(m_list.GetItemData(index) >> 24); }
+	size_t GetItemIndex(int index) const { return static_cast<size_t>(m_list->GetItemData(index) & 0x00FF'FFFF); }
+	int GetItemGroup(int index) const { return static_cast<int>(m_list->GetItemData(index) >> 24); }
 
 	void OnNew();
 	void OnOpen();
