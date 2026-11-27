@@ -176,7 +176,7 @@ public:
 	void SettingChanged(const SettingPath &changedPath) override;
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
@@ -185,6 +185,8 @@ protected:
 	void OnCheckNow();
 	void OnShowStatisticsData(NMHDR * /*pNMHDR*/, intptr_t * /*pResult*/);
 	void EnableDisableDialog();
+	void RegisterMessageMap() override;
+
 private:
 	SettingChangedNotifyGuard m_SettingChangedNotifyGuard;
 	QComboBox *m_CbnUpdateFrequency = nullptr;

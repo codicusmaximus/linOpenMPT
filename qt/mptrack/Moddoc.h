@@ -21,6 +21,9 @@
 #include "Undo.h"
 #include "Notification.h"
 
+#include "mfcless/MessageMap.h"
+#include "DocumentView.h"
+
 #include <QtCore/QObject>
 #include <QtCore/QSize>
 
@@ -30,7 +33,6 @@ OPENMPT_NAMESPACE_BEGIN
 
 class EncoderFactoryBase;
 class CChildFrame;
-class CModView;
 struct UpdateHint;
 
 /////////////////////////////////////////////////////////////////////////
@@ -121,7 +123,7 @@ enum class RecordGroup : uint8
 };
 
 
-class CModDoc final : public QObject
+class CModDoc final : public QObject, public mfcless::MessageMap
 {
 	Q_OBJECT
 protected:
@@ -166,7 +168,7 @@ protected:
 	mpt::PathString m_strPathName;
 	mpt::ustring m_strTitle;
 	bool m_bModified = false;
-	std::vector<CModView *> m_views;
+	std::vector<mfcless::DocumentView *> m_views;
 
 public: // created by CModDocTemplate (upstream: from serialization only)
 	CModDoc();
@@ -311,7 +313,7 @@ public:
 
 	intptr_t ActivateView(uint32 nIdView, uint32 dwParam);
 	// Notify all views of document updates (GUI thread only)
-	void UpdateAllViews(CModView *pSender, UpdateHint hint, QObject *pHint=NULL);
+	void UpdateAllViews(mfcless::DocumentView *pSender, UpdateHint hint, QObject *pHint=NULL);
 	// Notify all views of document updates (for non-GUI threads)
 	void UpdateAllViews(UpdateHint hint);
 	void GetEditPosition(ROWINDEX &row, PATTERNINDEX &pat, ORDERINDEX &ord);
@@ -388,9 +390,9 @@ public:
 	void DeleteContents();
 
 	// mfcless: CDocument's view list.
-	void AddView(CModView *view);
-	void RemoveView(CModView *view);
-	const std::vector<CModView *> &GetViews() const { return m_views; }
+	void AddView(mfcless::DocumentView *view);
+	void RemoveView(mfcless::DocumentView *view);
+	const std::vector<mfcless::DocumentView *> &GetViews() const { return m_views; }
 
 	// Get the sample index for the current pattern cell (resolves instrument note maps, etc)
 	SAMPLEINDEX GetSampleIndex(const ModCommand &m, ModCommand::INSTR lastInstr = 0) const;
@@ -422,8 +424,8 @@ public:
 	~CModDoc() override;
 
 // Generated message map functions
-	// mfcless: connected to the generated menus' actions in ModDocTemplate.cpp.
 public:
+	void RegisterMessageMap() override;
 	void OnFileWaveConvert();
 	void OnFileMidiConvert();
 	void OnFileOPLExport();
@@ -443,10 +445,10 @@ public:
 	void OnSetupZxxMacros();
 	void OnEstimateSongLength();
 	void OnApproximateBPM();
-	bool OnUpdateXMITMPTOnly() const;  // update handler
-	bool OnUpdateHasEditHistory() const;  // update handler
-	bool OnUpdateHasMIDIMappings() const;  // update handler
-	bool OnUpdateCompatExportableOnly() const;  // update handler
+	void OnUpdateXMITMPTOnly(mfcless::CommandState &state);
+	void OnUpdateHasEditHistory(mfcless::CommandState &state);
+	void OnUpdateHasMIDIMappings(mfcless::CommandState &state);
+	void OnUpdateCompatExportableOnly(mfcless::CommandState &state);
 	void OnPatternRestart() { OnPatternRestart(true); } //rewbs.customKeys
 	void OnPatternRestart(bool loop); //rewbs.customKeys
 	void OnPatternPlay(); //rewbs.customKeys

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #include "DialogBase.h"
 #include "dlg_misc.h"  // for keyboard control
@@ -30,7 +31,6 @@ class QObject;
 class QPoint;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -45,7 +45,7 @@ public:
 	CPatternPropertiesDlg(CModDoc &modParent, PATTERNINDEX nPat, QWidget *parent = nullptr);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 
@@ -55,6 +55,9 @@ protected:
 	void OnTempoSwing();
 	void OnPatternChanged();
 	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+
+	void RegisterMessageMap() override;
+
 	struct PatternProperties
 	{
 		std::string name;
@@ -74,7 +77,7 @@ protected:
 	CModDoc &m_modDoc;
 	std::map<PATTERNINDEX, PatternProperties> m_properties;
 	PATTERNINDEX m_nPattern;
-	QSpinBox *m_spinPattern = nullptr, *m_spinRPB = nullptr, *m_spinRPM = nullptr;
+	mfcless::UpDown *m_spinPattern = nullptr, *m_spinRPB = nullptr, *m_spinRPM = nullptr;
 	QComboBox *m_numRows = nullptr;
 	bool m_locked = true;
 };
@@ -120,7 +123,7 @@ protected:
 	void UpdateEffectValue(bool set);
 
 	void PrepareUndo(const char *description);
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnOK() override { ShowWindow(SW_HIDE); }
 	void OnCancel() override { ShowWindow(SW_HIDE); }
 	bool eventFilter(QObject *watched, QEvent *e) override;
@@ -132,6 +135,7 @@ protected:
 	void OnCommandChanged();
 	void OnPlugParamChanged();
 	void OnHScroll(uint32, uint32, QScrollBar *);
+	void RegisterMessageMap() override;
 };
 
 
@@ -156,7 +160,7 @@ public:
 protected:
 	MPTChord &GetChord();
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnDPIChanged() override;
@@ -169,6 +173,7 @@ protected:
 	void OnNote2Changed() { OnNoteChanged(1); }
 	void OnNote3Changed() { OnNoteChanged(2); }
 	void OnNoteChanged(int noteIndex);
+	void RegisterMessageMap() override;
 };
 
 
@@ -188,12 +193,14 @@ public:
 	CSplitKeyboardSettings(QWidget *parent, CSoundFile &sf, SplitKeyboardSettings &settings);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnCancel() override;
 
 	void OnOctaveModifierChanged();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -212,7 +219,7 @@ protected:
 
 	ColorPickerButton m_colorBtn, m_colorBtnPrev, m_colorBtnNext;
 	QSlider *m_volSlider = nullptr, *m_panSlider = nullptr;
-	QSpinBox *m_volSpin = nullptr, *m_panSpin = nullptr;
+	mfcless::UpDown *m_volSpin = nullptr, *m_panSpin = nullptr;
 	QLineEdit *m_nameEdit = nullptr;
 
 public:
@@ -224,7 +231,7 @@ public:
 	CHANNELINDEX GetChannel() const { return m_channel; }
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void PrepareUndo();
 	void PickColorFromChannel(CHANNELINDEX channel);
@@ -246,7 +253,7 @@ protected:
 	bool eventFilter(QObject *watched, QEvent *e) override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 
@@ -257,7 +264,7 @@ public:
 	MetronomeSettingsDlg(QWidget *parent = nullptr);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 
@@ -272,7 +279,7 @@ protected:
 	void OnBrowseMeasure();
 	void OnBrowseBeat();
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 
 protected:
 	QSlider *m_volumeSlider = nullptr;

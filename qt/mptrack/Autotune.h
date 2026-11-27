@@ -77,7 +77,7 @@ public:
 protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 };
 

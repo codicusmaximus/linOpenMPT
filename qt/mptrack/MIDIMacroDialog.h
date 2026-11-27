@@ -56,7 +56,7 @@ public:
 
 protected:
 	bool OnInitDialog() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void UpdateMacroList(int macro=-1);
 	void ToggleBoxes(uint32 preset, uint32 sfx);
@@ -76,6 +76,7 @@ protected:
 
 	void OnViewAllParams(uint32 id);
 	void OnSetSFx(uint32 id);
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

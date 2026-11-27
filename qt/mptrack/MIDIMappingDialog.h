@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #ifndef NO_PLUGINS
 
@@ -22,7 +23,6 @@
 
 
 class QComboBox;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -48,7 +48,7 @@ protected:
 	QComboBox *m_ChannelCBox = nullptr;
 	QComboBox *m_EventCBox = nullptr;
 	CListCtrlEx m_List;
-	QSpinBox *m_SpinMoveMapping = nullptr;
+	mfcless::UpDown *m_SpinMoveMapping = nullptr;
 
 	uint8 m_lastCC = uint8_max;
 
@@ -66,8 +66,11 @@ protected:
 	void SetModified();
 
 	bool OnInitDialog() override;
-	void DoDataExchange();	// DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
+
+	void RegisterMessageMap() override;
+
 	void OnSelectionChanged(NMHDR *pNMHDR = nullptr, intptr_t *pResult = nullptr);
 	
 	void OnBnClickedCheckactive();

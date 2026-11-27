@@ -92,6 +92,7 @@ protected:
 	void OnPresetCleanupSong();
 	void OnPresetCompoCleanup();
 	void OnVerifyMutualExclusive();
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

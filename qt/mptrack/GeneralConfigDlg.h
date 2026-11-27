@@ -17,6 +17,7 @@
 
 class QComboBox;
 class QLineEdit;
+class QListWidget;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -26,7 +27,7 @@ class COptionsGeneral: public PropertyPage
 protected:
 	QLineEdit *m_defaultArtist = nullptr;
 	QComboBox *m_defaultTemplate = nullptr, *m_defaultFormat = nullptr;
-	CCheckListBox m_CheckList;
+	QListWidget *m_CheckList = nullptr;
 	AccessibleButton m_templateBrowseButton;
 
 public:
@@ -36,7 +37,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void OnOptionSelChanged();
 	void OnSettingsChanged() { SetModified(true); }
@@ -44,7 +45,7 @@ protected:
 	void OnDefaultTypeChanged();
 	void OnTemplateChanged();
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 OPENMPT_NAMESPACE_END

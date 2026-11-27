@@ -82,12 +82,14 @@ protected:
 
 	void UpdatePluginsList(const VSTPluginLib *forceSelect = nullptr);
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void OnOK() override;
 	void OnCancel() override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
+
+	void RegisterMessageMap() override;
 	void OnAddPlugin();
 	void OnScanFolder();
 	void OnRemovePlugin();

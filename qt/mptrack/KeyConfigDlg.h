@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QLineEdit>
 #include "CListCtrl.h"
 #include "CommandSet.h"
@@ -48,7 +49,7 @@ public:
 };
 
 
-class CCustEdit: public QLineEdit
+class CCustEdit: public QLineEdit, public mfcless::MessageMap
 {
 	Q_OBJECT
 protected:
@@ -73,6 +74,8 @@ protected:
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnKillFocus(QWidget *pNewWnd);
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
+	
+	void RegisterMessageMap() override;
 };
 
 class COptionsKeyboard: public PropertyPage
@@ -111,7 +114,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void DefineCommandCategories();
 	void ForceUpdateGUI(bool updateAllKeys = false);
@@ -161,6 +164,8 @@ protected:
 	void OnFindHotKey();
 	void OnLButtonDblClk(uint32 flags, QPoint point);
 	void OnDestroy();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

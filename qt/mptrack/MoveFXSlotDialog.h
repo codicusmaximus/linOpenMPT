@@ -39,7 +39,7 @@ public:
 	bool DoMoveChain() const { return moveChain; }
 
 protected:
-	void DoDataExchange();  // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 
 	void OnOK() override;
 	bool OnInitDialog() override;

@@ -40,11 +40,13 @@ protected:
 	void GenerateList();
 	bool SetSample(SAMPLEINDEX smp, const mpt::PathString &fileName);
 	
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 
 	void OnSetPath();
 	void OnScanFolder();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -63,13 +65,15 @@ protected:
 	void GenerateList();
 	void Execute(bool doSave);
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override { Execute(false); }
 
 	void OnSaveSelected() { Execute(true); }
 	void OnCheckAll();
 	void OnSelectionChanged();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

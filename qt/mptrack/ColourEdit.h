@@ -12,11 +12,12 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QLineEdit>
 
 OPENMPT_NAMESPACE_BEGIN
 
-class CColourEdit : public QLineEdit
+class CColourEdit : public QLineEdit, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -34,6 +35,8 @@ private:
 
 protected:
 	HBRUSH CtlColor(CDC* pDC, uint32 nCtlColor);
+	void RegisterMessageMap() override;
+
 };
 
 OPENMPT_NAMESPACE_END

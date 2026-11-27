@@ -29,7 +29,7 @@ public:
 protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnSetActive() override;
 
 	void RecalcUndoSize();
@@ -37,7 +37,7 @@ protected:
 	void OnHScroll(uint32 /*nSBCode*/, uint32 /*nPos*/, QScrollBar * /*pScrollBar*/) { OnSettingsChanged(); }
 	void OnSettingsChanged() { SetModified(true); }
 	void OnUndoSizeChanged();
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 
 	QComboBox *m_cbnDefaultSampleFormat = nullptr, *m_cbnDefaultVolumeHandling = nullptr;
 	AccessibleEdit m_undoBufferEdit, m_finetuneEdit;

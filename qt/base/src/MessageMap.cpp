@@ -7,6 +7,7 @@
 
 #include "mfcless/MessageMap.h"
 #include "mfcless/Controls.h"
+#include "mfcless/ModMessage.h"
 
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
@@ -59,6 +60,18 @@ bool MessageMap::DispatchMessage(uint32_t message, uintptr_t wParam, intptr_t lP
 		}
 	}
 	return false;
+}
+
+bool MessageMap::HandleModMessage(QEvent *e)
+{
+	if(e->type() != ModMessage::EventType())
+		return false;
+	auto *m = static_cast<ModMessage *>(e);
+	if(m->message == CommandMessage)
+		m->result = DispatchCommand(static_cast<uint32_t>(m->wParam)) ? 1 : 0;
+	else
+		DispatchMessage(m->message, m->wParam, m->lParam, m->result);
+	return true;
 }
 
 bool MessageMap::HasCommand(uint32_t id) const

@@ -1,0 +1,940 @@
+diff --git a/mptrack/Moddoc.cpp b/mptrack/Moddoc.cpp
+index 222a8e9..545ead6 100644
+--- a/mptrack/Moddoc.cpp
++++ b/mptrack/Moddoc.cpp
+@@ -8,7 +8,6 @@
+  */
+ 
+ 
+-#include "stdafx.h"
+ #include "Moddoc.h"
+ #include "ChannelManagerDlg.h"
+ #include "Childfrm.h"
+@@ -67,14 +66,14 @@
+ OPENMPT_NAMESPACE_BEGIN
+ 
+ 
+-const TCHAR FileFilterMOD[]	= _T("ProTracker Modules (*.mod)|*.mod||");
+-const TCHAR FileFilterXM[]	= _T("FastTracker Modules (*.xm)|*.xm||");
+-const TCHAR FileFilterS3M[] = _T("Scream Tracker Modules (*.s3m)|*.s3m||");
+-const TCHAR FileFilterIT[]	= _T("Impulse Tracker Modules (*.it)|*.it||");
+-const TCHAR FileFilterMPT[] = _T("OpenMPT Modules (*.mptm)|*.mptm||");
+-const TCHAR FileFilterNone[] = _T("");
++const mpt::uchar FileFilterMOD[]	= U_("ProTracker Modules (*.mod)|*.mod||");
++const mpt::uchar FileFilterXM[]	= U_("FastTracker Modules (*.xm)|*.xm||");
++const mpt::uchar FileFilterS3M[] = U_("Scream Tracker Modules (*.s3m)|*.s3m||");
++const mpt::uchar FileFilterIT[]	= U_("Impulse Tracker Modules (*.it)|*.it||");
++const mpt::uchar FileFilterMPT[] = U_("OpenMPT Modules (*.mptm)|*.mptm||");
++const mpt::uchar FileFilterNone[] = U_("");
+ 
+-const CString ModTypeToFilter(const CSoundFile& sndFile)
++const mpt::ustring ModTypeToFilter(const CSoundFile& sndFile)
+ {
+ 	const MODTYPE modtype = sndFile.GetType();
+ 	switch(modtype)
+@@ -91,47 +90,44 @@ const CString ModTypeToFilter(const CSoundFile& sndFile)
+ /////////////////////////////////////////////////////////////////////////////
+ // CModDoc
+ 
+-IMPLEMENT_DYNCREATE(CModDoc, CDocument)
+-
+-BEGIN_MESSAGE_MAP(CModDoc, CDocument)
+-	//{{AFX_MSG_MAP(CModDoc)
+-	ON_COMMAND(ID_FILE_SAVE_COPY,		&CModDoc::OnSaveCopy)
+-	ON_COMMAND(ID_FILE_SAVEASTEMPLATE,	&CModDoc::OnSaveTemplateModule)
+-	ON_COMMAND(ID_FILE_SAVEASWAVE,		&CModDoc::OnFileWaveConvert)
+-	ON_COMMAND(ID_FILE_SAVEMIDI,		&CModDoc::OnFileMidiConvert)
+-	ON_COMMAND(ID_FILE_SAVEOPL,			&CModDoc::OnFileOPLExport)
+-	ON_COMMAND(ID_FILE_SAVECOMPAT,		&CModDoc::OnFileCompatibilitySave)
+-	ON_COMMAND(ID_FILE_APPENDMODULE,	&CModDoc::OnAppendModule)
+-	ON_COMMAND(ID_PLAYER_PLAY,			&CModDoc::OnPlayerPlay)
+-	ON_COMMAND(ID_PLAYER_PAUSE,			&CModDoc::OnPlayerPause)
+-	ON_COMMAND(ID_PLAYER_STOP,			&CModDoc::OnPlayerStop)
+-	ON_COMMAND(ID_PLAYER_PLAYFROMSTART,	&CModDoc::OnPlayerPlayFromStart)
+-	ON_COMMAND(ID_VIEW_SONGPROPERTIES,	&CModDoc::OnSongProperties)
+-	ON_COMMAND(ID_VIEW_GLOBALS,			&CModDoc::OnEditGlobals)
+-	ON_COMMAND(ID_VIEW_PATTERNS,		&CModDoc::OnEditPatterns)
+-	ON_COMMAND(ID_VIEW_SAMPLES,			&CModDoc::OnEditSamples)
+-	ON_COMMAND(ID_VIEW_INSTRUMENTS,		&CModDoc::OnEditInstruments)
+-	ON_COMMAND(ID_VIEW_COMMENTS,		&CModDoc::OnEditComments)
+-	ON_COMMAND(ID_VIEW_EDITHISTORY,		&CModDoc::OnViewEditHistory)
+-	ON_COMMAND(ID_VIEW_MIDIMAPPING,		&CModDoc::OnViewMIDIMapping)
+-	ON_COMMAND(ID_VIEW_MPTHACKS,		&CModDoc::OnViewMPTHacks)
+-	ON_COMMAND(ID_EDIT_CLEANUP,			&CModDoc::OnShowCleanup)
+-	ON_COMMAND(ID_EDIT_SAMPLETRIMMER,	&CModDoc::OnShowSampleTrimmer)
+-	ON_COMMAND(ID_PATTERN_MIDIMACRO,	&CModDoc::OnSetupZxxMacros)
+-	ON_COMMAND(ID_CHANNEL_MANAGER,		&CModDoc::OnChannelManager)
+-
+-	ON_COMMAND(ID_ESTIMATESONGLENGTH,	&CModDoc::OnEstimateSongLength)
+-	ON_COMMAND(ID_APPROX_BPM,			&CModDoc::OnApproximateBPM)
+-	ON_COMMAND(ID_PATTERN_PLAY,			&CModDoc::OnPatternPlay)
+-	ON_COMMAND(ID_PATTERN_PLAYNOLOOP,	&CModDoc::OnPatternPlayNoLoop)
+-	ON_COMMAND(ID_PATTERN_RESTART,		&CModDoc::OnPatternRestart)
+-	ON_UPDATE_COMMAND_UI(ID_VIEW_INSTRUMENTS,		&CModDoc::OnUpdateXMITMPTOnly)
+-	ON_UPDATE_COMMAND_UI(ID_PATTERN_MIDIMACRO,		&CModDoc::OnUpdateXMITMPTOnly)
+-	ON_UPDATE_COMMAND_UI(ID_VIEW_MIDIMAPPING,		&CModDoc::OnUpdateHasMIDIMappings)
+-	ON_UPDATE_COMMAND_UI(ID_VIEW_EDITHISTORY,		&CModDoc::OnUpdateHasEditHistory)
+-	ON_UPDATE_COMMAND_UI(ID_FILE_SAVECOMPAT,		&CModDoc::OnUpdateCompatExportableOnly)
+-	//}}AFX_MSG_MAP
+-END_MESSAGE_MAP()
++void CModDoc::RegisterMessageMap()
++{
++	QObject::RegisterMessageMap();
++	AddCommand(ID_FILE_SAVE_COPY, &CModDoc::OnSaveCopy);
++	AddCommand(ID_FILE_SAVEASTEMPLATE, &CModDoc::OnSaveTemplateModule);
++	AddCommand(ID_FILE_SAVEASWAVE, &CModDoc::OnFileWaveConvert);
++	AddCommand(ID_FILE_SAVEMIDI, &CModDoc::OnFileMidiConvert);
++	AddCommand(ID_FILE_SAVEOPL, &CModDoc::OnFileOPLExport);
++	AddCommand(ID_FILE_SAVECOMPAT, &CModDoc::OnFileCompatibilitySave);
++	AddCommand(ID_FILE_APPENDMODULE, &CModDoc::OnAppendModule);
++	AddCommand(ID_PLAYER_PLAY, &CModDoc::OnPlayerPlay);
++	AddCommand(ID_PLAYER_PAUSE, &CModDoc::OnPlayerPause);
++	AddCommand(ID_PLAYER_STOP, &CModDoc::OnPlayerStop);
++	AddCommand(ID_PLAYER_PLAYFROMSTART, &CModDoc::OnPlayerPlayFromStart);
++	AddCommand(ID_VIEW_SONGPROPERTIES, &CModDoc::OnSongProperties);
++	AddCommand(ID_VIEW_GLOBALS, &CModDoc::OnEditGlobals);
++	AddCommand(ID_VIEW_PATTERNS, &CModDoc::OnEditPatterns);
++	AddCommand(ID_VIEW_SAMPLES, &CModDoc::OnEditSamples);
++	AddCommand(ID_VIEW_INSTRUMENTS, &CModDoc::OnEditInstruments);
++	AddCommand(ID_VIEW_COMMENTS, &CModDoc::OnEditComments);
++	AddCommand(ID_VIEW_EDITHISTORY, &CModDoc::OnViewEditHistory);
++	AddCommand(ID_VIEW_MIDIMAPPING, &CModDoc::OnViewMIDIMapping);
++	AddCommand(ID_VIEW_MPTHACKS, &CModDoc::OnViewMPTHacks);
++	AddCommand(ID_EDIT_CLEANUP, &CModDoc::OnShowCleanup);
++	AddCommand(ID_EDIT_SAMPLETRIMMER, &CModDoc::OnShowSampleTrimmer);
++	AddCommand(ID_PATTERN_MIDIMACRO, &CModDoc::OnSetupZxxMacros);
++	AddCommand(ID_CHANNEL_MANAGER, &CModDoc::OnChannelManager);
++	AddCommand(ID_ESTIMATESONGLENGTH, &CModDoc::OnEstimateSongLength);
++	AddCommand(ID_APPROX_BPM, &CModDoc::OnApproximateBPM);
++	AddCommand(ID_PATTERN_PLAY, &CModDoc::OnPatternPlay);
++	AddCommand(ID_PATTERN_PLAYNOLOOP, &CModDoc::OnPatternPlayNoLoop);
++	AddCommand(ID_PATTERN_RESTART, &CModDoc::OnPatternRestart);
++	AddCommandUpdate(ID_VIEW_INSTRUMENTS, &CModDoc::OnUpdateXMITMPTOnly);
++	AddCommandUpdate(ID_PATTERN_MIDIMACRO, &CModDoc::OnUpdateXMITMPTOnly);
++	AddCommandUpdate(ID_VIEW_MIDIMAPPING, &CModDoc::OnUpdateHasMIDIMappings);
++	AddCommandUpdate(ID_VIEW_EDITHISTORY, &CModDoc::OnUpdateHasEditHistory);
++	AddCommandUpdate(ID_FILE_SAVECOMPAT, &CModDoc::OnUpdateCompatExportableOnly);
++}
+ 
+ 
+ /////////////////////////////////////////////////////////////////////////////
+@@ -162,10 +158,10 @@ void CModDoc::SetModified(bool modified)
+ {
+ 	static_assert(sizeof(long) == sizeof(m_bModified));
+ 	m_modifiedAutosave = modified;
+-	if(!!InterlockedExchange(reinterpret_cast<long *>(&m_bModified), modified ? TRUE : FALSE) != modified)
++	if(!!InterlockedExchange(reinterpret_cast<long *>(&m_bModified), modified ? true : false) != modified)
+ 	{
+ 		// Update window titles in GUI thread
+-		CMainFrame::GetMainFrame()->SendNotifyMessage(WM_MOD_SETMODIFIED, reinterpret_cast<WPARAM>(this), 0);
++		CMainFrame::GetMainFrame()->SendNotifyMessage(WM_MOD_SETMODIFIED, reinterpret_cast<uintptr_t>(this), 0);
+ 	}
+ }
+ 
+@@ -177,20 +173,20 @@ bool CModDoc::ModifiedSinceLastAutosave()
+ }
+ 
+ 
+-BOOL CModDoc::OnNewDocument()
++bool CModDoc::OnNewDocument()
+ {
+-	if (!CDocument::OnNewDocument()) return FALSE;
++	if (!QObject::OnNewDocument()) return false;
+ 
+ 	m_SndFile.Create(FileReader(), CSoundFile::loadCompleteModule, this);
+ 	InitializeMod();
+ 
+ 	ReinitRecordState();
+ 	SetModified(false);
+-	return TRUE;
++	return true;
+ }
+ 
+ 
+-BOOL CModDoc::OnOpenDocument(LPCTSTR lpszPathName)
++bool CModDoc::OnOpenDocument(const mpt::uchar * lpszPathName)
+ {
+ 	const mpt::PathString filename = lpszPathName ? mpt::PathString::FromCString(lpszPathName) : mpt::PathString();
+ 
+@@ -209,24 +205,24 @@ BOOL CModDoc::OnOpenDocument(LPCTSTR lpszPathName)
+ 		{
+ 			FileReader file = GetFileReader(f);
+ 			MPT_ASSERT(GetPathNameMpt().empty());
+-			SetPathName(filename, FALSE);	// Path is not set yet, but loaders processing external samples/instruments (ITP/MPTM) need this for relative paths.
++			SetPathName(filename, false);	// Path is not set yet, but loaders processing external samples/instruments (ITP/MPTM) need this for relative paths.
+ 			try
+ 			{
+ 				if(!m_SndFile.Create(file, CSoundFile::loadCompleteModule, this))
+ 				{
+ 					EndWaitCursor();
+-					return FALSE;
++					return false;
+ 				}
+ 			} catch(mpt::out_of_memory e)
+ 			{
+ 				mpt::delete_out_of_memory(e);
+ 				EndWaitCursor();
+ 				AddToLog(LogError, U_("Out of Memory"));
+-				return FALSE;
++				return false;
+ 			} catch(const std::exception &)
+ 			{
+ 				EndWaitCursor();
+-				return FALSE;
++				return false;
+ 			}
+ 		}
+ 
+@@ -237,11 +233,11 @@ BOOL CModDoc::OnOpenDocument(LPCTSTR lpszPathName)
+ 	EndWaitCursor();
+ 
+ 	logcapturer.ShowLog(
+-		MPT_CFORMAT("File: {}\nLast saved with: {}, you are using OpenMPT {}\n\n")
++		MPT_UFORMAT("File: {}\nLast saved with: {}, you are using OpenMPT {}\n\n")
+ 		(filename, m_SndFile.m_modFormat.madeWithTracker, Version::Current()));
+ 
+ 	if((GetModType() == MOD_TYPE_NONE) || (!m_SndFile.GetNumChannels()))
+-		return FALSE;
++		return false;
+ 
+ 	const bool noColors = std::find_if(std::begin(m_SndFile.ChnSettings), std::begin(m_SndFile.ChnSettings) + GetNumChannels(), [](const auto &settings) {
+ 		return settings.color != ModChannelSettings::INVALID_COLOR;
+@@ -308,7 +304,7 @@ BOOL CModDoc::OnOpenDocument(LPCTSTR lpszPathName)
+ 		}
+ 	}
+ 
+-	return TRUE;
++	return true;
+ }
+ 
+ 
+@@ -401,11 +397,11 @@ bool CModDoc::SaveFile(const mpt::PathString &filename, bool allowRelativeSample
+ }
+ 
+ 
+-BOOL CModDoc::SaveModified()
++bool CModDoc::SaveModified()
+ {
+ 	if(m_SndFile.GetType() == MOD_TYPE_MPT && !SaveAllSamples())
+-		return FALSE;
+-	return CDocument::SaveModified();
++		return false;
++	return QObject::SaveModified();
+ }
+ 
+ 
+@@ -473,7 +469,7 @@ void CModDoc::OnCloseDocument()
+ {
+ 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
+ 	if(pMainFrm) pMainFrm->OnDocumentClosed(this);
+-	CDocument::OnCloseDocument();
++	QObject::OnCloseDocument();
+ }
+ 
+ 
+@@ -486,7 +482,7 @@ void CModDoc::DeleteContents()
+ }
+ 
+ 
+-BOOL CModDoc::DoSave(const mpt::PathString &filename, bool setPath)
++bool CModDoc::DoSave(const mpt::PathString &filename, bool setPath)
+ {
+ 	const mpt::PathString docFileName = GetPathNameMpt();
+ 	const mpt::ustring defaultExtension = m_SndFile.GetModSpecifications().GetFileExtension();
+@@ -508,7 +504,7 @@ BOOL CModDoc::DoSave(const mpt::PathString &filename, bool setPath)
+ 		break;
+ 	default:
+ 		ErrorBox(IDS_ERR_SAVESONG, CMainFrame::GetMainFrame());
+-		return FALSE;
++		return false;
+ 	}
+ 
+ 	mpt::PathString ext = P_(".") + mpt::PathString::FromUnicode(defaultExtension);
+@@ -531,7 +527,7 @@ BOOL CModDoc::DoSave(const mpt::PathString &filename, bool setPath)
+ 			.DefaultFilename(defaultSaveName)
+ 			.ExtensionFilter(ModTypeToFilter(m_SndFile))
+ 			.WorkingDirectory(TrackerSettings::Instance().PathSongs.GetWorkingDir());
+-		if(!dlg.Show()) return FALSE;
++		if(!dlg.Show()) return false;
+ 
+ 		TrackerSettings::Instance().PathSongs.SetWorkingDir(dlg.GetWorkingDirectory());
+ 
+@@ -564,10 +560,10 @@ BOOL CModDoc::DoSave(const mpt::PathString &filename, bool setPath)
+ 		m_bHasValidPath = true;
+ 		m_ShowSavedialog = false;
+ 		CMainFrame::GetMainFrame()->UpdateTree(this, GeneralHint().General()); // Update treeview (e.g. filename might have changed)
+-		return TRUE;
++		return true;
+ 	} else
+ 	{
+-		return FALSE;
++		return false;
+ 	}
+ }
+ 
+@@ -577,7 +573,7 @@ void CModDoc::OnAppendModule()
+ 	FileDialog::PathList files;
+ 	CTrackApp::OpenModulesDialog(files);
+ 
+-	ScopedLogCapturer logcapture(*this, _T("Append Failures"));
++	ScopedLogCapturer logcapture(*this, U_("Append Failures"));
+ 	try
+ 	{
+ 		auto source = std::make_unique<CSoundFile>();
+@@ -761,7 +757,7 @@ bool CModDoc::SetDefaultChannelColors(CHANNELINDEX minChannel, CHANNELINDEX maxC
+ }
+ 
+ 
+-void CModDoc::PostMessageToAllViews(UINT uMsg, WPARAM wParam, LPARAM lParam)
++void CModDoc::PostMessageToAllViews(uint32 uMsg, uintptr_t wParam, intptr_t lParam)
+ {
+ 	POSITION pos = GetFirstViewPosition();
+ 	while(pos != nullptr)
+@@ -772,7 +768,7 @@ void CModDoc::PostMessageToAllViews(UINT uMsg, WPARAM wParam, LPARAM lParam)
+ }
+ 
+ 
+-void CModDoc::SendNotifyMessageToAllViews(UINT uMsg, WPARAM wParam, LPARAM lParam)
++void CModDoc::SendNotifyMessageToAllViews(uint32 uMsg, uintptr_t wParam, intptr_t lParam)
+ {
+ 	POSITION pos = GetFirstViewPosition();
+ 	while(pos != nullptr)
+@@ -783,7 +779,7 @@ void CModDoc::SendNotifyMessageToAllViews(UINT uMsg, WPARAM wParam, LPARAM lPara
+ }
+ 
+ 
+-void CModDoc::SendMessageToActiveView(UINT uMsg, WPARAM wParam, LPARAM lParam)
++void CModDoc::SendMessageToActiveView(uint32 uMsg, uintptr_t wParam, intptr_t lParam)
+ {
+ 	if(auto *lastActiveFrame = CChildFrame::LastActiveFrame(); lastActiveFrame != nullptr)
+ 	{
+@@ -792,25 +788,25 @@ void CModDoc::SendMessageToActiveView(UINT uMsg, WPARAM wParam, LPARAM lParam)
+ }
+ 
+ 
+-void CModDoc::ViewPattern(UINT nPat, UINT nOrd)
++void CModDoc::ViewPattern(uint32 nPat, uint32 nOrd)
+ {
+ 	SendMessageToActiveView(WM_MOD_ACTIVATEVIEW, IDD_CONTROL_PATTERNS, ((nPat+1) << 16) | nOrd);
+ }
+ 
+ 
+-void CModDoc::ViewSample(UINT nSmp)
++void CModDoc::ViewSample(uint32 nSmp)
+ {
+ 	SendMessageToActiveView(WM_MOD_ACTIVATEVIEW, IDD_CONTROL_SAMPLES, nSmp);
+ }
+ 
+ 
+-void CModDoc::ViewInstrument(UINT nIns)
++void CModDoc::ViewInstrument(uint32 nIns)
+ {
+ 	SendMessageToActiveView(WM_MOD_ACTIVATEVIEW, IDD_CONTROL_INSTRUMENTS, nIns);
+ }
+ 
+ 
+-ScopedLogCapturer::ScopedLogCapturer(CModDoc &modDoc, const CString &title, CWnd *parent, bool showLog) :
++ScopedLogCapturer::ScopedLogCapturer(CModDoc &modDoc, const mpt::ustring &title, QWidget *parent, bool showLog) :
+ m_modDoc(modDoc), m_oldLogMode(m_modDoc.GetLogMode()), m_title(title), m_pParent(parent), m_showLog(showLog)
+ {
+ 	m_modDoc.SetLogMode(LogModeGather);
+@@ -831,13 +827,13 @@ void ScopedLogCapturer::ShowLog(const std::string &preamble, bool force)
+ {
+ 	if(force || m_oldLogMode == LogModeInstantReporting)
+ 	{
+-		m_modDoc.ShowLog(mpt::ToCString(mpt::Charset::Locale, preamble), m_title, m_pParent);
++		m_modDoc.ShowLog(mpt::ToUnicode(mpt::Charset::Locale, preamble), m_title, m_pParent);
+ 		m_modDoc.ClearLog();
+ 	}
+ }
+ 
+ 
+-void ScopedLogCapturer::ShowLog(const CString &preamble, bool force)
++void ScopedLogCapturer::ShowLog(const mpt::ustring &preamble, bool force)
+ {
+ 	if(force || m_oldLogMode == LogModeInstantReporting)
+ 	{
+@@ -851,7 +847,7 @@ void ScopedLogCapturer::ShowLog(const mpt::ustring &preamble, bool force)
+ {
+ 	if(force || m_oldLogMode == LogModeInstantReporting)
+ 	{
+-		m_modDoc.ShowLog(mpt::ToCString(preamble), m_title, m_pParent);
++		m_modDoc.ShowLog(mpt::ToUnicode(preamble), m_title, m_pParent);
+ 		m_modDoc.ClearLog();
+ 	}
+ }
+@@ -912,7 +908,7 @@ void CModDoc::ClearLog()
+ }
+ 
+ 
+-UINT CModDoc::ShowLog(const CString &preamble, const CString &title, CWnd *parent)
++uint32 CModDoc::ShowLog(const mpt::ustring &preamble, const mpt::ustring &title, QWidget *parent)
+ {
+ 	if(!parent) parent = CMainFrame::GetMainFrame();
+ 	if(GetLog().size() > 0)
+@@ -920,8 +916,8 @@ UINT CModDoc::ShowLog(const CString &preamble, const CString &title, CWnd *paren
+ 		LogLevel level = GetMaxLogLevel();
+ 		if(level < LogDebug)
+ 		{
+-			CString text = preamble + mpt::ToCString(GetLogString());
+-			CString actualTitle = (title.GetLength() == 0) ? CString(MAINFRAME_TITLE) : title;
++			mpt::ustring text = preamble + mpt::ToUnicode(GetLogString());
++			mpt::ustring actualTitle = (title.GetLength() == 0) ? mpt::ustring(MAINFRAME_TITLE) : title;
+ 			Reporting::Message(level, text, actualTitle, parent);
+ 			return IDOK;
+ 		}
+@@ -1197,7 +1193,7 @@ CHANNELINDEX CModDoc::PlayNote(PlayNoteParam &params, NoteToChannelMap *noteChan
+ }
+ 
+ 
+-bool CModDoc::NoteOff(UINT note, bool fade, INSTRUMENTINDEX ins, CHANNELINDEX currentChn)
++bool CModDoc::NoteOff(uint32 note, bool fade, INSTRUMENTINDEX ins, CHANNELINDEX currentChn)
+ {
+ 	CriticalSection cs;
+ 
+@@ -1296,7 +1292,7 @@ void CModDoc::CheckNNA(ModCommand::NOTE note, INSTRUMENTINDEX ins, std::bitset<1
+ 
+ // Check if a given note of an instrument or sample is playing from the editor.
+ // If note == 0, just check if an instrument or sample is playing.
+-bool CModDoc::IsNotePlaying(UINT note, SAMPLEINDEX nsmp, INSTRUMENTINDEX nins)
++bool CModDoc::IsNotePlaying(uint32 note, SAMPLEINDEX nsmp, INSTRUMENTINDEX nins)
+ {
+ 	for(ModChannel &chn : m_SndFile.m_PlayState.BackgroundChannels(m_SndFile))
+ 	{
+@@ -1542,14 +1538,14 @@ bool CModDoc::IsInstrumentMuted(INSTRUMENTINDEX nInstr) const
+ }
+ 
+ 
+-UINT CModDoc::GetPatternSize(PATTERNINDEX nPat) const
++uint32 CModDoc::GetPatternSize(PATTERNINDEX nPat) const
+ {
+ 	if(m_SndFile.Patterns.IsValidIndex(nPat)) return m_SndFile.Patterns[nPat].GetNumRows();
+ 	return 0;
+ }
+ 
+ 
+-void CModDoc::SetFollowWnd(HWND hwnd)
++void CModDoc::SetFollowWnd(QWidget * hwnd)
+ {
+ 	m_hWndFollow = hwnd;
+ }
+@@ -1602,7 +1598,7 @@ SAMPLEINDEX CModDoc::FindInstrumentChild(INSTRUMENTINDEX nIns) const
+ }
+ 
+ 
+-LRESULT CModDoc::ActivateView(UINT nIdView, DWORD dwParam)
++intptr_t CModDoc::ActivateView(uint32 nIdView, uint32 dwParam)
+ {
+ 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
+ 	if (!pMainFrm) return 0;
+@@ -1638,10 +1634,10 @@ void CModDoc::ActivateWindow()
+ }
+ 
+ 
+-void CModDoc::UpdateAllViews(CView *pSender, UpdateHint hint, CObject *pHint)
++void CModDoc::UpdateAllViews(CView *pSender, UpdateHint hint, QObject *pHint)
+ {
+-	// Tunnel our UpdateHint into an LPARAM
+-	CDocument::UpdateAllViews(pSender, hint.AsLPARAM(), pHint);
++	// Tunnel our UpdateHint into an intptr_t
++	QObject::UpdateAllViews(pSender, hint.AsLPARAM(), pHint);
+ 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
+ 	if (pMainFrm) pMainFrm->UpdateTree(this, hint, pHint);
+ 	
+@@ -1669,7 +1665,7 @@ void CModDoc::UpdateAllViews(CView *pSender, UpdateHint hint, CObject *pHint)
+ 
+ void CModDoc::UpdateAllViews(UpdateHint hint)
+ {
+-	CMainFrame::GetMainFrame()->SendNotifyMessage(WM_MOD_UPDATEVIEWS, reinterpret_cast<WPARAM>(this), hint.AsLPARAM());
++	CMainFrame::GetMainFrame()->SendNotifyMessage(WM_MOD_UPDATEVIEWS, reinterpret_cast<uintptr_t>(this), hint.AsLPARAM());
+ }
+ 
+ 
+@@ -1684,7 +1680,7 @@ void CModDoc::OnFileWaveConvert()
+ 
+ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, const std::vector<EncoderFactoryBase*> &encFactories)
+ {
+-	ASSERT(!encFactories.empty());
++	MPT_ASSERT(!encFactories.empty());
+ 
+ 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
+ 
+@@ -1795,7 +1791,7 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 		for(int i = 0; i < nRenderPasses; i++)
+ 		{
+ 			mpt::PathString thisName = fileName;
+-			CString caption = _T("file");
++			mpt::ustring caption = U_("file");
+ 			fileNameAdd.clear();
+ 			if(wsdlg.m_subSongs.size() > 1)
+ 			{
+@@ -1824,11 +1820,11 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 				if(!m_SndFile.ChnSettings[i].szName.empty())
+ 				{
+ 					fileNameAdd += MPT_UFORMAT("-{}_{}")(mpt::ufmt::dec0<3>(i + 1), mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.ChnSettings[i].szName));
+-					caption = MPT_CFORMAT("{}: {}")(i + 1, mpt::ToCString(m_SndFile.GetCharsetInternal(), m_SndFile.ChnSettings[i].szName));
++					caption = MPT_UFORMAT("{}: {}")(i + 1, mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.ChnSettings[i].szName));
+ 				} else
+ 				{
+ 					fileNameAdd += MPT_UFORMAT("-{}")(mpt::ufmt::dec0<3>(i + 1));
+-					caption = MPT_CFORMAT("channel {}")(i + 1);
++					caption = MPT_UFORMAT("channel {}")(i + 1);
+ 				}
+ 				// Unmute channel to process
+ 				m_SndFile.ChnSettings[i].dwFlags.reset(muteFlag);
+@@ -1848,11 +1844,11 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 					if(!m_SndFile.m_szNames[i + 1].empty())
+ 					{
+ 						fileNameAdd += MPT_UFORMAT("-{}_{}")(mpt::ufmt::dec0<3>(i + 1), mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.m_szNames[i + 1]));
+-						caption = MPT_CFORMAT("{}: {}")(i + 1, mpt::ToCString(m_SndFile.GetCharsetInternal(), m_SndFile.m_szNames[i + 1]));
++						caption = MPT_UFORMAT("{}: {}")(i + 1, mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.m_szNames[i + 1]));
+ 					} else
+ 					{
+ 						fileNameAdd += MPT_UFORMAT("-{}")(mpt::ufmt::dec0<3>(i + 1));
+-						caption = MPT_CFORMAT("sample {}")(i + 1);
++						caption = MPT_UFORMAT("sample {}")(i + 1);
+ 					}
+ 					// Unmute sample to process
+ 					MuteSample(static_cast<SAMPLEINDEX>(i + 1), false);
+@@ -1867,11 +1863,11 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 					if(!m_SndFile.Instruments[i + 1]->name.empty())
+ 					{
+ 						fileNameAdd += MPT_UFORMAT("-{}_{}")(mpt::ufmt::dec0<3>(i + 1), mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.Instruments[i + 1]->name));
+-						caption = MPT_CFORMAT("{}: {}")(i + 1, mpt::ToCString(m_SndFile.GetCharsetInternal(), m_SndFile.Instruments[i + 1]->name));
++						caption = MPT_UFORMAT("{}: {}")(i + 1, mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.Instruments[i + 1]->name));
+ 					} else
+ 					{
+ 						fileNameAdd += MPT_UFORMAT("-{}")(mpt::ufmt::dec0<3>(i + 1));
+-						caption = MPT_CFORMAT("instrument {}")(i + 1);
++						caption = MPT_UFORMAT("instrument {}")(i + 1);
+ 					}
+ 					// Unmute instrument to process
+ 					MuteInstrument(static_cast<SAMPLEINDEX>(i + 1), false);
+@@ -1916,7 +1912,7 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 				}
+ 			} catch(const std::exception &)
+ 			{
+-				Reporting::Error(_T("Error while writing file!"));
++				Reporting::Error(U_("Error while writing file!"));
+ 			}
+ 
+ 			if(wsdlg.m_Settings.outputToSample)
+@@ -1931,7 +1927,7 @@ void CModDoc::OnFileWaveConvert(ORDERINDEX nMinOrder, ORDERINDEX nMaxOrder, cons
+ 						if(smp == 0 || smp > GetNumSamples()) smp = m_SndFile.GetNextFreeSample();
+ 						if(smp == SAMPLEINDEX_INVALID)
+ 						{
+-							Reporting::Error(_T("Too many samples!"));
++							Reporting::Error(U_("Too many samples!"));
+ 							cancel = true;
+ 						}
+ 						if(!cancel)
+@@ -2046,7 +2042,7 @@ void CModDoc::OnFileCompatibilitySave()
+ 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
+ 	if (!pMainFrm) return;
+ 
+-	CString pattern;
++	mpt::ustring pattern;
+ 
+ 	const MODTYPE type = m_SndFile.GetType();
+ 	switch(type)
+@@ -2304,54 +2300,54 @@ void CModDoc::OnSetupZxxMacros()
+ 
+ 
+ // Enable menu item only module types that support MIDI Mappings
+-void CModDoc::OnUpdateHasMIDIMappings(CCmdUI *p)
++void CModDoc::OnUpdateHasMIDIMappings(mfcless::CommandState &state)
+ {
+ 	if(p)
+-		p->Enable((m_SndFile.GetModSpecifications().MIDIMappingDirectivesMax > 0) ? TRUE : FALSE);
++		p->Enable((m_SndFile.GetModSpecifications().MIDIMappingDirectivesMax > 0) ? true : false);
+ }
+ 
+ 
+ // Enable menu item only for IT / MPTM / XM files
+-void CModDoc::OnUpdateXMITMPTOnly(CCmdUI *p)
++void CModDoc::OnUpdateXMITMPTOnly(mfcless::CommandState &state)
+ {
+ 	if (p)
+-		p->Enable((m_SndFile.GetType() & (MOD_TYPE_XM | MOD_TYPE_IT | MOD_TYPE_MPT)) ? TRUE : FALSE);
++		p->Enable((m_SndFile.GetType() & (MOD_TYPE_XM | MOD_TYPE_IT | MOD_TYPE_MPT)) ? true : false);
+ }
+ 
+ 
+ // Enable menu item only for IT / MPTM files
+-void CModDoc::OnUpdateHasEditHistory(CCmdUI *p)
++void CModDoc::OnUpdateHasEditHistory(mfcless::CommandState &state)
+ {
+ 	if (p)
+-		p->Enable(((m_SndFile.GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) || !m_SndFile.GetFileHistory().empty()) ? TRUE : FALSE);
++		p->Enable(((m_SndFile.GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) || !m_SndFile.GetFileHistory().empty()) ? true : false);
+ }
+ 
+ 
+ // Enable menu item if current module type supports compatibility export
+-void CModDoc::OnUpdateCompatExportableOnly(CCmdUI *p)
++void CModDoc::OnUpdateCompatExportableOnly(mfcless::CommandState &state)
+ {
+ 	if(p)
+-		p->Enable((m_SndFile.GetType() & (MOD_TYPE_XM | MOD_TYPE_IT)) ? TRUE : FALSE);
++		p->Enable((m_SndFile.GetType() & (MOD_TYPE_XM | MOD_TYPE_IT)) ? true : false);
+ }
+ 
+ 
+-static CString FormatSongLength(double length)
++static mpt::ustring FormatSongLength(double length)
+ {
+ 	length = mpt::round(length);
+ 	double minutes = std::floor(length / 60.0), seconds = std::fmod(length, 60.0);
+-	CString s;
+-	s.Format(_T("%.0fmn%02.0fs"), minutes, seconds);
++	mpt::ustring s;
++	s.Format(U_("%.0fmn%02.0fs"), minutes, seconds);
+ 	return s;
+ }
+ 
+ 
+ void CModDoc::OnEstimateSongLength()
+ {
+-	CString s = _T("Approximate song length: ");
++	mpt::ustring s = U_("Approximate song length: ");
+ 	const auto subSongs = m_SndFile.GetAllSubSongs();
+ 	if (subSongs.empty())
+ 	{
+-		Reporting::Information(_T("No patterns found!"));
++		Reporting::Information(U_("No patterns found!"));
+ 		return;
+ 	}
+ 
+@@ -2367,7 +2363,7 @@ void CModDoc::OnEstimateSongLength()
+ 	double totalLength = 0.0;
+ 	uint32 songCount = 0;
+ 	// If there are multiple sequences, indent their subsongs
+-	const TCHAR *indent = (prevSeq == SEQUENCEINDEX_INVALID) ? _T("\t") : _T("");
++	const mpt::uchar *indent = (prevSeq == SEQUENCEINDEX_INVALID) ? U_("\t") : U_("");
+ 	for(const auto &song : subSongs)
+ 	{
+ 		double songLength = song.duration;
+@@ -2379,13 +2375,13 @@ void CModDoc::OnEstimateSongLength()
+ 				songCount = 0;
+ 				prevSeq = song.sequence;
+ 				if(m_SndFile.Order(prevSeq).GetName().empty())
+-					s.AppendFormat(_T("\nSequence %u:"), prevSeq + 1u);
++					s.AppendFormat(U_("\nSequence %u:"), prevSeq + 1u);
+ 				else
+-					s.AppendFormat(_T("\nSequence %u (%s):"), prevSeq + 1u, mpt::ToWin(m_SndFile.Order(prevSeq).GetName()).c_str());
++					s.AppendFormat(U_("\nSequence %u (%s):"), prevSeq + 1u, mpt::ToUnicode(m_SndFile.Order(prevSeq).GetName()).c_str());
+ 			}
+ 			songCount++;
+ 			if(songsPerSequence[song.sequence] > 1)
+-				s.AppendFormat(_T("\n%sSong %u, starting at order %s:\t"), indent, songCount, FormatOrderRow(song.startOrder).GetString());
++				s.AppendFormat(U_("\n%sSong %u, starting at order %s:\t"), indent, songCount, FormatOrderRow(song.startOrder).GetString());
+ 			else
+ 				s.AppendChar(_T('\t'));
+ 		}
+@@ -2395,12 +2391,12 @@ void CModDoc::OnEstimateSongLength()
+ 			s += FormatSongLength(songLength);
+ 		} else
+ 		{
+-			s += _T("Song too long!");
++			s += U_("Song too long!");
+ 		}
+ 	}
+ 	if(subSongs.size() > 1 && totalLength != std::numeric_limits<double>::infinity())
+ 	{
+-		s += _T("\n\nTotal length:\t") + FormatSongLength(totalLength);
++		s += U_("\n\nTotal length:\t") + FormatSongLength(totalLength);
+ 	}
+ 
+ 	Reporting::Information(s);
+@@ -2418,21 +2414,21 @@ void CModDoc::OnApproximateBPM()
+ 	const double bpm = m_SndFile.GetCurrentBPM();
+ 	const ROWINDEX rowsPerBeat = m_SndFile.m_PlayState.m_nCurrentRowsPerBeat ? m_SndFile.m_PlayState.m_nCurrentRowsPerBeat : DEFAULT_ROWS_PER_BEAT;
+ 
+-	CString s;
++	mpt::ustring s;
+ 	switch(m_SndFile.m_nTempoMode)
+ 	{
+ 		case TempoMode::Alternative:
+-			s.Format(_T("Using alternative tempo interpretation.\n\nAssuming:\n. %.8g ticks per second\n. %u ticks per row\n. %u rows per beat\nthe tempo is approximately: %.8g BPM"),
++			s.Format(U_("Using alternative tempo interpretation.\n\nAssuming:\n. %.8g ticks per second\n. %u ticks per row\n. %u rows per beat\nthe tempo is approximately: %.8g BPM"),
+ 			m_SndFile.m_PlayState.m_nMusicTempo.ToDouble(), m_SndFile.m_PlayState.m_nMusicSpeed, rowsPerBeat, bpm);
+ 			break;
+ 
+ 		case TempoMode::Modern:
+-			s.Format(_T("Using modern tempo interpretation.\n\nThe tempo is: %.8g BPM"), bpm);
++			s.Format(U_("Using modern tempo interpretation.\n\nThe tempo is: %.8g BPM"), bpm);
+ 			break;
+ 
+ 		case TempoMode::Classic:
+ 		default:
+-			s.Format(_T("Using standard tempo interpretation.\n\nAssuming:\n. A mod tempo (tick duration factor) of %.8g\n. %u ticks per row\n. %u rows per beat\nthe tempo is approximately: %.8g BPM"),
++			s.Format(U_("Using standard tempo interpretation.\n\nAssuming:\n. A mod tempo (tick duration factor) of %.8g\n. %u ticks per row\n. %u rows per beat\nthe tempo is approximately: %.8g BPM"),
+ 			m_SndFile.m_PlayState.m_nMusicTempo.ToDouble(), m_SndFile.m_PlayState.m_nMusicSpeed, rowsPerBeat, bpm);
+ 			break;
+ 	}
+@@ -2472,7 +2468,7 @@ void CModDoc::GetEditPosition(ROWINDEX &row, PATTERNINDEX &pat, ORDERINDEX &ord)
+ 	if(pChildFrm->IsPatternView())
+ 	{
+ 		PatternViewState patternViewState;
+-		pChildFrm->SendViewMessage(VIEWMSG_SAVESTATE, (LPARAM)(&patternViewState));
++		pChildFrm->SendViewMessage(VIEWMSG_SAVESTATE, (intptr_t)(&patternViewState));
+ 
+ 		pat = patternViewState.nPattern;
+ 		row = patternViewState.cursor.GetRow();
+@@ -2710,13 +2706,13 @@ void CModDoc::OnViewTempoSwingSettings()
+ 		}
+ 	} else if(GetModType() == MOD_TYPE_MPT)
+ 	{
+-		Reporting::Error(_T("Modern tempo mode needs to be enabled in order to edit tempo swing settings."));
++		Reporting::Error(U_("Modern tempo mode needs to be enabled in order to edit tempo swing settings."));
+ 		OnSongProperties();
+ 	}
+ }
+ 
+ 
+-LRESULT CModDoc::OnCustomKeyMsg(WPARAM wParam, LPARAM /*lParam*/)
++intptr_t CModDoc::OnCustomKeyMsg(uintptr_t wParam, intptr_t /*lParam*/)
+ {
+ 	const auto &modSpecs = m_SndFile.GetModSpecifications();
+ 	switch(wParam)
+@@ -2808,7 +2804,7 @@ LRESULT CModDoc::OnCustomKeyMsg(WPARAM wParam, LPARAM /*lParam*/)
+ }
+ 
+ 
+-void CModDoc::TogglePluginEditor(UINT plugin, bool onlyThisEditor)
++void CModDoc::TogglePluginEditor(uint32 plugin, bool onlyThisEditor)
+ {
+ 	if(plugin < MAX_MIXPLUGINS)
+ 	{
+@@ -2879,7 +2875,7 @@ void CModDoc::ChangeFileExtension(MODTYPE nNewType)
+ 		// Forcing save dialog to appear after extension change - otherwise unnotified file overwriting may occur.
+ 		m_ShowSavedialog = true;
+ 
+-		SetPathName(newPath, FALSE);
++		SetPathName(newPath, false);
+ 	}
+ 
+ 	UpdateAllViews(nullptr, UpdateHint().ModType());
+@@ -2912,9 +2908,9 @@ void CModDoc::LearnMacro(int macroToSet, PlugParamIndex paramToUse)
+ 	// If macro already exists for this param, inform user and return
+ 	if(auto macro = m_SndFile.m_MidiCfg.FindMacroForParam(paramToUse); macro >= 0)
+ 	{
+-		CString message;
+-		message.Format(_T("Parameter %i can already be controlled with macro %X."), static_cast<int>(paramToUse), macro);
+-		Reporting::Information(message, _T("Macro exists for this parameter"));
++		mpt::ustring message;
++		message.Format(U_("Parameter %i can already be controlled with macro %X."), static_cast<int>(paramToUse), macro);
++		Reporting::Information(message, U_("Macro exists for this parameter"));
+ 		return;
+ 	}
+ 
+@@ -2924,15 +2920,15 @@ void CModDoc::LearnMacro(int macroToSet, PlugParamIndex paramToUse)
+ 		m_SndFile.m_MidiCfg.CreateParameteredMacro(macroToSet, kSFxPlugParam, paramToUse);
+ 	} else
+ 	{
+-		CString message;
+-		message.Format(_T("Parameter %i beyond controllable range. Use Parameter Control Events to automate this parameter."), static_cast<int>(paramToUse));
+-		Reporting::Information(message, _T("Macro not assigned for this parameter"));
++		mpt::ustring message;
++		message.Format(U_("Parameter %i beyond controllable range. Use Parameter Control Events to automate this parameter."), static_cast<int>(paramToUse));
++		Reporting::Information(message, U_("Macro not assigned for this parameter"));
+ 		return;
+ 	}
+ 
+-	CString message;
+-	message.Format(_T("Parameter %i can now be controlled with macro %X."), static_cast<int>(paramToUse), macroToSet);
+-	Reporting::Information(message, _T("Macro assigned for this parameter"));
++	mpt::ustring message;
++	message.Format(U_("Parameter %i can now be controlled with macro %X."), static_cast<int>(paramToUse), macroToSet);
++	Reporting::Information(message, U_("Macro assigned for this parameter"));
+ 
+ 	return;
+ }
+@@ -2945,7 +2941,7 @@ void CModDoc::OnSongProperties()
+ 	if(dlg.DoModal() == IDOK)
+ 	{
+ 		UpdateAllViews(nullptr, GeneralHint().General());
+-		ScopedLogCapturer logcapturer(*this, _T("Conversion Status"));
++		ScopedLogCapturer logcapturer(*this, U_("Conversion Status"));
+ 		if(dlg.m_nType != GetModType())
+ 		{
+ 			if(!ChangeModType(dlg.m_nType))
+@@ -3024,39 +3020,39 @@ void CModDoc::SetElapsedTime(ORDERINDEX nOrd, ROWINDEX nRow, bool setSamplePos)
+ }
+ 
+ 
+-CString CModDoc::GetPatternViewInstrumentName(INSTRUMENTINDEX nInstr,
++mpt::ustring CModDoc::GetPatternViewInstrumentName(INSTRUMENTINDEX nInstr,
+ 											  bool bEmptyInsteadOfNoName /* = false*/,
+ 											  bool bIncludeIndex /* = true*/) const
+ {
+ 	if(nInstr >= MAX_INSTRUMENTS || m_SndFile.GetNumInstruments() == 0 || m_SndFile.Instruments[nInstr] == nullptr)
+-		return CString();
++		return mpt::ustring();
+ 
+-	CString displayName, instrumentName, pluginName;
++	mpt::ustring displayName, instrumentName, pluginName;
+ 
+ 	// Get instrument name.
+-	instrumentName = mpt::ToCString(m_SndFile.GetCharsetInternal(), m_SndFile.GetInstrumentName(nInstr));
++	instrumentName = mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.GetInstrumentName(nInstr));
+ 
+ 	// If instrument name is empty, use name of the sample mapped to C-5.
+ 	if (instrumentName.IsEmpty())
+ 	{
+ 		const SAMPLEINDEX nSmp = m_SndFile.Instruments[nInstr]->Keyboard[NOTE_MIDDLEC - 1];
+ 		if (nSmp <= m_SndFile.GetNumSamples() && m_SndFile.GetSample(nSmp).HasSampleData())
+-			instrumentName = _T("s: ") + mpt::ToCString(m_SndFile.GetCharsetInternal(), m_SndFile.GetSampleName(nSmp));
++			instrumentName = U_("s: ") + mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.GetSampleName(nSmp));
+ 	}
+ 
+ 	// Get plugin name.
+ 	const PLUGINDEX nPlug = m_SndFile.Instruments[nInstr]->nMixPlug;
+ 	if (nPlug > 0 && nPlug < MAX_MIXPLUGINS)
+-		pluginName = mpt::ToCString(m_SndFile.m_MixPlugins[nPlug-1].GetName());
++		pluginName = mpt::ToUnicode(m_SndFile.m_MixPlugins[nPlug-1].GetName());
+ 
+ 	if (pluginName.IsEmpty())
+ 	{
+ 		if(bEmptyInsteadOfNoName && instrumentName.IsEmpty())
+ 			return TEXT("");
+ 		if(instrumentName.IsEmpty())
+-			instrumentName = _T("(no name)");
++			instrumentName = U_("(no name)");
+ 		if (bIncludeIndex)
+-			displayName.Format(_T("%02d: %s"), nInstr, instrumentName.GetString());
++			displayName.Format(U_("%02d: %s"), nInstr, instrumentName.GetString());
+ 		else
+ 			displayName = instrumentName;
+ 	} else
+@@ -3070,7 +3066,7 @@ CString CModDoc::GetPatternViewInstrumentName(INSTRUMENTINDEX nInstr,
+ }
+ 
+ 
+-mpt::tstring CModDoc::FormatSubsongName(const std::vector<SubSong> &songs, size_t subSong)
++mpt::ustring CModDoc::FormatSubsongName(const std::vector<SubSong> &songs, size_t subSong)
+ {
+ 	if(subSong >= songs.size())
+ 		return {};
+@@ -3086,13 +3082,13 @@ mpt::tstring CModDoc::FormatSubsongName(const std::vector<SubSong> &songs, size_
+ 	const auto sequenceName = m_SndFile.Order(song.sequence).GetName();
+ 	const auto startPattern = m_SndFile.Order(song.sequence).PatternAt(song.startOrder);
+ 	const auto orderName = startPattern ? startPattern->GetName() : std::string{};
+-	return MPT_TFORMAT("Sequence {}{}, Song {}\nOrder {} to {}{}")(
++	return MPT_UFORMAT("Sequence {}{}, Song {}\nOrder {} to {}{}")(
+ 		song.sequence + 1,
+-		sequenceName.empty() ? mpt::tstring{} : MPT_TFORMAT(" ({})")(sequenceName),
++		sequenceName.empty() ? mpt::ustring{} : MPT_UFORMAT(" ({})")(sequenceName),
+ 		subsongInSequence,
+ 		song.startOrder,
+ 		song.endOrder == ORDERINDEX_INVALID ? song.startOrder : song.endOrder,
+-		orderName.empty() ? mpt::tstring{} : MPT_TFORMAT(" ({})")(mpt::ToWin(m_SndFile.GetCharsetInternal(), orderName)));
++		orderName.empty() ? mpt::ustring{} : MPT_UFORMAT(" ({})")(mpt::ToUnicode(m_SndFile.GetCharsetInternal(), orderName)));
+ }
+ 
+ 
+@@ -3136,7 +3132,7 @@ void CModDoc::OnSaveTemplateModule()
+ 	{
+ 		if (!CreateDirectory(templateFolder.AsNative().c_str(), nullptr))
+ 		{
+-			Reporting::Notification(MPT_CFORMAT("Error: Unable to create template folder '{}'")( templateFolder));
++			Reporting::Notification(MPT_UFORMAT("Error: Unable to create template folder '{}'")( templateFolder));
+ 			return;
+ 		}
+ 	}
+@@ -3190,7 +3186,7 @@ void CModDoc::PrepareUndoForAllPatterns(bool storeChannelInfo, const char *descr
+ }
+ 
+ 
+-CString CModDoc::LinearToDecibelsString(double value, double valueAtZeroDB)
++mpt::ustring CModDoc::LinearToDecibelsString(double value, double valueAtZeroDB)
+ {
+ 	return DecibelsToStrings(LinearToDecibels(value, valueAtZeroDB));
+ }
+@@ -3206,24 +3202,24 @@ double CModDoc::LinearToDecibels(double value, double valueAtZeroDB)
+ }
+ 
+ 
+-CString CModDoc::DecibelsToStrings(double dB)
++mpt::ustring CModDoc::DecibelsToStrings(double dB)
+ {
+ 	if(std::isinf(dB))
+-		return dB < 0 ? _T("-inf") : _T("inf");
++		return dB < 0 ? U_("-inf") : U_("inf");
+ 
+-	CString s = (dB >= 0) ? _T("+") : _T("");
+-	s.AppendFormat(_T("%.2f dB"), dB);
++	mpt::ustring s = (dB >= 0) ? U_("+") : U_("");
++	s.AppendFormat(U_("%.2f dB"), dB);
+ 	return s;
+ }
+ 
+ 
+-CString CModDoc::PanningToString(int32 value, int32 valueAtCenter)
++mpt::ustring CModDoc::PanningToString(int32 value, int32 valueAtCenter)
+ {
+ 	if(value == valueAtCenter)
+-		return _T("Center");
++		return U_("Center");
+ 
+-	CString s;
+-	s.Format(_T("%i%% %s"), (std::abs(static_cast<int>(value) - valueAtCenter) * 100) / valueAtCenter, value < valueAtCenter ? _T("Left") : _T("Right"));
++	mpt::ustring s;
++	s.Format(U_("%i%% %s"), (std::abs(static_cast<int>(value) - valueAtCenter) * 100) / valueAtCenter, value < valueAtCenter ? U_("Left") : U_("Right"));
+ 	return s;
+ }
+ 
+@@ -3286,7 +3282,7 @@ void CModDoc::SerializeViews() const
+ 	}
+ 	std::ostringstream f(std::ios::out | std::ios::binary);
+ 
+-	CRect mdiRect;
++	QRect mdiRect;
+ 	::GetClientRect(CMainFrame::GetMainFrame()->m_hWndMDIClient, &mdiRect);
+ 	const int width = mdiRect.Width();
+ 	const int height = mdiRect.Height();
+@@ -3304,7 +3300,7 @@ void CModDoc::SerializeViews() const
+ 			WINDOWPLACEMENT wnd;
+ 			wnd.length = sizeof(WINDOWPLACEMENT);
+ 			pChildFrm->GetWindowPlacement(&wnd);
+-			const CRect rect = wnd.rcNormalPosition;
++			const QRect rect = wnd.rcNormalPosition;
+ 
+ 			// Write size information
+ 			uint8 windowState = 0;
+@@ -3371,7 +3367,7 @@ void CModDoc::DeserializeViews()
+ 
+ 	FileReader file(mpt::as_span(bytes));
+ 
+-	CRect mdiRect;
++	QRect mdiRect;
+ 	::GetWindowRect(CMainFrame::GetMainFrame()->m_hWndMDIClient, &mdiRect);
+ 	const int width = mdiRect.Width();
+ 	const int height = mdiRect.Height();
+@@ -3390,7 +3386,7 @@ void CModDoc::DeserializeViews()
+ 		{
+ 			// Document view positions and sizes
+ 			const uint8 windowState = file.ReadUint8();
+-			CRect rect;
++			QRect rect;
+ 			rect.left = Util::muldivr(file.ReadInt32LE(), width, 1 << 30);
+ 			rect.top = Util::muldivr(file.ReadInt32LE(), height, 1 << 30);
+ 			rect.right = rect.left + Util::muldivr(file.ReadInt32LE(), width, 1 << 30);
+@@ -3416,7 +3412,7 @@ void CModDoc::DeserializeViews()
+ 					WINDOWPLACEMENT wnd;
+ 					wnd.length = sizeof(wnd);
+ 					pChildFrm->GetWindowPlacement(&wnd);
+-					wnd.showCmd = SW_SHOWNOACTIVATE;
++					wnd.showCmd = true;
+ 					if(windowState == 1 || anyMaximized)
+ 					{
+ 						// Once a window has been maximized, all following windows have to be marked as maximized as well.
+@@ -3428,7 +3424,7 @@ void CModDoc::DeserializeViews()
+ 					}
+ 					if(rect.left < width && rect.right > 0 && rect.top < height && rect.bottom > 0)
+ 					{
+-						wnd.rcNormalPosition = CRect(rect.left, rect.top, rect.right, rect.bottom);
++						wnd.rcNormalPosition = QRect(rect.left, rect.top, rect.right, rect.bottom);
+ 					}
+ 					pChildFrm->SetWindowPlacement(&wnd);
+ 				}

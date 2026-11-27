@@ -37,6 +37,8 @@ protected:
 
 	void OnOptions();
 	void OnScanPlugins();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

@@ -35,7 +35,7 @@ public:
 	void UpdateHeight();
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
@@ -55,6 +55,9 @@ protected:
 	void OnRightClickFile();
 	void OnItemChanged();
 	void OnDestroy();
+
+	void RegisterMessageMap() override;
+
 	CListCtrlEx m_list;
 	QLineEdit *m_find = nullptr;
 	AccessibleButton m_newButton, m_openButton;

@@ -11,18 +11,19 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QWidget>
 #include "DialogBase.h"
 
 class QLineEdit;
 class QPoint;
-class QTabBar;
 
 OPENMPT_NAMESPACE_BEGIN
 
 class RawGDIDIB;
 
-class CRippleBitmap: public QWidget
+class CRippleBitmap: public QWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 
@@ -56,6 +57,8 @@ protected:
 	void OnMouseMove(uint32 nFlags, QPoint point);
 	void OnMouseHover(uint32 nFlags, QPoint point) { OnMouseMove(nFlags, point); }
 	void OnMouseLeave();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -64,7 +67,7 @@ class CAboutDlg : public DialogBase
 	Q_OBJECT
 protected:
 	CRippleBitmap m_bmp;
-	QTabBar *m_Tab = nullptr;
+	mfcless::TabControl *m_Tab = nullptr;
 	QLineEdit *m_TabEdit = nullptr;
 	uintptr_t m_TimerID = 0;
 	static constexpr uintptr_t TIMERID_ABOUT_DEFAULT = 3;
@@ -79,8 +82,8 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnCancel() override;
-	DECLARE_MESSAGE_MAP();
-	void DoDataExchange();
+	void RegisterMessageMap() override;;
+	void DoDataExchange(DataExchange &dx) override;
 	void OnTabChange();
 	void OnTimer(uintptr_t nIDEvent);
 public:

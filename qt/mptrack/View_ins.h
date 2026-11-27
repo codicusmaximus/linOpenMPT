@@ -246,8 +246,10 @@ protected:
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
 	void OnEditUndo();
 	void OnEditRedo();
-	void OnUpdateUndo(CCmdUI *pCmdUI);
-	void OnUpdateRedo(CCmdUI *pCmdUI);
+	void OnUpdateUndo(mfcless::CommandState &state);
+	void OnUpdateRedo(mfcless::CommandState &state);
+	void RegisterMessageMap() override;
+
 private:
 	uint8 EnvGetReleaseNode();
 };

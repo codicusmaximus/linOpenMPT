@@ -53,6 +53,8 @@ public:
 protected:
 	bool OnInitDialog() override;
 	void OnCancel() override { m_abort = true; }
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

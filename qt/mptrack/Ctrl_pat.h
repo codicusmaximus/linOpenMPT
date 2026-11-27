@@ -13,6 +13,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QWidget>
 
 #include "AccessibleControls.h"
@@ -25,7 +27,6 @@ class QObject;
 class QPoint;
 class QRect;
 class QScrollBar;
-class QSpinBox;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -39,7 +40,7 @@ struct OrdSelection
 	ORDERINDEX GetSelCount() const { return lastOrd - firstOrd + 1; }
 };
 
-class COrderList: public QWidget
+class COrderList: public QWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 	friend class CCtrlPatterns;
@@ -188,7 +189,8 @@ protected:
 	void OnQueueAtMeasureEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtMeasureEnd); }
 	void OnQueueAtBeatEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtBeatEnd); }
 	void OnQueueAtRowEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtRowEnd); }
-	bool OnToolTipText(uint32, NMHDR *pNMHDR, intptr_t *pResult);
+	bool OnToolTipText(uint32 );
+	void RegisterMessageMap() override;
 };
 
 
@@ -201,7 +203,7 @@ protected:
 	AccessibleButton m_BtnPrev, m_BtnNext;
 	QComboBox *m_CbnInstrument = nullptr;
 	QLineEdit *m_EditSpacing = nullptr, *m_EditPatName = nullptr, *m_EditSequence = nullptr;
-	QSpinBox *m_SpinInstrument = nullptr, *m_SpinSpacing = nullptr, *m_SpinSequence = nullptr;
+	mfcless::UpDown *m_SpinInstrument = nullptr, *m_SpinSpacing = nullptr, *m_SpinSequence = nullptr;
 	CModControlBar m_ToolBar;
 	INSTRUMENTINDEX m_nInstrument = 0;
 	bool m_bRecord = false, m_bVUMeters = false, m_bPluginNames = false;
@@ -221,7 +223,7 @@ public:
 	COrderList &GetOrderList() { return m_OrderList; }
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
-	void DoDataExchange();	// DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint = UpdateHint(), QObject *pObj = nullptr) override;
 	CRuntimeClass *GetAssociatedViewClass() override;
@@ -271,12 +273,13 @@ protected:
 	void OnDetailVolume();
 	void OnDetailEffect();
 	void OnEditUndo();
-	void OnUpdateRecord(CCmdUI *pCmdUI);
+	void OnUpdateRecord(mfcless::CommandState &state);
 	void TogglePluginEditor();
 	void OnToggleOverflowPaste();
 	void OnSequenceNumChanged();
 	void OnOpenInstrumentDropdown() { m_instrDropdownOpen = true; }
 	void OnCancelInstrumentDropdown() { m_instrDropdownOpen = false; }
+	void RegisterMessageMap() override;
 private:
 	bool HasValidPlug(INSTRUMENTINDEX instr) const;
 public:

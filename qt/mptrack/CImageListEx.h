@@ -1,27 +1,39 @@
 /*
  * CImageListEx.h
  * --------------
- * Purpose: A class that extends MFC's CImageList to handle alpha-blended images properly. Also provided 1-bit transparency fallback when needed.
- * Notes  : mfcless twin of upstream's mptrack/CImageListEx.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Purpose: A class that extends MFC's CImageList to handle alpha-blended images properly.
+ * Notes  : mfcless twin of upstream's mptrack/CImageListEx.h. A list of
+ *          same-sized images cut from one PNG strip of the resources.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
 
-
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include <QtCore/QObject>
 #include "mpt/base/span.hpp"
+
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
+
+#include <vector>
 
 OPENMPT_NAMESPACE_BEGIN
 
-class CImageListEx : public QObject
+class CImageListEx
 {
-	Q_OBJECT
 public:
-	bool Create(uint32 resourceID, int cx, int cy, int nInitial, int nGrow, CDC *dc, double scaling, bool disabled, const mpt::span<const int> invertImages = {});
+	bool Create(uint32 resourceID, int cx, int cy, int nInitial, int nGrow, double scaling, bool disabled, const mpt::span<const int> invertImages = {});
+
+	// mfcless: the images.
+	int GetImageCount() const { return static_cast<int>(m_images.size()); }
+	QPixmap GetImage(int index) const { return (index >= 0 && index < GetImageCount()) ? m_images[index] : QPixmap(); }
+	QIcon GetIcon(int index) const { return QIcon(GetImage(index)); }
+	QSize GetImageSize() const { return m_size; }
+
+private:
+	std::vector<QPixmap> m_images;
+	QSize m_size;
 };
 
 OPENMPT_NAMESPACE_END

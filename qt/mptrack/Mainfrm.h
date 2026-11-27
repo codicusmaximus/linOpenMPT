@@ -14,6 +14,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "CImageListEx.h"
+#include "../soundlib/Snd_defs.h"  // mfcless: upstream gets it through Mainbar.h
 #include "Notification.h"
 #include "UpdateHints.h"  // mfcless: upstream gets it through Mainbar.h
 #include "openmpt/soundbase/Dither.hpp"
@@ -171,11 +173,10 @@ public:
 	MidiInData midiInData;
 
 public:
-	// mfcless: the image lists are vectors of icons cut from the same bitmaps.
-	std::vector<QIcon> m_MiscIcons, m_MiscIconsDisabled;			// Misc Icons
-	std::vector<QIcon> m_PatternIcons, m_PatternIconsDisabled;	// Pattern icons (includes some from sample editor as well...)
-	std::vector<QIcon> m_EnvelopeIcons;							// Instrument editor icons
-	std::vector<QIcon> m_SampleIcons;								// Sample editor icons
+	CImageListEx m_MiscIcons, m_MiscIconsDisabled;			// Misc Icons
+	CImageListEx m_PatternIcons, m_PatternIconsDisabled;	// Pattern icons (includes some from sample editor as well...)
+	CImageListEx m_EnvelopeIcons;							// Instrument editor icons
+	CImageListEx m_SampleIcons;								// Sample editor icons
 
 protected:
 	CModTreeBar *m_wndTree = nullptr;

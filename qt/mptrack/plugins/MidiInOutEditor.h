@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #ifdef MODPLUG_TRACKER
 
@@ -21,7 +22,6 @@
 
 class QComboBox;
 class QLineEdit;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -33,7 +33,7 @@ protected:
 	QComboBox *m_inputCombo = nullptr, *m_outputCombo = nullptr, *m_paramCombo = nullptr;
 	CNumberEdit m_latencyEdit;
 	QLineEdit *m_dumpEdit = nullptr, *m_paramEdit = nullptr;
-	QSpinBox *m_latencySpin = nullptr;
+	mfcless::UpDown *m_latencySpin = nullptr;
 	std::string m_formattedDump;
 	bool m_locked = true;
 
@@ -63,7 +63,7 @@ protected:
 
 	void UpdateMidiDump();
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void OnInputChanged();
 	void OnOutputChanged();
@@ -75,6 +75,8 @@ protected:
 	void OnSendDumpNow();
 	void OnParamChanged();
 	void OnMacroChanged();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

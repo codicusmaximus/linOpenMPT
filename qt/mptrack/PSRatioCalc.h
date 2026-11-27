@@ -61,6 +61,8 @@ protected:
 	uint32 m_speed = 0;
 	TEMPO m_tempo;
 	int m_lockCount = 0;
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

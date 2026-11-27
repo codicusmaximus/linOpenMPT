@@ -3,7 +3,6 @@
  * ------------------
  * Purpose: Implementation of the pattern clipboard mechanism
  * Notes  : mfcless twin of upstream's mptrack/PatternClipboard.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -12,13 +11,13 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 #include <QtWidgets/QLineEdit>
 
 #include "ResizableDialog.h"
 #include "../soundlib/Snd_defs.h"
 
 class QListWidget;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -113,7 +112,8 @@ class PatternClipboardDialog : public ResizableDialog
 	Q_OBJECT
 protected:
 	// The one and only pattern clipboard dialog object
-	static PatternClipboardDialog instance;
+	// (mfcless: created on first use, since a dialog needs the application)
+	static PatternClipboardDialog &Instance();
 
 	// Edit class for clipboard name editing
 	class CInlineEdit : public QLineEdit
@@ -124,14 +124,12 @@ protected:
 	public:
 		CInlineEdit(PatternClipboardDialog &dlg);
 
-		DECLARE_MESSAGE_MAP();
-
-		void OnKillFocus(QWidget *newWnd);
+		void focusOutEvent(QFocusEvent *e) override;
 	};
 
-	QSpinBox *m_numClipboardsSpin = nullptr;
+	mfcless::UpDown *m_numClipboardsSpin = nullptr;
 	QListWidget *m_clipList = nullptr;
-	CInlineEdit m_editNameBox;
+	CInlineEdit *m_editNameBox = nullptr;
 	int m_posX = -1, m_posY = -1;
 	bool m_isLocked = true, m_isCreated = false;
 
@@ -140,16 +138,16 @@ public:
 	static void Show();
 	static void Toggle()
 	{
-		if(instance.m_isCreated)
-			instance.OnCancel();
+		if(Instance().m_isCreated)
+			Instance().OnCancel();
 		else
-			instance.Show();
+			Instance().Show();
 	}
 
 protected:
 	PatternClipboardDialog();
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void OnOK() override;
 	void OnCancel() override;
@@ -161,7 +159,7 @@ protected:
 	void OnEditName();
 	void OnEndEdit(bool apply = true);
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

@@ -33,7 +33,7 @@ public:
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
-	void DoDataExchange();  // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	CRuntimeClass *GetAssociatedViewClass() override;
@@ -43,6 +43,7 @@ public:
 protected:
 	void OnCommentsUpdated();
 	void OnCommentsChanged();
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

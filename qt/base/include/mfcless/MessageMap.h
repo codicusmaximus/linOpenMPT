@@ -20,6 +20,7 @@
 #include <optional>
 #include <vector>
 
+class QEvent;
 class QWidget;
 
 namespace mfcless
@@ -101,6 +102,9 @@ public:
 	bool HasCommand(uint32_t id) const;
 	// Window messages of the program's own (WM_MOD_*, mfcless::ModMessage).
 	bool DispatchMessage(uint32_t message, uintptr_t wParam, intptr_t lParam, intptr_t &result);
+	// For a widget's event(): hands a ModMessage (a command or one of the
+	// program's messages) to the handlers. True if e was one.
+	bool HandleModMessage(QEvent *e);
 
 	// The notification being handled.
 	const NotifyInfo &CurrentNotify() const { return *m_current; }

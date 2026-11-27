@@ -73,7 +73,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
 
 	void OnOptionDblClick();
@@ -86,7 +86,7 @@ protected:
 
 	void ReInit();
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 OPENMPT_NAMESPACE_END

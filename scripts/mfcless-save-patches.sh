@@ -17,5 +17,10 @@ save() {
 	if [ -s "$out.new" ]; then mv "$out.new" "$out"; else rm -f "$out.new" "$out"; fi
 }
 save 0001-engine-no-mfc-types.patch soundlib sounddsp common src misc tracklib unarchiver
-save 0002-tracker-logic-no-mfc-types.patch mptrack
+# The document (CModDoc and its editing functions), patched rather than
+# twinned since it is mostly logic.
+doc="mptrack/Moddoc.cpp mptrack/Modedit.cpp mptrack/PatternClipboard.cpp mptrack/ModConvert.cpp mptrack/AppendModule.cpp mptrack/ModDocTemplate.cpp"
+exclude=$(for f in $doc; do printf ' :!%s' "$f"; done)
+save 0002-tracker-logic-no-mfc-types.patch mptrack $exclude
+save 0003-document-no-mfc-types.patch $doc
 git -C "$here" status --short patches/mfcless

@@ -5,9 +5,12 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "mpt/base/integer.hpp"
 
-OPENMPT_NAMESPACE_BEGIN
+// Everything of mfcless is in the global namespace mfcless, never in
+// OpenMPT's, so that "mfcless::" means the same inside and outside it.
 namespace mfcless
 {
+using uint8 = std::uint8_t;
+using uint32 = std::uint32_t;
 
 // A colour in Windows' COLORREF layout (0x00BBGGRR), which OpenMPT's settings
 // files and colour schemes store.
@@ -37,7 +40,6 @@ uint32 SystemColor(SysColor role);
 
 // Where user data that is not configuration goes: $XDG_DATA_HOME/OpenMPT
 // (normally ~/.local/share/OpenMPT).
-mpt::PathString DataDirectory();
+OPENMPT_NAMESPACE::mpt::PathString DataDirectory();
 
 } // namespace mfcless
-OPENMPT_NAMESPACE_END

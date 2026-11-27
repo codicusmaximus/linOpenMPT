@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Controls.h"
 #include <QtWidgets/QSlider>
 
 #include "AccessibleControls.h"
@@ -26,7 +27,6 @@ class QEvent;
 class QLineEdit;
 class QObject;
 class QScrollBar;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -82,7 +82,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void UpdateStereoSep();
 
 	void OnDeviceChanged();
@@ -100,6 +100,8 @@ protected:
 	void OnChannel2Changed() { OnChannelChanged(1); };
 	void OnChannel3Changed() { OnChannelChanged(2); };
 	void OnChannel4Changed() { OnChannelChanged(3); };
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -133,7 +135,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void OnSettingsChanged() { SetModified(true); }
 	void OnAmigaChanged();
@@ -141,6 +143,9 @@ protected:
 	void OnDefaultRampSettings();
 
 	void OnHScroll(uint32 n, uint32 pos, QScrollBar *p);
+
+	void RegisterMessageMap() override;
+
 };
 
 
@@ -185,7 +190,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnHScroll(uint32, uint32, QScrollBar *);
 	void OnSettingsChanged() { SetModified(true); }
 
@@ -203,6 +208,8 @@ protected:
 	void UpdateEQ(bool bReset);
 	void LoadEQPreset(const EQPreset &preset);
 #endif // !NO_EQ
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -220,12 +227,14 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void RefreshDeviceList(uint32 currentDevice);
 	void OnRenameDevice();
 	void OnSettingsChanged() { SetModified(true); }
+	void RegisterMessageMap() override;
+
 protected:
-	QSpinBox *m_SpinSpd = nullptr, *m_SpinPat = nullptr, *m_SpinAmp = nullptr;
+	mfcless::UpDown *m_SpinSpd = nullptr, *m_SpinPat = nullptr, *m_SpinAmp = nullptr;
 	QComboBox *m_InputDevice = nullptr, *m_ATBehaviour = nullptr, *m_Quantize = nullptr, *m_ContinueMode = nullptr, *m_RecordPitchBend = nullptr;
 	AccessibleEdit m_editAmp;
 };
@@ -248,9 +257,11 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	bool OnSetActive() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	void OnSettingsChanged();
+	
+	void RegisterMessageMap() override;
 };
 
 

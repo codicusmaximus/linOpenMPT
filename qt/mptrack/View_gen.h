@@ -14,6 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Controls.h"
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
 #include "PluginComboBox.h"
@@ -26,8 +27,6 @@ class QPoint;
 class QRect;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
-class QTabBar;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -43,7 +42,7 @@ class CViewGlobals: public DialogBase
 	Q_OBJECT
 protected:
 	QRect m_rcClient;
-	QTabBar *m_TabCtrl = nullptr;
+	mfcless::TabControl *m_TabCtrl = nullptr;
 	PluginComboBox m_CbnEffects[CHANNELS_IN_TAB];
 	PluginComboBox m_CbnPlugin;
 	QComboBox *m_CbnParam = nullptr, *m_CbnOutput = nullptr;
@@ -62,7 +61,7 @@ protected:
 	PLUGINDEX m_nCurrentPlugin = 0;
 
 	QComboBox *m_CbnSpecialMixProcessing = nullptr;
-	QSpinBox *m_SpinMixGain = nullptr;
+	mfcless::UpDown *m_SpinMixGain = nullptr;
 	AccessibleButton m_prevPluginButton, m_nextPluginButton;
 
 	enum {AdjustPattern = true, NoPatternAdjust = false};
@@ -83,7 +82,7 @@ public:
 
 public:
 	void OnInitialUpdate() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnUpdate(CView *pSender, intptr_t lHint, QObject *pHint) override;
 	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
 
@@ -113,8 +112,8 @@ private:
 protected:
 	void OnEditUndo();
 	void OnEditRedo();
-	void OnUpdateUndo(CCmdUI *pCmdUI);
-	void OnUpdateRedo(CCmdUI *pCmdUI);
+	void OnUpdateUndo(mfcless::CommandState &state);
+	void OnUpdateRedo(mfcless::CommandState &state);
 
 	void OnEditColor1();
 	void OnEditColor2();
@@ -180,7 +179,8 @@ protected:
 	void OnTabSelchange();
 	intptr_t OnMDIDeactivate(uintptr_t, intptr_t);
 	intptr_t OnUnlockControls(uintptr_t, intptr_t) { if (m_nLockCount > 0) m_nLockCount--; return 0; }
-	bool OnToolTipText(uint32, NMHDR *pNMHDR, intptr_t *pResult);
+	bool OnToolTipText(uint32 );
+	void RegisterMessageMap() override;
 };
 
 

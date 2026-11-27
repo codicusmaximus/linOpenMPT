@@ -2,8 +2,8 @@
  * LinkResolver.h
  * --------------
  * Purpose: Resolve Windows shell link targets
- * Notes  : mfcless twin of upstream's mptrack/LinkResolver.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Notes  : mfcless twin of upstream's mptrack/LinkResolver.h. Resolves
+ *          symbolic links (Windows: shell links).
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -14,15 +14,10 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "../common/mptPathString.h"
 
-#include <ShObjIdl.h>
-
 OPENMPT_NAMESPACE_BEGIN
 
 class LinkResolver
 {
-	IShellLink *psl = nullptr;
-	IPersistFile *ppf = nullptr;
-
 public:
 	LinkResolver();
 	~LinkResolver();

@@ -68,6 +68,7 @@ protected:
 	void OnPasteNames();
 	intptr_t OnMidiMsg(uintptr_t midiData, intptr_t);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
+	void RegisterMessageMap() override;
 };
 
 

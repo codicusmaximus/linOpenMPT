@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #include "CDecimalSupport.h"
 #include "DialogBase.h"
@@ -25,7 +26,6 @@ class QComboBox;
 class QLineEdit;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -58,7 +58,7 @@ public:
 	CAmpDlg(QWidget *parent, AmpSettings &settings, int16 factorMin = int16_min, int16 factorMax = int16_max);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void OnOK() override;
@@ -66,6 +66,8 @@ protected:
 
 	void EnableFadeIn();
 	void EnableFadeOut();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -81,7 +83,7 @@ protected:
 	static SampleIO m_format;
 	static SmpLength m_offset;
 
-	QSpinBox *m_SpinOffset = nullptr;
+	mfcless::UpDown *m_SpinOffset = nullptr;
 	FileReader &m_file;
 	bool m_rememberFormat = false;
 
@@ -99,7 +101,7 @@ public:
 	CRawSampleDlg(FileReader &file, QWidget *parent = nullptr);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void UpdateDialog();
@@ -107,6 +109,8 @@ protected:
 	void OnBitDepthChanged(uint32 id);
 	void OnEncodingChanged(uint32 id);
 	void OnAutodetectFormat();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -147,7 +151,7 @@ protected:
 public:
 	AddSilenceDlg(QWidget *parent, SmpLength origLength, uint32 sampleRate, bool allowOPL);
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	
@@ -156,6 +160,7 @@ protected:
 	AddSilenceOptions GetEditMode() const;
 	void OnEditModeChanged();
 	void OnUnitChanged();
+	void RegisterMessageMap() override;
 };
 
 
@@ -170,13 +175,13 @@ public:
 
 protected:
 	QLineEdit *m_EditSegments = nullptr;
-	QSpinBox *m_SpinSegments = nullptr;
+	mfcless::UpDown *m_SpinSegments = nullptr;
 
 public:
 	CSampleGridDlg(QWidget *parent, SmpLength nSegments, SmpLength nMaxSegments);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 };
@@ -198,7 +203,7 @@ public:
 protected:
 	QSlider *m_SliderLength = nullptr, *m_SliderFadeLaw = nullptr;
 	QLineEdit *m_EditSamples = nullptr;
-	QSpinBox *m_SpinSamples = nullptr;
+	mfcless::UpDown *m_SpinSamples = nullptr;
 	QAbstractButton *m_RadioNormalLoop = nullptr, *m_RadioSustainLoop = nullptr;
 	ModSample &m_sample;
 	bool m_editLocked = true;
@@ -210,7 +215,7 @@ public:
 	uint32 SamplesToPercent(SmpLength samples) const { return Util::muldivr_unsigned(samples, 100000, m_loopLength); }
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
@@ -218,6 +223,8 @@ protected:
 	void OnLoopTypeChanged();
 	void OnFadeLengthChanged();
 	void OnHScroll(uint32, uint32, QScrollBar *);
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -259,6 +266,8 @@ protected:
 
 	void OnFocusEdit();
 	void OnEditChanged();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -272,7 +281,7 @@ protected:
 	// Dialog controls
 	QLineEdit *m_EditOffset = nullptr;
 	CNumberEdit m_EditVolOriginal, m_EditVolMix;
-	QSpinBox *m_SpinOffset = nullptr, *m_SpinVolOriginal = nullptr, *m_SpinVolMix = nullptr;
+	mfcless::UpDown *m_SpinOffset = nullptr, *m_SpinVolOriginal = nullptr, *m_SpinVolMix = nullptr;
 
 public:
 	static SmpLength sampleOffset;
@@ -283,7 +292,7 @@ public:
 	CMixSampleDlg(QWidget *parent);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 };

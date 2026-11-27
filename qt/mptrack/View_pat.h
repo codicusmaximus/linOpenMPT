@@ -454,8 +454,8 @@ protected:
 	void OnCursorCopy();
 	void OnCursorPaste();
 	void OnPatternAmplify();
-	void OnUpdateUndo(CCmdUI *pCmdUI);
-	void OnUpdateRedo(CCmdUI *pCmdUI);
+	void OnUpdateUndo(mfcless::CommandState &state);
+	void OnUpdateRedo(mfcless::CommandState &state);
 	void OnSelectPlugin(uint32 nID);
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
 	intptr_t OnRecordPlugParamChange(uintptr_t, intptr_t);
@@ -468,6 +468,8 @@ protected:
 	void OnTogglePCNotePluginEditor();
 	void OnSetQuantize();
 	void OnLockPatternRows();
+	void RegisterMessageMap() override;
+
 private:
 	// Copy&Paste
 	bool CopyPattern(PATTERNINDEX nPattern, const PatternRect &selection);

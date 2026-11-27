@@ -7,7 +7,6 @@
 #include <QtGui/QGuiApplication>
 #include <QtGui/QPalette>
 
-OPENMPT_NAMESPACE_BEGIN
 namespace mfcless
 {
 
@@ -30,13 +29,12 @@ uint32 SystemColor(SysColor role)
 	return Rgb(static_cast<uint8>(c.red()), static_cast<uint8>(c.green()), static_cast<uint8>(c.blue()));
 }
 
-mpt::PathString DataDirectory()
+OPENMPT_NAMESPACE::mpt::PathString DataDirectory()
 {
 	QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
 	if(dir.isEmpty())
 		dir = QStringLiteral("/tmp");
-	return mpt::PathString::FromUTF8((dir + QStringLiteral("/OpenMPT")).toStdString());
+	return OPENMPT_NAMESPACE::mpt::PathString::FromUTF8((dir + QStringLiteral("/OpenMPT")).toStdString());
 }
 
 } // namespace mfcless
-OPENMPT_NAMESPACE_END

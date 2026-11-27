@@ -25,7 +25,7 @@ public:
 	PathConfigDlg();
 
 protected:
-	void DoDataExchange();    // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;    // DDX/DDV support
 
 	void OnOK() override;
 	bool OnInitDialog() override;
@@ -46,6 +46,9 @@ protected:
 	void BrowseFolder(uint32 nID);
 
 	mpt::PathString GetPath(int id);
+
+	void RegisterMessageMap() override;
+
 	std::array<AccessibleEdit, 3> m_accessibleEdits;
 	std::array<AccessibleButton, 6> m_browseButtons;
 };

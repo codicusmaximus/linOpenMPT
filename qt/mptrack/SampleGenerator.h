@@ -168,6 +168,7 @@ protected:
 	void OnShowPresets();
 	void OnInsertExpression(uint32 nId);
 	void OnSelectPreset(uint32 nId);
+	void RegisterMessageMap() override;
 };
 
 
@@ -202,6 +203,8 @@ protected:
 
 	void OnAddPreset();
 	void OnRemovePreset();
+
+	void RegisterMessageMap() override;
 };
 
 #endif // MPT_DISABLED_CODE

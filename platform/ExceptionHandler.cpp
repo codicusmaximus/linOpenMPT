@@ -227,6 +227,7 @@ ExceptionHandler::Context *ExceptionHandler::SetContext(Context *newContext) noe
 	return old;
 }
 
+#if !defined(MPT_MFCLESS)
 void ExceptionHandler::UnhandledMFCException(CException *, const MSG *)
 {
 	// MFC's message pump caught an exception a handler threw. Upstream
@@ -237,6 +238,7 @@ void ExceptionHandler::UnhandledMFCException(CException *, const MSG *)
 		std::cerr << " while: " << mpt::ToCharset(mpt::Charset::UTF8, g_context->description);
 	std::cerr << std::endl;
 }
+#endif // !MPT_MFCLESS
 
 MPT_NOINLINE void AssertHandler(const mpt::source_location &loc, const char *expr, const char *msg)
 {

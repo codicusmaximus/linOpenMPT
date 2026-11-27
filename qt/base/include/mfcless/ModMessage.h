@@ -55,4 +55,11 @@ inline intptr_t SendModMessage(QObject *target, uint32_t msg, uintptr_t wParam =
 	return message.result;
 }
 
+// A command (menu item, button) sent as a message: wParam is the command ID.
+// (Windows' WM_COMMAND.)
+inline constexpr uint32_t CommandMessage = 0x0111;
+
+inline void PostCommand(QObject *target, uint32_t id) { PostModMessage(target, CommandMessage, id, 0); }
+inline intptr_t SendCommand(QObject *target, uint32_t id) { return SendModMessage(target, CommandMessage, id, 0); }
+
 } // namespace mfcless

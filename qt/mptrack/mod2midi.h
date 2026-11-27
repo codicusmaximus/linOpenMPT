@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #ifndef NO_PLUGINS
 #include "AccessibleControls.h"
@@ -21,7 +22,6 @@
 
 class QComboBox;
 class QScrollBar;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -45,7 +45,7 @@ class CModToMidi : public CProgressDialog
 protected:
 	QComboBox *m_CbnInstrument = nullptr, *m_CbnChannel = nullptr, *m_CbnProgram = nullptr;
 	AccessibleEdit m_EditSubSong;
-	QSpinBox *m_SpinInstrument = nullptr;
+	mfcless::UpDown *m_SpinInstrument = nullptr;
 	CModDoc &m_modDoc;
 	MidiExport::InstrMap m_instrMap;
 	std::vector<SubSong> m_subSongs;
@@ -70,7 +70,7 @@ protected:
 	void OnOK() override;
 	void OnCancel() override;
 	bool OnInitDialog() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void FillProgramBox(bool percussion);
 	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
 	void UpdateDialog();
@@ -79,7 +79,7 @@ protected:
 	void OnOverlapChanged();
 	void OnSubsongChanged();
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 

@@ -14,6 +14,8 @@ import sys
 
 TYPES = [
 	(r'(\w+)\(NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1()'),
+	(r'(\w+)\(UINT\s*(\w*),\s*NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1(uint32 \2)'),
+	(r'\bRGB\(', 'mfcless::Rgb('),
 	(r'(?:BOOL|bool) PreTranslateMessage\(MSG\s*\*\s*\w*\)( override)?;', 'bool eventFilter(QObject *watched, QEvent *e) override;'),
 	(r'\bCString[AW]?\b', 'mpt::ustring'),
 	(r'\bmpt::tstring\b', 'mpt::ustring'),
@@ -121,6 +123,18 @@ def twin(text):
 	text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)
 	if DRAFT_MARK not in text:
 		text = '// ' + DRAFT_MARK + '\n' + text
+	# Qt-based classes with a message map also take commands and notifications.
+	def add_map(m):
+		head, body = m.group(1), m.group(2)
+		if 'RegisterMessageMap' in body and not re.search(r'public\s+(DialogBase|PropertyPage|ResizableDialog|CModControlDlg|CModControlView|CModScrollView|CAbstractVstEditor)\b', head) and 'MessageMap' not in head:
+			head = head.rstrip() + ', public mfcless::MessageMap'
+			return head + '\n{' + body
+		return m.group(0)
+	text = re.sub(r'^(class \w+\s*:\s*public\s+Q\w+[^\n{]*)\n\{(.*?\n\};)', add_map, text, flags=re.M | re.S)
+	if 'mfcless::MessageMap' in text and '"mfcless/MessageMap.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/MessageMap.h"\n', 1)
+	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Controls.h"\n', 1)
 	# Dialog bases need their header.
 	if re.search(r'public\s+(DialogBase|PropertyPage)\b', text) and '"DialogBase.h"' not in text and '"ResizableDialog.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "DialogBase.h"\n', 1)
@@ -299,19 +313,29 @@ def twin_cpp(text, header):
 		text = re.sub(r'\b' + k + r'::', v + '::', text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
-	text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)
-	if DRAFT_MARK not in text:
-		text = '// ' + DRAFT_MARK + '\n' + text
+	if not PATCH_MODE:
+		text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)
+		if DRAFT_MARK not in text:
+			text = '// ' + DRAFT_MARK + '\n' + text
 	return text
+
+# --patch: rewrite an upstream file in place in the mfcless worktree (for
+# files patched rather than twinned): no draft mark.
+PATCH_MODE = '--patch' in sys.argv
 
 if __name__ == '__main__':
 	import os
-	path = sys.argv[1]
+	args = [a for a in sys.argv[1:] if not a.startswith('--')]
+	path = args[0]
 	NAME = path.split('mptrack/', 1)[-1]
 	src = open(path, encoding='utf-8', errors='surrogateescape').read()
 	if path.endswith('.cpp'):
 		hdr = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mptrack', NAME[:-4] + '.h')
 		header = open(hdr, encoding='utf-8').read() if os.path.exists(hdr) else ''
-		sys.stdout.write(twin_cpp(src, header))
+		out = twin_cpp(src, header)
+		if PATCH_MODE:
+			open(path, 'w', encoding='utf-8', errors='surrogateescape').write(out)
+		else:
+			sys.stdout.write(out)
 	else:
 		sys.stdout.write(twin(src))

@@ -57,6 +57,8 @@ protected:
 		MSG msg = {m_plugWindow, message, wParam, lParam, 0, {}};
 		return HandleKeyMessage(msg, true);
 	}
+
+	void RegisterMessageMap() override;
 };
 
 #endif // MPT_WITH_VST

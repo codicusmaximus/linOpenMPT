@@ -12,6 +12,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QToolBar>
@@ -29,14 +31,13 @@ class QPoint;
 class QRect;
 class QScrollBar;
 class QSize;
-class QSpinBox;
 
 OPENMPT_NAMESPACE_BEGIN
 
 enum class MainToolBarItem : uint32;
 class CMainToolBar;
 
-class CStereoVU: public QLabel
+class CStereoVU: public QLabel, public mfcless::MessageMap
 {
 	Q_OBJECT
 protected:
@@ -60,10 +61,10 @@ protected:
 protected:
 	void OnPaint();
 	void OnLButtonDown(uint32, QPoint);
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
-class COctaveEdit : public QLineEdit
+class COctaveEdit : public QLineEdit, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -71,6 +72,9 @@ public:
 
 protected:
 	void OnChar(uint32 nChar, uint32 nRepCnt, uint32 nFlags);
+
+	void RegisterMessageMap() override;
+
 	CMainToolBar &m_owner;
 };
 
@@ -115,7 +119,7 @@ protected:
 	CNumberEdit m_EditTempo;
 	QLineEdit *m_EditSpeed = nullptr, *m_EditRowsPerBeat = nullptr, *m_EditGlobalVolume = nullptr;
 	QLabel *m_StaticTempo = nullptr, *m_StaticSpeed = nullptr, *m_StaticRowsPerBeat = nullptr, *m_StaticGlobalVolume = nullptr;
-	QSpinBox *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinOctave = nullptr, *m_SpinRowsPerBeat = nullptr, *m_SpinGlobalVolume = nullptr;
+	mfcless::UpDown *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinOctave = nullptr, *m_SpinRowsPerBeat = nullptr, *m_SpinGlobalVolume = nullptr;
 	int m_currentSpeed = 0, m_currentOctave = -1, m_currentRowsPerBeat = 0, m_currentGlobalVolume = 0;
 	TEMPO m_currentTempo{1, 0};
 	bool m_updating = false;
@@ -159,17 +163,18 @@ protected:
 	intptr_t OnRefreshToolbar(uintptr_t, intptr_t);
 	void OnVScroll(uint32, uint32, QScrollBar *);
 	void OnTbnDropDownToolBar();
-	bool OnToolTipText(uint32, NMHDR* pNMHDR, intptr_t* pResult);
+	bool OnToolTipText(uint32 );
 	void OnSelectMIDIDevice(uint32 id);
 
 	void OnSpeedChanged();
 	void OnTempoChanged();
 	void OnRPBChanged();
 	void OnGlobalVolChanged();
+	void RegisterMessageMap() override;
 };
 
 
-class CModTreeBar: public QWidget
+class CModTreeBar: public QWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -247,6 +252,7 @@ protected:
 	void OnFilterChanged();
 	void OnFilterLostFocus();
 	void OnTimer(uintptr_t id);
+	void RegisterMessageMap() override;
 };
 
 DECLARE_FLAGSET(CModTreeBar::Status)

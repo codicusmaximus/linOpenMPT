@@ -13,6 +13,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QLabel>
 
 #include "CDecimalSupport.h"
@@ -28,7 +30,6 @@ class QObject;
 class QPoint;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -37,7 +38,7 @@ class CModDoc;
 class CNoteMapWnd;
 class CCtrlInstruments;
 
-class CNoteMapWnd: public QLabel
+class CNoteMapWnd: public QLabel, public mfcless::MessageMap
 {
 	Q_OBJECT
 protected:
@@ -98,6 +99,7 @@ protected:
 	void OnInstrumentDuplicate();
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
+	void RegisterMessageMap() override;
 };
 
 
@@ -106,8 +108,8 @@ class CCtrlInstruments: public CModControlDlg
 	Q_OBJECT
 protected:
 	CModControlBar m_ToolBar;
-	QSpinBox *m_SpinInstrument = nullptr, *m_SpinFadeOut = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinPanning = nullptr;
-	QSpinBox *m_SpinMidiPR = nullptr, *m_SpinPPS = nullptr, *m_SpinMidiBK = nullptr, *m_SpinPWD = nullptr;
+	mfcless::UpDown *m_SpinInstrument = nullptr, *m_SpinFadeOut = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinPanning = nullptr;
+	mfcless::UpDown *m_SpinMidiPR = nullptr, *m_SpinPPS = nullptr, *m_SpinMidiBK = nullptr, *m_SpinPWD = nullptr;
 	QComboBox *m_ComboNNA = nullptr, *m_ComboDCT = nullptr, *m_ComboDCA = nullptr, *m_ComboPPC = nullptr, *m_CbnMidiCh = nullptr, *m_CbnResampling = nullptr, *m_CbnFilterMode = nullptr, *m_CbnPluginVolumeHandling = nullptr;
 	PluginComboBox m_CbnMixPlug;
 	QLineEdit *m_EditName = nullptr, *m_EditFileName = nullptr, *m_EditGlobalVol = nullptr, *m_EditPanning = nullptr, *m_EditFadeOut = nullptr;
@@ -116,7 +118,7 @@ protected:
 	QSlider *m_SliderVolSwing = nullptr, *m_SliderPanSwing = nullptr, *m_SliderCutSwing = nullptr, *m_SliderResSwing = nullptr, *m_SliderCutOff = nullptr, *m_SliderResonance = nullptr;
 	CNoteMapWnd m_NoteMap;
 	QSlider *m_SliderAttack = nullptr;
-	QSpinBox *m_SpinAttack = nullptr;
+	mfcless::UpDown *m_SpinAttack = nullptr;
 	//Tuning
 	QComboBox *m_ComboTuning = nullptr;
 	// Pitch/Tempo lock
@@ -148,7 +150,7 @@ public:
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
-	void DoDataExchange();	// DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
 	CRuntimeClass *GetAssociatedViewClass() override;
 	void RecalcLayout() override;
 	void OnActivatePage(intptr_t) override;
@@ -207,6 +209,7 @@ protected:
 	void OnEnKillFocusEditPitchTempoLock();
 	void OnEnKillFocusEditFadeOut();
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

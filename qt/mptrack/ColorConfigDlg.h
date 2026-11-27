@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Controls.h"
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
 #include "TrackerSettings.h"
@@ -21,7 +22,6 @@ class QAbstractButton;
 class QComboBox;
 class QLabel;
 class QScrollBar;
-class QSpinBox;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -35,7 +35,7 @@ protected:
 	QComboBox *m_ComboDPIAwareness = nullptr, *m_ComboItem = nullptr, *m_ComboFont = nullptr, *m_ComboPreset = nullptr;
 	ColorPickerButton m_BtnColor[3];
 	QAbstractButton *m_BtnPreview = nullptr;
-	QSpinBox *m_ColorSpin = nullptr, *m_spinRowsPerBeat = nullptr, *m_spinRowsPerMeasure = nullptr;
+	mfcless::UpDown *m_ColorSpin = nullptr, *m_spinRowsPerBeat = nullptr, *m_spinRowsPerMeasure = nullptr;
 	AccessibleEdit m_rpbEdit, m_rpmEdit;
 	QLabel *m_TxtColor[3] = {};
 	MODPLUGDIB *m_pPreviewDib = nullptr;
@@ -50,7 +50,7 @@ protected:
 	bool OnInitDialog() override;
 	bool OnKillActive() override;
 	void OnOK() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnSetActive() override;
 	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar * pScrollBar);
 
@@ -71,7 +71,7 @@ protected:
 	void OnSaveColorScheme();
 	void OnClearWindowCache();
 	void OnPreviewChanged();
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 OPENMPT_NAMESPACE_END

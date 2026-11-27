@@ -47,7 +47,7 @@ public:
 protected:
 	void ParamsChanged();
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
@@ -55,6 +55,7 @@ protected:
 	void OnCancel() override { }
 	void OnHScroll(uint32, uint32, QScrollBar *) { ParamsChanged(); }
 	intptr_t OnDragonDropping(uintptr_t wParam, intptr_t lParam);
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

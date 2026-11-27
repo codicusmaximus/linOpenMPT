@@ -57,7 +57,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnCancel() override;
-	void DoDataExchange();  // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 	void PostNcDestroy() override;
 
 	void UpdateEffectList();
@@ -94,6 +94,9 @@ protected:
 	void OnEffectChanged();
 	void OnActionChanged();
 	bool OnEraseBkgnd(CDC *) { return true; }
+
+	void RegisterMessageMap() override;
+
 protected:
 	CModDoc &m_ModDoc;
 	CSoundFile &m_SndFile;

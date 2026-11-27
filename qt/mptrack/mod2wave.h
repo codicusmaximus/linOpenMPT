@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #include "AccessibleControls.h"
 #include "DialogBase.h"
@@ -24,7 +25,6 @@
 
 class QComboBox;
 class QLineEdit;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -79,7 +79,7 @@ private:
 	const Encoder::Traits *encTraits = nullptr;
 
 	QComboBox *m_CbnFileType = nullptr, *m_CbnSampleRate = nullptr, *m_CbnChannels = nullptr, *m_CbnDither = nullptr, *m_CbnSampleFormat = nullptr, *m_CbnSampleSlot = nullptr;
-	QSpinBox *m_SpinLoopCount = nullptr, *m_SpinMinOrder = nullptr, *m_SpinMaxOrder = nullptr, *m_SpinSubsongIndex = nullptr;
+	mfcless::UpDown *m_SpinLoopCount = nullptr, *m_SpinMinOrder = nullptr, *m_SpinMaxOrder = nullptr, *m_SpinSubsongIndex = nullptr;
 
 	AccessibleEdit m_EditLoopCount, m_EditSubSong, m_EditMinOrder;
 	QLineEdit *m_EditTitle = nullptr, *m_EditAuthor = nullptr, *m_EditURL = nullptr, *m_EditAlbum = nullptr, *m_EditYear = nullptr;
@@ -110,7 +110,7 @@ private:
 	void UpdateDialog();
 
 	bool OnInitDialog() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnOK() override;
 
 	void OnCheckTimeLimit();
@@ -125,6 +125,8 @@ private:
 	void OnPlayerOptions();
 	void OnExportModeChanged();
 	void OnSampleSlotChanged();
+
+	void RegisterMessageMap() override;
 };
 
 

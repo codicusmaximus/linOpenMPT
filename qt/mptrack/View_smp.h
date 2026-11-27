@@ -242,8 +242,8 @@ protected:
 	// cppcheck-suppress duplInheritedMember
 	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
-	void OnUpdateUndo(CCmdUI *pCmdUI);
-	void OnUpdateRedo(CCmdUI *pCmdUI);
+	void OnUpdateUndo(mfcless::CommandState &state);
+	void OnUpdateRedo(mfcless::CommandState &state);
 	void OnSampleSliceCuePoints();
 	void OnSampleSliceGrid();
 	void OnSampleSlice(mpt::span<SmpLength> slicePoints);
@@ -253,6 +253,8 @@ protected:
 	void OnTimelineFormatSamples() { SetTimelineFormat(TimelineFormat::Samples); }
 	void OnTimelineFormatSamplesPow2() { SetTimelineFormat(TimelineFormat::SamplesPow2); }
 	void SetTimelineFormat(TimelineFormat fmt);
+	void RegisterMessageMap() override;
+
 	bool OnGestureZoom(QPoint ptCenter, long lDelta) override
 	{
 		DoZoom(lDelta / 10, ptCenter);

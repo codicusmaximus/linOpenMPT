@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QTreeWidget>
 
 #include "CDecimalSupport.h"
@@ -117,7 +118,7 @@ private:
 
 class CTuningDialog;
 
-class CTuningTreeCtrl : public QTreeWidget
+class CTuningTreeCtrl : public QTreeWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 private:
@@ -135,6 +136,7 @@ public:
 
 	void OnMouseMove(uint32 nFlags, QPoint point);
 	void OnLButtonUp(uint32 nFlags, QPoint point);
+	void RegisterMessageMap() override;
 };
 
 class CTuningTreeItem
@@ -228,7 +230,7 @@ public:
 	bool GetModifiedStatus(const CTuningCollection* const pTc) const;
 
 protected:
-	void DoDataExchange();    // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;    // DDX/DDV support
 
 private:
 
@@ -383,6 +385,8 @@ public:
 	void OnTvnDeleteitemTreeTuning();
 	void OnNMRclickTreeTuning();
 	void OnTvnBegindragTreeTuning();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

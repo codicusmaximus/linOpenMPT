@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 #include <QtWidgets/QWidget>
 
 #include "CDecimalSupport.h"
@@ -25,7 +26,6 @@ class QLineEdit;
 class QObject;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -46,7 +46,7 @@ protected:
 
 protected:
 	void OnPaint();
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 
@@ -57,7 +57,7 @@ public:
 	QLineEdit *m_EditSpeed = nullptr, *m_EditGlobalVol = nullptr, *m_EditRestartPos = nullptr, *m_EditSamplePA = nullptr, *m_EditVSTiVol = nullptr;
 	CNumberEdit m_EditTempo;
 	QAbstractButton *m_BtnModType = nullptr;
-	QSpinBox *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinRestartPos = nullptr, *m_SpinSamplePA = nullptr, *m_SpinVSTiVol = nullptr;
+	mfcless::UpDown *m_SpinTempo = nullptr, *m_SpinSpeed = nullptr, *m_SpinGlobalVol = nullptr, *m_SpinRestartPos = nullptr, *m_SpinSamplePA = nullptr, *m_SpinVSTiVol = nullptr;
 	QComboBox *m_CbnResampling = nullptr;
 
 	QSlider *m_SliderTempo = nullptr, *m_SliderSamplePreAmp = nullptr, *m_SliderGlobalVol = nullptr, *m_SliderVSTiVol = nullptr;
@@ -76,7 +76,7 @@ private:
 	uint32 GetGlobalVolumeFactor() const;
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
-	void DoDataExchange();  // DDX/DDV support
+	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	CRuntimeClass *GetAssociatedViewClass() override;
@@ -110,6 +110,7 @@ protected:
 	void OnLoopSongChanged();
 	void OnEnSetfocusEditSongtitle();
 	void OnResamplingChanged();
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

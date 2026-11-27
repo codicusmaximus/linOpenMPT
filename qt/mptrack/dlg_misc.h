@@ -12,6 +12,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
+#include "mfcless/MessageMap.h"
 #include <QtWidgets/QWidget>
 
 #include "CDecimalSupport.h"
@@ -27,7 +29,6 @@ class QPoint;
 class QRect;
 class QScrollBar;
 class QSlider;
-class QSpinBox;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -67,11 +68,12 @@ protected:
 	mpt::ustring FormatVersionNumber(Version version);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void OnOK() override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * QWidget *) const override;
+	void RegisterMessageMap() override;
 };
 
 
@@ -79,7 +81,7 @@ class CLegacyPlaybackSettingsDlg : public ResizableDialog
 {
 	Q_OBJECT
 protected:
-	CCheckListBox m_CheckList;
+	QListWidget *m_CheckList = nullptr;
 	PlayBehaviourSet m_playBehaviour;
 	MODTYPE m_modType;
 
@@ -89,12 +91,14 @@ public:
 	PlayBehaviourSet GetPlayBehaviour() const { return m_playBehaviour; }
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 
 	void OnSelectDefaults();
 	void UpdateSelectDefaults();
 	void OnFilterStringChanged();
+
+	void RegisterMessageMap() override;
 };
 
 
@@ -112,11 +116,11 @@ public:
 	CRemoveChannelsDlg(CSoundFile &sf, CHANNELINDEX toRemove, bool showCancel = true, QWidget *parent = nullptr);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnChannelChanged();
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 
@@ -155,7 +159,7 @@ enum
 	KBDNOTIFY_LBUTTONUP,
 };
 
-class CKeyboardControl: public QWidget
+class CKeyboardControl: public QWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -195,6 +199,7 @@ protected:
 	void OnMouseMove(uint32 nFlags, QPoint point);
 	void OnLButtonDown(uint32 nFlags, QPoint point);
 	void OnLButtonUp(uint32 nFlags, QPoint point);
+	void RegisterMessageMap() override;
 };
 
 
@@ -226,7 +231,7 @@ public:
 	CSampleMapDlg(CSoundFile &sf, INSTRUMENTINDEX nInstr, QWidget *parent = nullptr);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnDPIChanged() override;
@@ -236,6 +241,7 @@ protected:
 	void OnUpdateOctave();
 	void OnHScroll(uint32, uint32, QScrollBar *);
 	intptr_t OnKeyboardNotify(uintptr_t, intptr_t);
+	void RegisterMessageMap() override;
 };
 
 
@@ -254,6 +260,7 @@ public:
 protected:
 	bool OnInitDialog() override;
 	void OnClearHistory();
+	void RegisterMessageMap() override;
 };
 
 
@@ -265,7 +272,7 @@ class CInputDlg : public DialogBase
 	Q_OBJECT
 protected:
 	CNumberEdit m_edit;
-	QSpinBox *m_spin = nullptr;
+	mfcless::UpDown *m_spin = nullptr;
 	const mpt::ustring m_description;
 	const double m_minValueDbl = 0.0, m_maxValueDbl = 0.0;
 	const int32 m_minValueInt = 0, m_maxValueInt = 0;
@@ -289,7 +296,7 @@ public:
 	CInputDlg(QWidget *parent, const mpt::uchar *desc, int32 minVal, int32 maxVal, int32 defaultNumber) : CInputDlg{parent, desc, {}, -1, 0.0, 0.0, 0.0, minVal, maxVal, defaultNumber } { }
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 };

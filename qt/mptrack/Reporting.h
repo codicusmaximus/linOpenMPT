@@ -34,6 +34,20 @@ enum RetryAnswer
 };
 
 
+// mfcless: the buttons and icon of CustomNotification, and its answers.
+// The values are those of Windows' message boxes.
+enum NotificationFlags : uint32
+{
+	nfOk = 0x0, nfOkCancel = 0x1, nfYesNoCancel = 0x3, nfYesNo = 0x4, nfRetryCancel = 0x5,
+	nfIconError = 0x10, nfIconQuestion = 0x20, nfIconWarning = 0x30, nfIconInformation = 0x40,
+	nfDefaultButton2 = 0x100,
+};
+enum NotificationAnswer : uint32
+{
+	naOk = 1, naCancel = 2, naRetry = 4, naYes = 6, naNo = 7,
+};
+
+
 class Reporting
 {
 

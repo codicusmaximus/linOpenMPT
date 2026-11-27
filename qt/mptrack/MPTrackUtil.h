@@ -2,8 +2,8 @@
  * MPTrackUtil.h
  * -------------
  * Purpose: Various useful utility functions.
- * Notes  : mfcless twin of upstream's mptrack/MPTrackUtil.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Notes  : mfcless twin of upstream's mptrack/MPTrackUtil.h. Resources come
+ *          from the embedded resource file (mfcless::res).
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -13,7 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 
-
+#include <chrono>
 #include <string>
 
 
@@ -27,10 +27,10 @@ bool CreateShellFileLink(const mpt::PathString &path, const mpt::PathString &tar
 
 /*
  * Gets resource as raw byte data.
- * [in] lpName and lpType: parameters passed to FindResource().
- * Return: span representing the resource data, valid as long as hInstance is valid.
+ * [in] id and type: the resource's ID and type name (such as U_("PNG")).
+ * Return: span representing the resource data, valid for the program's lifetime.
  */
-mpt::const_byte_span GetResource(const mpt::uchar * lpName, const mpt::uchar * lpType);
+mpt::const_byte_span GetResource(uint32 id, const mpt::uchar *type);
 
 
 mpt::ustring LoadResourceString(uint32 nID);
@@ -38,13 +38,9 @@ mpt::ustring LoadResourceString(uint32 nID);
 
 namespace Util
 {
-	inline DWORD64 GetTickCount64()
+	inline uint64 GetTickCount64()
 	{
-#if MPT_WINNT_AT_LEAST(MPT_WIN_VISTA)
-		return ::GetTickCount64();
-#else
-		return ::GetTickCount();
-#endif
+		return static_cast<uint64>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 	}
 }
 

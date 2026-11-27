@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/MessageMap.h"
 #include <QtCore/QObject>
 
 class QPoint;
@@ -20,7 +21,7 @@ class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
 
-class UpdateToolTip : public QObject
+class UpdateToolTip : public QObject, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -45,6 +46,7 @@ protected:
 	void OnPop();
 	void OnShow();
 	void OnLinkClick();
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

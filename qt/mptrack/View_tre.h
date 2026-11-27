@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/MessageMap.h"
 #include <QtCore/QObject>
 #include <QtWidgets/QTreeWidget>
 
@@ -74,7 +75,7 @@ public:
 };
 
 
-class CModTree: public QTreeWidget
+class CModTree: public QTreeWidget, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -379,6 +380,7 @@ protected:
 
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	intptr_t OnMidiMsg(uintptr_t midiData, intptr_t);
+	void RegisterMessageMap() override;
 };
 
 

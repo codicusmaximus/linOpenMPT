@@ -31,12 +31,12 @@ class PlugNotFoundDialog : public ResizableDialog
 public:
 	PlugNotFoundDialog(std::vector<VSTPluginLib *> &plugins, QWidget *parent);
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 
 	void OnRemove();
 
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 OPENMPT_NAMESPACE_END

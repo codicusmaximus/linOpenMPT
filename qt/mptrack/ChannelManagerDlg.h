@@ -126,7 +126,7 @@ protected:
 	void OnMButtonDown(uint32 nFlags,QPoint point);
 	void OnLButtonDblClk(uint32 nFlags, QPoint point);
 	void OnRButtonDblClk(uint32 nFlags, QPoint point);
-	DECLARE_MESSAGE_MAP();
+	void RegisterMessageMap() override;;
 };
 
 OPENMPT_NAMESPACE_END

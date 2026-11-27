@@ -12,10 +12,10 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 #include "DialogBase.h"
 #include "../soundlib/Snd_defs.h"
 
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -28,7 +28,7 @@ class CPatternGotoDialog : public DialogBase
 {
 	Q_OBJECT
 	CSoundFile &m_SndFile;
-	QSpinBox *m_SpinRow = nullptr, *m_SpinChannel = nullptr, *m_SpinPattern = nullptr, *m_SpinOrder = nullptr;
+	mfcless::UpDown *m_SpinRow = nullptr, *m_SpinChannel = nullptr, *m_SpinPattern = nullptr, *m_SpinOrder = nullptr;
 
 public:
 	ROWINDEX m_nRow;
@@ -50,13 +50,15 @@ protected:
 	void UpdateNumRows();
 	void UpdateTime();
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnOK() override;
 
 	void OnPatternChanged();
 	void OnOrderChanged();
 	void OnRowChanged();
 	void OnTimeChanged();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

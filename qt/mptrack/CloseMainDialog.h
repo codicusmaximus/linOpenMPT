@@ -36,13 +36,15 @@ public:
 	CloseMainDialog();
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnOK() override;
 
 	void OnSaveAll();
 	void OnSaveNone();
 	void OnSwitchFullPaths();
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

@@ -39,7 +39,9 @@ protected:
 		SliderContainer(CTempoSwingDlg &parent) : m_parent(parent) { }
 
 		void OnHScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
-		bool OnToolTipNotify(uint32, NMHDR *pNMHDR, intptr_t *);
+		bool OnToolTipNotify(uint32 );
+
+		void RegisterMessageMap() override;
 	};
 
 	enum { SliderResolution = 1000, SliderUnity = SliderResolution / 2 };
@@ -70,7 +72,7 @@ public:
 	CTempoSwingDlg(QWidget *parent, const TempoSwing &currentTempoSwing, CSoundFile &sndFile, PATTERNINDEX pattern = PATTERNINDEX_INVALID);
 
 protected:
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void OnOK() override;
@@ -81,6 +83,8 @@ protected:
 	void OnToggleGroup();
 	void OnGroupChanged();
 	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

@@ -72,7 +72,7 @@ public:
 protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 
 	bool IsPCEvent() const;
 	
@@ -102,6 +102,7 @@ protected:
 	void OnCheckChannelSearch();
 
 	void RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex);
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END

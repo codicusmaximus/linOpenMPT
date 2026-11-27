@@ -1,9 +1,10 @@
 /*
  * Childfrm.h
  * ----------
- * Purpose: Implementation of the MDI document child windows.
- * Notes  : mfcless twin of upstream's mptrack/Childfrm.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Purpose: Implementation of tab interface class.
+ * Notes  : mfcless twin of upstream's mptrack/Childfrm.h. An MDI child
+ *          window (QMdiSubWindow) with a splitter: the control view
+ *          (tabs) on top and the editor view below.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -12,18 +13,24 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
+#include "PatternCursor.h"
+#include "../common/FileReaderFwd.h"
+#include "../soundlib/plugins/PluginStructs.h"
+
+#include "mfcless/MessageMap.h"
+
 #include <QtWidgets/QMdiSubWindow>
 
-#include "PatternCursor.h"
+#include <bitset>
 
-#include "../common/FileReaderFwd.h"
-
-class QWidget;
+class QSplitter;
 
 OPENMPT_NAMESPACE_BEGIN
 
 class CModControlView;
 class CModControlDlg;
+class CModDoc;
 
 struct GeneralViewState
 {
@@ -88,11 +95,10 @@ struct CommentsViewState
 
 
 
-class CChildFrame: public QMdiSubWindow
+class CChildFrame: public QMdiSubWindow, public mfcless::MessageMap
 {
 	Q_OBJECT
 	friend class CModControlDlg;
-	Q_OBJECT
 public:
 	CChildFrame();
 	~CChildFrame() override;
@@ -103,8 +109,8 @@ protected:
 
 // Attributes
 protected:
-	CSplitterWnd m_wndSplitter;
-	QWidget * m_hWndCtrl = nullptr, m_hWndView = nullptr;
+	QSplitter *m_wndSplitter = nullptr;
+	QWidget *m_hWndCtrl = nullptr, *m_hWndView = nullptr;
 	GeneralViewState m_ViewGeneral;
 	PatternViewState m_ViewPatterns;
 	SampleViewState m_ViewSamples;
@@ -114,18 +120,22 @@ protected:
 	int m_dpi = 0;
 	bool m_maxWhenClosed = false;
 	bool m_initialActivation = true;
+	// mfcless: what CFrameWnd kept.
+	CModDoc *m_document = nullptr;
+	mfcless::DocumentView *m_activeView = nullptr;
+	int m_nWindow = 0;  // the number of this window of the document, if it has several
 
 // Operations
 public:
-	CModControlView *GetModControlView() const { return reinterpret_cast<CModControlView *>(m_wndSplitter.GetPane(0, 0)); }
-	bool ChangeViewClass(CRuntimeClass *pNewViewClass, CCreateContext *pContext = nullptr);
+	CModControlView *GetModControlView() const;
+	bool ChangeViewClass(const mfcless::ViewClass *pNewViewClass);
 	void ForceRefresh();
 	void SavePosition(bool exit = false);
 	intptr_t SendCtrlMessage(uint32 uMsg, intptr_t lParam = 0) const;
 	intptr_t SendViewMessage(uint32 uMsg, intptr_t lParam = 0) const;
 	intptr_t ActivateView(uint32 nId, intptr_t lParam);
-	QWidget * GetHwndCtrl() const { return m_hWndCtrl; }
-	QWidget * GetHwndView() const { return m_hWndView; }
+	QWidget *GetHwndCtrl() const { return m_hWndCtrl; }
+	QWidget *GetHwndView() const { return m_hWndView; }
 	GeneralViewState &GetGeneralViewState() { return m_ViewGeneral; }
 	PatternViewState &GetPatternViewState() { return m_ViewPatterns; }
 	SampleViewState &GetSampleViewState() { return m_ViewSamples; }
@@ -145,27 +155,35 @@ public:
 
 	static CChildFrame *LastActiveFrame() { return m_lastActiveFrame; }
 
+	// mfcless: CFrameWnd's document and active view.
+	CModDoc *GetActiveDocument() const { return m_document; }
+	mfcless::DocumentView *GetActiveView() const { return m_activeView; }
+	void SetActiveView(mfcless::DocumentView *view);
+	void SetWindowNumber(int n) { m_nWindow = n; }
+
 // Overrides
-	// ClassWizard generated virtual function overrides
 public:
-	bool OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;
-	bool PreCreateWindow(CREATESTRUCT& cs) override;
-	void ActivateFrame(int nCmdShow) override;
-	void OnUpdateFrameTitle(bool bAddToTitle) override;
+	// Creates the views for the document (upstream: OnCreateClient).
+	bool OnCreateClient(CModDoc *document, const mfcless::ViewClass *pNewViewClass);
+	void ActivateFrame(int nCmdShow = -1);
+	void OnUpdateFrameTitle(bool bAddToTitle);
+
 // Generated message map functions
+public:
+	// Called by the main frame when the MDI area activates or deactivates this window.
+	void OnMDIActivate(bool bActivate);
 protected:
 	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
 	void OnDestroy();
-	bool OnNcActivate(bool bActivate);
-	void OnMDIActivate(bool bActivate, QWidget *pActivateWnd, QWidget *pDeactivateWnd);
 	intptr_t OnChangeViewClass(uintptr_t, intptr_t lParam);
 	intptr_t OnInstrumentSelected(uintptr_t, intptr_t lParam);
+	void RegisterMessageMap() override;
+
+	bool event(QEvent *e) override;
+	void closeEvent(QCloseEvent *e) override;
 };
 
 /////////////////////////////////////////////////////////////////////////////
-
-//{{AFX_INSERT_LOCATION}}
-// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
 
 
 OPENMPT_NAMESPACE_END

@@ -184,12 +184,8 @@ bool DialogBase::eventFilter(QObject *watched, QEvent *e)
 
 bool DialogBase::event(QEvent *e)
 {
-	if(e->type() == mfcless::ModMessage::EventType())
-	{
-		auto *m = static_cast<mfcless::ModMessage *>(e);
-		DispatchMessage(m->message, m->wParam, m->lParam, m->result);
+	if(HandleModMessage(e))
 		return true;
-	}
 	if(e->type() == QEvent::KeyPress || e->type() == QEvent::KeyRelease)
 	{
 		m_lastInputDevice = InputDevice::Keyboard;
