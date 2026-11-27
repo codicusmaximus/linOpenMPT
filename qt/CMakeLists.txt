@@ -4,6 +4,8 @@
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 set(CMAKE_AUTOMOC ON)
 
+add_subdirectory(resources)
+
 add_executable(openmpt-qt main.cpp)
 target_link_libraries(openmpt-qt PRIVATE mpt_soundlib mpt_sounddevice Qt6::Widgets)
 target_compile_options(openmpt-qt PRIVATE -fpermissive -w)
@@ -14,5 +16,9 @@ if(LINOPENMPT_BUILD_TESTS)
   target_link_libraries(mfcless_engine_test PRIVATE "$<LINK_GROUP:RESCAN,mpt_tracker_logic,mpt_soundlib>" mpt_tracker_logic)
   target_compile_options(mfcless_engine_test PRIVATE -fpermissive -w)
   add_test(NAME mfcless_engine_mod COMMAND mfcless_engine_test ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR}/engine_mod.it)
+  add_executable(mfcless_resources_test tests/resources_test.cpp)
+  target_link_libraries(mfcless_resources_test PRIVATE mfcless_base mfcless_resources)
+  add_test(NAME mfcless_resources COMMAND mfcless_resources_test)
+  set_tests_properties(mfcless_resources PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
   add_test(NAME mfcless_engine_s3m COMMAND mfcless_engine_test ${MPT_UPSTREAM_DIR}/test/test.s3m ${CMAKE_CURRENT_BINARY_DIR}/engine_s3m.it)
 endif()
