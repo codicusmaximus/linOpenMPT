@@ -3,7 +3,6 @@
  * -----------
  * Purpose: Implementation of the custom plugin editor window that is used if a plugin provides an own editor GUI.
  * Notes  : mfcless twin of upstream's mptrack/VSTEditor.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -17,7 +16,7 @@
 
 #include "AbstractVstEditor.h"
 
-class QLabel;
+#include <QtWidgets/QLabel>
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN

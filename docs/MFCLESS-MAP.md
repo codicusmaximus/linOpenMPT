@@ -61,7 +61,7 @@ Upstream: 8bc4cd9
 | `Mainbar.cpp` | 1815 | twin | todo |
 | `Mod2wave.cpp` | 1436 | twin | todo |
 | `ModConvert.cpp` | 686 | reuse | todo |
-| `ModDocTemplate.cpp` | 245 | reuse | todo |
+| `ModDocTemplate.cpp` | 245 | twin | todo |
 | `Moddoc.cpp` | 3462 | twin | todo |
 | `Modedit.cpp` | 1411 | reuse | todo |
 | `MoveFXSlotDialog.cpp` | 92 | twin | todo |

@@ -1,0 +1,253 @@
+// Draft from qt/tools/twin.py, not yet edited by hand.
+/*
+* IPCWindow.cpp
+* -------------
+* Purpose: Hidden window to receive file open commands from another OpenMPT instance
+* Notes  : (currently none)
+* Authors: OpenMPT Devs
+* The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+*/
+
+
+#include "IPCWindow.h"
+#include "Mainfrm.h"
+#include "ModDocTemplate.h"
+#include "Mptrack.h"
+#include "MPTrackUtil.h"
+
+#include "../common/version.h"
+
+
+OPENMPT_NAMESPACE_BEGIN
+
+namespace IPCWindow
+{
+
+	static constexpr mpt::uchar ClassName[] = U_("OpenMPT_IPC_Wnd");
+	static QWidget * ipcWindow = nullptr;
+
+	static intptr_t CALLBACK IPCWindowProc(QWidget * hwnd, uint32 uMsg, uintptr_t wParam, intptr_t lParam)
+	{
+		if(uMsg == WM_COPYDATA)
+		{
+			const auto &copyData = *reinterpret_cast<const COPYDATASTRUCT *>(lParam);
+			intptr_t result = 0;
+			switch(static_cast<Function>(copyData.dwData))
+			{
+			case Function::Open:
+				{
+					std::size_t count = copyData.cbData / sizeof(WCHAR);
+					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
+					const std::wstring name = std::wstring(data, data + count);
+					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).ToCString()) ? 1 : 2;
+				}
+				break;
+			case Function::SetWindowForeground:
+				{
+					auto mainWnd = theApp.GetMainWnd();
+					if(mainWnd)
+					{
+						if(mainWnd->IsIconic())
+						{
+							mainWnd->ShowWindow(SW_RESTORE);
+						}
+						mainWnd->SetForegroundWindow();
+						result = 1;
+					} else
+					{
+						result = 0;
+					}
+				}
+				break;
+			case Function::GetVersion:
+				{
+					result = Version::Current().GetRawVersion();
+				}
+				break;
+			case Function::GetArchitecture:
+				{
+					#if MPT_OS_WINDOWS
+						result = static_cast<int32>(mpt::OS::Windows::GetProcessArchitecture());
+					#else
+						result = -1;
+					#endif
+				}
+				break;
+			case Function::HasSameBinaryPath:
+				{
+					std::size_t count = copyData.cbData / sizeof(WCHAR);
+					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
+					const std::wstring path = std::wstring(data, data + count);
+					result = (theApp.GetInstallBinArchPath().ToWide() == path) ? 1 : 0;
+				}
+				break;
+			case Function::HasSameSettingsPath:
+				{
+					std::size_t count = copyData.cbData / sizeof(WCHAR);
+					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
+					const std::wstring path = std::wstring(data, data + count);
+					result = (theApp.GetConfigPath().ToWide() == path) ? 1 : 0;
+				}
+				break;
+			case Function::PlayCurrent:
+				if(CMainFrame::GetMainFrame())
+				{
+					if(CMainFrame::GetMainFrame()->PlayMod(CMainFrame::GetMainFrame()->GetActiveDoc()))
+						result = 1;
+				}
+				break;
+			default:
+				result = 0;
+				break;
+			}
+			return result;
+		}
+		return ::DefWindowProc(hwnd, uMsg, wParam, lParam);
+	}
+
+	void Open(HINSTANCE hInstance)
+	{
+		WNDCLASS ipcWindowClass =
+		{
+			0,
+			IPCWindowProc,
+			0,
+			0,
+			hInstance,
+			nullptr,
+			nullptr,
+			nullptr,
+			nullptr,
+			ClassName
+		};
+		auto ipcAtom = RegisterClass(&ipcWindowClass);
+		ipcWindow = CreateWindow(MAKEINTATOM(ipcAtom), U_("OpenMPT IPC Window"), 0, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, 0);
+	}
+
+	void Close()
+	{
+		::DestroyWindow(ipcWindow);
+		ipcWindow = nullptr;
+	}
+
+	void UpdateLastUsed()
+	{
+		if(ipcWindow)
+			SetWindowLongPtr(ipcWindow, GWLP_USERDATA, mpt::saturate_cast<LONG_PTR>(Util::GetTickCount64() / 100));
+	}
+
+	intptr_t SendIPC(QWidget * ipcWnd, Function function, mpt::const_byte_span data)
+	{
+		if(!ipcWnd)
+		{
+			return 0;
+		}
+		if(!mpt::in_range<uint32>(data.size()))
+		{
+			return 0;
+		}
+		COPYDATASTRUCT copyData{};
+		copyData.dwData = static_cast<ULONG>(function);
+		copyData.cbData = mpt::saturate_cast<uint32>(data.size());
+		copyData.lpData = const_cast<void*>(mpt::void_cast<const void*>(data.data()));
+		return ::SendMessage(ipcWnd, WM_COPYDATA, 0, reinterpret_cast<intptr_t>(&copyData));
+	}
+
+	struct EnumWindowState
+	{
+		uintptr_t lastActive = 0;
+		QWidget * result = nullptr;
+		FlagSet<InstanceRequirements> require;
+	};
+
+	static bool CALLBACK EnumWindowsProc(QWidget * hwnd, intptr_t lParam)
+	{
+		EnumWindowState &state = *reinterpret_cast<EnumWindowState *>(lParam);
+		if(hwnd)
+		{
+			mpt::uchar className[256];
+			MemsetZero(className);
+			if(::GetClassName(hwnd, className, 256) > 0)
+			{
+				if(!_tcscmp(className, IPCWindow::ClassName))
+				{
+					if(state.require[SameVersion])
+					{
+						if(Version(static_cast<uint32>(SendIPC(hwnd, Function::GetVersion))) != Version::Current())
+						{
+							return true; // continue
+						}
+					}
+					if(state.require[SameArchitecture])
+					{
+						if(SendIPC(hwnd, Function::GetArchitecture) != static_cast<int>(mpt::OS::Windows::GetProcessArchitecture()))
+						{
+							return true; // continue
+						}
+					}
+					if(state.require[SamePath])
+					{
+						if(SendIPC(hwnd, Function::HasSameBinaryPath, mpt::as_span(theApp.GetInstallBinArchPath().ToWide())) != 1)
+						{
+							return true; // continue
+						}
+					}
+					if(state.require[SameSettings])
+					{
+						if(SendIPC(hwnd, Function::HasSameSettingsPath, mpt::as_span(theApp.GetConfigPath().ToWide())) != 1)
+						{
+							return true; // continue
+						}
+					}
+					uintptr_t lastActive = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+					if(!state.result || lastActive >= state.lastActive)
+					{
+						state.result = hwnd;
+						state.lastActive = lastActive;
+					}
+					return true; // continue
+				}
+			}
+		}
+		return true; // continue
+	}
+
+	QWidget * FindIPCWindow(FlagSet<InstanceRequirements> require)
+	{
+		EnumWindowState state;
+		state.require = require;
+		if(::EnumWindows(&EnumWindowsProc, reinterpret_cast<intptr_t>(&state)) == 0)
+		{
+			return nullptr;
+		}
+		return state.result;
+	}
+
+	bool SendToIPC(const std::vector<mpt::PathString> &filenames, bool autoplay)
+	{
+		QWidget * ipcWnd = FindIPCWindow();
+		if(!ipcWnd)
+		{
+			return false;
+		}
+		uint32 processID = 0;
+		GetWindowThreadProcessId(ipcWnd, &processID);
+		AllowSetForegroundWindow(processID);
+		SendIPC(ipcWnd, Function::SetWindowForeground);
+		for(const auto &filename : filenames)
+		{
+			if(SendIPC(ipcWnd, Function::Open, mpt::as_span(filename.ToWide())) == 0)
+			{
+				return false;
+			}
+		}
+		if(autoplay)
+		{
+			SendIPC(ipcWnd, Function::PlayCurrent);
+		}
+		return true;
+	}
+
+}
+
+OPENMPT_NAMESPACE_END

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include <QtCore/QString>
 
 #include <string>
@@ -16,6 +18,13 @@
 
 namespace mfcless
 {
+
+// Flags of string comparisons (as CompareString takes them).
+namespace compare
+{
+	inline constexpr uint32_t IgnoreCase = 0x1, IgnoreNonSpace = 0x2, IgnoreSymbols = 0x4, DigitsAsNumbers = 0x8,
+		IgnoreKanaType = 0x10000, IgnoreWidth = 0x20000;
+}
 
 struct Text
 {

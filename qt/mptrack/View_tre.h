@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Text.h"
 #include "mfcless/DropTarget.h"
 #include "mfcless/Menus.h"
 #include "mfcless/Window.h"
@@ -193,7 +194,7 @@ protected:
 	std::unique_ptr<CDLSBank> m_cachedBank;
 	mpt::PathString m_cachedBankName;
 
-	uint32 m_stringCompareFlags = NORM_IGNORECASE | NORM_IGNOREWIDTH;
+	uint32 m_stringCompareFlags = mfcless::compare::IgnoreCase | mfcless::compare::IgnoreWidth;
 
 	// Instrument library
 	mpt::PathString m_InstrLibPath;           // Current path to be explored

@@ -16,6 +16,7 @@
 #ifndef NO_PLUGINS
 
 #include "ResizableDialog.h"
+#include "mfcless/Keyboard.h"
 #include "Moddoc.h"
 #include "../soundlib/Snd_defs.h"
 
@@ -126,7 +127,7 @@ protected:
 	void dragEnterEvent(QDragEnterEvent *e) override;
 	void dropEvent(QDropEvent *e) override;
 	void moveEvent(QMoveEvent *e) override;
-	bool HandleKeyMessage(QKeyEvent &msg, bool handleGlobal = false);
+	bool HandleKeyMessage(mfcless::Message &msg, bool handleGlobal = false);
 	void UpdatePresetMenu(bool force = false);
 	void GeneratePresetMenu(int32 offset, QMenu &parent);
 	void UpdateInputMenu();

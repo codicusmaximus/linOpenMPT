@@ -695,4 +695,52 @@ PaintDC::PaintDC(QWidget *widget)
 	}
 }
 
+
+int DC::DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors)
+{
+	if(!m_painter || !bits || !colors || (header.biBitCount != 4 && header.biBitCount != 8))
+		return 0;
+	const int dibWidth = header.biWidth;
+	const int dibHeight = std::abs(header.biHeight);
+	const bool bottomUp = header.biHeight > 0;
+	const int stride = ((dibWidth * header.biBitCount + 31) / 32) * 4;
+	width = std::min(width, dibWidth - xSrc);
+	if(width <= 0 || height <= 0)
+		return 0;
+	const int paletteSize = header.biClrUsed ? static_cast<int>(header.biClrUsed) : (1 << header.biBitCount);
+	QList<QRgb> table(256, qRgb(0, 0, 0));
+	for(int i = 0; i < paletteSize && i < 256; i++)
+		table[i] = qRgb(colors[i].rgbRed, colors[i].rgbGreen, colors[i].rgbBlue);
+	QImage image(width, height, QImage::Format_Indexed8);
+	image.setColorTable(table);
+	const auto *src = static_cast<const uint8_t *>(bits);
+	for(int row = 0; row < height; row++)
+	{
+		// The line of the bitmap shown at row (from the top) of the target.
+		const int dibLine = bottomUp ? (ySrc + height - 1 - row) : (ySrc + row);
+		uint8_t *out = image.scanLine(row);
+		const int scan = dibLine - startScan;
+		if(dibLine < 0 || dibLine >= dibHeight || scan < 0 || scan >= scanCount)
+		{
+			std::fill(out, out + width, uint8_t(0));
+			continue;
+		}
+		const uint8_t *line = src + static_cast<std::ptrdiff_t>(scan) * stride;
+		if(header.biBitCount == 8)
+		{
+			std::copy(line + xSrc, line + xSrc + width, out);
+		} else
+		{
+			for(int i = 0; i < width; i++)
+			{
+				const int px = xSrc + i;
+				const uint8_t b = line[px >> 1];
+				out[i] = (px & 1) ? (b & 0x0F) : (b >> 4);
+			}
+		}
+	}
+	m_painter->drawImage(QPoint(x, y), image);
+	return height;
+}
+
 } // namespace mfcless

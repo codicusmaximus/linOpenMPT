@@ -83,6 +83,11 @@ public:
 
 	// The name a screen reader announces for the window's current state.
 	virtual QString GetAccessibleName() { return {}; }
+	// Windows that give screen readers their own names call this, as with
+	// MFC; Qt asks every widget, so it has nothing to do.
+	void EnableActiveAccessibility() {}
+	// A zoom gesture (pinch) around center; delta in Windows' units.
+	virtual bool OnGestureZoom(Point /*center*/, long /*delta*/) { return false; }
 
 	// An owner-drawn child control (with this resource ID) asks to be drawn.
 	virtual void OnDrawItem(int /*id*/, DrawItemInfo * /*info*/) {}
@@ -148,6 +153,13 @@ public:
 	void EnableWindow(bool enable = true) { this->setEnabled(enable); }
 	bool IsWindowEnabled() const { return this->isEnabled(); }
 	void Invalidate(bool /*erase*/ = true) { ClientWidget()->update(); }
+	// Stops and restarts repainting during bulk updates.
+	void SetRedraw(bool redraw = true)
+	{
+		this->setUpdatesEnabled(redraw);
+		if(redraw)
+			ClientWidget()->update();
+	}
 	void InvalidateRect(const Rect *r, bool /*erase*/ = true)
 	{
 		if(r)

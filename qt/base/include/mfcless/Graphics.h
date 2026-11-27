@@ -108,6 +108,29 @@ struct Brush
 
 class DC;
 
+// The header and palette entries of a device-independent bitmap, laid out
+// as in BMP files and Windows' bitmap resources (so they can be copied from
+// them). Rows run bottom-up if biHeight is positive.
+struct DibHeader
+{
+	uint32_t biSize = 40;
+	int32_t biWidth = 0;
+	int32_t biHeight = 0;
+	uint16_t biPlanes = 1;
+	uint16_t biBitCount = 8;
+	uint32_t biCompression = 0;
+	uint32_t biSizeImage = 0;
+	int32_t biXPelsPerMeter = 0;
+	int32_t biYPelsPerMeter = 0;
+	uint32_t biClrUsed = 0;
+	uint32_t biClrImportant = 0;
+};
+static_assert(sizeof(DibHeader) == 40);
+struct DibColor
+{
+	uint8_t rgbBlue = 0, rgbGreen = 0, rgbRed = 0, rgbReserved = 0;
+};
+
 // A bitmap to draw on (selected into a memory DC) or to draw from.
 class Bitmap
 {
@@ -211,6 +234,11 @@ public:
 	// Pixels of the transparent colour are left out.
 	bool TransparentBlt(int x, int y, int width, int height, DC *source, int xSrc, int ySrc, int srcWidth, int srcHeight, uint32_t transparent);
 	void DrawImage(int x, int y, const QImage &image);
+	// Draws scan lines of a 4- or 8-bit palette bitmap (SetDIBitsToDevice):
+	// the part of width x height at xSrc, ySrc (ySrc counted from the
+	// bottom line for a bottom-up bitmap), from bits with scanCount lines
+	// that start at line startScan.
+	int DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors);
 	void DrawImage(const Rect &target, const QImage &image);
 
 	bool TextOut(int x, int y, const Text &text);

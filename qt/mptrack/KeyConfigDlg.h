@@ -93,7 +93,7 @@ protected:
 	QLineEdit *m_eFind = nullptr;
 	QLineEdit *m_eChordWaitTime = nullptr;
 	QAbstractButton *m_restoreDefaultButton = nullptr;
-	QIcon m_infoIcon = nullptr, m_warnIcon = nullptr;
+	QIcon m_infoIcon, m_warnIcon;
 	
 	mpt::ustring m_lastWarning;
 	std::vector<CommandCategory> commandCategories;
@@ -144,7 +144,7 @@ protected:
 	void OnSearchTermChanged();
 	void OnChordWaitTimeChanged();
 	void OnSettingsChanged() { SetModified(true); }
-	void OnCheck() { OnSetKeyChoice(&m_eCustHotKey); };
+	void OnCheck() { OnSetKeyChoice(m_eCustHotKey); };
 	void OnToggleNotesRepeat();
 	void OnListenForKeys();
 	void OnDeleteKeyChoice();

@@ -72,7 +72,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void OnOK() override;
-	mpt::ustring GetToolTipText(uint32 id, QWidget * QWidget *) const override;
+	mpt::ustring GetToolTipText(uint32 id, QWidget *) const override;
 	void RegisterMessageMap() override;
 };
 

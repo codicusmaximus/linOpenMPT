@@ -24,11 +24,21 @@
 
 #include <QtCore/QObject>
 
+#include "mfcless/Graphics.h"
+
 class QComboBox;
 class QLineEdit;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
+
+// mfcless: a 4-bit bitmap resource, in the resource's own bytes.
+struct MODPLUGDIB
+{
+	mfcless::DibHeader bmiHeader;
+	mfcless::DibColor bmiColors[16];
+	const uint8 *lpDibBits;
+};
 
 class CModDoc;
 class CModDocTemplate;
@@ -385,8 +395,63 @@ extern CTrackApp theApp;
 
 //////////////////////////////////////////////////////////////////
 // More Bitmap Helpers
-// mfcless: CFastBitmap, DibBlt and DrawButtonRect are QPainter code in the
-// views' twins.
+
+class CFastBitmap
+{
+protected:
+	static constexpr uint8 BLEND_OFFSET = 0x80;
+
+	struct MODPLUGFASTDIB
+	{
+		mfcless::DibHeader bmiHeader;
+		mfcless::DibColor bmiColors[256];
+		std::vector<uint8> DibBits;
+	};
+
+	MODPLUGFASTDIB m_Dib;
+	uint32 m_nTextColor = 0, m_nBkColor = 0;
+	MODPLUGDIB *m_pTextDib;
+	uint8 m_nBlendOffset = 0;
+	uint8 m_n4BitPalette[16] = {{}};
+	uint8 m_nXShiftFactor = 0;
+
+public:
+	CFastBitmap() = default;
+
+public:
+	void Init(MODPLUGDIB *lpTextDib = nullptr);
+	void Blit(mfcless::DC *hdc, int x, int y, int cx, int cy);
+	void Blit(mfcless::DC *hdc, const mfcless::Rect *lprc) { Blit(hdc, lprc->left, lprc->top, lprc->right - lprc->left, lprc->bottom - lprc->top); }
+	void SetTextColor(int nText, int nBk = -1)
+	{
+		m_nTextColor = nText;
+		if(nBk >= 0)
+			m_nBkColor = nBk;
+	}
+	void SetTextBkColor(uint32 nBk) { m_nBkColor = nBk; }
+	void SetColor(uint32 nIndex, uint32 cr);
+	void SetAllColors(uint32 nBaseIndex, uint32 nColors, uint32 *pcr);
+	void TextBlt(int x, int y, int cx, int cy, int srcx, int srcy, MODPLUGDIB *lpdib = nullptr);
+	void SetBlendMode(bool enable) { m_nBlendOffset = enable ? BLEND_OFFSET : 0; }
+	bool GetBlendMode() const { return m_nBlendOffset != 0; }
+	void SetBlendColor(uint32 cr);
+	void SetSize(int x, int y);
+	int GetWidth() const { return m_Dib.bmiHeader.biWidth; }
+};
+
+
+///////////////////////////////////////////////////
+// 4-bit DIB Drawing functions
+void DibBlt(mfcless::DC *hdc, int x, int y, int sizex, int sizey, int srcx, int srcy, MODPLUGDIB *lpdib);
+// mfcless: the bitmap resource by ID.
+MODPLUGDIB *LoadDib(uint32 resourceID);
+mfcless::DibColor rgb2quad(uint32 c);
+
+// Other bitmap functions
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const mfcless::Rect &rect, const char *text = nullptr, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const mfcless::Rect &rect, const wchar_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const char *text = nullptr, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
+void DrawButtonRect(mfcless::DC *hdc, int lineWidth, const QFont &font, const mfcless::Rect &rect, const wchar_t *text, bool disabled = false, bool pushed = false, uint32 dwFlags = (mfcless::dt::Center | mfcless::dt::VCenter), uint32 topMargin = 0);
 
 
 // Misc functions

@@ -24,6 +24,10 @@ TYPES = [
 	(r'\bIsClipboardFormatAvailable\(', 'mfcless::clip::IsFormatAvailable('),
 	(r'\bRegisterClipboardFormat\(_T\(("[^"]*")\)\)', r'mfcless::clip::RegisterFormat(QStringLiteral(\1))'),
 	(r'\bTVI_ROOT\b', 'nullptr'),
+	(r'\bNORM_IGNORE(CASE|NONSPACE|SYMBOLS|KANATYPE|WIDTH)\b', lambda m: 'mfcless::compare::Ignore' + {'CASE': 'Case', 'NONSPACE': 'NonSpace', 'SYMBOLS': 'Symbols', 'KANATYPE': 'KanaType', 'WIDTH': 'Width'}[m.group(1)]),
+	(r'\bSORT_DIGITSASNUMBERS\b', 'mfcless::compare::DigitsAsNumbers'),
+	(r'\bCImageList\b(?!Ex)', 'CImageListEx'),
+	(r'\bHWND HWND\b', 'QWidget *'),
 	(r'\bCOleDataObject\s*\*\s*', 'const QMimeData *'),
 	(r'\bDROPEFFECT_(NONE|COPY|MOVE|LINK|SCROLL)\b', lambda m: 'mfcless::drop::' + m.group(1).capitalize()),
 	(r'\bDROPEFFECT\b', 'uint32'),
@@ -94,6 +98,7 @@ TYPES = [
 	(r'\bTOOLINFO\b', 'mfcless::ToolInfo'),
 	(r'\bSetScrollSizes\(MM_TEXT,\s*', 'SetScrollSizes('),
 	(r'\b(QFont|QIcon|QCursor|mfcless::Pen|mfcless::Brush)(\s+\w+)\s*=\s*(?:nullptr|NULL)\s*;', r'\1\2;'),
+	(r'\b(QFont|QIcon|QCursor|mfcless::Pen|mfcless::Brush)(\s+\w+)\s*=\s*(?:nullptr|NULL)\s*,\s*(\w+)\s*=\s*(?:nullptr|NULL)\s*;', r'\1\2, \3;'),
 	(r'\b(?:CMenu|HMENU)\s*\*?\s*(\w+)\s*=\s*::CreatePopupMenu\(\)', r'mfcless::Menu \1 = mfcless::Menu::CreatePopup()'),
 	(r'\bCMenu\s*\*\s*', 'mfcless::Menu '),
 	(r'\bHMENU\b', 'mfcless::Menu'),
@@ -288,6 +293,10 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Graphics.h"\n', 1)
 	if re.search(r'mfcless::(DropTarget|drop::)', text) and '"mfcless/DropTarget.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/DropTarget.h"\n', 1)
+	if 'CImageListEx' in text and '"CImageListEx.h"' not in text and not re.search(r'class CImageListEx\b', text):
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "CImageListEx.h"\n', 1)
+	if 'mfcless::compare::' in text and '"mfcless/Text.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Text.h"\n', 1)
 	if 'mfcless::clip::' in text and '"mfcless/Clipboard.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Clipboard.h"\n', 1)
 	if 'mfcless::TickCount' in text and '"mfcless/System.h"' not in text:
@@ -456,6 +465,7 @@ def member_access(text, types):
 		return name + (repl if repl else '->' + method + '(')
 	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
 	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
+	text = re.sub(r'\(&(m_\w+)\)', lambda m: '(' + m.group(1) + ')' if m.group(1) in types else m.group(0), text)
 	def deref(name):
 		return '*' + name if name in types else name
 	text = re.sub(r'(&\s*\w+\([^)]*\)\s*(?:const\s*)?\{\s*return )(m_\w+)(;)', lambda m: m.group(1) + deref(m.group(2)) + m.group(3), text)
@@ -513,7 +523,15 @@ if __name__ == '__main__':
 	NAME = path.split('mptrack/', 1)[-1]
 	src = open(path, encoding='utf-8', errors='surrogateescape').read()
 	if path.endswith('.cpp'):
-		hdr = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mptrack', NAME[:-4] + '.h')
+		twins = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'mptrack')
+		hdr = os.path.join(twins, NAME[:-4] + '.h')
+		if not os.path.exists(hdr):
+			# Upstream's names differ in case now and then (MainFrm.cpp, Mainfrm.h).
+			want = (NAME[:-4] + '.h').lower()
+			for root, _, files in os.walk(twins):
+				for f in files:
+					if os.path.relpath(os.path.join(root, f), twins).lower() == want:
+						hdr = os.path.join(root, f)
 		header = open(hdr, encoding='utf-8').read() if os.path.exists(hdr) else ''
 		out = twin_cpp(src, header)
 		if PATCH_MODE:
