@@ -1103,7 +1103,7 @@ void CViewGlobals::OnParamChanged()
 
 	IMixPlugin *pPlugin = GetCurrentPlugin();
 
-	if(pPlugin != nullptr && cursel != static_cast<PlugParamIndex>(CB_ERR))
+	if(pPlugin != nullptr && cursel != static_cast<PlugParamIndex>(-1))
 	{
 		const PlugParamIndex nParams = pPlugin->GetNumVisibleParameters();
 		if(cursel < nParams) m_nCurrentParam = cursel;
@@ -1708,7 +1708,7 @@ void CViewGlobals::OnFillParamCombo()
 	m_CbnParam->setUpdatesEnabled(false);
 	m_CbnParam->clear();
 
-	AddPluginParameternamesToCombobox(m_CbnParam, *pPlugin);
+	AddPluginParameternamesToCombobox(*m_CbnParam, *pPlugin);
 
 	if (m_nCurrentParam >= nParams) m_nCurrentParam = 0;
 	m_CbnParam->setCurrentIndex(m_nCurrentParam);

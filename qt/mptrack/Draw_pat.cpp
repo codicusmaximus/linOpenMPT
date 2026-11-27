@@ -932,11 +932,11 @@ void CViewPattern::DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTE
 		const bool rowDisabled = sndFile.m_lockRowStart != ROWINDEX_INVALID && (row < sndFile.m_lockRowStart || row > sndFile.m_lockRowEnd);
 		// Draw button with row number
 		{
-			mpt::uchar s[32];
+			mpt::ustring s;
 			if(hexNumbers)
-				wsprintf(s, UL_("%s%02X"), compRow < 0 ? UL_("-") : UL_(""), std::abs(compRow));
+				s = mfcless::PrintF(UL_("%s%02X"), compRow < 0 ? UL_("-") : UL_(""), std::abs(compRow));
 			else
-				wsprintf(s, UL_("%d"), compRow);
+				s = mfcless::PrintF(UL_("%d"), compRow);
 
 			// We already draw to the off-screen buffer in case of smooth scrolling
 			const bool drawOffscreen = !patternSetupFlags[PatternSetup::SmoothScrolling];

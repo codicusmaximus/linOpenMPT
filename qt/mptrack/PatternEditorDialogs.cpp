@@ -1137,12 +1137,12 @@ bool CChordEditor::OnInitDialog()
 		combo.SetRedraw(false);
 
 	// Shortcut key combo box
-	AppendNotesToControl(m_CbnShortcut, NOTE_MIN, NOTE_MIN + static_cast<int>(kcVPEndChords) - static_cast<int>(kcVPStartChords));
+	AppendNotesToControl(*m_CbnShortcut, NOTE_MIN, NOTE_MIN + static_cast<int>(kcVPEndChords) - static_cast<int>(kcVPStartChords));
 
 	m_CbnShortcut->setCurrentIndex(0);
 	// Base Note combo box
 	mfcless::SetItemData(m_CbnBaseNote, mfcless::AddItem(m_CbnBaseNote, UL_("Relative")), MPTChord::relativeMode);
-	AppendNotesToControl(m_CbnBaseNote, NOTE_MIN, NOTE_MIN + 3 * 12 - 1);
+	AppendNotesToControl(*m_CbnBaseNote, NOTE_MIN, NOTE_MIN + 3 * 12 - 1);
 
 	// Chord Note combo boxes
 	mpt::ustring s;
@@ -1378,13 +1378,12 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	mpt::ustring s;
 
 	// Split Notes
-	AppendNotesToControl(m_CbnSplitNote, sndFile.GetModSpecifications().noteMin, sndFile.GetModSpecifications().noteMax);
+	AppendNotesToControl(*m_CbnSplitNote, sndFile.GetModSpecifications().noteMin, sndFile.GetModSpecifications().noteMax);
 	m_CbnSplitNote->setCurrentIndex(m_Settings.splitNote - (sndFile.GetModSpecifications().noteMin - NOTE_MIN));
 
 	// Octave modifier
 	m_CbnOctaveModifier->setUpdatesEnabled(false);
 	int numItems = SplitKeyboardSettings::splitOctaveRange * 2 + 1;
-	m_CbnSplitVolume->InitStorage(numItems, static_cast<uint32>(numItems * 9 * sizeof(mpt::uchar)));
 	for(int i = -SplitKeyboardSettings::splitOctaveRange; i < SplitKeyboardSettings::splitOctaveRange + 1; i++)
 	{
 		s.Format(i < 0 ? UL_("Octave -%d") : i > 0 ? UL_("Octave +%d") : UL_("No Change"), std::abs(i));
@@ -1397,7 +1396,6 @@ bool CSplitKeyboardSettings::OnInitDialog()
 
 	// Volume
 	m_CbnSplitVolume->setUpdatesEnabled(false);
-	m_CbnSplitVolume->InitStorage(65, 65 * 4 * sizeof(mpt::uchar));
 	mfcless::AddItem(m_CbnSplitVolume, UL_("No Change"));
 	mfcless::SetItemData(m_CbnSplitVolume, 0, 0);
 	for(int i = 1; i <= 64; i++)
@@ -1412,7 +1410,6 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	// Instruments
 	m_CbnSplitInstrument->setUpdatesEnabled(false);
 	numItems = 1 + (sndFile.GetNumInstruments() ? sndFile.GetNumInstruments() : sndFile.GetNumSamples());
-	m_CbnSplitInstrument->InitStorage(numItems, static_cast<uint32>(numItems * 16 * sizeof(mpt::uchar)));
 	mfcless::SetItemData(m_CbnSplitInstrument, mfcless::AddItem(m_CbnSplitInstrument, UL_("No Change")), 0);
 
 	if(sndFile.GetNumInstruments())
@@ -1592,8 +1589,8 @@ void QuickChannelProperties::UpdateDisplay()
 	SetChecked(IDC_CHECK1, (settings.dwFlags[CHN_MUTE]) ? true : false);
 	SetChecked(IDC_CHECK2, (settings.dwFlags[CHN_SURROUND]) ? true : false);
 
-	mpt::uchar description[16];
-	wsprintf(description, UL_("Channel %d:"), m_channel + 1);
+	mpt::ustring description;
+	description = mfcless::PrintF(UL_("Channel %d:"), m_channel + 1);
 	SetItemText(IDC_STATIC_CHANNEL_NAME, description);
 	m_nameEdit->setMaxLength(MAX_CHANNELNAME - 1);
 	mfcless::SetWindowText(m_nameEdit, mpt::ToUnicode(m_document->GetSoundFile().GetCharsetInternal(), settings.szName));

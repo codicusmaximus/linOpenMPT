@@ -13,7 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Window.h"
-#include <QtWidgets/QTreeWidget>
+#include "mfcless/TreeCtrl.h"
 
 #include "CDecimalSupport.h"
 #include "ResizableDialog.h"
@@ -117,7 +117,7 @@ private:
 
 class CTuningDialog;
 
-class CTuningTreeCtrl : public mfcless::Window<QTreeWidget>
+class CTuningTreeCtrl : public mfcless::TreeCtrl
 {
 	Q_OBJECT
 private:

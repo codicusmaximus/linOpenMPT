@@ -9,6 +9,7 @@
 #include "mfcless/MessageMap.h"
 #include "mfcless/Controls.h"
 #include "mfcless/ListCtrl.h"
+#include "mfcless/TreeCtrl.h"
 #include "mfcless/ModMessage.h"
 
 #include <QtCore/QEvent>
@@ -168,7 +169,8 @@ public:
 			info.id = m_id;
 			info.code = Notify::RightClick;
 			info.control = m_tree;
-			info.item = m_indexOf(m_tree->itemAt(pos));
+			info.treeItem = m_tree->itemAt(pos);
+			info.item = m_indexOf(info.treeItem);
 			info.subItem = m_tree->columnAt(pos.x());
 			info.point = m_tree->viewport()->mapToGlobal(pos);
 			m_target->DispatchNotify(info);
@@ -272,6 +274,46 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 		QObject::connect(list, &QListWidget::currentRowChanged, context, [=](int row) { Send(target, id, Notify::SelChange, control, row); });
 		QObject::connect(list, &QListWidget::itemDoubleClicked, context, [=](QListWidgetItem *item) { Send(target, id, Notify::DoubleClicked, control, list->row(item)); });
 		QObject::connect(list, &QListWidget::itemChanged, context, [=](QListWidgetItem *item) { Send(target, id, Notify::CheckChange, control, list->row(item)); });
+		return;
+	}
+	if(auto *treeCtrl = qobject_cast<TreeCtrl *>(control))
+	{
+		auto send = [=](Notify code, QTreeWidgetItem *item, auto &&fill) {
+			NotifyInfo info;
+			info.id = id;
+			info.code = code;
+			info.control = control;
+			info.treeItem = item;
+			fill(info);
+			target->DispatchNotify(info);
+			return info.result;
+		};
+		auto none = [](NotifyInfo &) {};
+		QObject::connect(treeCtrl, &TreeCtrl::selChanged, context, [=](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
+			send(Notify::SelChange, current, [&](NotifyInfo &info) { info.oldTreeItem = previous; });
+		});
+		QObject::connect(treeCtrl, &QTreeWidget::itemDoubleClicked, context, [=](QTreeWidgetItem *item, int) { send(Notify::DoubleClicked, item, none); });
+		QObject::connect(treeCtrl, &QTreeWidget::itemClicked, context, [=](QTreeWidgetItem *item, int) { send(Notify::Click, item, none); });
+		QObject::connect(treeCtrl, &TreeCtrl::itemExpandedChanged, context, [=](QTreeWidgetItem *item, bool expanded) {
+			send(Notify::ItemExpanded, item, [&](NotifyInfo &info) { info.delta = expanded ? 1 : 0; });
+		});
+		QObject::connect(treeCtrl, &TreeCtrl::beginDrag, context, [=](QTreeWidgetItem *item, bool right) {
+			send(Notify::BeginDrag, item, [&](NotifyInfo &info) { info.rightButton = right; });
+		});
+		QObject::connect(treeCtrl, &TreeCtrl::labelEditBegun, context, [=](QTreeWidgetItem *item, bool *allow) {
+			// A result of 1 cancels the edit.
+			if(send(Notify::BeginLabelEdit, item, none) != 0)
+				*allow = false;
+		});
+		QObject::connect(treeCtrl, &TreeCtrl::labelEditEnded, context, [=](QTreeWidgetItem *item, const QString &text, bool accepted, bool *keep) {
+			// A result of 1 keeps the new text.
+			if(send(Notify::EndLabelEdit, item, [&](NotifyInfo &info) { info.text = text; info.textValid = accepted; }) != 0)
+				*keep = true;
+		});
+		QObject::connect(treeCtrl, &TreeCtrl::itemDeleted, context, [=](QTreeWidgetItem *item, intptr_t data) {
+			send(Notify::DeleteItem, item, [&](NotifyInfo &info) { info.data = data; });
+		});
+		treeCtrl->viewport()->installEventFilter(new RightClickWatcher(treeCtrl, id, target, [](QTreeWidgetItem *) { return -1; }));
 		return;
 	}
 	if(auto *tree = qobject_cast<QTreeWidget *>(control))

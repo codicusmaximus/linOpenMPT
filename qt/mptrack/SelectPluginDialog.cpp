@@ -3,7 +3,7 @@
  * ----------------------
  * Purpose: Dialog for adding plugins to a song.
  * Notes  : mfcless twin of upstream's mptrack/SelectPluginDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -87,21 +87,21 @@ CSelectPluginDlg::~CSelectPluginDlg()
 
 bool CSelectPluginDlg::OnInitDialog()
 {
-	uint32 dwRemove = TVS_EDITLABELS|TVS_SINGLEEXPAND;
-	uint32 dwAdd = TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_SHOWSELALWAYS;
+	uint32 dwRemove = mfcless::tree::EditLabels|mfcless::tree::SingleExpand;
+	uint32 dwAdd = mfcless::tree::HasLines | mfcless::tree::LinesAtRoot | mfcless::tree::HasButtons | mfcless::tree::ShowSelAlways;
 
 	ResizableDialog::OnInitDialog();
 	m_treePlugins->ModifyStyle(dwRemove, dwAdd);
-	m_treePlugins->SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons, TVSIL_NORMAL);
+	m_treePlugins->SetImageList(CMainFrame::GetMainFrame()->m_MiscIcons.GetIcons());
 
 	if (m_pPlugin)
 	{
 		mpt::ustring targetSlot = MPT_UFORMAT("&Put in FX{}")(mpt::ufmt::dec0<2>(m_nPlugSlot + 1));
 		SetItemText(IDOK, targetSlot);
-		::EnableWindow(::GetDlgItem(this, IDOK), true);
+		GetDlgItem(IDOK)->setEnabled(true);
 	} else
 	{
-		::EnableWindow(::GetDlgItem(this, IDOK), false);
+		GetDlgItem(IDOK)->setEnabled(false);
 	}
 
 	const int dpi = HighDPISupport::GetDpiForWindow(this);
@@ -110,7 +110,9 @@ bool CSelectPluginDlg::OnInitDialog()
 		mfcless::Point(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowX, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowY, dpi, 96)),
 		mfcless::Size(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowWidth, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowHeight, dpi, 96))
 	);
-	::MapWindowPoints(GetParent(), HWND_DESKTOP, (mfcless::Point *)&rect, 2);
+	// The position is kept relative to the main window.
+	if(QWidget *owner = parentWidget())
+		rect = mfcless::Rect(QRect(owner->mapToGlobal(QPoint(rect.left, rect.top)), QSize(rect.Width(), rect.Height())));
 	mfcless::WindowPlacement wnd;
 	wnd.length = sizeof(wnd);
 	GetWindowPlacement(&wnd);
@@ -128,7 +130,7 @@ void CSelectPluginDlg::OnDPIChanged()
 {
 	DialogBase::OnDPIChanged();
 	// TODO: Icon scaling will be wrong if main window is on a screen with different DPI
-	m_treePlugins->SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons, TVSIL_NORMAL);
+	m_treePlugins->SetImageList(CMainFrame::GetMainFrame()->m_MiscIcons.GetIcons());
 	m_treePlugins->SetIndent(0);
 }
 
@@ -254,7 +256,7 @@ VSTPluginLib* CSelectPluginDlg::GetSelectedPlugin()
 {
 	QTreeWidgetItem * item = m_treePlugins->GetSelectedItem();
 	if(item)
-		return reinterpret_cast<VSTPluginLib *>(mfcless::GetItemData(m_treePlugins, item));
+		return reinterpret_cast<VSTPluginLib *>(m_treePlugins->GetItemData(item));
 	else
 		return nullptr;
 }
@@ -266,7 +268,8 @@ void CSelectPluginDlg::SaveWindowPos() const
 	wnd.length = sizeof(mfcless::WindowPlacement);
 	GetWindowPlacement(&wnd);
 	mfcless::Rect rect = wnd.rcNormalPosition;
-	::MapWindowPoints(HWND_DESKTOP, GetParent(), (mfcless::Point *)&rect, 2);
+	if(QWidget *owner = parentWidget())
+		rect = mfcless::Rect(QRect(owner->mapFromGlobal(QPoint(rect.left, rect.top)), QSize(rect.Width(), rect.Height())));
 	TrackerSettings::Instance().gnPlugWindowX = HighDPISupport::ScalePixelsInv(rect.left, this);
 	TrackerSettings::Instance().gnPlugWindowY = HighDPISupport::ScalePixelsInv(rect.top, this);
 	TrackerSettings::Instance().gnPlugWindowWidth = HighDPISupport::ScalePixelsInv(rect.Width(), this);
@@ -277,14 +280,14 @@ void CSelectPluginDlg::SaveWindowPos() const
 bool CSelectPluginDlg::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	// Use up/down keys to navigate in tree view, even if search field is focussed.
-	if(pMsg != nullptr && pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() != &m_treePlugins)
+	if(pMsg != nullptr && pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() != m_treePlugins)
 	{
 		QTreeWidgetItem * selItem = m_treePlugins->GetSelectedItem();
 		if(selItem == nullptr)
 		{
 			selItem = m_treePlugins->GetRootItem();
 		}
-		while((selItem = m_treePlugins->GetNextItem(selItem, pMsg->wParam == mfcless::vk::UP ? TVGN_PREVIOUSVISIBLE : TVGN_NEXTVISIBLE)) != nullptr)
+		while((selItem = m_treePlugins->GetNextItem(selItem, pMsg->wParam == mfcless::vk::UP ? mfcless::tree::PreviousVisible : mfcless::tree::NextVisible)) != nullptr)
 		{
 			int nImage, nSelectedImage;
 			m_treePlugins->GetItemImage(selItem, nImage, nSelectedImage);
@@ -494,21 +497,21 @@ void CSelectPluginDlg::UpdatePluginsList(const VSTPluginLib *forceSelect)
 	{
 		m_treePlugins->SelectItem(currentPlug);
 	}
-	m_treePlugins->SetItemState(currentPlug, TVIS_BOLD, TVIS_BOLD);
+	m_treePlugins->SetItemState(currentPlug, mfcless::tree::Bold, mfcless::tree::Bold);
 	m_treePlugins->EnsureVisible(currentPlug);
 }
 
 
-QTreeWidgetItem * CSelectPluginDlg::AddTreeItem(const mpt::uchar *title, int image, bool sort, QTreeWidgetItem * hParent, intptr_t lParam)
+QTreeWidgetItem * CSelectPluginDlg::AddTreeItem(const mpt::ustring &title, int image, bool sort, QTreeWidgetItem * hParent, intptr_t lParam)
 {
 	return m_treePlugins->InsertItem(
-		TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM | TVIF_TEXT,
+		mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam | mfcless::tree::MaskText,
 		title,
 		image, image,
 		0, 0,
 		lParam,
 		hParent,
-		(sort ? TVI_SORT : TVI_LAST));
+		(sort ? mfcless::tree::Sort : mfcless::tree::Last));
 }
 
 
@@ -521,7 +524,6 @@ void CSelectPluginDlg::OnSelDblClk()
 	m_treePlugins->GetItemImage(hSel, nImage, nSelectedImage);
 
 	if ((hSel) && (nImage != IMAGE_FOLDER)) OnOK();
-	if (result) *result = 0;
 }
 
 
@@ -605,7 +607,6 @@ void CSelectPluginDlg::OnSelChanged()
 		m_chkShare->setChecked(0);
 		m_chkLegacyBridge->setChecked(0);
 	}
-	if (result) *result = 0;
 }
 
 
@@ -761,7 +762,7 @@ VSTPluginLib *CSelectPluginDlg::ScanPlugins(const mpt::PathString &path, QWidget
 	DialogBase pluginScanDlg;
 	pluginScanDlg.Create(IDD_SCANPLUGINS, parent);
 	pluginScanDlg.CenterWindow(parent);
-	pluginScanDlg.ModifyStyle(0, WS_SYSMENU, WS_SYSMENU);
+	pluginScanDlg.setWindowFlag(Qt::WindowSystemMenuHint, true);
 	pluginScanDlg.ShowWindow(true);
 
 	FolderScanner scan(path, FolderScanner::kOnlyFiles | FolderScanner::kFindInSubDirectories);

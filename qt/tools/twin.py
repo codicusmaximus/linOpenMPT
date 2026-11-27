@@ -147,6 +147,13 @@ TYPES = [
 
 # Applied last to the .cpp twins, once control members are pointers.
 LATE = [
+	# Combo box storage hints mean nothing to Qt.
+	(r'(?m)^[ \t]*[\w>.-]+(?:->|\.)InitStorage\([^;]*\);\n', ''),
+	(r'\bGetWindowLongPtr\((\w+)(?:(?:\.|->)m_hWnd)?,\s*GWLP_USERDATA\)', r'\1->property("mfclessUserData").toLongLong()'),
+	(r'\bSetWindowLongPtr\((\w+)(?:(?:\.|->)m_hWnd)?,\s*GWLP_USERDATA,\s*([^;]*)\);', r'\1->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(\2));'),
+	(r'\bCB_ERR\b', '-1'),
+	# Helpers that fill a combo box take it by reference.
+	(r'\b(AppendNotesToControl(?:Ex)?|AddPluginParameternamesToCombobox|AddPluginNamesToCombobox)\((m_\w+),', r'\1(*\2,'),
 	(r'\bTBSTATE_CHECKED\b', 'CModControlBar::StateChecked'), (r'\bTBSTATE_ENABLED\b', 'CModControlBar::StateEnabled'),
 	(r'\bMAKEINTRESOURCE\(([^()]+)\)', r'\1'),
 	(r'->SetImageList\(&([\w:>()-]+(?:->|\.)m_\w+), LVSIL_SMALL\)', r'->SetImageList(\1.GetIcons())'),
@@ -210,6 +217,16 @@ LATE = [
 	(r'\bLVIS_(FOCUSED|SELECTED)\b', lambda m: 'mfcless::list::' + m.group(1).capitalize()),
 	(r'\bLVNI_(ALL|FOCUSED|SELECTED)\b', lambda m: 'mfcless::list::' + {'ALL': 'All', 'FOCUSED': 'NextFocused', 'SELECTED': 'NextSelected'}[m.group(1)]),
 	(r'\bLVSCW_AUTOSIZE_USEHEADER\b', 'mfcless::list::AutoSizeUseHeader'), (r'\bLVSCW_AUTOSIZE\b', 'mfcless::list::AutoSize'),
+	# Tree view constants.
+	(r'\bTVS_(HASBUTTONS|HASLINES|LINESATROOT|EDITLABELS|SHOWSELALWAYS|SINGLEEXPAND)\b', lambda m: 'mfcless::tree::' + {'HASBUTTONS': 'HasButtons', 'HASLINES': 'HasLines', 'LINESATROOT': 'LinesAtRoot', 'EDITLABELS': 'EditLabels', 'SHOWSELALWAYS': 'ShowSelAlways', 'SINGLEEXPAND': 'SingleExpand'}[m.group(1)]),
+	(r'\bTVIF_(TEXT|IMAGE|PARAM|STATE|HANDLE|SELECTEDIMAGE|CHILDREN)\b', lambda m: 'mfcless::tree::Mask' + {'TEXT': 'Text', 'IMAGE': 'Image', 'PARAM': 'Param', 'STATE': 'State', 'HANDLE': 'Handle', 'SELECTEDIMAGE': 'SelectedImage', 'CHILDREN': 'Children'}[m.group(1)]),
+	(r'\bTVIS_(SELECTED|CUT|DROPHILITED|BOLD|EXPANDED)\b', lambda m: 'mfcless::tree::' + {'SELECTED': 'Selected', 'CUT': 'Cut', 'DROPHILITED': 'DropHilited', 'BOLD': 'Bold', 'EXPANDED': 'Expanded'}[m.group(1)]),
+	(r'\bTVGN_(ROOT|NEXTVISIBLE|PREVIOUSVISIBLE|NEXT|PREVIOUS|PARENT|CHILD|FIRSTVISIBLE|DROPHILITE|CARET|LASTVISIBLE)\b', lambda m: 'mfcless::tree::' + {'ROOT': 'Root', 'NEXT': 'Next', 'PREVIOUS': 'Previous', 'PARENT': 'Parent', 'CHILD': 'Child', 'FIRSTVISIBLE': 'FirstVisible', 'NEXTVISIBLE': 'NextVisible', 'PREVIOUSVISIBLE': 'PreviousVisible', 'DROPHILITE': 'DropHilite', 'CARET': 'Caret', 'LASTVISIBLE': 'LastVisible'}[m.group(1)]),
+	(r'\bTVE_(COLLAPSE|EXPAND|TOGGLE)\b', lambda m: 'mfcless::tree::' + {'COLLAPSE': 'Collapse', 'EXPAND': 'ExpandIt', 'TOGGLE': 'Toggle'}[m.group(1)]),
+	(r'\bTVHT_(NOWHERE|ONITEMICON|ONITEMLABEL|ONITEMINDENT|ONITEMBUTTON|ONITEMRIGHT|ONITEMSTATEICON|ONITEM|ABOVE|BELOW|TORIGHT|TOLEFT)\b', lambda m: 'mfcless::tree::' + {'NOWHERE': 'Nowhere', 'ONITEMICON': 'OnItemIcon', 'ONITEMLABEL': 'OnItemLabel', 'ONITEMINDENT': 'OnItemIndent', 'ONITEMBUTTON': 'OnItemButton', 'ONITEMRIGHT': 'OnItemRight', 'ONITEMSTATEICON': 'OnItemStateIcon', 'ONITEM': 'OnItem', 'ABOVE': 'Above', 'BELOW': 'Below', 'TORIGHT': 'ToRight', 'TOLEFT': 'ToLeft'}[m.group(1)]),
+	(r'\bTVI_(FIRST|LAST|SORT)\b', lambda m: 'mfcless::tree::' + m.group(1).capitalize()),
+	(r'\bTVITEM\b', 'mfcless::TreeItemInfo'),
+	(r',\s*TVSIL_NORMAL\)', ')'),
 	(r'\bLVIR_(BOUNDS|ICON|LABEL)\b', lambda m: 'mfcless::list::' + m.group(1).capitalize()),
 	# The icon of a resource.
 	(r'(?:::)?LoadIcon\((?:AfxGetResourceHandle\(\)|AfxGetInstanceHandle\(\)|theApp\.m_hInstance),\s*MAKEINTRESOURCE\((\w+)\)\)', r'QIcon(QPixmap::fromImage(mfcless::res::Icon(\1)))'),
@@ -257,7 +274,7 @@ CONTROLS = {
 	'CEdit': 'QLineEdit', 'CStatic': 'QLabel', 'CComboBoxEx': 'QComboBox',
 	'CButton': 'QAbstractButton', 'CComboBox': 'QComboBox', 'CListBox': 'QListWidget',
 	'CSliderCtrl': 'QSlider', 'CSpinButtonCtrl': 'mfcless::UpDown', 'CScrollBar': 'QScrollBar',
-	'CListCtrl': 'mfcless::ListCtrl', 'CTreeCtrl': 'QTreeWidget', 'CTabCtrl': 'mfcless::TabControl', 'CCheckListBox': 'QListWidget',
+	'CListCtrl': 'mfcless::ListCtrl', 'CTreeCtrl': 'mfcless::TreeCtrl', 'CTabCtrl': 'mfcless::TabControl', 'CCheckListBox': 'QListWidget',
 	'CProgressCtrl': 'QProgressBar', 'CRichEditCtrl': 'QTextEdit',
 }
 
@@ -280,7 +297,7 @@ BASES = {
 	'CScrollView': 'mfcless::Window<QAbstractScrollArea>, public mfcless::DocumentView',
 	'CMDIChildWnd': 'mfcless::Window<QMdiSubWindow>', 'CMDIFrameWnd': 'mfcless::Window<QMainWindow>', 'CFrameWnd': 'mfcless::Window<QMainWindow>',
 	'CEdit': 'mfcless::Window<QLineEdit>', 'CStatic': 'mfcless::Window<QLabel>', 'CButton': 'mfcless::Button',
-	'CComboBox': 'mfcless::Window<QComboBox>', 'CListBox': 'mfcless::Window<QListWidget>', 'CTreeCtrl': 'mfcless::Window<QTreeWidget>',
+	'CComboBox': 'mfcless::Window<QComboBox>', 'CListBox': 'mfcless::Window<QListWidget>', 'CTreeCtrl': 'mfcless::TreeCtrl',
 	'CListCtrl': 'mfcless::ListCtrl', 'CMFCListCtrl': 'mfcless::ListCtrl', 'CMFCListCtrlEx': 'CMFCListCtrlEx',
 	'CTabCtrl': 'mfcless::Window<QTabBar>', 'CSliderCtrl': 'mfcless::Window<QSlider>', 'CSpinButtonCtrl': 'mfcless::UpDown',
 	'CToolBar': 'mfcless::Window<QToolBar>', 'CToolBarCtrl': 'mfcless::Window<QToolBar>', 'CDialogBar': 'mfcless::Window<QWidget>',
@@ -433,6 +450,8 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Clipboard.h"\n', 1)
 	if re.search(r'mfcless::(TickCount|CurrentThreadId|SleepMs)', text) and '"mfcless/System.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/System.h"\n', 1)
+	if ('mfcless::TreeCtrl' in text or 'mfcless::tree::' in text) and '"mfcless/TreeCtrl.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/TreeCtrl.h"\n', 1)
 	if 'mfcless::ListCtrl' in text and '"mfcless/ListCtrl.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/ListCtrl.h"\n', 1)
 	# Dialog bases need their header.
@@ -456,7 +475,8 @@ NOTIFY = {
 	'LVN_ITEMCHANGED': 'ItemChanged', 'TVN_SELCHANGED': 'SelChange', 'TCN_SELCHANGE': 'SelChange',
 	'TCN_SELCHANGING': 'SelChanging', 'LVN_BEGINLABELEDIT': 'BeginLabelEdit', 'LVN_ENDLABELEDIT': 'EndLabelEdit',
 	'TVN_BEGINLABELEDIT': 'BeginLabelEdit', 'TVN_ENDLABELEDIT': 'EndLabelEdit', 'LVN_BEGINDRAG': 'BeginDrag',
-	'TVN_BEGINDRAG': 'BeginDrag', 'LVN_KEYDOWN': 'KeyDown', 'TVN_KEYDOWN': 'KeyDown',
+	'TVN_BEGINDRAG': 'BeginDrag', 'TVN_BEGINRDRAG': 'BeginDrag', 'LVN_KEYDOWN': 'KeyDown', 'TVN_KEYDOWN': 'KeyDown',
+	'TVN_ITEMEXPANDED': 'ItemExpanded', 'TVN_DELETEITEM': 'DeleteItem',
 }
 
 def message_map(m):
@@ -548,6 +568,17 @@ CONTROL_METHODS = {
 	},
 }
 
+def wsprintf_calls(text):
+	# wsprintf into a local character array: the array becomes a string.
+	names = set(re.findall(r'\bwsprintf\((\w+),', text))
+	for name in names:
+		decl = re.compile(r'(\b)(?:mpt::uchar|TCHAR|WCHAR|wchar_t)\s+' + name + r'\s*\[\s*\w+\s*\]\s*;')
+		if decl.search(text):
+			text = decl.sub('mpt::ustring ' + name + ';', text)
+			text = re.sub(r'\bwsprintf\(' + name + r',\s*', name + ' = mfcless::PrintF(', text)
+	return text
+
+
 def typed_local_calls(text):
 	# Item<T>(id)->Method( and calls on locals declared as T *name.
 	qt_types = [t for t in CONTROL_METHODS if t != '*']
@@ -597,11 +628,15 @@ def member_types(header):
 			types[n] = m.group(1)
 	return types
 
+# OpenMPT's own combo boxes are combo boxes too.
+for _alias in ('PluginComboBox', 'AccessibleComboBox'):
+	CONTROL_METHODS[_alias] = CONTROL_METHODS['QComboBox']
+
 def member_access(text, types):
 	"""Members that became pointers: m_a.F() -> m_a->F(), and references to
 	them (return m_a; from a function returning a reference, a reference
 	bound to one of two) dereference them."""
-	item_lists = ('QComboBox', 'QListWidget', 'mfcless::Window<QComboBox>', 'mfcless::Window<QListWidget>')
+	item_lists = ('QComboBox', 'QListWidget', 'mfcless::Window<QComboBox>', 'mfcless::Window<QListWidget>', 'PluginComboBox', 'AccessibleComboBox')
 	def call(m):
 		name, method = m.group(1), m.group(2)
 		t = types.get(name)
@@ -643,6 +678,7 @@ def twin_cpp(text, header):
 	text = re.sub(r'^IMPLEMENT_(DYNAMIC|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
 	# Data exchange
 	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
+	text = re.sub(r'void DoDataExchange\(CDataExchange\s*\*\s*\w*\)( override)?', 'void DoDataExchange(DataExchange &dx) override', text)
 	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)).split(',')[0] + '::DoDataExchange(dx)', text)
 	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'ExchangeControl(dx, \1, \2)', text)
 	for k, v in DDX.items():
@@ -679,6 +715,7 @@ def twin_cpp(text, header):
 		text = re.sub(a, b, text)
 	for a, b in LATE:
 		text = re.sub(a, b, text)
+	text = wsprintf_calls(text)
 	text = typed_local_calls(text)
 	if not PATCH_MODE:
 		text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)

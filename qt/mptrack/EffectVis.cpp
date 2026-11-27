@@ -1,4 +1,4 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
+// Hand-edited from the twin.py draft.
 /*
  * EffectVis.cpp
  * -------------
@@ -263,7 +263,8 @@ void CEffectVis::DrawGrid()
 	const auto [beat, measure] = GetTimeSignature();
 
 	m_dcGrid.FillSolidRect(&m_rcDraw, 0);
-	auto oldPen = m_dcGrid.SelectStockObject(mfcless::Stock::DCPen);
+	const mfcless::Pen oldPen = m_dcGrid.GetCurrentPen();
+	m_dcGrid.SelectStockObject(mfcless::Stock::DCPen);
 	for(ROWINDEX row = m_startRow; row <= m_endRow; row++)
 	{
 		if(row % measure == 0)
@@ -333,7 +334,7 @@ void CEffectVis::ShowVis(mfcless::DC *pDC)
 		m_forceRedraw = false;
 
 		// if we already have a memory dc, destroy it (this occurs for a re-size)
-		if (m_dcGrid.m_hDC)
+		if (m_dcGrid.IsValid())
 		{
 			m_dcGrid.SelectObject(m_pbOldGrid);
 			m_dcGrid.DeleteDC();
@@ -352,17 +353,17 @@ void CEffectVis::ShowVis(mfcless::DC *pDC)
 		// create a memory based dc for drawing the grid
 		m_dcGrid.CreateCompatibleDC(pDC);
 		m_bGrid.CreateCompatibleBitmap(pDC, m_rcDraw.Width(), m_rcDraw.Height());
-		m_pbOldGrid = *m_dcGrid.SelectObject(&m_bGrid);
+		m_pbOldGrid = m_dcGrid.SelectObject(&m_bGrid);
 
 		// create a memory based dc for drawing the nodes
 		m_dcNodes.CreateCompatibleDC(pDC);
 		m_bNodes.CreateCompatibleBitmap(pDC, m_rcDraw.Width(), m_rcDraw.Height());
-		m_pbOldNodes = *m_dcNodes.SelectObject(&m_bNodes);
+		m_pbOldNodes = m_dcNodes.SelectObject(&m_bNodes);
 
 		// create a memory based dc for drawing the nodes
 		m_dcPlayPos.CreateCompatibleDC(pDC);
 		m_bPlayPos.CreateCompatibleBitmap(pDC, m_rcDraw.Width(), m_rcDraw.Height());
-		m_pbOldPlayPos = *m_dcPlayPos.SelectObject(&m_bPlayPos);
+		m_pbOldPlayPos = m_dcPlayPos.SelectObject(&m_bPlayPos);
 
 		SetPlayCursor(m_nPattern, m_nOldPlayPos);
 		DrawGrid();
@@ -389,14 +390,14 @@ void CEffectVis::ShowVisImage(mfcless::DC *pDC)
 	mfcless::Bitmap *oldBitmap = memDC.SelectObject(&memBitmap);
 
 	// make sure we have the bitmaps
-	if (!m_dcGrid.m_hDC)
+	if (!m_dcGrid.IsValid())
 		return;
-	if (!m_dcNodes.m_hDC)
+	if (!m_dcNodes.IsValid())
 		return;
-	if (!m_dcPlayPos.m_hDC)
+	if (!m_dcPlayPos.IsValid())
 		return;
 
-	if (memDC.m_hDC != nullptr)
+	if (memDC.IsValid())
 	{
 		// draw the grid
 		memDC.BitBlt(0, 0, m_rcDraw.Width(), m_rcDraw.Height(), &m_dcGrid, 0, 0, mfcless::rop::SrcCopy);
@@ -485,7 +486,7 @@ void CEffectVis::OpenEditor(QWidget *parent)
 		if(TrackerSettings::Instance().effectVisX > int32_min && TrackerSettings::Instance().effectVisY > int32_min)
 		{
 			mfcless::Rect mainRect;
-			CMainFrame::GetMainFrame()->GetWindowRect(mainRect);
+			CMainFrame::GetMainFrame()->GetWindowRect(&mainRect);
 			rect.left = mainRect.left + mfcless::MulDiv(TrackerSettings::Instance().effectVisX, dpi, 96);
 			rect.top = mainRect.top + mfcless::MulDiv(TrackerSettings::Instance().effectVisY, dpi, 96);
 		}
@@ -523,7 +524,7 @@ void CEffectVis::DoClose()
 	wnd.length = sizeof(wnd);
 	GetWindowPlacement(&wnd);
 	mfcless::Rect mainRect;
-	CMainFrame::GetMainFrame()->GetWindowRect(mainRect);
+	CMainFrame::GetMainFrame()->GetWindowRect(&mainRect);
 
 	mfcless::Rect rect = wnd.rcNormalPosition;
 	rect.MoveToXY(rect.left - mainRect.left, rect.top - mainRect.top);
@@ -570,14 +571,22 @@ void CEffectVis::OnSize(uint32 nType, int cx, int cy)
 	const int actionListWidth = HighDPISupport::ScalePixels(170, this);
 	const int commandListWidth = HighDPISupport::ScalePixels(160, this);
 
-	auto dwp = ::BeginDeferWindowPos(3);
-	if (IsWindow(m_edVisStatus))
-		::DeferWindowPos(dwp, m_edVisStatus, nullptr, m_rcFullWin.left, m_rcDraw.bottom, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
-	if (IsWindow(m_cmbActionList))
-		::DeferWindowPos(dwp, m_cmbActionList, nullptr, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcDraw.bottom, actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
-	if (IsWindow(m_cmbEffectList))
-		::DeferWindowPos(dwp, m_cmbEffectList, nullptr, m_rcFullWin.right - commandListWidth, m_rcDraw.bottom, commandListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
-	::EndDeferWindowPos(dwp);
+	const int barHeight = m_rcFullWin.bottom - m_rcDraw.bottom;
+	if(m_edVisStatus)
+	{
+		m_edVisStatus->setGeometry(m_rcFullWin.left, m_rcDraw.bottom, m_rcFullWin.right - commandListWidth - actionListWidth, barHeight);
+		m_edVisStatus->show();
+	}
+	if(m_cmbActionList)
+	{
+		m_cmbActionList->setGeometry(m_rcFullWin.right - commandListWidth - actionListWidth, m_rcDraw.bottom, actionListWidth, barHeight);
+		m_cmbActionList->show();
+	}
+	if(m_cmbEffectList)
+	{
+		m_cmbEffectList->setGeometry(m_rcFullWin.right - commandListWidth, m_rcDraw.bottom, commandListWidth, barHeight);
+		m_cmbEffectList->show();
+	}
 
 	if(m_nRows)
 		m_pixelsPerRow = (float)(m_rcDraw.Width() - m_innerBorder * 2) / (float)m_nRows;
@@ -592,9 +601,9 @@ void CEffectVis::OnSize(uint32 nType, int cx, int cy)
 void CEffectVis::Update()
 {
 	DrawNodes();
-	if (::IsWindow(this))
+	if (isVisible())
 	{
-		OnPaint();
+		// Painting happens in the paint event.
 		if (m_nRowToErase<0)
 			InvalidateRect(NULL, false);	// redraw everything
 		else
@@ -823,17 +832,17 @@ bool CEffectVis::OnInitDialog()
 void CEffectVis::UpdateEffectList()
 {
 	const bool fillPlugParams = m_nAction == Action::FillPC || m_nAction == Action::OverwritePC;
-	mfcless::Rect rect{0, 0, 16, HighDPISupport::ScalePixels(16, this)};
-	if(m_cmbEffectList)
+	if(!m_cmbEffectList)
 	{
-		m_cmbEffectList->GetWindowRect(rect);
-		ScreenToClient(rect);
-		m_cmbEffectList->DestroyWindow();
+		// Placed by OnSize, like upstream's list that it creates here.
+		m_cmbEffectList = new QComboBox(this);
+		m_cmbEffectList->setGeometry(0, 0, 16, HighDPISupport::ScalePixels(16, this));
+		m_cmbEffectList->setMaxVisibleItems(30);
+		AddDynamicItem(IDC_VISEFFECTLIST, m_cmbEffectList);
+		OnSize(0, width(), height());
 	}
-	// Can't change CBS_SORT style after creation...
-	m_cmbEffectList->Create(CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP | WS_VISIBLE | (fillPlugParams ? 0 : CBS_SORT), rect, this, IDC_VISEFFECTLIST);
+	m_cmbEffectList->clear();
 	m_cmbEffectList->setUpdatesEnabled(false);
-	m_cmbEffectList->SetFont(GetFont(), false);
 	mpt::ustring s;
 	if(fillPlugParams)
 	{
@@ -843,7 +852,7 @@ void CEffectVis::UpdateEffectList()
 
 		if(plugin)
 		{
-			AddPluginParameternamesToCombobox(m_cmbEffectList, *plugin);
+			AddPluginParameternamesToCombobox(*m_cmbEffectList, *plugin);
 		} else
 		{
 			for(PlugParamIndex i = 0; i < ModCommand::maxColumnValue; i++)
@@ -867,6 +876,9 @@ void CEffectVis::UpdateEffectList()
 			}
 		}
 	}
+	// The effect list is sorted by name (upstream's CBS_SORT), the parameter list is not.
+	if(!fillPlugParams)
+		m_cmbEffectList->model()->sort(0);
 	m_cmbEffectList->setUpdatesEnabled(true);
 	m_cmbEffectList->update();
 }
@@ -904,7 +916,7 @@ void CEffectVis::MakeChange(ROWINDEX row, int y)
 
 		case Action::FillPC:
 			// Fill only empty slots with PC notes - leave other slots alone.
-			if (m.empty())
+			if (m.IsEmpty())
 			{
 				SetPcNote(row);
 			}

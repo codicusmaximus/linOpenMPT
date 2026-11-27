@@ -1102,7 +1102,7 @@ bool CCtrlInstruments::OnInitDialog()
 	m_EditPPS->AllowFractions(false);
 	m_SpinPPS->SetRange(-32, +32);
 	// Pitch/Pan Center
-	SetWindowLongPtr(m_ComboPPC, GWLP_USERDATA, 0);
+	m_ComboPPC->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(0));
 
 	// Volume ramping (attack)
 	m_SliderAttack->setRange(0,MAX_ATTACK_VALUE);
@@ -1515,13 +1515,13 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			m_ComboDCT->setCurrentIndex(static_cast<int>(pIns->nDCT));
 			m_ComboDCA->setCurrentIndex(static_cast<int>(pIns->nDNA));
 			// Pitch/Pan Separation
-			if(hintType[HINT_MODTYPE] || pIns->pTuning != (CTuning *)GetWindowLongPtr(m_ComboPPC, GWLP_USERDATA))
+			if(hintType[HINT_MODTYPE] || pIns->pTuning != (CTuning *)m_ComboPPC->property("mfclessUserData").toLongLong())
 			{
 				// Tuning may have changed, and thus the note names need to be updated
 				m_ComboPPC->setUpdatesEnabled(false);
 				m_ComboPPC->clear();
-				AppendNotesToControlEx(m_ComboPPC, m_sndFile, m_nInstrument, NOTE_MIN, NOTE_MAX);
-				SetWindowLongPtr(m_ComboPPC, GWLP_USERDATA, (LONG_PTR)pIns->pTuning);
+				AppendNotesToControlEx(*m_ComboPPC, m_sndFile, m_nInstrument, NOTE_MIN, NOTE_MAX);
+				m_ComboPPC->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>((LONG_PTR)pIns->pTuning));
 				m_ComboPPC->setUpdatesEnabled(true);
 			}
 			m_ComboPPC->setCurrentIndex(pIns->nPPC);
@@ -1607,14 +1607,14 @@ void CCtrlInstruments::UpdateFilterText()
 		ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
 		if(pIns)
 		{
-			mpt::uchar s[32];
+			mpt::ustring s;
 			// In IT Compatible mode, it is enough to just have resonance enabled to turn on the filter.
 			const bool resEnabled = (pIns->IsResonanceEnabled() && pIns->GetResonance() > 0 && m_sndFile.m_playBehaviour[kITFilterBehaviour]);
 
 			if((pIns->IsCutoffEnabled() && pIns->GetCutoff() < 0x7F) || resEnabled)
 			{
 				const auto cutoff = (resEnabled && !pIns->IsCutoffEnabled()) ? 0x7F : pIns->GetCutoff();
-				wsprintf(s, UL_("Z%02X (%u Hz)"), cutoff, mpt::saturate_round<int32>(m_sndFile.CutOffToFrequency(cutoff)));
+				s = mfcless::PrintF(UL_("Z%02X (%u Hz)"), cutoff, mpt::saturate_round<int32>(m_sndFile.CutOffToFrequency(cutoff)));
 			} else if(pIns->IsCutoffEnabled())
 			{
 				_tcscpy(s, UL_("Z7F (Off)"));

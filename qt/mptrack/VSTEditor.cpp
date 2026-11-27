@@ -125,7 +125,8 @@ bool COwnerVstEditor::SetSize(int contentWidth, int contentHeight)
 	WindowSizeAdjuster adjuster(*this);
 
 	const int windowWidth = rcWnd.Width() - rcClient.Width() + contentWidth;
-	const int windowHeight = rcWnd.Height() - rcClient.Height() + contentHeight;
+	// The menu bar is inside our client area (upstream: outside of it).
+	const int windowHeight = rcWnd.Height() - rcClient.Height() + contentHeight + m_menuHeight;
 	SetWindowPos(NULL, 0, 0,
 		windowWidth, windowHeight,
 		mfcless::swp::NoZOrder | mfcless::swp::NoMove | mfcless::swp::NoActivate);

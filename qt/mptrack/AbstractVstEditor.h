@@ -3,7 +3,9 @@
  * -------------------
  * Purpose: Common plugin editor interface class. This code is shared between custom and default plugin user interfaces.
  * Notes  : mfcless twin of upstream's mptrack/AbstractVstEditor.h. Menus are
- *          QMenus in a QMenuBar; message handlers are plain member functions.
+ *          QMenus in a QMenuBar at the top of the window; as Windows' menu bar
+ *          is outside the client area, the window grows by its height and the
+ *          template's controls sit below it.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -22,12 +24,8 @@
 
 #include <QtWidgets/QMenu>
 
+class QAction;
 class QMenuBar;
-class QCloseEvent;
-class QDragEnterEvent;
-class QDropEvent;
-class QKeyEvent;
-class QMoveEvent;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -39,6 +37,9 @@ class CAbstractVstEditor : public ResizableDialog
 	Q_OBJECT
 protected:
 	QMenuBar *m_Menu = nullptr;
+	QAction *m_infoAction = nullptr;     // the Info menu
+	std::vector<QAction *> m_presetField;  // << < > >> and the program name
+	int m_menuHeight = 0;  // the height the window has grown by for the menu bar
 	QMenu m_PresetMenu;
 	std::vector<std::unique_ptr<QMenu>> m_presetMenuGroup;
 	QMenu m_InputMenu;
@@ -55,11 +56,12 @@ protected:
 	CModDoc::NoteToChannelMap m_noteChannel;	// Note -> Preview channel assignment
 	bool m_hasWindow = false;
 
+	static uint32 m_clipboardFormat;
+
 	// Adjust window size if menu bar height changes
 	class WindowSizeAdjuster
 	{
 		QWidget &m_wnd;
-		int m_menuHeight = 0;
 	public:
 		WindowSizeAdjuster(QWidget &wnd);
 		~WindowSizeAdjuster();
@@ -98,8 +100,9 @@ public:
 	void OnCreateInstrument();
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
-	void OnMove(int x, int y);
-	void OnClose() { DoClose(); }
+	void OnMove(int x, int y) override;
+	void OnClose() override { DoClose(); }
+	void OnDropFiles(const QStringList &files) override;
 
 	// mfcless: posted to the editor, as PostMessage was (WM_MOD_* IDs).
 	void PostModMessage(uint32 msg, uintptr_t wParam = 0, intptr_t lParam = 0);
@@ -122,12 +125,14 @@ public:
 	void UpdateDisplay() { m_updateDisplay = true; }
 
 protected:
+	void RegisterMessageMap() override;
+	void PostNcDestroy() override;
+	bool PreTranslateMessage(mfcless::Message *msg) override;
 	bool event(QEvent *e) override;
-	void closeEvent(QCloseEvent *e) override;
-	void dragEnterEvent(QDragEnterEvent *e) override;
-	void dropEvent(QDropEvent *e) override;
-	void moveEvent(QMoveEvent *e) override;
-	bool HandleKeyMessage(mfcless::Message &msg, bool handleGlobal = false);
+	bool HandleKeyMessage(const mfcless::Message &msg, bool handleGlobal = false);
+	// The menu bar's height now, and the window and its controls made to fit it.
+	int MenuBarHeight() const;
+	void FitMenuBar();
 	void UpdatePresetMenu(bool force = false);
 	void GeneratePresetMenu(int32 offset, QMenu &parent);
 	void UpdateInputMenu();
@@ -142,8 +147,6 @@ protected:
 	void OnSetInputInstrument(uint32 nID);
 	void OnInitMenu();
 	void PrepareToLearnMacro(uint32 nID);
-
-	void OnActivate(bool active);
 
 	void StoreWindowPos();
 	void RestoreWindowPos();

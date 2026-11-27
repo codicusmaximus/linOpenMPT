@@ -217,6 +217,7 @@ public:
 	// Also sets the background colour, as Windows' does.
 	void FillSolidRect(const Rect &r, uint32_t color);
 	void FillSolidRect(int x, int y, int cx, int cy, uint32_t color) { FillSolidRect(Rect(x, y, x + cx, y + cy), color); }
+	void FillSolidRect(const Rect *r, uint32_t color) { if(r) FillSolidRect(*r, color); }
 	void FillRect(const Rect &r, const Brush *brush);
 	void FillRect(const Rect &r, const Brush &brush) { FillRect(r, &brush); }
 	void FillRect(const Rect *r, const Brush &brush) { FillRect(*r, &brush); }

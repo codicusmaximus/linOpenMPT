@@ -154,11 +154,11 @@ bool CCtrlPatterns::OnInitDialog()
 	m_ToolBar->AddButton(IDC_PATTERN_PLAYFROMSTART, TIMAGE_PATTERN_RESTART);
 	m_ToolBar->AddButton(IDC_PATTERN_STOP, TIMAGE_PATTERN_STOP);
 	m_ToolBar->AddButton(ID_PATTERN_PLAYROW, TIMAGE_PATTERN_PLAYROW);
-	m_ToolBar->AddButton(IDC_PATTERN_RECORD, TIMAGE_PATTERN_RECORD, TBSTYLE_CHECK, (m_bRecord ? TBSTATE_CHECKED : 0) | TBSTATE_ENABLED);
-	m_ToolBar->AddButton(IDC_METRONOME, TIMAGE_METRONOME, TBSTYLE_CHECK | TBSTYLE_DROPDOWN, (TrackerSettings::Instance().metronomeEnabled ? TBSTATE_CHECKED : 0) | TBSTATE_ENABLED);
+	m_ToolBar->AddButton(IDC_PATTERN_RECORD, TIMAGE_PATTERN_RECORD, TBSTYLE_CHECK, (m_bRecord ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(IDC_METRONOME, TIMAGE_METRONOME, TBSTYLE_CHECK | TBSTYLE_DROPDOWN, (TrackerSettings::Instance().metronomeEnabled ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
 	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
-	m_ToolBar->AddButton(ID_PATTERN_VUMETERS, TIMAGE_PATTERN_VUMETERS, TBSTYLE_CHECK, (m_bVUMeters ? TBSTATE_CHECKED : 0) | TBSTATE_ENABLED);
-	m_ToolBar->AddButton(ID_VIEWPLUGNAMES, TIMAGE_PATTERN_PLUGINS, TBSTYLE_CHECK, (m_bPluginNames ? TBSTATE_CHECKED : 0) | TBSTATE_ENABLED);
+	m_ToolBar->AddButton(ID_PATTERN_VUMETERS, TIMAGE_PATTERN_VUMETERS, TBSTYLE_CHECK, (m_bVUMeters ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(ID_VIEWPLUGNAMES, TIMAGE_PATTERN_PLUGINS, TBSTYLE_CHECK, (m_bPluginNames ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
 	m_ToolBar->AddButton(ID_PATTERN_CHANNELMANAGER, TIMAGE_CHANNELMANAGER);
 	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
 	m_ToolBar->AddButton(ID_PATTERN_MIDIMACRO, TIMAGE_MACROEDITOR);
@@ -172,7 +172,7 @@ bool CCtrlPatterns::OnInitDialog()
 	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
 	m_ToolBar->AddButton(ID_PATTERNDETAIL_DROPDOWN, TIMAGE_PATTERN_DETAIL, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
 	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
-	m_ToolBar->AddButton(ID_OVERFLOWPASTE, TIMAGE_PATTERN_OVERFLOWPASTE, TBSTYLE_CHECK, ((TrackerSettings::Instance().patternSetup & PatternSetup::OverflowPaste) ? TBSTATE_CHECKED : 0) | TBSTATE_ENABLED);
+	m_ToolBar->AddButton(ID_OVERFLOWPASTE, TIMAGE_PATTERN_OVERFLOWPASTE, TBSTYLE_CHECK, ((TrackerSettings::Instance().patternSetup & PatternSetup::OverflowPaste) ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
 
 	m_EditPatName->setMaxLength(MAX_PATTERNNAME - 1);
 	// Spin controls

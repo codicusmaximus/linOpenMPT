@@ -17,7 +17,7 @@
 #include "mfcless/DropTarget.h"
 #include "mfcless/Menus.h"
 #include "mfcless/Window.h"
-#include <QtWidgets/QTreeWidget>
+#include "mfcless/TreeCtrl.h"
 
 #include "../soundlib/modcommand.h"
 #include "../soundlib/Snd_defs.h"
@@ -76,7 +76,7 @@ public:
 };
 
 
-class CModTree: public mfcless::Window<QTreeWidget>
+class CModTree: public mfcless::TreeCtrl
 {
 	Q_OBJECT
 public:

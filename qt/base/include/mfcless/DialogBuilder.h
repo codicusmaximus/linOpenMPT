@@ -79,6 +79,9 @@ public:
 	// Stops or resumes following the dialog's size (a minimized plugin editor).
 	void SetEnabled(bool enable);
 	void Apply();
+	// Moves the whole layout down by dy and makes the dialog's base size
+	// that much taller (room for a menu bar above the template's controls).
+	void ShiftContent(int dy);
 
 private:
 	bool m_enabled = true;

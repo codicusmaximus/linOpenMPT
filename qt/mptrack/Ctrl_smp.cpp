@@ -230,7 +230,6 @@ bool CCtrlSamples::OnInitDialog()
 		{UL_("1:512"), 10},
 	};
 	m_ComboZoom->setUpdatesEnabled(false);
-	m_ComboZoom->InitStorage(static_cast<int>(std::size(ZoomLevels)), static_cast<uint32>(std::size(ZoomLevels) * 5));
 	for(const auto &[str, data] : ZoomLevels)
 	{
 		mfcless::SetItemData(m_ComboZoom, mfcless::AddItem(m_ComboZoom, str), static_cast<uintptr_t>(data));
@@ -262,7 +261,6 @@ bool CCtrlSamples::OnInitDialog()
 	m_SpinVolume->SetRange(0, 64);
 	m_SpinGlobalVol->SetRange(0, 64);
 
-	m_CbnBaseNote->InitStorage(BASENOTE_MAX - BASENOTE_MIN, static_cast<uint32>((BASENOTE_MAX - BASENOTE_MIN) * 4 * sizeof(mpt::uchar)));
 	m_CbnBaseNote->setUpdatesEnabled(false);
 	for(ModCommand::NOTE i = BASENOTE_MIN; i <= BASENOTE_MAX; i++)
 	{
@@ -273,7 +271,6 @@ bool CCtrlSamples::OnInitDialog()
 
 	// Pitch selection
 	// Allow pitch from -12 (1 octave down) to +12 (1 octave up)
-	m_ComboPitch->InitStorage(25, 25 * 4 * sizeof(mpt::uchar));
 	m_ComboPitch->setUpdatesEnabled(false);
 	for(int i = -12 ; i <= 12 ; i++)
 	{
@@ -1904,9 +1901,9 @@ private:
 			return m_abort;
 
 		m_lastUpdate = timeNow;
-		mpt::uchar progress[48];
+		mpt::ustring progress;
 		uint32 percent = Util::muldivr(current, 100, maximum);
-		wsprintf(progress, UL_("Pitch Shift / Time Stretch... %u%%"), percent);
+		progress = mfcless::PrintF(UL_("Pitch Shift / Time Stretch... %u%%"), percent);
 		SetText(progress);
 		SetProgress(percent);
 		ProcessMessages();
@@ -2482,7 +2479,7 @@ void CCtrlSamples::OnSustainPointsChanged()
 
 void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrollBar)
 {
-	mpt::uchar s[32];
+	mpt::ustring s;
 	if(IsLocked()) return;
 	ModSample &sample = m_sndFile.GetSample(m_nSample);
 	const bool moveLoop = CMainFrame::GetInputHandler()->CtrlPressed();
@@ -2501,11 +2498,11 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrol
 			if(moveLoop)
 			{
 				sample.nLoopEnd = i + (sample.nLoopEnd - sample.nLoopStart);
-				wsprintf(s, UL_("%u"), sample.nLoopEnd);
+				s = mfcless::PrintF(UL_("%u"), sample.nLoopEnd);
 				mfcless::SetWindowText(m_EditLoopEnd, s);
 			}
 			sample.nLoopStart = i;
-			wsprintf(s, UL_("%u"), sample.nLoopStart);
+			s = mfcless::PrintF(UL_("%u"), sample.nLoopStart);
 			mfcless::SetWindowText(m_EditLoopStart, s);
 			redraw = true;
 			sample.PrecomputeLoops(m_sndFile);
@@ -2522,11 +2519,11 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrol
 			if(moveLoop)
 			{
 				sample.nLoopStart = i - (sample.nLoopEnd - sample.nLoopStart);
-				wsprintf(s, UL_("%u"), sample.nLoopStart);
+				s = mfcless::PrintF(UL_("%u"), sample.nLoopStart);
 				mfcless::SetWindowText(m_EditLoopStart, s);
 			}
 			sample.nLoopEnd = i;
-			wsprintf(s, UL_("%u"), sample.nLoopEnd);
+			s = mfcless::PrintF(UL_("%u"), sample.nLoopEnd);
 			mfcless::SetWindowText(m_EditLoopEnd, s);
 			redraw = true;
 			sample.PrecomputeLoops(m_sndFile);
@@ -2543,11 +2540,11 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrol
 			if(moveLoop)
 			{
 				sample.nSustainEnd = i + (sample.nSustainEnd - sample.nSustainStart);
-				wsprintf(s, UL_("%u"), sample.nSustainEnd);
+				s = mfcless::PrintF(UL_("%u"), sample.nSustainEnd);
 				mfcless::SetWindowText(m_EditSustainEnd, s);
 			}
 			sample.nSustainStart = i;
-			wsprintf(s, UL_("%u"), sample.nSustainStart);
+			s = mfcless::PrintF(UL_("%u"), sample.nSustainStart);
 			mfcless::SetWindowText(m_EditSustainStart, s);
 			redraw = true;
 			sample.PrecomputeLoops(m_sndFile);
@@ -2564,11 +2561,11 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrol
 			if(moveLoop)
 			{
 				sample.nSustainStart = i - (sample.nSustainEnd - sample.nSustainStart);
-				wsprintf(s, UL_("%u"), sample.nSustainStart);
+				s = mfcless::PrintF(UL_("%u"), sample.nSustainStart);
 				mfcless::SetWindowText(m_EditSustainStart, s);
 			}
 			sample.nSustainEnd = i;
-			wsprintf(s, UL_("%u"), sample.nSustainEnd);
+			s = mfcless::PrintF(UL_("%u"), sample.nSustainEnd);
 			mfcless::SetWindowText(m_EditSustainEnd, s);
 			redraw = true;
 			sample.PrecomputeLoops(m_sndFile);

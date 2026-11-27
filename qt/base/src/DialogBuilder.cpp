@@ -9,6 +9,7 @@
 #include "mfcless/Controls.h"
 #include "mfcless/Button.h"
 #include "mfcless/ListCtrl.h"
+#include "mfcless/TreeCtrl.h"
 
 #include <QtCore/QEvent>
 #include <QtGui/QFontInfo>
@@ -429,10 +430,13 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		break;
 	case Kind::TreeView:
 	{
-		auto *t = Make<QTreeWidget>(given, parent);
+		auto *t = Make<QTreeWidget>(given, parent, [](QWidget *p) { return new TreeCtrl(p); });
 		if(!t) break;
 		t->setHeaderHidden(true);
-		t->setRootIsDecorated(s & 0x4);  // TVS_LINESATROOT
+		if(auto *treeCtrl = qobject_cast<TreeCtrl *>(t))
+			treeCtrl->SetStyle(s & 0xFFFF);  // TVS_*
+		else
+			t->setRootIsDecorated(s & 0x4);  // TVS_LINESATROOT
 		w = t;
 		break;
 	}
@@ -652,6 +656,13 @@ void DialogLayout::Rebase(QWidget *control)
 				g.width() - dx * entry.rule.sizeX / 100, g.height() - dy * entry.rule.sizeY / 100);
 		}
 	}
+}
+
+void DialogLayout::ShiftContent(int dy)
+{
+	m_baseSize.rheight() += dy;
+	for(auto &entry : m_entries)
+		entry.rect.translate(0, dy);
 }
 
 void DialogLayout::Apply()

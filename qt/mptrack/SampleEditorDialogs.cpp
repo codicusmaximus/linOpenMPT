@@ -3,7 +3,7 @@
  * -----------------------
  * Purpose: Code for various dialogs that are used in the sample editor.
  * Notes  : mfcless twin of upstream's mptrack/SampleEditorDialogs.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -11,6 +11,10 @@
 
 
 #include "SampleEditorDialogs.h"
+#include <cfloat>
+#include <QtGui/QIcon>
+#include <QtGui/QImage>
+#include <QtGui/QPixmap>
 #include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mptrack.h"
@@ -92,16 +96,9 @@ bool CAmpDlg::OnInitDialog()
 	};
 
 	// Add fade laws to list
-	COMBOBOXEXITEM cbi;
-	MemsetZero(cbi);
-	cbi.mask = CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_TEXT | CBEIF_LPARAM;
 	for(int i = 0; i < static_cast<int>(std::size(fadeLaws)); i++)
 	{
-		cbi.iItem = i;
-		cbi.pszText = const_cast<LPTSTR>(fadeLaws[i].name);
-		cbi.iImage = cbi.iSelectedImage = i;
-		cbi.lParam = fadeLaws[i].id;
-		m_fadeBox->InsertItem(&cbi);
+		m_fadeBox->addItem(mfcless::ToQString(fadeLaws[i].name), static_cast<qulonglong>(fadeLaws[i].id));
 		if(fadeLaws[i].id == m_settings.fadeLaw) m_fadeBox->setCurrentIndex(i);
 	}
 
@@ -145,19 +142,28 @@ void CAmpDlg::OnDPIChanged()
 			oldVal = val;
 		}
 	}
-	mfcless::Bitmap bitmap;
-	bitmap.CreateBitmap(imgWidth, iconSize, 1, 32, bits.data());
-	m_list.DeleteImageList();
-	m_list.Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 0, 1);
-	m_list.Add(&bitmap, mfcless::Rgb(255, 0, 255));
-	bitmap.DeleteObject();
-	m_fadeBox->SetImageList(&m_list);
+	// One icon per item; the magenta background is transparent.
+	const QColor colour = mfcless::ToQColor(col);
+	for(int i = 0; i < items; i++)
+	{
+		QImage image(iconSize, iconSize, QImage::Format_ARGB32);
+		image.fill(Qt::transparent);
+		for(int y = 0; y < iconSize; y++)
+		{
+			for(int x = 0; x < iconSize; x++)
+			{
+				if(bits[i * iconSize + x + y * imgWidth] == col)
+					image.setPixelColor(x, y, colour);
+			}
+		}
+		m_fadeBox->setItemIcon(i, QIcon(QPixmap::fromImage(image)));
+	}
+	m_fadeBox->setIconSize(QSize(iconSize, iconSize));
 }
 
 
 void CAmpDlg::OnDestroy()
 {
-	m_list.DeleteImageList();
 }
 
 
@@ -223,8 +229,7 @@ bool CRawSampleDlg::OnInitDialog()
 	DialogBase::OnInitDialog();
 	if(const auto filename = m_file.GetOptionalFileName(); filename)
 	{
-		mpt::ustring title;
-		GetWindowText(title);
+		mpt::ustring title = mfcless::FromQString(windowTitle());
 		title += UL_(" - ") + filename->GetFilename().ToUnicode();
 		SetWindowText(title);
 	}
@@ -664,7 +669,7 @@ bool CSampleGridDlg::OnInitDialog()
 	m_SpinSegments->SetRange(0, m_nMaxSegments);
 	m_SpinSegments->SetPos(m_nSegments);
 	SetItemInt(IDC_EDIT1, m_nSegments);
-	GetDlgItem(IDC_EDIT1)->SetFocus();
+	GetDlgItem(IDC_EDIT1)->setFocus();
 	return true;
 }
 
@@ -782,7 +787,7 @@ void CSampleXFadeDlg::OnFadeLengthChanged()
 
 void CSampleXFadeDlg::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *sb)
 {
-	if(sb == (CScrollBar *)(m_SliderLength))
+	if(sb == m_SliderLength)
 	{
 		m_editLocked = true;
 		SmpLength numSamples = PercentToSamples(m_SliderLength->value());
@@ -852,11 +857,8 @@ bool CResamplingDlg::OnInitDialog()
 	CheckRadio(IDC_RADIO1, IDC_RADIO3, IDC_RADIO1 + m_lastChoice);
 	if(m_frequency > 0)
 	{
-		mpt::uchar s[32];
-		wsprintf(s, UL_("&Upsample (%u Hz)"), m_frequency * 2);
-		SetItemText(IDC_RADIO1, s);
-		wsprintf(s, UL_("&Downsample (%u Hz)"), m_frequency / 2);
-		SetItemText(IDC_RADIO2, s);
+		SetItemText(IDC_RADIO1, mfcless::PrintF(UL_("&Upsample (%u Hz)"), m_frequency * 2));
+		SetItemText(IDC_RADIO2, mfcless::PrintF(UL_("&Downsample (%u Hz)"), m_frequency / 2));
 
 		if(!m_lastFrequency)
 			m_lastFrequency = m_frequency;

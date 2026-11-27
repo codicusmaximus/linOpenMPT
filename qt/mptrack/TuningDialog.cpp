@@ -101,8 +101,8 @@ void CTuningDialog::DeleteTreeItem(CTuning* pT)
 	QTreeWidgetItem * temp = m_TreeItemTuningItemMap.GetMapping_21(TUNINGTREEITEM(pT));
 	if(temp)
 	{
-		QTreeWidgetItem * nextitem = m_TreeCtrlTuning->GetNextItem(temp, TVGN_NEXT);
-		if(!nextitem) nextitem = m_TreeCtrlTuning->GetNextItem(temp, TVGN_PREVIOUS);
+		QTreeWidgetItem * nextitem = m_TreeCtrlTuning->GetNextItem(temp, mfcless::tree::Next);
+		if(!nextitem) nextitem = m_TreeCtrlTuning->GetNextItem(temp, mfcless::tree::Previous);
 		m_pActiveTuning = m_TreeItemTuningItemMap.GetMapping_12(nextitem).GetT();
 		m_TreeCtrlTuning->DeleteItem(temp);
 		//Note: Item from map is deleted 'automatically' in
@@ -120,8 +120,8 @@ void CTuningDialog::DeleteTreeItem(CTuningCollection* pTC)
 	const QTreeWidgetItem * temp = m_TreeItemTuningItemMap.GetMapping_21(TUNINGTREEITEM(pTC));
 	if(temp)
 	{
-		TUNINGTREEITEM prevTTI = m_TreeItemTuningItemMap.GetMapping_12(m_TreeCtrlTuning->GetNextItem(temp, TVGN_PREVIOUS));
-		TUNINGTREEITEM nextTTI = m_TreeItemTuningItemMap.GetMapping_12(m_TreeCtrlTuning->GetNextItem(temp, TVGN_NEXT));
+		TUNINGTREEITEM prevTTI = m_TreeItemTuningItemMap.GetMapping_12(m_TreeCtrlTuning->GetNextItem(temp, mfcless::tree::Previous));
+		TUNINGTREEITEM nextTTI = m_TreeItemTuningItemMap.GetMapping_12(m_TreeCtrlTuning->GetNextItem(temp, mfcless::tree::Next));
 
 		CTuningCollection* pTCprev = prevTTI.GetTC();
 		CTuningCollection* pTCnext = nextTTI.GetTC();
@@ -248,7 +248,7 @@ void CTuningDialog::UpdateView(const int updateMask)
 		QTreeWidgetItem * treeitem = m_TreeItemTuningItemMap.GetMapping_21(tuningitem);
 		if(treeitem)
 		{
-			m_TreeCtrlTuning->Select(treeitem, TVGN_CARET);
+			m_TreeCtrlTuning->Select(treeitem, mfcless::tree::Caret);
 			if(m_pActiveTuning)
 				m_TreeCtrlTuning->SetItemText(treeitem, mpt::ToUnicode(m_pActiveTuning->GetName()));
 			else
@@ -388,7 +388,7 @@ void CTuningDialog::RegisterMessageMap()
 	AddNotify(IDC_EDIT_RATIOVALUE, mfcless::Notify::KillFocus, &CTuningDialog::OnEnKillfocusEditRatiovalue);
 	AddNotify(IDC_EDIT_NOTENAME, mfcless::Notify::KillFocus, &CTuningDialog::OnEnKillfocusEditNotename);
 	AddNotify(IDC_TREE_TUNING, mfcless::Notify::SelChange, &CTuningDialog::OnTvnSelchangedTreeTuning);
-	// ON_NOTIFY(TVN_DELETEITEM, IDC_TREE_TUNING, &CTuningDialog::OnTvnDeleteitemTreeTuning): by hand (Qt event override)
+	AddNotify(IDC_TREE_TUNING, mfcless::Notify::DeleteItem, &CTuningDialog::OnTvnDeleteitemTreeTuning);
 	AddNotify(IDC_TREE_TUNING, mfcless::Notify::RightClick, &CTuningDialog::OnNMRclickTreeTuning);
 	AddNotify(IDC_TREE_TUNING, mfcless::Notify::BeginDrag, &CTuningDialog::OnTvnBegindragTreeTuning);
 	AddCommand(ID_REMOVETUNING, &CTuningDialog::OnRemoveTuning);
@@ -1083,7 +1083,7 @@ void CTuningDialog::OnTvnDeleteitemTreeTuning()
 {
 	LPNMTREEVIEW pNMTreeView = reinterpret_cast<LPNMTREEVIEW>(pNMHDR);
 	CurrentNotify().result = 0;
-	if(pNMTreeView->itemOld.mask & TVIF_HANDLE && pNMTreeView->itemOld.hItem)
+	if(pNMTreeView->itemOld.mask & mfcless::tree::MaskHandle && pNMTreeView->itemOld.hItem)
 	{
 		m_TreeItemTuningItemMap.RemoveValue_1(pNMTreeView->itemOld.hItem);
 	}
@@ -1105,7 +1105,7 @@ void CTuningDialog::OnNMRclickTreeTuning()
 	if(hItem == NULL)
 		return;
 
-	m_TreeCtrlTuning->Select(hItem, TVGN_CARET);
+	m_TreeCtrlTuning->Select(hItem, mfcless::tree::Caret);
 
 	TUNINGTREEITEM tunitem = m_TreeItemTuningItemMap.GetMapping_12(hItem);
 
@@ -1194,7 +1194,7 @@ void CTuningDialog::OnTvnBegindragTreeTuning()
 	m_TreeCtrlTuning->SetDragging();
 	m_DragItem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->itemNew.hItem);
 
-	m_TreeCtrlTuning->Select(pNMTreeView->itemNew.hItem, TVGN_CARET);
+	m_TreeCtrlTuning->Select(pNMTreeView->itemNew.hItem, mfcless::tree::Caret);
 }
 
 
@@ -1468,7 +1468,7 @@ void CTuningDialog::OnOK()
 
 void CTuningTreeCtrl::RegisterMessageMap()
 {
-	mfcless::Window<QTreeWidget>::RegisterMessageMap();
+	mfcless::TreeCtrl::RegisterMessageMap();
 	// ON_WM_MOUSEMOVE() (mfcless::Window)
 	// ON_WM_LBUTTONUP() (mfcless::Window)
 }

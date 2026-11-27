@@ -3,7 +3,7 @@
  * -------------------------
  * Purpose: The find/replace dialog for pattern data.
  * Notes  : mfcless twin of upstream's mptrack/PatternFindReplaceDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -11,6 +11,9 @@
 
 
 #include "PatternFindReplaceDlg.h"
+#include <QtCore/QRegularExpression>
+#include <QtGui/QRegularExpressionValidator>
+#include <QtWidgets/QLineEdit>
 #include "mfcless/Widgets.h"
 #include "DialogBase.h"
 #include "Mptrack.h"
@@ -52,7 +55,7 @@ public:
 	int GetMaxVal() const { return m_maxVal; }
 
 protected:
-	void DoDataExchange(CDataExchange* pDX) override
+	void DoDataExchange(DataExchange &dx) override
 	{
 		DialogBase::DoDataExchange(dx);
 		ExchangeControl(dx, IDC_COMBO1, m_cbnMin);
@@ -65,14 +68,12 @@ protected:
 
 		if(m_displayMode == kNotes)
 		{
-			AppendNotesToControl(m_cbnMin, static_cast<ModCommand::NOTE>(m_minVal), static_cast<ModCommand::NOTE>(m_maxVal));
-			AppendNotesToControl(m_cbnMax, static_cast<ModCommand::NOTE>(m_minVal), static_cast<ModCommand::NOTE>(m_maxVal));
+			AppendNotesToControl(*m_cbnMin, static_cast<ModCommand::NOTE>(m_minVal), static_cast<ModCommand::NOTE>(m_maxVal));
+			AppendNotesToControl(*m_cbnMax, static_cast<ModCommand::NOTE>(m_minVal), static_cast<ModCommand::NOTE>(m_maxVal));
 		} else
 		{
 			const int numItems = m_minVal - m_maxVal + 1;
 			const uint32 strSize = static_cast<uint32>(numItems * 4 * sizeof(mpt::uchar));
-			m_cbnMin->InitStorage(numItems, strSize);
-			m_cbnMax->InitStorage(numItems, strSize);
 			const mpt::uchar *formatString;
 			if(m_displayMode == kHex && m_maxVal <= 0x0F)
 				formatString = UL_("%01X");
@@ -82,8 +83,8 @@ protected:
 				formatString = UL_("%d");
 			for(int i = m_minVal; i <= m_maxVal; i++)
 			{
-				mpt::uchar s[16];
-				wsprintf(s, formatString, i);
+				mpt::ustring s;
+				s = mfcless::PrintF(formatString, i);
 				mfcless::SetItemData(m_cbnMin, mfcless::AddItem(m_cbnMin, s), i);
 				mfcless::SetItemData(m_cbnMax, mfcless::AddItem(m_cbnMax, s), i);
 			}
@@ -153,18 +154,15 @@ bool CFindReplaceTab::OnInitDialog()
 	// Search flags
 	FlagSet<FindReplace::Flags> flags = m_isReplaceTab ? m_settings.replaceFlags : m_settings.findFlags;
 
-	COMBOBOXINFO info;
-	info.cbSize = sizeof(info);
-	if(m_cbnVolume->GetComboBoxInfo(&info))
+	if(QLineEdit *edit = m_cbnVolume->lineEdit())
 	{
-		::SetWindowLong(info.hwndItem, GWL_STYLE, ::GetWindowLong(info.hwndItem, GWL_STYLE) | ES_NUMBER);
-		::SendMessage(info.hwndItem, EM_SETLIMITTEXT, 4, 0);
+		edit->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[0-9]*")), edit));
+		edit->setMaxLength(4);
 	}
-	if(m_cbnParam->GetComboBoxInfo(&info))
+	if(QLineEdit *edit = m_cbnParam->lineEdit())
 	{
 		// Might need to enter hex values
-		//::SetWindowLong(info.hwndItem, GWL_STYLE, ::GetWindowLong(info.hwndItem, GWL_STYLE) | ES_NUMBER);
-		::SendMessage(info.hwndItem, EM_SETLIMITTEXT, 4, 0);
+		edit->setMaxLength(4);
 	}
 
 	SetChecked(IDC_CHECK1, flags[FindReplace::Note]                           ? 1 : 0);
@@ -225,7 +223,6 @@ bool CFindReplaceTab::OnInitDialog()
 	{
 		int sel = -1;
 		m_cbnNote->setUpdatesEnabled(false);
-		m_cbnNote->InitStorage(150, 150 * 6 * sizeof(mpt::uchar));
 		mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("...")), NOTE_NONE);
 		if (m_isReplaceTab)
 		{
@@ -254,7 +251,7 @@ bool CFindReplaceTab::OnInitDialog()
 			else if(m_settings.findNoteMin < m_settings.findNoteMax)
 				sel = 2;
 		}
-		AppendNotesToControlEx(m_cbnNote, m_sndFile);
+		AppendNotesToControlEx(*m_cbnNote, m_sndFile);
 
 		if(sel == -1)
 		{
@@ -273,7 +270,6 @@ bool CFindReplaceTab::OnInitDialog()
 	// Volume Command
 	m_cbnVolCmd->setUpdatesEnabled(false);
 	uint32 count = m_effectInfo.GetNumVolCmds();
-	m_cbnVolCmd->InitStorage(count, static_cast<uint32>(count * 15 * sizeof(mpt::uchar)));
 	mfcless::SetItemData(m_cbnVolCmd, mfcless::AddItem(m_cbnVolCmd, UL_(" None")), (uintptr_t)-1);
 	for (uint32 n = 0; n < count; n++)
 	{
@@ -297,7 +293,6 @@ bool CFindReplaceTab::OnInitDialog()
 	{
 		m_cbnCommand->setUpdatesEnabled(false);
 		count = m_effectInfo.GetNumEffects();
-		m_cbnCommand->InitStorage(count, static_cast<uint32>(count * 20 * sizeof(mpt::uchar)));
 		mfcless::SetItemData(m_cbnCommand, mfcless::AddItem(m_cbnCommand, UL_(" None")), (uintptr_t)-1);
 		for (uint32 n = 0; n < count; n++)
 		{
@@ -337,16 +332,15 @@ bool CFindReplaceTab::IsPCEvent() const
 void CFindReplaceTab::UpdateInstrumentList()
 {
 	const bool isPCEvent = IsPCEvent();
-	if(m_cbnInstr->GetCount() != 0 && !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA) == isPCEvent)
+	if(m_cbnInstr->count() != 0 && !!m_cbnInstr->property("mfclessUserData").toLongLong() == isPCEvent)
 		return;
-	SetWindowLongPtr(m_cbnInstr, GWLP_USERDATA, isPCEvent);
+	m_cbnInstr->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(isPCEvent));
 
 	int oldSelection = (m_isReplaceTab ? m_settings.replaceInstr : m_settings.findInstrMin);
 	int sel = (oldSelection == 0) ? 0 : -1;
 	m_cbnInstr->setUpdatesEnabled(false);
 	m_cbnInstr->clear();
 	const int numItems = (isPCEvent ? MAX_MIXPLUGINS : MAX_INSTRUMENTS) + 3;
-	m_cbnInstr->InitStorage(numItems, static_cast<uint32>(numItems * 32 * sizeof(mpt::uchar)));
 	mfcless::SetItemData(m_cbnInstr, mfcless::AddItem(m_cbnInstr, UL_("..")), 0);
 	if (m_isReplaceTab)
 	{
@@ -371,7 +365,7 @@ void CFindReplaceTab::UpdateInstrumentList()
 	// Did we switch from an instrument index > MAX_MIXPLUGINS to plugin list?
 	const bool updateInstr = (sel == -1 && isPCEvent && oldSelection > MAX_MIXPLUGINS);
 	if(sel == -1)
-		sel = m_cbnInstr->GetCount() + oldSelection - 1;
+		sel = m_cbnInstr->count() + oldSelection - 1;
 
 	if(isPCEvent)
 	{
@@ -400,9 +394,9 @@ void CFindReplaceTab::UpdateInstrumentList()
 void CFindReplaceTab::UpdateParamList()
 {
 	const bool isPCEvent = IsPCEvent();
-	if(m_cbnInstr->GetCount() == 0 || !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA) != isPCEvent)
+	if(m_cbnInstr->count() == 0 || !!m_cbnInstr->property("mfclessUserData").toLongLong() != isPCEvent)
 	{
-		SetWindowLongPtr(m_cbnInstr, GWLP_USERDATA, isPCEvent);
+		m_cbnInstr->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(isPCEvent));
 	}
 
 	int effectIndex = static_cast<int>(mfcless::GetItemData(m_cbnCommand, m_cbnCommand->currentIndex()));
@@ -438,22 +432,21 @@ void CFindReplaceTab::UpdateParamList()
 
 	if(oldcount != newcount)
 	{
-		mpt::uchar s[16];
+		mpt::ustring s;
 		int newpos;
-		if(oldcount && m_cbnParam->currentIndex() != CB_ERR)
+		if(oldcount && m_cbnParam->currentIndex() != -1)
 			newpos = static_cast<int>(mfcless::GetItemData(m_cbnParam, m_cbnParam->currentIndex()));
 		else
 			newpos = findParam;
 		Limit(newpos, 0, newcount - 1);
 		m_cbnParam->setUpdatesEnabled(false);
 		m_cbnParam->clear();
-		m_cbnParam->InitStorage(newcount + 2, static_cast<uint32>((newcount + 2) * 4 * sizeof(mpt::uchar)));
 
 		if(m_isReplaceTab)
 		{
-			wsprintf(s, UL_("+ %d"), m_settings.replaceParam);
+			s = mfcless::PrintF(UL_("+ %d"), m_settings.replaceParam);
 			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, s), kReplaceRelative);
-			wsprintf(s, UL_("* %d%%"), m_settings.replaceParam);
+			s = mfcless::PrintF(UL_("* %d%%"), m_settings.replaceParam);
 			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, s), kReplaceMultiply);
 			if(m_settings.replaceParamAction == FindReplace::ReplaceRelative)
 				sel = 0;
@@ -476,7 +469,7 @@ void CFindReplaceTab::UpdateParamList()
 			sel = m_cbnParam->count() + newpos;
 		for(int param = 0; param < newcount; param++)
 		{
-			wsprintf(s, (newcount == 256) ? UL_("%02X") : UL_("%X"), param);
+			s = mfcless::PrintF((newcount == 256) ? UL_("%02X") : UL_("%X"), param);
 			int i = mfcless::AddItem(m_cbnParam, s);
 			mfcless::SetItemData(m_cbnParam, i, param);
 		}
@@ -489,7 +482,7 @@ void CFindReplaceTab::UpdateParamList()
 
 void CFindReplaceTab::UpdateVolumeList()
 {
-	mpt::uchar s[256];
+	mpt::ustring s;
 	const bool isPCEvent = IsPCEvent();
 
 	bool enable = isPCEvent ? false : true;
@@ -506,9 +499,9 @@ void CFindReplaceTab::UpdateVolumeList()
 		plug = m_cbnInstr->GetSelection().value_or(PLUGINDEX_INVALID);
 		plugData = (plug != PLUGINDEX_INVALID) ? plug + 1 : 0;
 	}
-	if(isPCEvent && (m_cbnPCParam->count() == 0 || GetWindowLongPtr(m_cbnPCParam, GWLP_USERDATA) != plugData))
+	if(isPCEvent && (m_cbnPCParam->count() == 0 || m_cbnPCParam->property("mfclessUserData").toLongLong() != plugData))
 	{
-		SetWindowLongPtr(m_cbnPCParam, GWLP_USERDATA, plugData);
+		m_cbnPCParam->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(plugData));
 
 		SetChecked(IDC_CHECK5, 0);
 		SetChecked(IDC_CHECK6, 0);
@@ -518,14 +511,13 @@ void CFindReplaceTab::UpdateVolumeList()
 		m_cbnPCParam->clear();
 		if(plug < MAX_MIXPLUGINS && m_sndFile.m_MixPlugins[plug].pMixPlugin != nullptr)
 		{
-			AddPluginParameternamesToCombobox(m_cbnPCParam, *m_sndFile.m_MixPlugins[plug].pMixPlugin);
+			AddPluginParameternamesToCombobox(*m_cbnPCParam, *m_sndFile.m_MixPlugins[plug].pMixPlugin);
 		} else
 		{
 			const int numItems = ModCommand::maxColumnValue + 1;
-			m_cbnPCParam->InitStorage(numItems, static_cast<uint32>(numItems * 20 * sizeof(mpt::uchar)));
 			for(int i = 0; i < numItems; i++)
 			{
-				wsprintf(s, UL_("%02u: Parameter %02u"), static_cast<unsigned int>(i), static_cast<unsigned int>(i));
+				s = mfcless::PrintF(UL_("%02u: Parameter %02u"), static_cast<unsigned int>(i), static_cast<unsigned int>(i));
 				mfcless::SetItemData(m_cbnPCParam, mfcless::AddItem(m_cbnPCParam, s), i);
 			}
 		}
@@ -578,12 +570,11 @@ void CFindReplaceTab::UpdateVolumeList()
 		Limit(newpos, 0, newcount - 1);
 		m_cbnVolume->setUpdatesEnabled(false);
 		m_cbnVolume->clear();
-		m_cbnVolume->InitStorage(newcount + 2, static_cast<uint32>((newcount + 2) * 4 * sizeof(mpt::uchar)));
 		if(m_isReplaceTab)
 		{
-			wsprintf(s, UL_("+ %d"), m_settings.replaceVolume);
+			s = mfcless::PrintF(UL_("+ %d"), m_settings.replaceVolume);
 			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, s), kReplaceRelative);
-			wsprintf(s, UL_("* %d%%"), m_settings.replaceVolume);
+			s = mfcless::PrintF(UL_("* %d%%"), m_settings.replaceVolume);
 			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, s), kReplaceMultiply);
 			if(m_settings.replaceVolumeAction == FindReplace::ReplaceRelative)
 				sel = 0;
@@ -600,7 +591,7 @@ void CFindReplaceTab::UpdateVolumeList()
 			sel = m_cbnVolume->count() + newpos - rangeMin;
 		for (int vol = rangeMin; vol <= rangeMax; vol++)
 		{
-			wsprintf(s, (rangeMax < 10 || rangeMax > 99) ? UL_("%d") : UL_("%02d"), vol);
+			s = mfcless::PrintF((rangeMax < 10 || rangeMax > 99) ? UL_("%d") : UL_("%02d"), vol);
 			int i = mfcless::AddItem(m_cbnVolume, s);
 			mfcless::SetItemData(m_cbnVolume, i, vol);
 		}
@@ -732,18 +723,17 @@ void CFindReplaceTab::OnVolCmdChanged()
 };
 
 
-void CFindReplaceTab::RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex)
+void CFindReplaceTab::RelativeOrMultiplyPrompt(QComboBox *comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex)
 {
-	int sel = comboBox.GetCurSel();
-	int item = static_cast<int>(comboBox.GetItemData(sel));
+	int sel = comboBox->currentIndex();
+	int item = static_cast<int>(mfcless::GetItemData(comboBox, sel));
 
-	if(sel == CB_ERR)
+	if(sel == -1)
 	{
 		item = 0;
 		mpt::ustring s;
-		mfcless::GetWindowText(comboBox, s);
-		s.TrimLeft();
-		if(s.GetLength() >= 1)
+		s = mfcless::FromQString(comboBox->currentText().trimmed());
+		if(s.length() >= 1)
 		{
 			mpt::uchar first = s[0];
 			if(first == u8'+')
@@ -760,9 +750,7 @@ void CFindReplaceTab::RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace:
 		{
 			if(isHex)
 			{
-				int len = ::GetWindowTextLengthA(m_cbnParam);
-				std::string sHex(len, 0);
-				::GetWindowTextA(m_cbnParam, &sHex[0], len + 1);
+				const std::string sHex = m_cbnParam->currentText().toStdString();
 				item = mpt::parse_hex<unsigned int>(sHex);
 			} else
 			{
@@ -794,12 +782,12 @@ void CFindReplaceTab::RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace:
 			value = dlg.resultAsInt;
 			action = act;
 
-			mpt::uchar s[32];
-			wsprintf(s, format, value);
-			comboBox.DeleteString(sel);
-			comboBox.InsertString(sel, s);
-			comboBox.SetItemData(sel, item);
-			comboBox.SetCurSel(sel);
+			mpt::ustring s;
+			s = mfcless::PrintF(format, value);
+			comboBox->removeItem(sel);
+			mfcless::InsertItem(comboBox, sel, s);
+			mfcless::SetItemData(comboBox, sel, item);
+			comboBox->setCurrentIndex(sel);
 		} else
 		{
 			// TODO undo selection
@@ -816,7 +804,7 @@ void CFindReplaceTab::OnVolumeChanged()
 {
 	CheckOnChange(IDC_CHECK4);
 	int item = m_cbnVolume->currentIndex();
-	if(item != CB_ERR)
+	if(item != -1)
 		item = static_cast<int>(mfcless::GetItemData(m_cbnVolume, item));
 	else
 		item = GetItemInt(IDC_COMBO4);
@@ -857,14 +845,12 @@ void CFindReplaceTab::OnParamChanged()
 {
 	CheckOnChange(IDC_CHECK6);
 	int item = m_cbnParam->currentIndex();
-	if(item != CB_ERR)
+	if(item != -1)
 	{
 		item = static_cast<int>(mfcless::GetItemData(m_cbnParam, item));
 	} else
 	{
-		int len = ::GetWindowTextLengthA(m_cbnParam);
-		std::string s(len, 0);
-		::GetWindowTextA(m_cbnParam, &s[0], len + 1);
+		const std::string s = m_cbnParam->currentText().toStdString();
 		item = mpt::parse_hex<unsigned int>(s);
 	}
 
@@ -932,7 +918,7 @@ void CFindReplaceTab::OnPCParamChanged()
 void CFindReplaceTab::OnCheckNote()
 {
 	CheckReplace(IDC_CHECK1);
-	if(m_isReplaceTab && IsPCEvent() != !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA))
+	if(m_isReplaceTab && IsPCEvent() != !!m_cbnInstr->property("mfclessUserData").toLongLong())
 	{
 		UpdateInstrumentList();
 		UpdateVolumeList();

@@ -1174,7 +1174,7 @@ void PatternClipboardDialog::OnEditName()
 	m_editNameBox->SetFont(m_clipList->GetFont());
 	mfcless::SetWindowText(m_editNameBox, PatternClipboard::instance.m_clipboards[sel].description);
 	mfcless::GotoDlgCtrl(m_editNameBox);
-	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, (LONG_PTR)mfcless::GetItemDataPtr(m_clipList, sel));
+	m_editNameBox->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>((LONG_PTR)mfcless::GetItemDataPtr(m_clipList, sel)));
 }
 
 
@@ -1187,7 +1187,7 @@ void PatternClipboardDialog::OnEndEdit(bool apply)
 
 	if(apply)
 	{
-		size_t sel = GetWindowLongPtr(m_editNameBox, GWLP_USERDATA);
+		size_t sel = m_editNameBox->property("mfclessUserData").toLongLong();
 		if(sel >= PatternClipboard::instance.m_clipboards.size())
 		{
 			// What happened?
@@ -1200,7 +1200,7 @@ void PatternClipboardDialog::OnEndEdit(bool apply)
 		PatternClipboard::instance.m_clipboards[sel].description = newName;
 	}
 
-	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, LONG_PTR(-1));
+	m_editNameBox->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(LONG_PTR(-1)));
 	m_editNameBox->DestroyWindow();
 
 	UpdateList();

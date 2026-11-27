@@ -19,7 +19,7 @@
 #include "../soundlib/Snd_defs.h"
 
 class QAbstractButton;
-class QTreeWidget;
+#include "mfcless/TreeCtrl.h"
 class QTreeWidgetItem;
 class QWidget;
 
@@ -45,7 +45,7 @@ class CSelectPluginDlg : public ResizableDialog
 protected:
 	SNDMIXPLUGIN *m_pPlugin = nullptr;
 	CModDoc *m_pModDoc = nullptr;
-	QTreeWidget *m_treePlugins = nullptr;
+	mfcless::TreeCtrl *m_treePlugins = nullptr;
 	QAbstractButton *m_chkBridge = nullptr;
 	QAbstractButton *m_chkShare = nullptr;
 	QAbstractButton *m_chkLegacyBridge = nullptr;
@@ -72,7 +72,7 @@ public:
 	static bool VerifyPlugin(VSTPluginLib *plug, QWidget *parent);
 
 protected:
-	QTreeWidgetItem * AddTreeItem(const mpt::uchar *title, int image, bool sort, QTreeWidgetItem * hParent = nullptr, intptr_t lParam = NULL);
+	QTreeWidgetItem * AddTreeItem(const mpt::ustring &title, int image, bool sort, QTreeWidgetItem * hParent = nullptr, intptr_t lParam = NULL);
 
 	VSTPluginLib *GetSelectedPlugin();
 	void SaveWindowPos() const;

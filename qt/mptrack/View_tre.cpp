@@ -99,7 +99,7 @@ ModTreeDocInfo::ModTreeDocInfo(CModDoc &modDoc)
 
 void CModTree::RegisterMessageMap()
 {
-	mfcless::Window<QTreeWidget>::RegisterMessageMap();
+	mfcless::TreeCtrl::RegisterMessageMap();
 	// ON_WM_DESTROY(): by hand (Qt event override)
 	// ON_WM_KILLFOCUS() (mfcless::Window)
 	// ON_WM_SETFOCUS() (mfcless::Window)
@@ -203,18 +203,18 @@ void CModTree::Init()
 	m_modExtensions = CSoundFile::GetSupportedExtensions(false);
 	m_MediaFoundationExtensions = FileType(CSoundFile::GetMediaFoundationFileTypes()).GetExtensions();
 
-	uint32 dwRemove = TVS_SINGLEEXPAND;
-	uint32 dwAdd = TVS_EDITLABELS | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_SHOWSELALWAYS;
+	uint32 dwRemove = mfcless::tree::SingleExpand;
+	uint32 dwAdd = mfcless::tree::EditLabels | mfcless::tree::HasLines | mfcless::tree::LinesAtRoot | mfcless::tree::HasButtons | mfcless::tree::ShowSelAlways;
 
 	if(IsSampleBrowser())
 	{
-		dwRemove |= (TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS);
-		dwAdd &= ~(TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS);
+		dwRemove |= (mfcless::tree::HasLines | mfcless::tree::LinesAtRoot | mfcless::tree::HasButtons);
+		dwAdd &= ~(mfcless::tree::HasLines | mfcless::tree::LinesAtRoot | mfcless::tree::HasButtons);
 	}
 	if(TrackerSettings::Instance().patternSetup & PatternSetup::SingleClickToExpand)
 	{
-		dwRemove &= ~TVS_SINGLEEXPAND;
-		dwAdd |= TVS_SINGLEEXPAND;
+		dwRemove &= ~mfcless::tree::SingleExpand;
+		dwAdd |= mfcless::tree::SingleExpand;
 		m_dwStatus |= TREESTATUS_SINGLEEXPAND;
 	}
 	ModifyStyle(dwRemove, dwAdd);
@@ -241,17 +241,17 @@ void CModTree::Init()
 		m_pDataTree->InsLibSetFullPath(m_InstrLibPath, mpt::PathString());
 	}
 
-	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons, TVSIL_NORMAL);
+	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons);
 	if(!IsSampleBrowser())
 	{
 		// Create Midi Library
-		m_hMidiLib = InsertItem(UL_("MIDI Library"), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, TVI_LAST);
+		m_hMidiLib = InsertItem(UL_("MIDI Library"), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, mfcless::tree::Last);
 		for(uint32 iMidGrp = 0; iMidGrp < 17; iMidGrp++)
 		{
-			InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, mpt::ToUnicode(mpt::Charset::ASCII, szMidiGroupNames[iMidGrp]), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, (MODITEM_HDR_MIDIGROUP << MIDILIB_SHIFT) | iMidGrp, m_hMidiLib, TVI_LAST);
+			InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, mpt::ToUnicode(mpt::Charset::ASCII, szMidiGroupNames[iMidGrp]), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, (MODITEM_HDR_MIDIGROUP << MIDILIB_SHIFT) | iMidGrp, m_hMidiLib, mfcless::tree::Last);
 		}
 	}
-	m_hInsLib = InsertItem(UL_("Instrument Library"), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, TVI_LAST);
+	m_hInsLib = InsertItem(UL_("Instrument Library"), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, mfcless::tree::Last);
 	RefreshMidiLibrary();
 	RefreshDlsBanks();
 	RefreshInstrumentLibrary();
@@ -271,7 +271,7 @@ void CModTree::OnDestroy()
 intptr_t CModTree::OnDPIChangedAfterParent(uintptr_t, intptr_t)
 {
 	auto result = Default();
-	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons, TVSIL_NORMAL);
+	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons);
 	SetIndent(0);  // Set to minimum after going back from high-DPI to low-DPI
 	return result;
 }
@@ -439,12 +439,12 @@ CModTree* CModTree::GetOtherView()
 
 void CModTree::OnOptionsChanged()
 {
-	uint32 dwRemove = TVS_SINGLEEXPAND, dwAdd = 0;
+	uint32 dwRemove = mfcless::tree::SingleExpand, dwAdd = 0;
 	m_dwStatus &= ~TREESTATUS_SINGLEEXPAND;
 	if(TrackerSettings::Instance().patternSetup & PatternSetup::SingleClickToExpand)
 	{
 		dwRemove = 0;
-		dwAdd = TVS_SINGLEEXPAND;
+		dwAdd = mfcless::tree::SingleExpand;
 		m_dwStatus |= TREESTATUS_SINGLEEXPAND;
 	}
 	ModifyStyle(dwRemove, dwAdd);
@@ -461,7 +461,7 @@ void CModTree::AddDocument(CModDoc &modDoc)
 	UpdateView(info, UpdateHint().ModType());
 	if(info.hSong)
 	{
-		Expand(info.hSong, TVE_EXPAND);
+		Expand(info.hSong, mfcless::tree::ExpandIt);
 		EnsureVisible(info.hSong);
 		SelectItem(info.hSong);
 	}
@@ -530,7 +530,7 @@ void CModTree::RefreshMidiLibrary()
 {
 	mpt::ustring s;
 	mpt::ustring stmp;
-	TVITEM tvi;
+	mfcless::TreeItemInfo tvi;
 	const MidiLibrary &midiLib = CTrackApp::GetMidiLibrary();
 
 	if(IsSampleBrowser())
@@ -549,11 +549,11 @@ void CModTree::RefreshMidiLibrary()
 		}
 		if(!m_tiMidi[iMidi])
 		{
-			m_tiMidi[iMidi] = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
-							s, image, image, 0, 0, param, parent, TVI_LAST);
+			m_tiMidi[iMidi] = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
+							s, image, image, 0, 0, param, parent, mfcless::tree::Last);
 		} else
 		{
-			tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM;
+			tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
 			tvi.hItem = m_tiMidi[iMidi];
 			tvi.pszText = stmp.GetBuffer(s.GetLength() + 1);
 			tvi.cchTextMax = stmp.GetAllocLength();
@@ -562,7 +562,7 @@ void CModTree::RefreshMidiLibrary()
 			stmp.ReleaseBuffer();
 			if(tvi.iImage != image || s != stmp)
 			{
-				SetItem(m_tiMidi[iMidi], TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
+				SetItem(m_tiMidi[iMidi], mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
 					s, image, image, 0, 0, param);
 			}
 		}
@@ -585,11 +585,11 @@ void CModTree::RefreshMidiLibrary()
 		}
 		if(!m_tiPerc[iPerc])
 		{
-			m_tiPerc[iPerc] = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
-							s, image, image, 0, 0, param, parent, TVI_LAST);
+			m_tiPerc[iPerc] = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
+							s, image, image, 0, 0, param, parent, mfcless::tree::Last);
 		} else
 		{
-			tvi.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM;
+			tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
 			tvi.hItem = m_tiPerc[iPerc];
 			tvi.pszText = stmp.GetBuffer(s.GetLength() + 1);
 			tvi.cchTextMax = stmp.GetAllocLength();
@@ -598,7 +598,7 @@ void CModTree::RefreshMidiLibrary()
 			stmp.ReleaseBuffer();
 			if(tvi.iImage != image || s != stmp)
 			{
-				SetItem(m_tiPerc[iPerc], TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE,
+				SetItem(m_tiPerc[iPerc], mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage,
 							s, image, image, 0, 0, param);
 			}
 		}
@@ -647,7 +647,7 @@ void CModTree::RefreshDlsBanks()
 		if(m_tiDLS[iDls])
 			DeleteChildren(m_tiDLS[iDls]);
 		else
-			m_tiDLS[iDls] = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
+			m_tiDLS[iDls] = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
 				dlsBank.GetFileName().GetFilename().ToUnicode(), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, iDls, nullptr, hInsertAfter);
 
 		std::map<uint16, QTreeWidgetItem *> banks;
@@ -662,7 +662,7 @@ void CModTree::RefreshDlsBanks()
 			if(!pDlsIns)
 				continue;
 
-			mpt::uchar szName[256];
+			mpt::ustring szName;
 			const intptr_t lParamInstr = DlsItem::ToLPARAM(static_cast<uint16>(iIns), (pDlsIns->ulInstrument & 0x7F), false);
 			if(pDlsIns->ulBank & F_INSTRUMENT_DRUMS)
 			{
@@ -690,22 +690,22 @@ void CModTree::RefreshDlsBanks()
 					if(!hKit)
 					{
 						if(!hDrums)
-							hDrums = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, UL_("Drum Kits"), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, DLS_DRUM_FOLDER_LPARAM, m_tiDLS[iDls], TVI_LAST);
+							hDrums = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, UL_("Drum Kits"), IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, DLS_DRUM_FOLDER_LPARAM, m_tiDLS[iDls], mfcless::tree::Last);
 
-						wsprintf(szName, UL_("%u: %s"), pDlsIns->ulInstrument & 0x7F, mpt::ToUnicode(charset, pDlsIns->szName).c_str());
-						hKit = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, szName, IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, lParamInstr, hDrums, TVI_FIRST);
+						szName = mfcless::PrintF(UL_("%u: %s"), pDlsIns->ulInstrument & 0x7F, mpt::ToUnicode(charset, pDlsIns->szName).c_str());
+						hKit = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, szName, IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, lParamInstr, hDrums, mfcless::tree::First);
 					}
 
 					const auto regionNameStr = mpt::ToUnicode(charset, regionName);
 					if(keymin >= keymax)
 					{
-						wsprintf(szName, UL_("%s%u: %s"),
+						szName = mfcless::PrintF(UL_("%s%u: %s"),
 							mpt::ToUnicode(CSoundFile::GetDefaultNoteName(keymin % 12)).c_str(),
 							keymin / 12,
 							regionNameStr.c_str());
 					} else
 					{
-						wsprintf(szName, UL_("%s%u-%s%u: %s"),
+						szName = mfcless::PrintF(UL_("%s%u-%s%u: %s"),
 							mpt::ToUnicode(CSoundFile::GetDefaultNoteName(keymin % 12)).c_str(),
 							keymin / 12,
 							mpt::ToUnicode(CSoundFile::GetDefaultNoteName(keymax % 12)).c_str(),
@@ -714,8 +714,8 @@ void CModTree::RefreshDlsBanks()
 					}
 
 					intptr_t lParam = DlsItem::ToLPARAM(static_cast<uint16>(iIns), static_cast<uint16>(region), true);
-					InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
-							szName, IMAGE_INSTRUMENTS, IMAGE_INSTRUMENTS, 0, 0, lParam, hKit, TVI_FIRST);
+					InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
+							szName, IMAGE_INSTRUMENTS, IMAGE_INSTRUMENTS, 0, 0, lParam, hKit, mfcless::tree::First);
 				}
 			} else
 			{
@@ -724,17 +724,17 @@ void CModTree::RefreshDlsBanks()
 				auto hbank = banks.find(mbank);
 				if(hbank == banks.end())
 				{
-					wsprintf(szName, mbank ? UL_("Melodic Bank %02d.%02d") : UL_("Melodic"), mbank >> 8, mbank & 0x7F);
+					szName = mfcless::PrintF(mbank ? UL_("Melodic Bank %02d.%02d") : UL_("Melodic"), mbank >> 8, mbank & 0x7F);
 					hbank = banks.insert(std::make_pair(mbank, nullptr)).first;
-					hbank->second = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE,
+					hbank->second = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage,
 						szName, IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, 0,
-						m_tiDLS[iDls], TVI_FIRST);
+						m_tiDLS[iDls], mfcless::tree::First);
 				}
 
 				const auto instrName = mpt::ToUnicode(charset, pDlsIns->szName);
-				wsprintf(szName, UL_("%u: %s"), pDlsIns->ulInstrument & 0x7F, instrName.c_str());
-				InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM,
-					szName, IMAGE_INSTRUMENTS, IMAGE_INSTRUMENTS, 0, 0, lParamInstr, hbank->second, TVI_FIRST);
+				szName = mfcless::PrintF(UL_("%u: %s"), pDlsIns->ulInstrument & 0x7F, instrName.c_str());
+				InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
+					szName, IMAGE_INSTRUMENTS, IMAGE_INSTRUMENTS, 0, 0, lParamInstr, hbank->second, mfcless::tree::First);
 			}
 		}
 		hInsertAfter = m_tiDLS[iDls];
@@ -777,7 +777,7 @@ void CModTree::RefreshInstrumentLibrary()
 void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 {
 	mpt::uchar stmp[256];
-	TVITEM tvi;
+	mfcless::TreeItemInfo tvi;
 	MemsetZero(tvi);
 	const FlagSet<HintType> hintType = hint.GetType();
 	if(IsSampleBrowser() || hintType == HINT_NONE)
@@ -797,10 +797,10 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 
 		if(!info.hSong)
 		{
-			info.hSong = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, name, IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, reinterpret_cast<intptr_t>(&info.modDoc), nullptr, TVI_FIRST);
-			info.hOrders = InsertItem(UL_("Sequence"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, TVI_LAST);
-			info.hPatterns = InsertItem(UL_("Patterns"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, TVI_LAST);
-			info.hSamples = InsertItem(UL_("Samples"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, TVI_LAST);
+			info.hSong = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, name, IMAGE_FOLDER, IMAGE_FOLDER, 0, 0, reinterpret_cast<intptr_t>(&info.modDoc), nullptr, mfcless::tree::First);
+			info.hOrders = InsertItem(UL_("Sequence"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, mfcless::tree::Last);
+			info.hPatterns = InsertItem(UL_("Patterns"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, mfcless::tree::Last);
+			info.hSamples = InsertItem(UL_("Samples"), IMAGE_FOLDER, IMAGE_FOLDER, info.hSong, mfcless::tree::Last);
 		} else if(generalHint.GetType()[HINT_MODGENERAL | HINT_MODTYPE])
 		{
 			if(name != GetItemText(info.hSong))
@@ -823,7 +823,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 		}
 	}
 	if(!info.hComments)
-		info.hComments = InsertItem(UL_("Comments"), IMAGE_COMMENTS, IMAGE_COMMENTS, info.hSong, TVI_LAST);
+		info.hComments = InsertItem(UL_("Comments"), IMAGE_COMMENTS, IMAGE_COMMENTS, info.hSong, mfcless::tree::Last);
 	// Add effects
 	const PluginHint pluginHint = hint.ToType<PluginHint>();
 	if(pluginHint.GetType()[HINT_MODTYPE | HINT_PLUGINNAMES])
@@ -858,19 +858,19 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				if(hItem)
 				{
 					// Replace existing item
-					tvi.mask = TVIF_TEXT | TVIF_HANDLE | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM;
+					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
 					tvi.hItem = hItem;
 					tvi.pszText = stmp;
 					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
 					GetItem(&tvi);
 					if(tvi.iImage != nImage || tvi.lParam != i || s != mpt::ustring(tvi.pszText))
 					{
-						SetItem(hItem, TVIF_TEXT | TVIF_HANDLE | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, nImage, nImage, 0, 0, i);
+						SetItem(hItem, mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, i);
 					}
 					hItem = GetNextSiblingItem(hItem);
 				} else
 				{
-					InsertItem(TVIF_TEXT | TVIF_HANDLE | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, nImage, nImage, 0, 0, i, info.hEffects, TVI_LAST);
+					InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, i, info.hEffects, mfcless::tree::Last);
 				}
 			}
 		}
@@ -950,7 +950,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				seqName = UL_("Sequence");
 			else
 				seqName = UL_("Sequence: ") + seqName;
-			SetItem(info.hOrders, TVIF_TEXT, seqName, 0, 0, 0, 0, 0);
+			SetItem(info.hOrders, mfcless::tree::MaskText, seqName, 0, 0, 0, 0, 0);
 		}
 
 		// go through all sequences
@@ -969,24 +969,24 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					seqName += mpt::ToUnicode(sndFile.Order(seq).GetName());
 				}
 
-				uint32 state = (seq == sndFile.Order.GetCurrentSequenceIndex()) ? TVIS_BOLD : 0;
+				uint32 state = (seq == sndFile.Order.GetCurrentSequenceIndex()) ? mfcless::tree::Bold : 0;
 
 				if(info.tiSequences[seq] == NULL)
 				{
-					info.tiSequences[seq] = InsertItem(seqName, IMAGE_FOLDER, IMAGE_FOLDER, info.hOrders, TVI_LAST);
+					info.tiSequences[seq] = InsertItem(seqName, IMAGE_FOLDER, IMAGE_FOLDER, info.hOrders, mfcless::tree::Last);
 				}
 				// Update bold item
 				_tcscpy(stmp, seqName);
-				tvi.mask = TVIF_TEXT | TVIF_HANDLE | TVIF_STATE | TVIF_PARAM;
+				tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskState | mfcless::tree::MaskParam;
 				tvi.state = 0;
-				tvi.stateMask = TVIS_BOLD;
+				tvi.stateMask = mfcless::tree::Bold;
 				tvi.hItem = info.tiSequences[seq];
 				tvi.pszText = stmp;
 				tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
 				intptr_t param = (seq << SEQU_SHIFT) | ORDERINDEX_INVALID;
 				GetItem(&tvi);
 				if(tvi.state != state || tvi.pszText != seqName || tvi.lParam != param)
-					SetItem(info.tiSequences[seq], TVIF_TEXT | TVIF_STATE | TVIF_PARAM, seqName, 0, 0, state, TVIS_BOLD, param);
+					SetItem(info.tiSequences[seq], mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, seqName, 0, 0, state, mfcless::tree::Bold, param);
 
 				hAncestorNode = info.tiSequences[seq];
 			}
@@ -1005,23 +1005,23 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 			mpt::ustring patName;
 			for(ORDERINDEX iOrd = 0; iOrd < ordLength; iOrd++)
 			{
-				mpt::uchar s[256];
+				mpt::ustring s;
 				s[0] = 0;
 				if(patNamesOnly && sndFile.Order(seq)[iOrd] != nPat)
 					continue;
-				uint32 state = (iOrd == info.ordSel && seq == info.seqSel) ? TVIS_BOLD : 0;
+				uint32 state = (iOrd == info.ordSel && seq == info.seqSel) ? mfcless::tree::Bold : 0;
 				if(sndFile.Order(seq)[iOrd] < sndFile.Patterns.Size())
 				{
 					patName = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Patterns[sndFile.Order(seq)[iOrd]].GetName());
 					const bool hexOrders = (TrackerSettings::Instance().patternSetup & PatternSetup::RowAndOrderNumbersHex);
 					if(!patName.empty())
 					{
-						wsprintf(s, hexOrders ? UL_("[%02Xh] %u: ") : UL_("[%02u] %u: "),
+						s = mfcless::PrintF(hexOrders ? UL_("[%02Xh] %u: ") : UL_("[%02u] %u: "),
 							iOrd, sndFile.Order(seq)[iOrd]);
 						_tcscat(s, patName.c_str());
 					} else
 					{
-						wsprintf(s, hexOrders ? UL_("[%02Xh] Pattern %u") : UL_("[%02u] Pattern %u"),
+						s = mfcless::PrintF(hexOrders ? UL_("[%02Xh] Pattern %u") : UL_("[%02u] Pattern %u"),
 							iOrd, sndFile.Order(seq)[iOrd]);
 					}
 				} else
@@ -1029,29 +1029,29 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					if(sndFile.Order(seq)[iOrd] == PATTERNINDEX_SKIP)
 					{
 						// +++ Item
-						wsprintf(s, UL_("[%02u] Skip"), iOrd);
+						s = mfcless::PrintF(UL_("[%02u] Skip"), iOrd);
 					} else
 					{
 						// --- Item
-						wsprintf(s, UL_("[%02u] Stop"), iOrd);
+						s = mfcless::PrintF(UL_("[%02u] Stop"), iOrd);
 					}
 				}
 
 				intptr_t param = (seq << SEQU_SHIFT) | iOrd;
 				if(info.tiOrders[seq][iOrd])
 				{
-					tvi.mask = TVIF_TEXT | TVIF_HANDLE | TVIF_STATE;
+					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskState;
 					tvi.state = 0;
-					tvi.stateMask = TVIS_BOLD;
+					tvi.stateMask = mfcless::tree::Bold;
 					tvi.hItem = info.tiOrders[seq][iOrd];
 					tvi.pszText = stmp;
 					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
 					GetItem(&tvi);
 					if(tvi.state != state || _tcscmp(s, stmp))
-						SetItem(info.tiOrders[seq][iOrd], TVIF_TEXT | TVIF_STATE | TVIF_PARAM, s, 0, 0, state, TVIS_BOLD, param);
+						SetItem(info.tiOrders[seq][iOrd], mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, s, 0, 0, state, mfcless::tree::Bold, param);
 				} else
 				{
-					info.tiOrders[seq][iOrd] = InsertItem(TVIF_HANDLE | TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, IMAGE_PARTITION, IMAGE_PARTITION, 0, 0, param, hAncestorNode, TVI_LAST);
+					info.tiOrders[seq][iOrd] = InsertItem(mfcless::tree::MaskHandle | mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, IMAGE_PARTITION, IMAGE_PARTITION, 0, 0, param, hAncestorNode, mfcless::tree::Last);
 				}
 			}
 		}
@@ -1077,12 +1077,12 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 		mpt::ustring patName;
 		for(PATTERNINDEX pat = minPat; pat < maxPat; pat++)
 		{
-			mpt::uchar s[256];
+			mpt::ustring s;
 			s[0] = 0;
 			if(sndFile.Patterns.IsValidPat(pat))
 			{
 				patName = mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.Patterns[pat].GetName());
-				wsprintf(s, UL_("%u"), pat);
+				s = mfcless::PrintF(UL_("%u"), pat);
 				if(!patName.empty())
 				{
 					_tcscat(s, UL_(": "));
@@ -1090,16 +1090,16 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				}
 				if(info.tiPatterns[pat])
 				{
-					tvi.mask = TVIF_TEXT | TVIF_HANDLE;
+					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle;
 					tvi.hItem = info.tiPatterns[pat];
 					tvi.pszText = stmp;
 					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
 					GetItem(&tvi);
 					if(_tcscmp(s, stmp))
-						SetItem(info.tiPatterns[pat], TVIF_TEXT, s, 0, 0, 0, 0, 0);
+						SetItem(info.tiPatterns[pat], mfcless::tree::MaskText, s, 0, 0, 0, 0, 0);
 				} else
 				{
-					info.tiPatterns[pat] = InsertItem(s, IMAGE_PATTERNS, IMAGE_PATTERNS, info.hPatterns, TVI_LAST);
+					info.tiPatterns[pat] = InsertItem(s, IMAGE_PATTERNS, IMAGE_PATTERNS, info.hPatterns, mfcless::tree::Last);
 				}
 				SetItemData(info.tiPatterns[pat], pat);
 			} else if(pat < info.tiPatterns.size() && info.tiPatterns[pat])
@@ -1122,7 +1122,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 		QTreeWidgetItem * hChild = GetNthChildItem(info.hSamples, smin - 1);
 		for(SAMPLEINDEX nSmp = smin; nSmp <= smax; nSmp++)
 		{
-			mpt::uchar s[256];
+			mpt::ustring s;
 			s[0] = 0;
 			QTreeWidgetItem * hNextChild = GetNextSiblingItem(hChild);
 			if(nSmp <= sndFile.GetNumSamples())
@@ -1163,18 +1163,18 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					{
 						status = sampleExists ? UL_(" [external]") : UL_(" [MISSING]");
 					}
-					wsprintf(s, UL_("%3d: %s%s%s"), nSmp, sample.uFlags.test_all(SMP_MODIFIED | SMP_KEEPONDISK) ? UL_("* ") : UL_(""), mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]).c_str(), status);
+					s = mfcless::PrintF(UL_("%3d: %s%s%s"), nSmp, sample.uFlags.test_all(SMP_MODIFIED | SMP_KEEPONDISK) ? UL_("* ") : UL_(""), mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]).c_str(), status);
 				} else
 				{
-					wsprintf(s, UL_("%3d: %s"), nSmp, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]).c_str());
+					s = mfcless::PrintF(UL_("%3d: %s"), nSmp, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]).c_str());
 				}
 
 				if(!hChild)
 				{
-					hChild = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, image, image, 0, 0, nSmp, info.hSamples, TVI_LAST);
+					hChild = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, image, image, 0, 0, nSmp, info.hSamples, mfcless::tree::Last);
 				} else
 				{
-					tvi.mask = TVIF_TEXT | TVIF_HANDLE | TVIF_IMAGE;
+					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage;
 					tvi.hItem = hChild;
 					tvi.pszText = stmp;
 					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
@@ -1189,7 +1189,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 #pragma warning(pop)
 #endif // MPT_COMPILER_MSVC
 					{
-						SetItem(hChild, TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, image, image, 0, 0, nSmp);
+						SetItem(hChild, mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, image, image, 0, 0, nSmp);
 					}
 				}
 			} else if(hChild != nullptr)
@@ -1215,12 +1215,12 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 		QTreeWidgetItem * hChild = GetNthChildItem(info.hInstruments, smin - 1);
 		for(INSTRUMENTINDEX nIns = smin; nIns <= smax; nIns++)
 		{
-			mpt::uchar s[256];
+			mpt::ustring s;
 			s[0] = 0;
 			QTreeWidgetItem * hNextChild = GetNextSiblingItem(hChild);
 			if(nIns <= sndFile.GetNumInstruments())
 			{
-				wsprintf(s, UL_("%3u: %s"), nIns, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.GetInstrumentName(nIns)).c_str());
+				s = mfcless::PrintF(UL_("%3u: %s"), nIns, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.GetInstrumentName(nIns)).c_str());
 
 				int nImage = IMAGE_INSTRUMENTS;
 				if(info.instrumentsPlaying[nIns])
@@ -1230,10 +1230,10 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 
 				if(!hChild)
 				{
-					hChild = InsertItem(TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, nImage, nImage, 0, 0, nIns, info.hInstruments, TVI_LAST);
+					hChild = InsertItem(mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, nIns, info.hInstruments, mfcless::tree::Last);
 				} else
 				{
-					tvi.mask = TVIF_TEXT | TVIF_HANDLE | TVIF_IMAGE;
+					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage;
 					tvi.hItem = hChild;
 					tvi.pszText = stmp;
 					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
@@ -1241,7 +1241,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					GetItem(&tvi);
 					if(tvi.iImage != nImage || _tcscmp(s, stmp) || GetItemData(hChild) != nIns)
 					{
-						SetItem(hChild, TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM, s, nImage, nImage, 0, 0, nIns);
+						SetItem(hChild, mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, nIns);
 					}
 				}
 			} else if(hChild != nullptr)
@@ -1289,8 +1289,8 @@ CModTree::ModItem CModTree::GetModItem(QTreeWidgetItem * hItem)
 	// Instrument Library
 	if(hRootParent == m_hInsLib || (IsSampleBrowser() && hItem != m_hInsLib))
 	{
-		TVITEM tvi;
-		tvi.mask = TVIF_IMAGE | TVIF_HANDLE;
+		mfcless::TreeItemInfo tvi;
+		tvi.mask = mfcless::tree::MaskImage | mfcless::tree::MaskHandle;
 		tvi.hItem = hItem;
 		tvi.iImage = 0;
 		if(GetItem(&tvi))
@@ -2174,7 +2174,7 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 	if(!filter.empty())
 		filter = UL_("*") + filter + UL_("*");
 
-	QTreeWidgetItem * item = GetNextItem(m_hInsLib, IsSampleBrowser() ? TVGN_NEXT : TVGN_CHILD);
+	QTreeWidgetItem * item = GetNextItem(m_hInsLib, IsSampleBrowser() ? mfcless::tree::Next : mfcless::tree::Child);
 	while(item != nullptr)
 	{
 		QTreeWidgetItem * nextItem = GetNextSiblingItem(item);
@@ -2185,7 +2185,7 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 
 	// TODO: Maybe first delete front-to-back, then insert back-to-front?
 
-	// Insert items in reverse, as insertion via TVI_FIRST is faster than TVI_LAST as per https://devblogs.microsoft.com/oldnewthing/20111125-00/?p=9033
+	// Insert items in reverse, as insertion via mfcless::tree::First is faster than mfcless::tree::Last as per https://devblogs.microsoft.com/oldnewthing/20111125-00/?p=9033
 	uintptr_t entryID = m_fileBrowserEntries.size();
 	QTreeWidgetItem * selectedTreeItem = nullptr;
 	for(auto entry = m_fileBrowserEntries.crbegin(); entry != m_fileBrowserEntries.crend(); entry++, entryID--)
@@ -2201,8 +2201,8 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 
 			if(!item || GetItemData(item) != entryID)
 			{
-				int state = entry->hidden ? TVIS_CUT : 0;
-				item = InsertItem(TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_TEXT | TVIF_STATE | TVIF_PARAM, LPSTR_TEXTCALLBACK, entry->image, entry->image, state, state, entryID, IsSampleBrowser() ? nullptr : m_hInsLib, item ? item : TVI_FIRST);
+				int state = entry->hidden ? mfcless::tree::Cut : 0;
+				item = InsertItem(mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, LPSTR_TEXTCALLBACK, entry->image, entry->image, state, state, entryID, IsSampleBrowser() ? nullptr : m_hInsLib, item ? item : mfcless::tree::First);
 			}
 
 			if(selectedItem != nullptr && !_tcscmp(entry->name.c_str(), selectedItem))
@@ -2229,9 +2229,9 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 		if(m_hInsLib)
 			DeleteItem(m_hInsLib);
 		if(!m_SongFileName.empty() && m_SongFile)
-			m_hInsLib = InsertItem(m_SongFileName.ToUnicode(), IMAGE_FOLDERSONG, IMAGE_FOLDERSONG, nullptr, TVI_FIRST);
+			m_hInsLib = InsertItem(m_SongFileName.ToUnicode(), IMAGE_FOLDERSONG, IMAGE_FOLDERSONG, nullptr, mfcless::tree::First);
 		else
-			m_hInsLib = InsertItem(m_InstrLibPath.ToUnicode(), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, TVI_FIRST);
+			m_hInsLib = InsertItem(m_InstrLibPath.ToUnicode(), IMAGE_FOLDER, IMAGE_FOLDER, nullptr, mfcless::tree::First);
 	}
 
 	if(!filter.empty() && !selectedTreeItem)
@@ -2240,7 +2240,7 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 		{
 			selectedTreeItem = GetFirstVisibleItem();
 			if(selectedTreeItem == m_hInsLib)
-				selectedTreeItem = GetNextItem(m_hInsLib, TVGN_NEXT);
+				selectedTreeItem = GetNextItem(m_hInsLib, mfcless::tree::Next);
 		} else
 		{
 			selectedTreeItem = GetChildItem(m_hInsLib);
@@ -2820,12 +2820,12 @@ void CModTree::UpdatePlayPos(CModDoc &modDoc, Notification *pNotify)
 	{
 		// Remove bold state from old item
 		if(info->seqSel < info->tiOrders.size() && info->ordSel < info->tiOrders[info->seqSel].size())
-			SetItemState(info->tiOrders[info->seqSel][info->ordSel], 0, TVIS_BOLD);
+			SetItemState(info->tiOrders[info->seqSel][info->ordSel], 0, mfcless::tree::Bold);
 
 		info->ordSel = nNewOrd;
 		info->seqSel = nNewSeq;
 		if(info->seqSel < info->tiOrders.size() && info->ordSel < info->tiOrders[info->seqSel].size())
-			SetItemState(info->tiOrders[info->seqSel][info->ordSel], TVIS_BOLD, TVIS_BOLD);
+			SetItemState(info->tiOrders[info->seqSel][info->ordSel], mfcless::tree::Bold, mfcless::tree::Bold);
 		else
 			UpdateView(*info, SequenceHint().Data());
 	}
@@ -2911,7 +2911,7 @@ void CModTree::OnItemExpanded()
 	LPNMTREEVIEW pnm = (LPNMTREEVIEW)pnmhdr;
 	if((pnm->itemNew.iImage == IMAGE_FOLDER) || (pnm->itemNew.iImage == IMAGE_OPENFOLDER))
 	{
-		int iNewImage = (pnm->itemNew.state & TVIS_EXPANDED) ? IMAGE_OPENFOLDER : IMAGE_FOLDER;
+		int iNewImage = (pnm->itemNew.state & mfcless::tree::Expanded) ? IMAGE_OPENFOLDER : IMAGE_FOLDER;
 		SetItemImage(pnm->itemNew.hItem, iNewImage, iNewImage);
 	}
 	if(pResult)
@@ -3037,7 +3037,7 @@ void CModTree::OnItemRightClick(QTreeWidgetItem * hItem, mfcless::Point pt)
 	{
 		if(ItemHasChildren(hItem))
 		{
-			Expand(hItem, TVE_TOGGLE);
+			Expand(hItem, mfcless::tree::Toggle);
 		} else
 		{
 			m_hItemDrop = NULL;
@@ -3588,7 +3588,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 				} else if(point.y >= rect.bottom - 1)
 				{
 					hItem = HitTest(point, &flags);
-					QTreeWidgetItem * hNext = GetNextItem(hItem, TVGN_NEXTVISIBLE);
+					QTreeWidgetItem * hNext = GetNextItem(hItem, mfcless::tree::NextVisible);
 					if(hNext != NULL)
 					{
 						EnsureVisible(hNext);
@@ -4252,7 +4252,7 @@ intptr_t CModTree::OnCustomKeyMsg(uintptr_t wParam, intptr_t /*lParam*/)
 			{
 				if(ItemHasChildren(hItem))
 				{
-					Expand(hItem, TVE_TOGGLE);
+					Expand(hItem, mfcless::tree::Toggle);
 				}
 			}
 		}
@@ -4414,7 +4414,7 @@ bool CModTree::IsItemExpanded(QTreeWidgetItem * hItem) const
 	// checks if a treeview item is expanded.
 	if(hItem == nullptr)
 		return false;
-	return GetItemState(hItem, TVIS_EXPANDED) != 0;
+	return GetItemState(hItem, mfcless::tree::Expanded) != 0;
 }
 
 

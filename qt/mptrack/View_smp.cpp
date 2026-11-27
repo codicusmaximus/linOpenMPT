@@ -2214,7 +2214,7 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 		if(!hMenu)
 			return;
 
-		mpt::uchar s[256];
+		mpt::ustring s;
 
 		if(pt.y < m_timelineHeight)
 		{
@@ -2222,7 +2222,7 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 			if(IsCuePoint(item))
 			{
 				m_dwMenuParam = CuePointFromItem(item);
-				wsprintf(s, UL_("&Delete Cue Point %d"), 1 + static_cast<int>(m_dwMenuParam));
+				s = mfcless::PrintF(UL_("&Delete Cue Point %d"), 1 + static_cast<int>(m_dwMenuParam));
 				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_DELETE_CUEPOINT, s);
 				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			} else
@@ -2230,7 +2230,7 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 				if(*std::max_element(sample.cues.begin(), sample.cues.end()) >= sample.nLength)
 				{
 					m_dwMenuParam = ScreenToSample(pt.x);
-					wsprintf(s, UL_("&Insert Cue Point at %s"), mpt::ufmt::dec(3, UL_(","), m_dwMenuParam).c_str());
+					s = mfcless::PrintF(UL_("&Insert Cue Point at %s"), mpt::ufmt::dec(3, UL_(","), m_dwMenuParam).c_str());
 					hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_INSERT_CUEPOINT, s);
 					hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 				}
@@ -2263,10 +2263,10 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 				{
 					//Set loop points
 					SmpLength loopEnd = (sample.nLoopEnd > 0) ? sample.nLoopEnd : sample.nLength;
-					wsprintf(s, UL_("Set &Loop Start to:\t%s"), pos.c_str());
+					s = mfcless::PrintF(UL_("Set &Loop Start to:\t%s"), pos.c_str());
 					hMenu.AppendMenu(mfcless::menu::String | (dwPos + 4 <= loopEnd ? 0 : mfcless::menu::Grayed),
 						ID_SAMPLE_SETLOOPSTART, s);
-					wsprintf(s, UL_("Set &Loop End to:\t%s"), pos.c_str());
+					s = mfcless::PrintF(UL_("Set &Loop End to:\t%s"), pos.c_str());
 					hMenu.AppendMenu(mfcless::menu::String | (dwPos >= sample.nLoopStart + 4 ? 0 : mfcless::menu::Grayed),
 						ID_SAMPLE_SETLOOPEND, s);
 					if(sample.HasPingPongLoop())
@@ -2279,10 +2279,10 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 						//Set sustain loop points
 						SmpLength sustainEnd = (sample.nSustainEnd > 0) ? sample.nSustainEnd : sample.nLength;
 						hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
-						wsprintf(s, UL_("Set &Sustain Start to:\t%s"), pos.c_str());
+						s = mfcless::PrintF(UL_("Set &Sustain Start to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::String | (dwPos + 4 <= sustainEnd ? 0 : mfcless::menu::Grayed),
 							ID_SAMPLE_SETSUSTAINSTART, s);
-						wsprintf(s, UL_("Set &Sustain End to:\t%s"), pos.c_str());
+						s = mfcless::PrintF(UL_("Set &Sustain End to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::String | (dwPos >= sample.nSustainStart + 4 ? 0 : mfcless::menu::Grayed),
 							ID_SAMPLE_SETSUSTAINEND, s);
 						if(sample.HasPingPongSustainLoop())
@@ -2300,12 +2300,12 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 						for(std::size_t i = 0; i < std::size(sample.cues); i++)
 						{
 							const SmpLength cue = sample.cues[i];
-							wsprintf(s, UL_("Cue &%d: %s"), 1 + static_cast<int>(i),
+							s = mfcless::PrintF(UL_("Cue &%d: %s"), 1 + static_cast<int>(i),
 								cue < sample.nLength ? mpt::ufmt::dec(3, UL_(","), cue).c_str() : UL_("unused"));
 							hCueMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_CUE_1 + i, s);
 							if(cue > 0 && cue < sample.nLength) hasValidCues = true;
 						}
-						wsprintf(s, UL_("Set Sample Cu&e to:\t%s"), pos.c_str());
+						s = mfcless::PrintF(UL_("Set Sample Cu&e to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::Popup, hCueMenu, s);
 						hMenu.AppendMenu(mfcless::menu::String | (hasValidCues ? 0 : mfcless::menu::Grayed), ID_SAMPLE_SLICE, ih->GetKeyTextFromCommand(kcSampleSliceCuePoints, UL_("Slice at cue points")));
 						if(m_nGridSegments > 1)

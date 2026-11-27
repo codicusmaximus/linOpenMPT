@@ -13,7 +13,6 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include "CImageListEx.h"
 #include "mfcless/Controls.h"
 
 #include "CDecimalSupport.h"
@@ -51,7 +50,6 @@ public:
 
 protected:
 	QComboBox *m_fadeBox = nullptr;
-	CImageListEx m_list;
 	CNumberEdit *m_edit = nullptr, *m_editFadeIn = nullptr, *m_editFadeOut = nullptr;
 	bool m_locked = true;
 

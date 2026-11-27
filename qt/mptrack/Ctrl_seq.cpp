@@ -776,7 +776,7 @@ intptr_t COrderList::OnDPIChangedAfterParent(uintptr_t, intptr_t)
 
 void COrderList::OnPaint()
 {
-	mpt::uchar s[64];
+	mpt::ustring s;
 	mfcless::PaintDC dc(this);
 	HGDIOBJ oldfont = dc.SelectObject(m_hFont);
 	HGDIOBJ oldpen = dc.SelectStockObject(mfcless::Stock::DCPen);
@@ -876,7 +876,7 @@ void COrderList::OnPaint()
 				else if(pat == PATTERNINDEX_SKIP)
 					_tcscpy(s, UL_("+++"));
 				else
-					wsprintf(s, UL_("%u"), pat);
+					s = mfcless::PrintF(UL_("%u"), pat);
 			}
 
 			uint32 textCol;

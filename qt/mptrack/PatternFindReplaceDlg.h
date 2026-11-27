@@ -101,7 +101,7 @@ protected:
 
 	void OnCheckChannelSearch();
 
-	void RelativeOrMultiplyPrompt(QComboBox &comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex);
+	void RelativeOrMultiplyPrompt(QComboBox *comboBox, FindReplace::ReplaceMode &action, int &value, int range, bool isHex);
 	void RegisterMessageMap() override;
 };
 

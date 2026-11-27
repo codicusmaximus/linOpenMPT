@@ -23,6 +23,7 @@
 
 class QEvent;
 class QWidget;
+class QTreeWidgetItem;
 
 namespace mfcless
 {
@@ -49,6 +50,8 @@ enum class Notify : uint16_t
 	EndLabelEdit,
 	BeginDrag,
 	KeyDown,
+	ItemExpanded,   // a tree item was expanded or collapsed (delta: 1 / 0)
+	DeleteItem,     // a tree item is being deleted
 };
 
 // The codes of scroll notifications, as Windows numbers them.
@@ -70,6 +73,10 @@ struct NotifyInfo
 	int subItem = 0;  // column
 	int key = 0;      // KeyDown: Windows virtual-key code
 	QPoint point;     // RightClick: the mouse position, in screen coordinates
+	QTreeWidgetItem *treeItem = nullptr;     // tree notifications: the item
+	QTreeWidgetItem *oldTreeItem = nullptr;  // SelChange of a tree: the item before
+	bool rightButton = false;  // BeginDrag
+	intptr_t data = 0;         // DeleteItem: the item's data
 	QString text;     // EndLabelEdit: the new text (empty if cancelled)
 	bool textValid = false;
 	intptr_t result = 0;  // set by the handler
