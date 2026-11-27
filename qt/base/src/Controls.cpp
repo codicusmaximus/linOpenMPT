@@ -17,6 +17,8 @@
 
 #include <algorithm>
 
+#include <QtGui/QKeyEvent>
+
 namespace mfcless
 {
 
@@ -53,9 +55,33 @@ void UpDown::SetVertical(bool vertical)
 	updateGeometry();
 }
 
+void UpDown::ReplaceBuddy(QLineEdit *buddy)
+{
+	if(m_buddy)
+		m_buddy->removeEventFilter(this);
+	m_buddy = buddy;
+	if(buddy)
+		buddy->installEventFilter(this);
+}
+
+bool UpDown::eventFilter(QObject *watched, QEvent *e)
+{
+	if(m_arrowKeys && watched == m_buddy && e->type() == QEvent::KeyPress && isEnabled())
+	{
+		const int key = static_cast<QKeyEvent *>(e)->key();
+		if(key == Qt::Key_Up || key == Qt::Key_Down)
+		{
+			// Windows steps the vertical control "up" with the up arrow.
+			Step(key == Qt::Key_Up ? 1 : -1);
+			return true;
+		}
+	}
+	return QWidget::eventFilter(watched, e);
+}
+
 void UpDown::SetBuddy(QLineEdit *buddy)
 {
-	m_buddy = buddy;
+	ReplaceBuddy(buddy);
 	if(!buddy || m_align == Align::None || buddy->parentWidget() != parentWidget())
 		return;
 	QRect b = buddy->geometry();

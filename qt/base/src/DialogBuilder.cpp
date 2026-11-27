@@ -420,6 +420,7 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		u->SetVertical(!(s & 0x40));  // UDS_HORZ 0x40
 		u->SetBuddyInt(s & 0x2);
 		u->SetWrap(s & 0x1);
+		u->SetArrowKeys(s & 0x20);  // UDS_ARROWKEYS
 		w = u;
 		break;
 	}

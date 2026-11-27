@@ -44,7 +44,9 @@ public:
 	void SetBuddy(QLineEdit *buddy);
 	// The buddy was made again in the same place (SubclassDlgItem): it keeps
 	// the up-down where it is.
-	void ReplaceBuddy(QLineEdit *buddy) { m_buddy = buddy; }
+	void ReplaceBuddy(QLineEdit *buddy);
+	// UDS_ARROWKEYS: the up and down arrow keys in the buddy step it.
+	void SetArrowKeys(bool on) { m_arrowKeys = on; }
 	QLineEdit *GetBuddy() const { return m_buddy; }
 	void SetBuddyInt(bool on) { m_buddyInt = on; }
 	void SetWrap(bool on) { m_wrap = on; }
@@ -78,7 +80,10 @@ private:
 
 	QToolButton *m_up = nullptr, *m_down = nullptr;
 	QPointer<QLineEdit> m_buddy;
+	bool eventFilter(QObject *watched, QEvent *e) override;
+
 	Align m_align = Align::None;
+	bool m_arrowKeys = false;
 	bool m_vertical = true, m_buddyInt = false, m_wrap = false;
 	int m_lower = 100, m_upper = 0, m_pos = 0;
 	// Windows' default acceleration

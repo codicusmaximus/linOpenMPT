@@ -459,24 +459,28 @@ bool CMainToolBar::Create(QWidget *parent)
 	m_EditTempo = new CNumberEdit(this);
 	InitBarEdit(*m_EditTempo, false);
 	m_SpinTempo = new mfcless::UpDown(this);
+	m_SpinTempo->SetArrowKeys(true);  // UDS_ARROWKEYS
 	m_SpinTempo->SetBuddy(m_EditTempo);
 	// Speed
 	m_StaticSpeed = MakeBarLabel(UL_("Ticks/Row:"), this);
 	m_EditSpeed = new QLineEdit(this);
 	InitBarEdit(*m_EditSpeed, false);
 	m_SpinSpeed = new mfcless::UpDown(this);
+	m_SpinSpeed->SetArrowKeys(true);  // UDS_ARROWKEYS
 	m_SpinSpeed->SetBuddy(m_EditSpeed);
 	// Rows per Beat
 	m_StaticRowsPerBeat = MakeBarLabel(UL_("Rows/Beat:"), this);
 	m_EditRowsPerBeat = new QLineEdit(this);
 	InitBarEdit(*m_EditRowsPerBeat, false);
 	m_SpinRowsPerBeat = new mfcless::UpDown(this);
+	m_SpinRowsPerBeat->SetArrowKeys(true);  // UDS_ARROWKEYS
 	m_SpinRowsPerBeat->SetBuddy(m_EditRowsPerBeat);
 	// Global Volume
 	m_StaticGlobalVolume = MakeBarLabel(UL_("Global Volume:"), this);
 	m_EditGlobalVolume = new QLineEdit(this);
 	InitBarEdit(*m_EditGlobalVolume, false);
 	m_SpinGlobalVolume = new mfcless::UpDown(this);
+	m_SpinGlobalVolume->SetArrowKeys(true);  // UDS_ARROWKEYS
 	m_SpinGlobalVolume->SetBuddy(m_EditGlobalVolume);
 	// Only digits (ES_NUMBER)
 	for(QLineEdit *edit : {m_EditSpeed, m_EditRowsPerBeat, m_EditGlobalVolume})
