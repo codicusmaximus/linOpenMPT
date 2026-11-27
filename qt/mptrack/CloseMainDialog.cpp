@@ -10,6 +10,7 @@
 
 
 #include "CloseMainDialog.h"
+#include "mfcless/Widgets.h"
 #include "Moddoc.h"
 #include "Mptrack.h"
 #include "resource.h"
@@ -43,7 +44,7 @@ mpt::ustring CloseMainDialog::FormatTitle(const CModDoc &modDoc, bool fullPath)
 {
 	return MPT_UFORMAT("{} ({})")
 		(mpt::ToUnicode(modDoc.GetSoundFile().GetCharsetInternal(), modDoc.GetSoundFile().GetTitle()),
-		(!fullPath || modDoc.GetPathNameMpt().empty()) ? modDoc.GetTitle() : modDoc.GetPathNameMpt().ToCString());
+		(!fullPath || modDoc.GetPathNameMpt().empty()) ? modDoc.GetTitle() : modDoc.GetPathNameMpt().ToUnicode());
 }
 
 

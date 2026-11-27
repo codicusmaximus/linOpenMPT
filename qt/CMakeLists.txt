@@ -29,7 +29,8 @@ list(TRANSFORM MFCLESS_UPSTREAM_UI_FILES PREPEND ${MPT_UPSTREAM_DIR}/mptrack/)
 list(APPEND MFCLESS_TWIN_SOURCES ${MFCLESS_UPSTREAM_UI_FILES})
 # The crash handler is linOpenMPT's own Linux one (platform/), shared with
 # the MFC build.
-add_library(mfcless_ui STATIC ${MFCLESS_TWIN_SOURCES} ${CMAKE_SOURCE_DIR}/platform/ExceptionHandler.cpp)
+# Base helpers that need upstream's string types.
+add_library(mfcless_ui STATIC ${MFCLESS_TWIN_SOURCES} ${CMAKE_SOURCE_DIR}/platform/ExceptionHandler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/base/src/Widgets.cpp)
 target_include_directories(mfcless_ui PRIVATE ${CMAKE_SOURCE_DIR}/platform)
 target_link_libraries(mfcless_ui PUBLIC mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets)
 target_compile_options(mfcless_ui PRIVATE -fpermissive -w)
@@ -57,13 +58,13 @@ target_compile_options(mfcless_header_checks PRIVATE -fpermissive -w)
 set_target_properties(mfcless_header_checks PROPERTIES AUTOMOC OFF)
 
 add_executable(openmpt-qt main.cpp)
-target_link_libraries(openmpt-qt PRIVATE mpt_soundlib mpt_sounddevice Qt6::Widgets)
+target_link_libraries(openmpt-qt PRIVATE "$<LINK_GROUP:RESCAN,mfcless_ui,mpt_tracker_logic,mpt_soundlib>" mfcless_ui mpt_tracker_logic mfcless_base mfcless_resources)
 target_compile_options(openmpt-qt PRIVATE -fpermissive -w)
 install(TARGETS openmpt-qt RUNTIME DESTINATION bin)
 
 if(LINOPENMPT_BUILD_TESTS)
   add_executable(mfcless_engine_test tests/engine_test.cpp)
-  target_link_libraries(mfcless_engine_test PRIVATE "$<LINK_GROUP:RESCAN,mfcless_ui,mpt_tracker_logic,mpt_soundlib>" mfcless_ui mpt_tracker_logic)
+  target_link_libraries(mfcless_engine_test PRIVATE "$<LINK_GROUP:RESCAN,mfcless_ui,mpt_tracker_logic,mpt_soundlib>" mfcless_ui mpt_tracker_logic mfcless_base mfcless_resources)
   target_compile_options(mfcless_engine_test PRIVATE -fpermissive -w)
   add_test(NAME mfcless_engine_mod COMMAND mfcless_engine_test ${MPT_UPSTREAM_DIR}/test/test.mod ${CMAKE_CURRENT_BINARY_DIR}/engine_mod.it)
   add_executable(mfcless_resources_test tests/resources_test.cpp)

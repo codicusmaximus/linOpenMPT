@@ -10,6 +10,7 @@
 
 
 #include "AccessibleControls.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
@@ -377,7 +378,7 @@ public:
 
 		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN1))->SetRange32(1, static_cast<int>(m_subSongs.size()));
 		m_EditSubSong.SubclassDlgItem(IDC_EDIT1, this);
-		m_EditSubSong.SetAccessibleName(U_("Sub Song"));
+		m_EditSubSong.SetAccessibleName(UL_("Sub Song"));
 		SetItemInt(IDC_EDIT1, static_cast<uint32>(m_selectedSong + 1));
 		if(m_subSongs.size() <= 1)
 		{
@@ -460,7 +461,7 @@ public:
 		const auto subsongText = GetDlgItem(IDC_SUBSONG);
 		if(subsongText == nullptr || m_selectedSong >= m_subSongs.size())
 			return;
-		subsongText->SetWindowText(m_modDoc.FormatSubsongName(m_subSongs, m_selectedSong).c_str());
+		mfcless::SetWindowText(subsongText, m_modDoc.FormatSubsongName(m_subSongs, m_selectedSong).c_str());
 	}
 
 	void DoConversion(const mpt::PathString &fileName)
@@ -468,7 +469,7 @@ public:
 		const int controls[] = {IDC_RADIO1, IDC_RADIO2, IDC_RADIO3, IDC_RADIO4, IDC_RADIO5, IDC_EDIT1, IDC_EDIT2, IDC_EDIT3, IDC_EDIT4, IDC_EDIT5, IDC_SPIN1, IDOK};
 		for(int control : controls)
 			EnableItem(control, false);
-		GotoDlgCtrl(GetDlgItem(IDCANCEL));
+		mfcless::GotoDlgCtrl(GetDlgItem(IDCANCEL));
 
 		BypassInputHandler bih;
 		CMainFrame::GetMainFrame()->StopMod(&m_modDoc);
@@ -490,7 +491,7 @@ public:
 			m_subSongs = {m_subSongs[m_selectedSong]};
 
 		SetRange(0, mpt::saturate_round<uint64>(std::accumulate(m_subSongs.begin(), m_subSongs.end(), 0.0, [](double acc, const auto &song) { return acc + song.duration; }) * m_sndFile.GetSampleRate()));
-		ShowItem(IDC_PROGRESS1, true);
+		ShowItem(IDC_PROGRESS1, mfcless::show::Show);
 
 		m_sndFile.m_bIsRendering = true;
 
@@ -618,7 +619,7 @@ void CModDoc::OnFileOPLExport()
 	}
 	if(!anyOPL)
 	{
-		Reporting::Information(U_("This module does not use any OPL instruments."), U_("No OPL Instruments Found"));
+		Reporting::Information(UL_("This module does not use any OPL instruments."), UL_("No OPL Instruments Found"));
 		return;
 	}
 

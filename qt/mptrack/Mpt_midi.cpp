@@ -10,6 +10,7 @@
 
 
 #include "Dlsbank.h"
+#include "mfcless/Widgets.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
 #include "resource.h"
@@ -128,7 +129,7 @@ void CALLBACK MidiInCallBack(HMIDIIN inHandle, uint32 wMsg, uintptr_t instance, 
 		// In the latter case, we need to inform the UI.
 		if(pMainFrm->midiInData.inHandle != nullptr)
 		{
-			pMainFrm->SendMessage(WM_COMMAND, ID_MIDI_RECORD);
+			pMainFrm->mfcless::SendCommand(this, ID_MIDI_RECORD);
 		}
 	}
 }

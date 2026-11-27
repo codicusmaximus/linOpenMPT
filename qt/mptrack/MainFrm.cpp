@@ -98,8 +98,6 @@ static constexpr uint32 TIMERID_NOTIFY = 2;
 
 static constexpr uint32 MPTTIMER_PERIOD = 100;
 
-// mfcless: the status bar's first pane (MFC's ID_SEPARATOR).
-static constexpr uint32 ID_SEPARATOR = 0;
 
 /////////////////////////////////////////////////////////////////////////////
 // CMainFrame
@@ -2236,7 +2234,7 @@ void CMainFrame::OnViewOptions()
 		CUpdateSetupDlg updatedlg;
 #endif  // MPT_ENABLE_UPDATE
 		COptionsAdvanced advanced;
-		COptionsWine winedlg;
+		// mfcless: no Wine page; this build runs natively.
 	};
 	mpt::heap_value<Pages> pages;
 	dlg.AddPage(&pages->general);
@@ -2254,10 +2252,6 @@ void CMainFrame::OnViewOptions()
 	dlg.AddPage(&pages->updatedlg);
 #endif // MPT_ENABLE_UPDATE
 	dlg.AddPage(&pages->advanced);
-	if(mpt::OS::Windows::IsWine())
-	{
-		dlg.AddPage(&pages->winedlg);
-	}
 	m_bOptionsLocked = true;
 	m_SoundCardOptionsDialog = &pages->sounddlg;
 #if defined(MPT_ENABLE_UPDATE)

@@ -19,7 +19,8 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 set(CMAKE_AUTOMOC ON)
 add_library(mfcless_base STATIC src/IniFile.cpp src/Resources.cpp src/Controls.cpp src/DialogBuilder.cpp src/MessageMap.cpp src/Keyboard.cpp src/Menus.cpp src/Window.cpp src/Graphics.cpp
 	src/ListCtrl.cpp src/Button.cpp src/Clipboard.cpp src/DropTarget.cpp src/StatusBar.cpp
-  include/mfcless/Controls.h include/mfcless/DialogBuilder.h include/mfcless/MessageMap.h include/mfcless/Keyboard.h include/mfcless/Menus.h include/mfcless/Window.h include/mfcless/Graphics.h include/mfcless/Geometry.h)
+  include/mfcless/Controls.h include/mfcless/DialogBuilder.h include/mfcless/MessageMap.h include/mfcless/Keyboard.h include/mfcless/Menus.h include/mfcless/Window.h include/mfcless/Graphics.h include/mfcless/Geometry.h
+  include/mfcless/Button.h include/mfcless/ListCtrl.h include/mfcless/StatusBar.h include/mfcless/DropTarget.h)
 target_include_directories(mfcless_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(mfcless_base PUBLIC MPT_MFCLESS)
 target_link_libraries(mfcless_base PUBLIC Qt6::Widgets)

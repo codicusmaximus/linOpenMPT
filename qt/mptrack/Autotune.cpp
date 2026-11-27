@@ -10,6 +10,7 @@
 
 
 #include "Autotune.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "../common/misc_util.h"
 #include "../soundlib/Sndfile.h"
@@ -429,7 +430,7 @@ void CAutotuneDlg::OnOK()
 	int pitch = GetItemInt(IDC_EDIT1);
 	if(pitch <= 0)
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		return;
 	}
 

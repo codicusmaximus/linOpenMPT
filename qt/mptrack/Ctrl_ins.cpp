@@ -11,6 +11,7 @@
 
 
 #include "Ctrl_ins.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "dlg_misc.h"
 #include "FileDialog.h"
@@ -173,15 +174,15 @@ void CNoteMapWnd::OnPaint()
 	mfcless::Rect rcClient;
 	GetClientRect(&rcClient);
 	const auto highlightBrush = GetSysColorBrush(COLOR_HIGHLIGHT), windowBrush = GetSysColorBrush(COLOR_WINDOW);
-	const auto colorText = GetSysColor(COLOR_WINDOWTEXT);
-	const auto colorTextSel = GetSysColor(COLOR_HIGHLIGHTTEXT);
+	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText);
+	const auto colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
 	const int lineWidth = HighDPISupport::ScalePixels(1, *this);
 	auto oldFont = dc.SelectObject(CMainFrame::GetGUIFont());
 	dc.SetBkMode(mfcless::bk::Transparent);
 	if ((m_cxFont <= 0) || (m_cyFont <= 0))
 	{
 		mfcless::Size sz;
-		sz = dc.GetTextExtent(U_("C#0."), 4);
+		sz = dc.GetTextExtent(UL_("C#0."), 4);
 		m_cyFont = sz.cy + 2;
 		m_cxFont = rcClient.right / 3;
 	}
@@ -197,7 +198,7 @@ void CNoteMapWnd::OnPaint()
 	}
 	if (m_cxFont > 0 && m_cyFont > 0)
 	{
-		const bool focus = (::GetFocus() == m_hWnd);
+		const bool focus = (mfcless::GetFocus() == this);
 		const ModInstrument *pIns = sndFile.Instruments[m_nInstrument];
 		mfcless::Rect rect;
 
@@ -223,7 +224,7 @@ void CNoteMapWnd::OnPaint()
 			bool highlight = ((focus) && (nPos == (int)m_nNote));
 			rect.left = rect.right;
 			rect.right = m_cxFont*2-1;
-			s = U_("...");
+			s = UL_("...");
 			if(pIns != nullptr && isValidPos && (pIns->NoteMap[nPos] != NOTE_NONE))
 			{
 				ModCommand::NOTE n = pIns->NoteMap[nPos];
@@ -233,7 +234,7 @@ void CNoteMapWnd::OnPaint()
 					s.resize(4);
 				} else
 				{
-					s = U_("???");
+					s = UL_("???");
 				}
 			}
 			FillRect(dc, &rect, highlight ? highlightBrush : windowBrush);
@@ -249,7 +250,7 @@ void CNoteMapWnd::OnPaint()
 			highlight = (focus && nPos == (int)m_nNote);
 			rect.left = rcClient.left + m_cxFont * 2 + 3;
 			rect.right = rcClient.right;
-			s = U_(" ..");
+			s = UL_(" ..");
 			if(pIns && isValidPos && pIns->Keyboard[nPos])
 			{
 				s = mpt::ufmt::right(3, mpt::ufmt::dec(pIns->Keyboard[nPos]));
@@ -265,7 +266,7 @@ void CNoteMapWnd::OnPaint()
 			dc.DrawText(s.c_str(), -1, &rect, mfcless::dt::SingleLine | mfcless::dt::Center | mfcless::dt::VCenter | mfcless::dt::NoPrefix);
 		}
 		rect.SetRect(rcClient.left + m_cxFont * 2 - 1, rcClient.top, rcClient.left + m_cxFont * 2 + 3, ypaint);
-		DrawButtonRect(dc, lineWidth, rect, U_(""), false, false);
+		DrawButtonRect(dc, lineWidth, rect, UL_(""), false, false);
 		if (ypaint < rcClient.bottom)
 		{
 			rect.SetRect(rcClient.left, ypaint, rcClient.right, rcClient.bottom);
@@ -314,7 +315,7 @@ void CNoteMapWnd::OnLButtonDown(uint32, mfcless::Point pt)
 			SetCurrentNote(n);
 		}
 	}
-	SetFocus();
+	setFocus();
 }
 
 
@@ -338,7 +339,7 @@ void CNoteMapWnd::OnRButtonUp(uint32, mfcless::Point pt)
 
 		if (hMenu)
 		{
-			hMenu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_SAMPLEMAP, ih->GetKeyTextFromCommand(kcInsNoteMapEditSampleMap, U_("Edit Sample &Map")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_SAMPLEMAP, ih->GetKeyTextFromCommand(kcInsNoteMapEditSampleMap, UL_("Edit Sample &Map")));
 			if (hSubMenu)
 			{
 				// Create sub menu with a list of all samples that are referenced by this instrument.
@@ -350,7 +351,7 @@ void CNoteMapWnd::OnRButtonUp(uint32, mfcless::Point pt)
 					}
 				}
 
-				hMenu.AppendMenu(mfcless::menu::Popup, hSubMenu, ih->GetKeyTextFromCommand(kcInsNoteMapEditSample, U_("&Edit Sample")));
+				hMenu.AppendMenu(mfcless::menu::Popup, hSubMenu, ih->GetKeyTextFromCommand(kcInsNoteMapEditSample, UL_("&Edit Sample")));
 				hMenu.AppendMenu(mfcless::menu::Separator, 0, NULL);
 			}
 			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_SMP, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentSample, MPT_UFORMAT("Map All Notes to &Sample {}")(pIns->Keyboard[m_nNote])));
@@ -361,13 +362,13 @@ void CNoteMapWnd::OnRButtonUp(uint32, mfcless::Point pt)
 				{
 					hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_COPY_NOTE, ih->GetKeyTextFromCommand(kcInsNoteMapCopyCurrentNote, MPT_UFORMAT("Map All &Notes to {}")(mpt::ToUnicode(sndFile.GetNoteName(pIns->NoteMap[m_nNote], m_nInstrument)))));
 				}
-				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_UP, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeUp, U_("Transpose Map &Up")));
-				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_DOWN, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeDown, U_("Transpose Map &Down")));
+				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_UP, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeUp, UL_("Transpose Map &Up")));
+				hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_TRANS_DOWN, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeDown, UL_("Transpose Map &Down")));
 			}
-			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_RESET, ih->GetKeyTextFromCommand(kcInsNoteMapReset, U_("&Reset Note Mapping")));
-			hMenu.AppendMenu(mfcless::menu::String | (pIns->CanConvertToDefaultNoteMap().empty() ? mfcless::menu::Grayed : 0), ID_NOTEMAP_TRANSPOSE_SAMPLES, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeSamples, U_("&Transpose Samples / Reset Map")));
-			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_REMOVE, ih->GetKeyTextFromCommand(kcInsNoteMapRemove, U_("Remo&ve All Samples")));
-			hMenu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_DUPLICATE, ih->GetKeyTextFromCommand(kcInstrumentCtrlDuplicate, U_("Duplicate &Instrument")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_RESET, ih->GetKeyTextFromCommand(kcInsNoteMapReset, UL_("&Reset Note Mapping")));
+			hMenu.AppendMenu(mfcless::menu::String | (pIns->CanConvertToDefaultNoteMap().empty() ? mfcless::menu::Grayed : 0), ID_NOTEMAP_TRANSPOSE_SAMPLES, ih->GetKeyTextFromCommand(kcInsNoteMapTransposeSamples, UL_("&Transpose Samples / Reset Map")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_NOTEMAP_REMOVE, ih->GetKeyTextFromCommand(kcInsNoteMapRemove, UL_("Remo&ve All Samples")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_DUPLICATE, ih->GetKeyTextFromCommand(kcInstrumentCtrlDuplicate, UL_("Duplicate &Instrument")));
 			SetMenuDefaultItem(hMenu, ID_INSTRUMENT_SAMPLEMAP, false);
 			ClientToScreen(&pt);
 			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, pt.x, pt.y, this);
@@ -582,14 +583,14 @@ void CNoteMapWnd::OnEditSample(uint32 nID)
 void CNoteMapWnd::OnEditSampleMap()
 {
 	m_undo = true;
-	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_SAMPLEMAP);
+	m_pParent.mfcless::PostCommand(this, ID_INSTRUMENT_SAMPLEMAP);
 }
 
 
 void CNoteMapWnd::OnInstrumentDuplicate()
 {
 	m_undo = true;
-	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_DUPLICATE);
+	m_pParent.mfcless::PostCommand(this, ID_INSTRUMENT_DUPLICATE);
 }
 
 
@@ -645,8 +646,8 @@ intptr_t CNoteMapWnd::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 
 	// Parent shortcuts (also displayed in context menu of this control)
 	case kcInstrumentCtrlDuplicate:		OnInstrumentDuplicate(); return wParam;
-	case kcNextInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_NEXTINSTRUMENT); return wParam;
-	case kcPrevInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_PREVINSTRUMENT); return wParam;
+	case kcNextInstrument:				m_pParent.mfcless::PostCommand(this, ID_NEXTINSTRUMENT); return wParam;
+	case kcPrevInstrument:				m_pParent.mfcless::PostCommand(this, ID_PREVINSTRUMENT); return wParam;
 	}
 
 	return kcNull;
@@ -880,10 +881,10 @@ HRESULT CNoteMapWnd::get_accName(VARIANT varChild, BSTR *pszName)
 		return mfcless::Window<QLabel>::get_accName(varChild, pszName);
 
 	const auto &sndFile = m_modDoc.GetSoundFile();
-	mpt::ustring str = mpt::ToUnicode(sndFile.GetNoteName(static_cast<ModCommand::NOTE>(m_nNote + NOTE_MIN), m_nInstrument)) + U_(": ");
+	mpt::ustring str = mpt::ToUnicode(sndFile.GetNoteName(static_cast<ModCommand::NOTE>(m_nNote + NOTE_MIN), m_nInstrument)) + UL_(": ");
 	if(ins->Keyboard[m_nNote] == 0)
 	{
-		str += U_("no sample");
+		str += UL_("no sample");
 	} else
 	{
 		auto mappedNote = ins->NoteMap[m_nNote];
@@ -1044,20 +1045,20 @@ bool CCtrlInstruments::OnInitDialog()
 	m_SpinInstrument->SetRange(0, 0);
 	m_SpinInstrument->setEnabled(false);
 	// NNA
-	mfcless::AddItem(m_ComboNNA, U_("Note Cut"));
-	mfcless::AddItem(m_ComboNNA, U_("Continue"));
-	mfcless::AddItem(m_ComboNNA, U_("Note Off"));
-	mfcless::AddItem(m_ComboNNA, U_("Note Fade"));
+	mfcless::AddItem(m_ComboNNA, UL_("Note Cut"));
+	mfcless::AddItem(m_ComboNNA, UL_("Continue"));
+	mfcless::AddItem(m_ComboNNA, UL_("Note Off"));
+	mfcless::AddItem(m_ComboNNA, UL_("Note Fade"));
 	// DCT
-	mfcless::AddItem(m_ComboDCT, U_("Disabled"));
-	mfcless::AddItem(m_ComboDCT, U_("Note"));
-	mfcless::AddItem(m_ComboDCT, U_("Sample"));
-	mfcless::AddItem(m_ComboDCT, U_("Instrument"));
-	mfcless::AddItem(m_ComboDCT, U_("Plugin"));
+	mfcless::AddItem(m_ComboDCT, UL_("Disabled"));
+	mfcless::AddItem(m_ComboDCT, UL_("Note"));
+	mfcless::AddItem(m_ComboDCT, UL_("Sample"));
+	mfcless::AddItem(m_ComboDCT, UL_("Instrument"));
+	mfcless::AddItem(m_ComboDCT, UL_("Plugin"));
 	// DCA
-	mfcless::AddItem(m_ComboDCA, U_("Note Cut"));
-	mfcless::AddItem(m_ComboDCA, U_("Note Off"));
-	mfcless::AddItem(m_ComboDCA, U_("Note Fade"));
+	mfcless::AddItem(m_ComboDCA, UL_("Note Cut"));
+	mfcless::AddItem(m_ComboDCA, UL_("Note Off"));
+	mfcless::AddItem(m_ComboDCA, UL_("Note Fade"));
 	// FadeOut Volume
 	m_SpinFadeOut->SetRange(0, 8192);
 	// Global Volume
@@ -1073,20 +1074,20 @@ bool CCtrlInstruments::OnInitDialog()
 	m_EditPWD->AllowFractions(false);
 
 	const auto resamplingModes = Resampling::AllModes();
-	mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, U_("Default")), SRCMODE_DEFAULT);
+	mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, UL_("Default")), SRCMODE_DEFAULT);
 	for(auto mode : resamplingModes)
 	{
 		mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, CTrackApp::GetResamplingModeName(mode, 1, false)), mode);
 	}
 
-	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, U_("Channel default")), static_cast<uintptr_t>(FilterMode::Unchanged));
-	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, U_("Force lowpass")), static_cast<uintptr_t>(FilterMode::LowPass));
-	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, U_("Force highpass")), static_cast<uintptr_t>(FilterMode::HighPass));
+	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, UL_("Channel default")), static_cast<uintptr_t>(FilterMode::Unchanged));
+	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, UL_("Force lowpass")), static_cast<uintptr_t>(FilterMode::LowPass));
+	mfcless::SetItemData(m_CbnFilterMode, mfcless::AddItem(m_CbnFilterMode, UL_("Force highpass")), static_cast<uintptr_t>(FilterMode::HighPass));
 
 	//VST velocity/volume handling
-	mfcless::AddItem(m_CbnPluginVolumeHandling, U_("MIDI volume"));
-	mfcless::AddItem(m_CbnPluginVolumeHandling, U_("Dry/Wet ratio"));
-	mfcless::AddItem(m_CbnPluginVolumeHandling, U_("None"));
+	mfcless::AddItem(m_CbnPluginVolumeHandling, UL_("MIDI volume"));
+	mfcless::AddItem(m_CbnPluginVolumeHandling, UL_("Dry/Wet ratio"));
+	mfcless::AddItem(m_CbnPluginVolumeHandling, UL_("None"));
 
 	// Vol/Pan Swing
 	m_SliderVolSwing->setRange(0, 100);
@@ -1101,7 +1102,7 @@ bool CCtrlInstruments::OnInitDialog()
 	m_EditPPS->AllowFractions(false);
 	m_SpinPPS->SetRange(-32, +32);
 	// Pitch/Pan Center
-	SetWindowLongPtr(m_ComboPPC->m_hWnd, GWLP_USERDATA, 0);
+	SetWindowLongPtr(m_ComboPPC, GWLP_USERDATA, 0);
 
 	// Volume ramping (attack)
 	m_SliderAttack->setRange(0,MAX_ATTACK_VALUE);
@@ -1143,7 +1144,7 @@ void CCtrlInstruments::OnTbnDropDownToolBar()
 	CInputHandler *ih = CMainFrame::GetInputHandler();
 	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
 	ClientToScreen(&(pToolBar->rcButton)); // TrackPopupMenu uses screen coords
-	const int offset = HighDPISupport::ScalePixels(4, m_hWnd);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
+	const int offset = HighDPISupport::ScalePixels(4, this);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
 	int x = pToolBar->rcButton.left + offset, y = pToolBar->rcButton.bottom + offset;
 	mfcless::Menu menu;
 	switch(pToolBar->iItem)
@@ -1151,7 +1152,7 @@ void CCtrlInstruments::OnTbnDropDownToolBar()
 	case IDC_INSTRUMENT_NEW:
 		{
 			menu.CreatePopupMenu();
-			menu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_DUPLICATE, ih->GetKeyTextFromCommand(kcInstrumentCtrlDuplicate, U_("Duplicate &Instrument")));
+			menu.AppendMenu(mfcless::menu::String, ID_INSTRUMENT_DUPLICATE, ih->GetKeyTextFromCommand(kcInstrumentCtrlDuplicate, UL_("Duplicate &Instrument")));
 			menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, x, y, this);
 			menu.DestroyMenu();
 		}
@@ -1159,7 +1160,7 @@ void CCtrlInstruments::OnTbnDropDownToolBar()
 	case IDC_INSTRUMENT_SAVEAS:
 		{
 			menu.CreatePopupMenu();
-			menu.AppendMenu(mfcless::menu::String, IDC_SAVE_ALL, U_("Save &All..."));
+			menu.AppendMenu(mfcless::menu::String, IDC_SAVE_ALL, UL_("Save &All..."));
 			menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, x, y, this);
 			menu.DestroyMenu();
 		}
@@ -1366,9 +1367,9 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		const bool onlyITandMPT = ((m_sndFile.GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) && (m_sndFile.GetNumInstruments())) ? true : false;
 		const bool anyFormat = m_sndFile.GetNumInstruments() ? true : false;
 		const bool onlyMPT = ((m_sndFile.GetType() == MOD_TYPE_MPT) && (m_sndFile.GetNumInstruments())) ? true : false;
-		::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT10), anyFormat);
-		::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT11), anyFormat);
-		::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT7), anyFormat);
+		::EnableWindow(::GetDlgItem(this, IDC_EDIT10), anyFormat);
+		::EnableWindow(::GetDlgItem(this, IDC_EDIT11), anyFormat);
+		::EnableWindow(::GetDlgItem(this, IDC_EDIT7), anyFormat);
 		m_EditName->setEnabled(anyFormat);
 		m_EditFileName->setEnabled(onlyITandMPT);
 		m_CbnMidiCh->setEnabled(anyFormat);
@@ -1429,20 +1430,20 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		{
 			mpt::ustring s;
 			if (ich == MidiNoChannel)
-				s = U_("None");
+				s = UL_("None");
 			else if (ich == MidiMappedChannel)
-				s = U_("Mapped");
+				s = UL_("Mapped");
 			else
-				s.Format(U_("%i"), ich);
+				s = mfcless::PrintF(UL_("%i"), ich);
 			mfcless::SetItemData(m_CbnMidiCh, mfcless::AddItem(m_CbnMidiCh, s), ich);
 		}
 	}
 	if(hintType[HINT_MODTYPE | HINT_INSTRUMENT | HINT_INSNAMES])
 	{
 		if(pIns)
-			m_EditName->SetWindowText(mpt::ToUnicode(m_sndFile.GetCharsetInternal(), pIns->name));
+			mfcless::SetWindowText(m_EditName, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), pIns->name));
 		else
-			m_EditName->SetWindowText(U_(""));
+			mfcless::SetWindowText(m_EditName, UL_(""));
 	}
 	if(hintType[HINT_MODTYPE | HINT_INSTRUMENT])
 	{
@@ -1455,11 +1456,11 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		m_CbnFilterMode->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->filterMode != FilterMode::Unchanged));
 		m_CbnResampling->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->resampling != SRCMODE_DEFAULT));
 		m_SliderAttack->EnableWindow  (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
-		::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT2), pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
+		::EnableWindow(::GetDlgItem(this, IDC_EDIT2), pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
 
 		if (pIns)
 		{
-			m_EditFileName->SetWindowText(mpt::ToUnicode(m_sndFile.GetCharsetInternal(), pIns->filename));
+			mfcless::SetWindowText(m_EditFileName, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), pIns->filename));
 			// Fade Out Volume
 			SetItemInt(IDC_EDIT7, pIns->nFadeOut);
 			// Global Volume
@@ -1471,11 +1472,11 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			if (pIns->nMidiProgram>0 && pIns->nMidiProgram<=128)
 				SetItemInt(IDC_EDIT10, pIns->nMidiProgram);
 			else
-				SetItemText(IDC_EDIT10, U_("---"));
+				SetItemText(IDC_EDIT10, UL_("---"));
 			if (pIns->wMidiBank && pIns->wMidiBank <= 16384)
 				SetItemInt(IDC_EDIT11, pIns->wMidiBank);
 			else
-				SetItemText(IDC_EDIT11, U_("---"));
+				SetItemText(IDC_EDIT11, UL_("---"));
 
 			if (pIns->nMidiChannel < 18)
 			{
@@ -1514,13 +1515,13 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			m_ComboDCT->setCurrentIndex(static_cast<int>(pIns->nDCT));
 			m_ComboDCA->setCurrentIndex(static_cast<int>(pIns->nDNA));
 			// Pitch/Pan Separation
-			if(hintType[HINT_MODTYPE] || pIns->pTuning != (CTuning *)GetWindowLongPtr(m_ComboPPC->m_hWnd, GWLP_USERDATA))
+			if(hintType[HINT_MODTYPE] || pIns->pTuning != (CTuning *)GetWindowLongPtr(m_ComboPPC, GWLP_USERDATA))
 			{
 				// Tuning may have changed, and thus the note names need to be updated
 				m_ComboPPC->setUpdatesEnabled(false);
 				m_ComboPPC->clear();
 				AppendNotesToControlEx(m_ComboPPC, m_sndFile, m_nInstrument, NOTE_MIN, NOTE_MAX);
-				SetWindowLongPtr(m_ComboPPC->m_hWnd, GWLP_USERDATA, (LONG_PTR)pIns->pTuning);
+				SetWindowLongPtr(m_ComboPPC, GWLP_USERDATA, (LONG_PTR)pIns->pTuning);
 				m_ComboPPC->setUpdatesEnabled(true);
 			}
 			m_ComboPPC->setCurrentIndex(pIns->nPPC);
@@ -1542,7 +1543,7 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			// Volume ramping (attack)
 			int n = pIns->nVolRampUp; //? MAX_ATTACK_LENGTH - pIns->nVolRampUp : 0;
 			m_SliderAttack->setValue(n);
-			if(n == 0) SetItemText(IDC_EDIT2, U_("default"));
+			if(n == 0) SetItemText(IDC_EDIT2, UL_("default"));
 			else SetItemInt(IDC_EDIT2, n);
 
 			UpdateTuningComboBox();
@@ -1567,7 +1568,7 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 			}
 		} else
 		{
-			m_EditFileName->SetWindowText(U_(""));
+			mfcless::SetWindowText(m_EditFileName, UL_(""));
 			velocityStyle.EnableWindow(false);
 			m_CbnPluginVolumeHandling->setEnabled(false);
 			if(m_nInstrument > m_sndFile.GetNumInstruments())
@@ -1613,13 +1614,13 @@ void CCtrlInstruments::UpdateFilterText()
 			if((pIns->IsCutoffEnabled() && pIns->GetCutoff() < 0x7F) || resEnabled)
 			{
 				const auto cutoff = (resEnabled && !pIns->IsCutoffEnabled()) ? 0x7F : pIns->GetCutoff();
-				wsprintf(s, U_("Z%02X (%u Hz)"), cutoff, mpt::saturate_round<int32>(m_sndFile.CutOffToFrequency(cutoff)));
+				wsprintf(s, UL_("Z%02X (%u Hz)"), cutoff, mpt::saturate_round<int32>(m_sndFile.CutOffToFrequency(cutoff)));
 			} else if(pIns->IsCutoffEnabled())
 			{
-				_tcscpy(s, U_("Z7F (Off)"));
+				_tcscpy(s, UL_("Z7F (Off)"));
 			} else
 			{
-				_tcscpy(s, U_("No Change"));
+				_tcscpy(s, UL_("No Change"));
 			}
 
 			SetItemText(IDC_FILTERTEXT, s);
@@ -1630,11 +1631,11 @@ void CCtrlInstruments::UpdateFilterText()
 
 bool CCtrlInstruments::OpenInstrument(const mpt::PathString &fileName)
 {
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	mpt::IO::InputFile f(fileName, TrackerSettings::Instance().MiscCacheCompleteFileBeforeLoading);
 	if(!f.IsValid())
 	{
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 		return false;
 	}
 
@@ -1650,7 +1651,7 @@ bool CCtrlInstruments::OpenInstrument(const mpt::PathString &fileName)
 			m_modDoc.SetModified();
 		}
 		if (!m_nInstrument) m_nInstrument = 1;
-		ScopedLogCapturer log(m_modDoc, U_("Instrument Import"), this);
+		ScopedLogCapturer log(m_modDoc, UL_("Instrument Import"), this);
 		PrepareUndo("Replace Instrument");
 		if (m_sndFile.ReadInstrumentFromFile(m_nInstrument, file, TrackerSettings::Instance().m_MayNormalizeSamplesOnLoad))
 		{
@@ -1671,7 +1672,7 @@ bool CCtrlInstruments::OpenInstrument(const mpt::PathString &fileName)
 		m_NoteMap->SetCurrentInstrument(1);
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	if(ok)
 	{
 		TrackerSettings::Instance().PathInstruments.SetWorkingDir(fileName, true);
@@ -1713,7 +1714,7 @@ bool CCtrlInstruments::OpenInstrument(const mpt::PathString &fileName)
 bool CCtrlInstruments::OpenInstrument(const CSoundFile &sndFile, INSTRUMENTINDEX nInstr)
 {
 	if((!nInstr) || (nInstr > sndFile.GetNumInstruments())) return false;
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	CriticalSection cs;
 
@@ -1743,7 +1744,7 @@ bool CCtrlInstruments::OpenInstrument(const CSoundFile &sndFile, INSTRUMENTINDEX
 		if (first) hint.ModType();
 		m_modDoc.UpdateAllViews(nullptr, hint, this);
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	return true;
 }
 
@@ -1768,7 +1769,7 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 		bool isEnabled = wnd == nullptr || wnd->IsWindowEnabled() != false;
 		if(!isEnabled && !m_sndFile.GetNumInstruments())
 		{
-			s = U_("Create a new instrument to enable instrument mode.");
+			s = UL_("Create a new instrument to enable instrument mode.");
 			return s;
 		}
 
@@ -1780,10 +1781,10 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 		CommandID cmd = kcNull;
 		switch(uId)
 		{
-		case IDC_INSTRUMENT_NEW: s = U_("Insert Instrument (Hold Shift to duplicate)"); cmd = kcInstrumentNew; break;
-		case IDC_INSTRUMENT_OPEN: s = U_("Import Instrument"); cmd = kcInstrumentLoad; break;
-		case IDC_INSTRUMENT_SAVEAS: s = U_("Save Instrument"); cmd = kcInstrumentSave; break;
-		case IDC_INSTRUMENT_PLAY: s = U_("Play Instrument"); break;
+		case IDC_INSTRUMENT_NEW: s = UL_("Insert Instrument (Hold Shift to duplicate)"); cmd = kcInstrumentNew; break;
+		case IDC_INSTRUMENT_OPEN: s = UL_("Import Instrument"); cmd = kcInstrumentLoad; break;
+		case IDC_INSTRUMENT_SAVEAS: s = UL_("Save Instrument"); cmd = kcInstrumentSave; break;
+		case IDC_INSTRUMENT_PLAY: s = UL_("Play Instrument"); break;
 
 		case IDC_EDIT_PITCHTEMPOLOCK:
 		case IDC_CHECK_PITCHTEMPOLOCK:
@@ -1794,13 +1795,13 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 				s = MPT_UFORMAT("Tempo Range: {} - {}")(specs.GetTempoMin().GetInt(), specs.GetTempoMax().GetInt());
 			} else
 			{
-				s = U_("Only available in MPTM format");
+				s = UL_("Only available in MPTM format");
 			}
 			break;
 		case IDC_EDIT7:
 			// Fade Out
 			if(!pIns->nFadeOut)
-				s =U_("Fade disabled");
+				s =UL_("Fade disabled");
 			else
 				s = MPT_UFORMAT("{} ticks (Higher value <-> Faster fade out)")(0x8000 / pIns->nFadeOut);
 			break;
@@ -1809,14 +1810,14 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 			if(isEnabled)
 				s = CModDoc::LinearToDecibelsString(GetItemInt(IDC_EDIT8), 64.0);
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 		case IDC_EDIT9:
 			// Panning
 			if(isEnabled)
 				s = CModDoc::PanningToString(pIns->nPan, 128);
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 
 #ifndef NO_PLUGINS
@@ -1843,60 +1844,60 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 				return s;
 			if(m_sndFile.m_playBehaviour[kMIDICCBugEmulation])
 			{
-				s = U_("To enable, clear Plugin volume command bug emulation flag from Song Properties");
+				s = UL_("To enable, clear Plugin volume command bug emulation flag from Song Properties");
 			} else
 			{
 				if(uId == IDC_PLUGIN_VELOCITYSTYLE)
-					s = U_("Volume commands (vxx) next to a note are sent as note velocity instead.");
+					s = UL_("Volume commands (vxx) next to a note are sent as note velocity instead.");
 			}
 			break;
 		case IDC_COMBO5:
 			// MIDI Channel
-			s = U_("Mapped: MIDI channel corresponds to pattern channel modulo 16");
+			s = UL_("Mapped: MIDI channel corresponds to pattern channel modulo 16");
 			break;
 		case IDC_SLIDER1:
 			if(isEnabled)
 				s = MPT_UFORMAT("{}{}% volume variation")(plusMinus, pIns->nVolSwing);
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 		case IDC_SLIDER2:
 			if(isEnabled)
 				s = MPT_UFORMAT("{}{} panning variation")(plusMinus, pIns->nPanSwing);
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 		case IDC_SLIDER3:
 			if(isEnabled)
 				s = mpt::ufmt::val(pIns->GetCutoff());
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 		case IDC_SLIDER4:
 			if(isEnabled)
 				s = MPT_UFORMAT("{} ({} dB)")(pIns->GetResonance(), Util::muldivr(pIns->GetResonance(), 24, 128));
 			else
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 		case IDC_SLIDER6:
 			if(isEnabled)
 				s = MPT_UFORMAT("{}{} cutoff variation")(plusMinus, pIns->nCutSwing);
 			else
-				s = U_("Only available in MPTM format");
+				s = UL_("Only available in MPTM format");
 			break;
 		case IDC_SLIDER7:
 			if(isEnabled)
 				s = MPT_UFORMAT("{}{} resonance variation")(plusMinus, pIns->nResSwing);
 			else
-				s = U_("Only available in MPTM format");
+				s = UL_("Only available in MPTM format");
 			break;
 		case IDC_PITCHWHEELDEPTH:
-			s = U_("Set this to the actual Pitch Wheel Depth used in your plugin on this channel.");
+			s = UL_("Set this to the actual Pitch Wheel Depth used in your plugin on this channel.");
 			break;
 
 		case IDC_INSVIEWPLG:	// Open Editor
 			if(!isEnabled)
-				s = U_("No Plugin Loaded");
+				s = UL_("No Plugin Loaded");
 			break;
 
 		case IDC_SPIN9:		// Pan
@@ -1908,7 +1909,7 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 		case IDC_SPIN12:	// PPS
 		case IDC_EDIT15:	// PPS
 			if(!isEnabled)
-				s = U_("Only available in IT / MPTM format");
+				s = UL_("Only available in IT / MPTM format");
 			break;
 
 		case IDC_COMBOTUNING:	// Tuning
@@ -1917,7 +1918,7 @@ mpt::ustring CCtrlInstruments::GetToolTipText(uint32 uId, QWidget *) const
 		case IDC_SPIN1:			// Ramping
 		case IDC_EDIT2:			// Ramping
 			if(!isEnabled)
-				s = U_("Only available in MPTM format");
+				s = UL_("Only available in MPTM format");
 			break;
 
 		}
@@ -2101,7 +2102,7 @@ void CCtrlInstruments::SaveInstrument(bool doBatchSave)
 		.FilterIndex(&index);
 	if(!dlg.Show(this)) return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	INSTRUMENTINDEX minIns = m_nInstrument, maxIns = m_nInstrument;
 	if(doBatchSave)
@@ -2162,7 +2163,7 @@ void CCtrlInstruments::SaveInstrument(bool doBatchSave)
 		}
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	if (!ok)
 		ErrorBox(IDS_ERR_SAVEINS, this);
 	else
@@ -2189,7 +2190,7 @@ void CCtrlInstruments::OnNameChanged()
 	if (!IsLocked())
 	{
 		mpt::ustring tmp;
-		m_EditName->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditName, tmp);
 		const std::string s = mpt::ToCharset(m_sndFile.GetCharsetInternal(), tmp);
 		ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
 		if ((pIns) && (s != pIns->name))
@@ -2207,7 +2208,7 @@ void CCtrlInstruments::OnFileNameChanged()
 	if (!IsLocked())
 	{
 		mpt::ustring tmp;
-		m_EditFileName->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditFileName, tmp);
 		const std::string s = mpt::ToCharset(m_sndFile.GetCharsetInternal(), tmp);
 		ModInstrument *pIns = m_sndFile.Instruments[m_nInstrument];
 		if ((pIns) && (s != pIns->filename))
@@ -2398,7 +2399,7 @@ void CCtrlInstruments::OnMPRChanged()
 		if(n == 0)
 		{
 			LockControls();
-			SetItemText(IDC_EDIT10, U_("---"));
+			SetItemText(IDC_EDIT10, UL_("---"));
 			UnlockControls();
 		}
 	}
@@ -2443,7 +2444,7 @@ void CCtrlInstruments::OnMBKChanged()
 		if(w == 0)
 		{
 			LockControls();
-			SetItemText(IDC_EDIT11, U_("---"));
+			SetItemText(IDC_EDIT11, UL_("---"));
 			UnlockControls();
 		}
 	}
@@ -2573,7 +2574,7 @@ void CCtrlInstruments::OnMixPlugChanged()
 		}
 
 	}
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_INSVIEWPLG), false);
+	::EnableWindow(::GetDlgItem(this, IDC_INSVIEWPLG), false);
 }
 
 
@@ -2634,7 +2635,7 @@ void CCtrlInstruments::OnAttackChanged()
 		if(CSpinButtonCtrl *spin = (CSpinButtonCtrl *)GetDlgItem(IDC_SPIN1))
 			spin->SetPos(n);
 		LockControls();
-		if (n == 0) SetItemText(IDC_EDIT2, U_("default"));
+		if (n == 0) SetItemText(IDC_EDIT2, UL_("default"));
 		UnlockControls();
 	}
 }
@@ -3050,7 +3051,7 @@ void CCtrlInstruments::OnBnClickedCheckPitchtempolock()
 	if(IsChecked(IDC_CHECK_PITCHTEMPOLOCK))
 	{
 		//Checking what value to put for the wPitchToTempoLock.
-		if(m_EditPitchTempoLock->GetWindowTextLength() > 0)
+		if(mfcless::GetWindowTextLength(m_EditPitchTempoLock) > 0)
 		{
 			ptl = m_EditPitchTempoLock->GetTempoValue();
 		}
@@ -3141,12 +3142,12 @@ void CCtrlInstruments::BuildTuningComboBox()
 	m_ComboTuning->setUpdatesEnabled(false);
 	m_ComboTuning->clear();
 
-	mfcless::AddItem(m_ComboTuning, U_("OpenMPT IT behaviour")); //<-> Instrument pTuning pointer == NULL
+	mfcless::AddItem(m_ComboTuning, UL_("OpenMPT IT behaviour")); //<-> Instrument pTuning pointer == NULL
 	for(const auto &tuning : m_sndFile.GetTuneSpecificTunings())
 	{
 		mfcless::AddItem(m_ComboTuning, mpt::ToUnicode(tuning->GetName()));
 	}
-	mfcless::AddItem(m_ComboTuning, U_("Control Tunings..."));
+	mfcless::AddItem(m_ComboTuning, UL_("Control Tunings..."));
 	UpdateTuningComboBox();
 	m_ComboTuning->setUpdatesEnabled(true);
 }

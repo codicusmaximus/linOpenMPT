@@ -11,6 +11,7 @@
 
 
 #include "SampleEditorDialogs.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mptrack.h"
 #include "Reporting.h"
@@ -82,12 +83,12 @@ bool CAmpDlg::OnInitDialog()
 		Fade::Law id;
 	} fadeLaws[] =
 	{
-		{ U_("Linear"),       Fade::kLinear },
-		{ U_("Exponential"),  Fade::kPow },
-		{ U_("Square Root"),  Fade::kSqrt },
-		{ U_("Logarithmic"),  Fade::kLog },
-		{ U_("Quarter Sine"), Fade::kQuarterSine },
-		{ U_("Half Sine"),    Fade::kHalfSine },
+		{ UL_("Linear"),       Fade::kLinear },
+		{ UL_("Exponential"),  Fade::kPow },
+		{ UL_("Square Root"),  Fade::kSqrt },
+		{ UL_("Logarithmic"),  Fade::kLog },
+		{ UL_("Quarter Sine"), Fade::kQuarterSine },
+		{ UL_("Half Sine"),    Fade::kHalfSine },
 	};
 
 	// Add fade laws to list
@@ -116,10 +117,10 @@ void CAmpDlg::OnDPIChanged()
 {
 	// Create icons for fade laws
 	const int items = m_fadeBox->count();
-	const int iconSize = HighDPISupport::ScalePixels(16, m_hWnd);
+	const int iconSize = HighDPISupport::ScalePixels(16, this);
 	const int imgWidth = iconSize * items;
 	std::vector<uint32> bits(imgWidth * iconSize, mfcless::Rgb(255, 0, 255));
-	const uint32 col = GetSysColor(COLOR_WINDOWTEXT);
+	const uint32 col = mfcless::SystemColor(mfcless::SysColor::WindowText);
 	for(int i = 0, baseX = 0; i < items; i++, baseX += iconSize)
 	{
 		Fade::Func fadeFunc = Fade::GetFadeFunc(static_cast<Fade::Law>(mfcless::GetItemData(m_fadeBox, i)));
@@ -224,7 +225,7 @@ bool CRawSampleDlg::OnInitDialog()
 	{
 		mpt::ustring title;
 		GetWindowText(title);
-		title += U_(" - ") + filename->GetFilename().ToCString();
+		title += UL_(" - ") + filename->GetFilename().ToUnicode();
 		SetWindowText(title);
 	}
 	m_SpinOffset->SetRange(0, mpt::saturate_cast<int>(m_file.GetLength() - 1u));
@@ -367,8 +368,8 @@ public:
 				{SampleIO::_32bit, SampleIO::mono, SampleIO::bigEndian, SampleIO::floatPCM},
 			};
 
-		SetTitle(U_("Raw Import"));
-		SetText(U_("Determining raw format..."));
+		SetTitle(UL_("Raw Import"));
+		SetText(UL_("Determining raw format..."));
 		SetRange(0, std::size(ProbeFormats) * 4);
 
 		double bestError = DBL_MAX;
@@ -512,9 +513,9 @@ bool AddSilenceDlg::OnInitDialog()
 		spin->SetPos32(m_numSamples);
 	}
 
-	m_ComboUnit->SetAccessibleName(U_("Length unit"));
-	m_ComboUnit->AddString(U_("samples"));
-	m_ComboUnit->AddString(U_("ms"));
+	m_ComboUnit->SetAccessibleName(UL_("Length unit"));
+	m_ComboUnit->AddString(UL_("samples"));
+	m_ComboUnit->AddString(UL_("ms"));
 	m_ComboUnit->SetCurSel(m_unit);
 	if(m_sampleRate == 0)
 	{
@@ -535,7 +536,7 @@ bool AddSilenceDlg::OnInitDialog()
 	m_EditAmount->SubclassDlgItem(IDC_EDIT_ADDSILENCE, this);
 	m_EditAmount->AllowNegative(false);
 	m_EditAmount->AllowFractions(m_unit == kMilliseconds);
-	m_EditAmount->SetAccessibleSuffix((m_unit == kSamples) ? U_("samples") : U_("ms"));
+	m_EditAmount->SetAccessibleSuffix((m_unit == kSamples) ? UL_("samples") : UL_("ms"));
 	SetDlgItemInt(IDC_EDIT_ADDSILENCE, (m_editOption == kResize) ? m_length : m_numSamples, false);
 	EnableItem(IDC_RADIO1, m_allowOPL ? true : false);
 
@@ -609,7 +610,7 @@ void AddSilenceDlg::OnUnitChanged()
 
 	m_unit = unit;
 	m_EditAmount->AllowFractions(m_unit == kMilliseconds);
-	m_EditAmount->SetAccessibleSuffix((m_unit == kSamples) ? U_("samples") : U_("ms"));
+	m_EditAmount->SetAccessibleSuffix((m_unit == kSamples) ? UL_("samples") : UL_("ms"));
 	if(m_unit == kSamples)
 	{
 		// Convert from milliseconds to samples
@@ -758,7 +759,7 @@ void CSampleXFadeDlg::OnLoopTypeChanged()
 
 	m_editLocked = true;
 	m_SpinSamples->SetRange(0, std::min(m_loopLength, m_maxLength));
-	GotoDlgCtrl(GetDlgItem(IDC_EDIT1));
+	mfcless::GotoDlgCtrl(GetDlgItem(IDC_EDIT1));
 	SetChecked(IDC_CHECK1, m_afterloopFade ? 1 : 0);
 
 	SmpLength numSamples = PercentToSamples(m_SliderLength->value());
@@ -805,11 +806,11 @@ mpt::ustring CSampleXFadeDlg::GetToolTipText(uint32 id, QWidget *) const
 	case IDC_SLIDER1:
 		{
 			uint32 percent = m_SliderLength->value();
-			s.Format(U_("%u.%03u%% of the loop (%u samples)"), percent / 1000, percent % 1000, PercentToSamples(percent));
+			s = mfcless::PrintF(UL_("%u.%03u%% of the loop (%u samples)"), percent / 1000, percent % 1000, PercentToSamples(percent));
 		}
 		break;
 	case IDC_SLIDER2:
-		s = U_("Slide towards constant power for fixing badly looped samples.");
+		s = UL_("Slide towards constant power for fixing badly looped samples.");
 		break;
 	}
 	
@@ -846,15 +847,15 @@ CResamplingDlg::CResamplingDlg(QWidget *parent, uint32 frequency, ResamplingMode
 bool CResamplingDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
-	SetWindowText(m_resampleAll ? U_("Resample All") : U_("Resample"));
+	SetWindowText(m_resampleAll ? UL_("Resample All") : UL_("Resample"));
 
 	CheckRadio(IDC_RADIO1, IDC_RADIO3, IDC_RADIO1 + m_lastChoice);
 	if(m_frequency > 0)
 	{
 		mpt::uchar s[32];
-		wsprintf(s, U_("&Upsample (%u Hz)"), m_frequency * 2);
+		wsprintf(s, UL_("&Upsample (%u Hz)"), m_frequency * 2);
 		SetItemText(IDC_RADIO1, s);
-		wsprintf(s, U_("&Downsample (%u Hz)"), m_frequency / 2);
+		wsprintf(s, UL_("&Downsample (%u Hz)"), m_frequency / 2);
 		SetItemText(IDC_RADIO2, s);
 
 		if(!m_lastFrequency)
@@ -874,7 +875,7 @@ bool CResamplingDlg::OnInitDialog()
 	const auto resamplingModes = Resampling::AllModesWithDefault();
 	for(auto mode : resamplingModes)
 	{
-		mpt::ustring desc = U_("r8brain (High Quality)");
+		mpt::ustring desc = UL_("r8brain (High Quality)");
 		if(mode != SRCMODE_DEFAULT)
 			desc = CTrackApp::GetResamplingModeName(mode, 1, true);
 
@@ -913,8 +914,8 @@ void CResamplingDlg::OnOK()
 			m_lastFrequency = m_frequency = newFrequency;
 		} else
 		{
-			MessageBeep(MB_ICONWARNING);
-			GotoDlgCtrl(GetDlgItem(IDC_EDIT1));
+			mfcless::MessageBeep(nfIconWarning);
+			mfcless::GotoDlgCtrl(GetDlgItem(IDC_EDIT1));
 			return;
 		}
 	}

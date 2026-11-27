@@ -14,6 +14,7 @@
 #ifndef NO_PLUGINS
 
 #include "SelectPluginDialog.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "FolderScanner.h"
 #include "HighDPISupport.h"
@@ -97,23 +98,23 @@ bool CSelectPluginDlg::OnInitDialog()
 	{
 		mpt::ustring targetSlot = MPT_UFORMAT("&Put in FX{}")(mpt::ufmt::dec0<2>(m_nPlugSlot + 1));
 		SetItemText(IDOK, targetSlot);
-		::EnableWindow(::GetDlgItem(m_hWnd, IDOK), true);
+		::EnableWindow(::GetDlgItem(this, IDOK), true);
 	} else
 	{
-		::EnableWindow(::GetDlgItem(m_hWnd, IDOK), false);
+		::EnableWindow(::GetDlgItem(this, IDOK), false);
 	}
 
-	const int dpi = HighDPISupport::GetDpiForWindow(m_hWnd);
+	const int dpi = HighDPISupport::GetDpiForWindow(this);
 	mfcless::Rect rect
 	(
-		mfcless::Point(MulDiv(TrackerSettings::Instance().gnPlugWindowX, dpi, 96), MulDiv(TrackerSettings::Instance().gnPlugWindowY, dpi, 96)),
-		mfcless::Size(MulDiv(TrackerSettings::Instance().gnPlugWindowWidth, dpi, 96), MulDiv(TrackerSettings::Instance().gnPlugWindowHeight, dpi, 96))
+		mfcless::Point(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowX, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowY, dpi, 96)),
+		mfcless::Size(mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowWidth, dpi, 96), mfcless::MulDiv(TrackerSettings::Instance().gnPlugWindowHeight, dpi, 96))
 	);
 	::MapWindowPoints(GetParent()->m_hWnd, HWND_DESKTOP, (mfcless::Point *)&rect, 2);
-	WINDOWPLACEMENT wnd;
+	mfcless::WindowPlacement wnd;
 	wnd.length = sizeof(wnd);
 	GetWindowPlacement(&wnd);
-	wnd.showCmd = true;
+	wnd.showCmd = mfcless::show::Show;
 	wnd.rcNormalPosition = rect;
 	SetWindowPlacement(&wnd);
 
@@ -261,22 +262,22 @@ VSTPluginLib* CSelectPluginDlg::GetSelectedPlugin()
 
 void CSelectPluginDlg::SaveWindowPos() const
 {
-	WINDOWPLACEMENT wnd;
-	wnd.length = sizeof(WINDOWPLACEMENT);
+	mfcless::WindowPlacement wnd;
+	wnd.length = sizeof(mfcless::WindowPlacement);
 	GetWindowPlacement(&wnd);
 	mfcless::Rect rect = wnd.rcNormalPosition;
 	::MapWindowPoints(HWND_DESKTOP, GetParent()->m_hWnd, (mfcless::Point *)&rect, 2);
-	TrackerSettings::Instance().gnPlugWindowX = HighDPISupport::ScalePixelsInv(rect.left, m_hWnd);
-	TrackerSettings::Instance().gnPlugWindowY = HighDPISupport::ScalePixelsInv(rect.top, m_hWnd);
-	TrackerSettings::Instance().gnPlugWindowWidth = HighDPISupport::ScalePixelsInv(rect.Width(), m_hWnd);
-	TrackerSettings::Instance().gnPlugWindowHeight = HighDPISupport::ScalePixelsInv(rect.Height(), m_hWnd);
+	TrackerSettings::Instance().gnPlugWindowX = HighDPISupport::ScalePixelsInv(rect.left, this);
+	TrackerSettings::Instance().gnPlugWindowY = HighDPISupport::ScalePixelsInv(rect.top, this);
+	TrackerSettings::Instance().gnPlugWindowWidth = HighDPISupport::ScalePixelsInv(rect.Width(), this);
+	TrackerSettings::Instance().gnPlugWindowHeight = HighDPISupport::ScalePixelsInv(rect.Height(), this);
 }
 
 
 bool CSelectPluginDlg::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	// Use up/down keys to navigate in tree view, even if search field is focussed.
-	if(pMsg != nullptr && pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && GetFocus() != &m_treePlugins)
+	if(pMsg != nullptr && pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() != &m_treePlugins)
 	{
 		QTreeWidgetItem * selItem = m_treePlugins->GetSelectedItem();
 		if(selItem == nullptr)
@@ -323,23 +324,23 @@ void CSelectPluginDlg::UpdatePluginsList(const VSTPluginLib *forceSelect)
 		const mpt::uchar *description;
 	} categories[] =
 	{
-		{ PluginCategory::Effect,         U_("Audio Effects") },
-		{ PluginCategory::Generator,      U_("Tone Generators") },
-		{ PluginCategory::Restoration,    U_("Audio Restauration") },
-		{ PluginCategory::SurroundFx,     U_("Surround Effects") },
-		{ PluginCategory::RoomFx,         U_("Room Effects") },
-		{ PluginCategory::Spacializer,    U_("Spacializers") },
-		{ PluginCategory::Mastering,      U_("Mastering Plugins") },
-		{ PluginCategory::Analysis,       U_("Analysis Plugins") },
-		{ PluginCategory::OfflineProcess, U_("Offline Processing") },
-		{ PluginCategory::Shell,          U_("Shell Plugins") },
-		{ PluginCategory::Unknown,        U_("Unsorted") },
-		{ PluginCategory::DMO,            U_("DirectX Media Audio Effects") },
-		{ PluginCategory::Synth,          U_("Instrument Plugins") },
-		{ PluginCategory::Hidden,         U_("Legacy Plugins") },
+		{ PluginCategory::Effect,         UL_("Audio Effects") },
+		{ PluginCategory::Generator,      UL_("Tone Generators") },
+		{ PluginCategory::Restoration,    UL_("Audio Restauration") },
+		{ PluginCategory::SurroundFx,     UL_("Surround Effects") },
+		{ PluginCategory::RoomFx,         UL_("Room Effects") },
+		{ PluginCategory::Spacializer,    UL_("Spacializers") },
+		{ PluginCategory::Mastering,      UL_("Mastering Plugins") },
+		{ PluginCategory::Analysis,       UL_("Analysis Plugins") },
+		{ PluginCategory::OfflineProcess, UL_("Offline Processing") },
+		{ PluginCategory::Shell,          UL_("Shell Plugins") },
+		{ PluginCategory::Unknown,        UL_("Unsorted") },
+		{ PluginCategory::DMO,            UL_("DirectX Media Audio Effects") },
+		{ PluginCategory::Synth,          UL_("Instrument Plugins") },
+		{ PluginCategory::Hidden,         UL_("Legacy Plugins") },
 	};
 
-	const QTreeWidgetItem * noPlug = AddTreeItem(U_("No plugin (empty slot)"), IMAGE_NOPLUGIN, false);
+	const QTreeWidgetItem * noPlug = AddTreeItem(UL_("No plugin (empty slot)"), IMAGE_NOPLUGIN, false);
 	QTreeWidgetItem * currentPlug = noPlug;
 
 	std::bitset<uint8(PluginCategory::NumCategories)> categoryUsed;
@@ -411,7 +412,7 @@ void CSelectPluginDlg::UpdatePluginsList(const VSTPluginLib *forceSelect)
 				if(!matches) continue;
 			}
 
-			mpt::ustring title = plug.libraryName.ToCString();
+			mpt::ustring title = plug.libraryName.ToUnicode();
 #ifdef MPT_WITH_VST
 			if(!plug.IsNativeFromCache())
 			{
@@ -534,13 +535,13 @@ void CSelectPluginDlg::OnSelChanged()
 	if (pManager != nullptr && pManager->IsValidPlugin(pPlug))
 	{
 		if(pPlug->vendor.IsEmpty())
-			SetItemText(IDC_VENDOR, U_(""));
+			SetItemText(IDC_VENDOR, UL_(""));
 		else
-			SetItemText(IDC_VENDOR, U_("Vendor: ") + pPlug->vendor);
+			SetItemText(IDC_VENDOR, UL_("Vendor: ") + pPlug->vendor);
 		if(pPlug->dllPath.empty())
-			SetItemText(IDC_TEXT_CURRENT_VSTPLUG, U_("Built-in plugin"));
+			SetItemText(IDC_TEXT_CURRENT_VSTPLUG, UL_("Built-in plugin"));
 		else
-			SetItemText(IDC_TEXT_CURRENT_VSTPLUG, pPlug->dllPath.ToCString());
+			SetItemText(IDC_TEXT_CURRENT_VSTPLUG, pPlug->dllPath.ToUnicode());
 		SetItemText(IDC_PLUGINTAGS, mpt::ToUnicode(pPlug->tags));
 		enableRemoveButton = pPlug->isBuiltIn ? false : true;
 #ifdef MPT_WITH_VST
@@ -589,9 +590,9 @@ void CSelectPluginDlg::OnSelChanged()
 #endif // MPT_WITH_VST
 	} else
 	{
-		SetItemText(IDC_VENDOR, U_(""));
-		SetItemText(IDC_TEXT_CURRENT_VSTPLUG, U_(""));
-		SetItemText(IDC_PLUGINTAGS, U_(""));
+		SetItemText(IDC_VENDOR, UL_(""));
+		SetItemText(IDC_TEXT_CURRENT_VSTPLUG, UL_(""));
+		SetItemText(IDC_PLUGINTAGS, UL_(""));
 	}
 	EnableItem(IDC_PLUGINTAGS, enableTagsTextBox);
 	EnableItem(IDC_BUTTON2, enableRemoveButton);
@@ -736,7 +737,7 @@ void CSelectPluginDlg::OnAddPlugin()
 
 void CSelectPluginDlg::OnScanFolder()
 {
-	BrowseForFolder dlg(TrackerSettings::Instance().PathPlugins.GetWorkingDir(), U_("Select a folder that should be scanned for VST plugins (including sub-folders)"));
+	BrowseForFolder dlg(TrackerSettings::Instance().PathPlugins.GetWorkingDir(), UL_("Select a folder that should be scanned for VST plugins (including sub-folders)"));
 	if(!dlg.Show(this)) return;
 
 	TrackerSettings::Instance().PathPlugins.SetWorkingDir(dlg.GetDirectory());
@@ -776,8 +777,8 @@ VSTPluginLib *CSelectPluginDlg::ScanPlugins(const mpt::PathString &path, QWidget
 #endif
 		{
 			QWidget *text = pluginScanDlg.GetDlgItem(IDC_SCANTEXT);
-			mpt::ustring scanStr = U_("Scanning Plugin...\n") + fileName.ToCString();
-			text->SetWindowText(scanStr);
+			mpt::ustring scanStr = UL_("Scanning Plugin...\n") + fileName.ToUnicode();
+			mfcless::SetWindowText(text, scanStr);
 			MSG msg;
 			while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 			{

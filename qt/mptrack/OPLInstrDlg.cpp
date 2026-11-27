@@ -9,6 +9,7 @@
  */
 
 #include "OPLInstrDlg.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "UpdateHints.h"
 #include "WindowMessages.h"
@@ -108,7 +109,7 @@ bool OPLInstrDlg::PreTranslateMessage(mfcless::Message *pMsg)
 			pMsg->message == mfcless::msg::SysKeyDown || pMsg->message == mfcless::msg::KeyDown ||
 			pMsg->message == WM_DROPFILES || pMsg->message == mfcless::msg::XButtonUp)
 		{
-			if(pMsg->hwnd == m_hWnd)
+			if(pMsg->hwnd == this)
 			{
 				pMsg->hwnd = m_parent.m_hWnd;
 			}
@@ -144,19 +145,19 @@ static uint8 KeyScaleLevel(uint8 kslVolume)
 void OPLInstrDlg::SetEnabled(bool enabled)
 {
 	if(!enabled)
-		m_lastFocusItem = ::GetFocus();
+		m_lastFocusItem = mfcless::GetFocus();
 	
 	const auto EnableProc = [](QWidget * hwnd, intptr_t lParam) -> bool
 	{
 		::EnableWindow(hwnd, lParam ? true : false);
 		return true;
 	};
-	EnumChildWindows(m_hWnd, EnableProc, enabled);
-	ShowWindow(enabled ? true : false);
+	EnumChildWindows(this, EnableProc, enabled);
+	ShowWindow(enabled ? mfcless::show::Show : mfcless::show::Hide);
 
-	if(enabled && !IsChild(GetFocus()))
+	if(enabled && !IsChild(mfcless::GetFocus()))
 	{
-		if(::IsChild(m_hWnd, m_lastFocusItem))
+		if(::IsChild(this, m_lastFocusItem))
 			::SetFocus(m_lastFocusItem);
 		else
 			NextDlgCtrl();
@@ -192,8 +193,8 @@ void OPLInstrDlg::SetPatch(OPLPatch &patch)
 			m_waveform[op].ResetContent();
 			static constexpr const mpt::uchar *waveformNames[] =
 			{
-				U_("Sine"), U_("Half Sine"), U_("Absolute Sine"), U_("Pulse Sine"),
-				U_("Sine (Even Periods)"), U_("Absolute Sine (Even Periods)"), U_("Square"), U_("Derived Square")
+				UL_("Sine"), UL_("Half Sine"), UL_("Absolute Sine"), UL_("Pulse Sine"),
+				UL_("Sine (Even Periods)"), UL_("Absolute Sine (Even Periods)"), UL_("Square"), UL_("Derived Square")
 			};
 			for(int i = 0; i < numWaveforms; i++)
 			{
@@ -237,7 +238,7 @@ void OPLInstrDlg::ParamsChanged()
 mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 {
 	static constexpr const char *feedback[] = {"disabled", "\xCF\x80/16", "\xCF\x80/8", "\xCF\x80/4", "\xCF\x80/2", "\xCF\x80", "2\xCF\x80", "4\xCF\x80"};
-	static constexpr const mpt::uchar *ksl[] = {U_("disabled"), U_("1.5 dB / octave"), U_("3 dB / octave"), U_("6 dB / octave")};
+	static constexpr const mpt::uchar *ksl[] = {UL_("disabled"), UL_("1.5 dB / octave"), UL_("3 dB / octave"), UL_("6 dB / octave")};
 
 	mpt::ustring text;
 	const QWidget *wnd = GetDlgItem(static_cast<int>(id));
@@ -256,20 +257,20 @@ mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 	case IDC_SLIDER10:
 	case IDC_SLIDER12:
 		// Attack / Decay / Release
-		text = U_("faster < ") + mpt::ufmt::val(slider->GetPos()) + U_(" > slower");
+		text = UL_("faster < ") + mpt::ufmt::val(slider->GetPos()) + UL_(" > slower");
 		break;
 	case IDC_SLIDER4:
 	case IDC_SLIDER11:
 		// Sustain Level
 		{
 			const int pos = slider->GetPos();
-			text = mpt::ufmt::val((pos == 0) ? -93 : ((-15 + pos) * 3)) + U_(" dB");
+			text = mpt::ufmt::val((pos == 0) ? -93 : ((-15 + pos) * 3)) + UL_(" dB");
 		}
 		break;
 	case IDC_SLIDER6:
 	case IDC_SLIDER13:
 		// Volume Level
-		text = mpt::ufmt::fix((-63 + slider->GetPos()) * 0.75, 2) + U_(" dB");
+		text = mpt::ufmt::fix((-63 + slider->GetPos()) * 0.75, 2) + UL_(" dB");
 		break;
 	case IDC_SLIDER7:
 	case IDC_SLIDER14:
@@ -280,7 +281,7 @@ mpt::ustring OPLInstrDlg::GetToolTipText(uint32 id, QWidget *) const
 	case IDC_SLIDER15:
 		// Frequency Multiplier
 		if(slider->GetPos() == 0)
-			text = U_("0.5");
+			text = UL_("0.5");
 		else
 			text = mpt::ufmt::val(slider->GetPos());
 		break;

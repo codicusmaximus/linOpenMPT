@@ -10,6 +10,7 @@
 
 
 #include "EffectVis.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Globals.h"
 #include "HighDPISupport.h"
@@ -423,7 +424,7 @@ void CEffectVis::DrawNodes()
 		m_nDragItem = m_startRow;
 
 	//Draw
-	const int lineWidth = HighDPISupport::ScalePixels(1, m_hWnd);
+	const int lineWidth = HighDPISupport::ScalePixels(1, this);
 	const int nodeSizeHalf = m_nodeSizeHalf;
 	const int nodeSizeHalf2 = nodeSizeHalf - lineWidth + 1;
 	const int nodeSize = 2 * nodeSizeHalf + 1;
@@ -475,21 +476,21 @@ void CEffectVis::OpenEditor(QWidget *parent)
 
 	if(TrackerSettings::Instance().effectVisWidth > 0 && TrackerSettings::Instance().effectVisHeight > 0)
 	{
-		WINDOWPLACEMENT wnd;
+		mfcless::WindowPlacement wnd;
 		wnd.length = sizeof(wnd);
 		GetWindowPlacement(&wnd);
-		wnd.showCmd = true;
+		wnd.showCmd = mfcless::show::ShowNoActivate;
 		mfcless::Rect rect = wnd.rcNormalPosition;
-		const auto dpi = HighDPISupport::GetDpiForWindow(m_hWnd);
+		const auto dpi = HighDPISupport::GetDpiForWindow(this);
 		if(TrackerSettings::Instance().effectVisX > int32_min && TrackerSettings::Instance().effectVisY > int32_min)
 		{
 			mfcless::Rect mainRect;
 			CMainFrame::GetMainFrame()->GetWindowRect(mainRect);
-			rect.left = mainRect.left + MulDiv(TrackerSettings::Instance().effectVisX, dpi, 96);
-			rect.top = mainRect.top + MulDiv(TrackerSettings::Instance().effectVisY, dpi, 96);
+			rect.left = mainRect.left + mfcless::MulDiv(TrackerSettings::Instance().effectVisX, dpi, 96);
+			rect.top = mainRect.top + mfcless::MulDiv(TrackerSettings::Instance().effectVisY, dpi, 96);
 		}
-		rect.right = rect.left + MulDiv(TrackerSettings::Instance().effectVisWidth, dpi, 96);
-		rect.bottom = rect.top + MulDiv(TrackerSettings::Instance().effectVisHeight, dpi, 96);
+		rect.right = rect.left + mfcless::MulDiv(TrackerSettings::Instance().effectVisWidth, dpi, 96);
+		rect.bottom = rect.top + mfcless::MulDiv(TrackerSettings::Instance().effectVisHeight, dpi, 96);
 		wnd.rcNormalPosition = rect;
 		SetWindowPlacement(&wnd);
 	}
@@ -518,7 +519,7 @@ void CEffectVis::OnCancel()
 
 void CEffectVis::DoClose()
 {
-	WINDOWPLACEMENT wnd;
+	mfcless::WindowPlacement wnd;
 	wnd.length = sizeof(wnd);
 	GetWindowPlacement(&wnd);
 	mfcless::Rect mainRect;
@@ -526,11 +527,11 @@ void CEffectVis::DoClose()
 
 	mfcless::Rect rect = wnd.rcNormalPosition;
 	rect.MoveToXY(rect.left - mainRect.left, rect.top - mainRect.top);
-	const auto dpi = HighDPISupport::GetDpiForWindow(m_hWnd);
-	TrackerSettings::Instance().effectVisWidth = MulDiv(rect.Width(), 96, dpi);
-	TrackerSettings::Instance().effectVisHeight = MulDiv(rect.Height(), 96, dpi);
-	TrackerSettings::Instance().effectVisX = MulDiv(rect.left, 96, dpi);
-	TrackerSettings::Instance().effectVisY = MulDiv(rect.top, 96, dpi);
+	const auto dpi = HighDPISupport::GetDpiForWindow(this);
+	TrackerSettings::Instance().effectVisWidth = mfcless::MulDiv(rect.Width(), 96, dpi);
+	TrackerSettings::Instance().effectVisHeight = mfcless::MulDiv(rect.Height(), 96, dpi);
+	TrackerSettings::Instance().effectVisX = mfcless::MulDiv(rect.left, 96, dpi);
+	TrackerSettings::Instance().effectVisY = mfcless::MulDiv(rect.top, 96, dpi);
 
 	m_dcGrid.SelectObject(m_pbOldGrid);
 	m_dcGrid.DeleteDC();
@@ -559,23 +560,23 @@ void CEffectVis::OnSize(uint32 nType, int cx, int cy)
 	MPT_UNREFERENCED_PARAMETER(cx);
 	MPT_UNREFERENCED_PARAMETER(cy);
 
-	m_nodeSizeHalf = HighDPISupport::ScalePixels(3, m_hWnd);
-	m_marginBottom = HighDPISupport::ScalePixels(20, m_hWnd);
-	m_innerBorder = HighDPISupport::ScalePixels(4, m_hWnd);
+	m_nodeSizeHalf = HighDPISupport::ScalePixels(3, this);
+	m_marginBottom = HighDPISupport::ScalePixels(20, this);
+	m_innerBorder = HighDPISupport::ScalePixels(4, this);
 
 	GetClientRect(&m_rcFullWin);
 	m_rcDraw.SetRect(m_rcFullWin.left, m_rcFullWin.top, m_rcFullWin.right, m_rcFullWin.bottom - m_marginBottom);
 
-	const int actionListWidth = HighDPISupport::ScalePixels(170, m_hWnd);
-	const int commandListWidth = HighDPISupport::ScalePixels(160, m_hWnd);
+	const int actionListWidth = HighDPISupport::ScalePixels(170, this);
+	const int commandListWidth = HighDPISupport::ScalePixels(160, this);
 
 	auto dwp = ::BeginDeferWindowPos(3);
-	if (IsWindow(m_edVisStatus->m_hWnd))
-		::DeferWindowPos(dwp, m_edVisStatus, nullptr, m_rcFullWin.left, m_rcDraw.bottom, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER);
+	if (IsWindow(m_edVisStatus))
+		::DeferWindowPos(dwp, m_edVisStatus, nullptr, m_rcFullWin.left, m_rcDraw.bottom, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
 	if (IsWindow(m_cmbActionList))
-		::DeferWindowPos(dwp, m_cmbActionList, nullptr, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcDraw.bottom, actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER);
+		::DeferWindowPos(dwp, m_cmbActionList, nullptr, m_rcFullWin.right - commandListWidth - actionListWidth, m_rcDraw.bottom, actionListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
 	if (IsWindow(m_cmbEffectList))
-		::DeferWindowPos(dwp, m_cmbEffectList, nullptr, m_rcFullWin.right - commandListWidth, m_rcDraw.bottom, commandListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOZORDER);
+		::DeferWindowPos(dwp, m_cmbEffectList, nullptr, m_rcFullWin.right - commandListWidth, m_rcDraw.bottom, commandListWidth, m_rcFullWin.bottom - m_rcDraw.bottom, mfcless::swp::NoActivate | mfcless::swp::ShowWindow | mfcless::swp::NoZOrder);
 	::EndDeferWindowPos(dwp);
 
 	if(m_nRows)
@@ -591,7 +592,7 @@ void CEffectVis::OnSize(uint32 nType, int cx, int cy)
 void CEffectVis::Update()
 {
 	DrawNodes();
-	if (::IsWindow(m_hWnd))
+	if (::IsWindow(this))
 	{
 		OnPaint();
 		if (m_nRowToErase<0)
@@ -647,7 +648,7 @@ void CEffectVis::OnRButtonDown(uint32 nFlags, mfcless::Point point)
 {
 	if (!(m_dwStatus & FXVSTATUS_LDRAGGING))
 	{
-		SetFocus();
+		setFocus();
 		SetCapture();
 
 		m_nDragItem = ScreenXToRow(point.x);
@@ -721,23 +722,23 @@ void CEffectVis::OnMouseMove(uint32 nFlags, mfcless::Point point)
 	if (IsPcNote(row))
 	{
 		paramValue = ScreenYToPCParam(point.y);
-		effectName.Format(U_("%s"), U_("Param Control")); // TODO - show smooth & plug+param
+		effectName = mfcless::PrintF(UL_("%s"), UL_("Param Control")); // TODO - show smooth & plug+param
 	} else
 	{
 		paramValue = ScreenYToFXParam(point.y);
 		m_effectInfo.GetEffectInfo(m_effectInfo.GetIndexFromEffect(GetCommand(row), ModCommand::PARAM(GetParam(row))), &effectName, true);
 	}
 
-	status.Format(U_("Pat: %d\tChn: %d\tRow: %d\tVal: %02X (%03d) [%s]"),
-				m_nPattern, m_nChan+1, static_cast<signed int>(row), paramValue, paramValue, effectName.GetString());
-	m_edVisStatus->SetWindowText(status);
+	status = mfcless::PrintF(UL_("Pat: %d\tChn: %d\tRow: %d\tVal: %02X (%03d) [%s]"),
+				m_nPattern, m_nChan+1, static_cast<signed int>(row), paramValue, paramValue, effectName.c_str());
+	mfcless::SetWindowText(m_edVisStatus, status);
 }
 
 void CEffectVis::OnLButtonDown(uint32 nFlags, mfcless::Point point)
 {
 	if (!(m_dwStatus & FXVSTATUS_RDRAGGING))
 	{
-		SetFocus();
+		setFocus();
 		SetCapture();
 
 		m_nDragItem = ScreenXToRow(point.x);
@@ -804,15 +805,15 @@ bool CEffectVis::OnInitDialog()
 	UpdateEffectList();
 
 	m_cmbActionList->clear();
-	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Overwrite with effect:")), static_cast<uintptr_t>(Action::OverwriteFX));
-	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Overwrite effect next to note:")), static_cast<uintptr_t>(Action::OverwriteFXWithNote));
-	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Fill blanks with effect:")), static_cast<uintptr_t>(Action::FillFX));
+	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Overwrite with effect:")), static_cast<uintptr_t>(Action::OverwriteFX));
+	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Overwrite effect next to note:")), static_cast<uintptr_t>(Action::OverwriteFXWithNote));
+	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Fill blanks with effect:")), static_cast<uintptr_t>(Action::FillFX));
 	if(m_ModDoc.GetModType() == MOD_TYPE_MPT || isPCevent)
 	{
-		mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Overwrite with PC note")), static_cast<uintptr_t>(Action::OverwritePC));
-		mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Fill blanks with PC note")), static_cast<uintptr_t>(Action::FillPC));
+		mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Overwrite with PC note")), static_cast<uintptr_t>(Action::OverwritePC));
+		mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Fill blanks with PC note")), static_cast<uintptr_t>(Action::FillPC));
 	}
-	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, U_("Never change effect type")), static_cast<uintptr_t>(Action::Preserve));
+	mfcless::SetItemData(m_cmbActionList, mfcless::AddItem(m_cmbActionList, UL_("Never change effect type")), static_cast<uintptr_t>(Action::Preserve));
 
 	m_cmbActionList->setCurrentIndex(static_cast<int>(m_nAction));
 	return true;
@@ -822,7 +823,7 @@ bool CEffectVis::OnInitDialog()
 void CEffectVis::UpdateEffectList()
 {
 	const bool fillPlugParams = m_nAction == Action::FillPC || m_nAction == Action::OverwritePC;
-	mfcless::Rect rect{0, 0, 16, HighDPISupport::ScalePixels(16, m_hWnd)};
+	mfcless::Rect rect{0, 0, 16, HighDPISupport::ScalePixels(16, this)};
 	if(m_cmbEffectList)
 	{
 		m_cmbEffectList->GetWindowRect(rect);
@@ -847,7 +848,7 @@ void CEffectVis::UpdateEffectList()
 		{
 			for(PlugParamIndex i = 0; i < ModCommand::maxColumnValue; i++)
 			{
-				s.Format(U_("Parameter %u"), i);
+				s = mfcless::PrintF(UL_("Parameter %u"), i);
 				mfcless::SetItemData(m_cmbEffectList, mfcless::AddItem(m_cmbEffectList, s), i);
 			}
 		}

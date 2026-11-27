@@ -10,6 +10,7 @@
 
 
 #include "AboutDialog.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Image.h"
 #include "Mptrack.h"
@@ -44,7 +45,7 @@ void CRippleBitmap::RegisterMessageMap()
 
 CRippleBitmap::CRippleBitmap()
 {
-	m_bitmapSrc = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_MPTRACK), U_("PNG")));
+	m_bitmapSrc = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_MPTRACK), UL_("PNG")));
 	m_bitmapTarget = std::make_unique<RawGDIDIB>(m_bitmapSrc->Width(), m_bitmapSrc->Height());
 	m_offset1.assign(m_bitmapSrc->Pixels().size(), 0);
 	m_offset2.assign(m_bitmapSrc->Pixels().size(), 0);
@@ -90,8 +91,8 @@ void CRippleBitmap::OnMouseMove(uint32 nFlags, mfcless::Point point)
 	m_lastRipple = now;
 
 	// Initiate ripples at cursor location
-	point.x = HighDPISupport::ScalePixelsInv(point.x, m_hWnd);
-	point.y = HighDPISupport::ScalePixelsInv(point.y, m_hWnd);
+	point.x = HighDPISupport::ScalePixelsInv(point.x, this);
+	point.y = HighDPISupport::ScalePixelsInv(point.y, this);
 	Limit(point.x, 1, int(m_bitmapSrc->Width()) - 2);
 	Limit(point.y, 2, int(m_bitmapSrc->Height()) - 3);
 	int32 *p = m_backBuf + point.x + point.y * m_bitmapSrc->Width();
@@ -121,7 +122,7 @@ void CRippleBitmap::OnMouseMove(uint32 nFlags, mfcless::Point point)
 
 	TRACKMOUSEEVENT me;
 	me.cbSize = sizeof(TRACKMOUSEEVENT);
-	me.hwndTrack = m_hWnd;
+	me.hwndTrack = this;
 	me.dwFlags = TME_LEAVE | TME_HOVER;
 	me.dwHoverTime = 1500;
 
@@ -268,12 +269,12 @@ bool CAboutDlg::OnInitDialog()
 
 	m_bmp->SubclassDlgItem(IDC_BITMAP1, this);
 
-	m_Tab->InsertItem(TCIF_TEXT, 0, U_("OpenMPT"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 1, U_("Components"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 2, U_("Credits"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 3, U_("License"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 4, U_("Resources"), 0, 0, 0, 0);
-	if(mpt::OS::Windows::IsWine()) m_Tab->InsertItem(TCIF_TEXT, 5, U_("Wine"), 0, 0, 0, 0);
+	m_Tab->InsertItem(TCIF_TEXT, 0, UL_("OpenMPT"), 0, 0, 0, 0);
+	m_Tab->InsertItem(TCIF_TEXT, 1, UL_("Components"), 0, 0, 0, 0);
+	m_Tab->InsertItem(TCIF_TEXT, 2, UL_("Credits"), 0, 0, 0, 0);
+	m_Tab->InsertItem(TCIF_TEXT, 3, UL_("License"), 0, 0, 0, 0);
+	m_Tab->InsertItem(TCIF_TEXT, 4, UL_("Resources"), 0, 0, 0, 0);
+	if(mpt::OS::Windows::IsWine()) m_Tab->InsertItem(TCIF_TEXT, 5, UL_("Wine"), 0, 0, 0, 0);
 	m_Tab->SetCurSel(0);
 
 	OnTabChange(nullptr, nullptr);
@@ -300,7 +301,7 @@ void CAboutDlg::OnTimer(uintptr_t nIDEvent)
 
 void CAboutDlg::OnTabChange()
 {
-	m_TabEdit->SetWindowText(mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->GetCurSel()), U_("\n"), U_("\r\n"))));
+	mfcless::SetWindowText(m_TabEdit, mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->GetCurSel()), U_("\n"), U_("\r\n"))));
 }
 
 

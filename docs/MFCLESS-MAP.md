@@ -55,8 +55,8 @@ Upstream: 8bc4cd9
 | `MPTHacks.cpp` | 515 | reuse | todo |
 | `MPTrackLink.cpp` | 69 | reuse | todo |
 | `MPTrackUtil.cpp` | 85 | reuse | todo |
-| `MPTrackUtilWine.cpp` | 313 | twin | todo |
-| `MPTrackWine.cpp` | 896 | reuse | todo |
+| `MPTrackUtilWine.cpp` | 313 | dropped | done (no Wine integration in the native build) |
+| `MPTrackWine.cpp` | 896 | dropped | done (no Wine integration in the native build) |
 | `MainFrm.cpp` | 3691 | twin | todo |
 | `Mainbar.cpp` | 1815 | twin | todo |
 | `Mod2wave.cpp` | 1436 | twin | todo |
@@ -107,7 +107,7 @@ Upstream: 8bc4cd9
 | `VstPresets.cpp` | 316 | reuse | todo |
 | `Vstplug.cpp` | 1886 | reuse | todo |
 | `WelcomeDialog.cpp` | 207 | twin | todo |
-| `WineSoundDeviceStub.cpp` | 392 | reuse | todo |
+| `WineSoundDeviceStub.cpp` | 392 | dropped | done (no Wine integration in the native build) |
 | `dlg_misc.cpp` | 1653 | twin | todo |
 | `mod2midi.cpp` | 1069 | twin | todo |
 | `tuningRatioMapWnd.cpp` | 194 | twin | todo |

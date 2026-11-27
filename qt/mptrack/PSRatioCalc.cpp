@@ -10,6 +10,7 @@
 
 
 #include "PSRatioCalc.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "../soundlib/Sndfile.h"
 

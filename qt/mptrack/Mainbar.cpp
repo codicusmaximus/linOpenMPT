@@ -10,6 +10,7 @@
 
 
 #include "Mainbar.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "ImageLists.h"
 #include "InputHandler.h"
@@ -35,11 +36,11 @@ void COctaveEdit::RegisterMessageMap()
 
 void COctaveEdit::OnChar(uint32 nChar, uint32 /*nRepCnt*/, uint32 /*nFlags*/)
 {
-	if(nChar >= _T('0') + MIN_BASEOCTAVE && nChar <= _T('0') + MAX_BASEOCTAVE)
-		m_owner.SetBaseOctave(nChar - _T('0'));
-	else if(nChar == _T('+') && m_owner.GetBaseOctave() < MAX_BASEOCTAVE)
+	if(nChar >= u8'0' + MIN_BASEOCTAVE && nChar <= u8'0' + MAX_BASEOCTAVE)
+		m_owner.SetBaseOctave(nChar - u8'0');
+	else if(nChar == u8'+' && m_owner.GetBaseOctave() < MAX_BASEOCTAVE)
 		m_owner.SetBaseOctave(m_owner.GetBaseOctave() + 1);
-	else if(nChar == _T('-') && m_owner.GetBaseOctave() > MIN_BASEOCTAVE)
+	else if(nChar == u8'-' && m_owner.GetBaseOctave() > MIN_BASEOCTAVE)
 		m_owner.SetBaseOctave(m_owner.GetBaseOctave() - 1);
 }
 
@@ -133,11 +134,11 @@ void CToolBarEx::UpdateControl(bool show, QWidget &wnd, int index, int id, int h
 				if(n > rect.top)
 					rect.top = n;
 			}
-			wnd.SetWindowPos(nullptr, rect.left, rect.top, 0, 0, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+			wnd.SetWindowPos(nullptr, rect.left, rect.top, 0, 0, mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoSize);
 		}
 	}
 	if(wnd.m_hWnd)
-		wnd.ShowWindow(show ? true : false);
+		wnd.ShowWindow(show ? mfcless::show::Show : mfcless::show::Hide);
 	SetButtonVisibility(index, show);
 }
 
@@ -223,7 +224,7 @@ enum
 	TOOLBAR_IMAGE_PLAY = 13,
 };
 
-#define SCALEPIXELS(x)      (HighDPISupport::ScalePixels(x, m_hWnd))
+#define SCALEPIXELS(x)      (HighDPISupport::ScalePixels(x, this))
 #define SPINNER_WIDTH       SCALEPIXELS(16)
 #define SPINNER_HEIGHT      SCALEPIXELS(20)
 #define VUMETER_WIDTH       SCALEPIXELS(255)
@@ -308,25 +309,25 @@ bool CMainToolBar::Create(QWidget *parent)
 	m_EditOctave.Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_CENTER, rect, this, IDC_EDIT_BASEOCTAVE);
 	m_SpinOctave->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY, rect, this, IDC_SPIN_BASEOCTAVE);
 	// Tempo
-	m_StaticTempo->Create(U_("Tempo:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTTEMPO);
+	m_StaticTempo->Create(UL_("Tempo:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTTEMPO);
 	m_EditTempo->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_CURRENTTEMPO);
 	m_SpinTempo->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_CURRENTTEMPO);
 	// Speed
-	m_StaticSpeed->Create(U_("Ticks/Row:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTSPEED);
+	m_StaticSpeed->Create(UL_("Ticks/Row:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_CURRENTSPEED);
 	m_EditSpeed->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_CURRENTSPEED);
 	m_SpinSpeed->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_CURRENTSPEED);
 	// Rows per Beat
-	m_StaticRowsPerBeat->Create(U_("Rows/Beat:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_RPB);
+	m_StaticRowsPerBeat->Create(UL_("Rows/Beat:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_RPB);
 	m_EditRowsPerBeat->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_RPB);
 	m_SpinRowsPerBeat->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_RPB);
 	// Global Volume
-	m_StaticGlobalVolume->Create(U_("Global Volume:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_GLOBALVOL);
+	m_StaticGlobalVolume->Create(UL_("Global Volume:"), WS_CHILD | SS_CENTER | SS_CENTERIMAGE, rect, this, IDC_TEXT_GLOBALVOL);
 	m_EditGlobalVolume->Create(WS_CHILD | WS_BORDER | WS_TABSTOP | ES_READONLY | ES_AUTOHSCROLL | ES_NUMBER, rect, this, IDC_EDIT_GLOBALVOL);
 	m_SpinGlobalVolume->Create(WS_CHILD | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS, rect, this, IDC_SPIN_GLOBALVOL);
 
 	// VU Meter
 	rect.SetRect(0, 0, VUMETER_WIDTH, VUMETER_HEIGHT);
-	m_VuMeter->Create(U_(""), WS_CHILD | WS_BORDER | SS_NOTIFY, rect, this, IDC_VUMETER);
+	m_VuMeter->Create(UL_(""), WS_CHILD | WS_BORDER | SS_NOTIFY, rect, this, IDC_VUMETER);
 
 	UpdateSizes();
 
@@ -347,7 +348,7 @@ bool CMainToolBar::Create(QWidget *parent)
 	m_EditGlobalVolume->setMaxLength(3);
 
 	// Display everything
-	SetWindowText(U_("Main"));
+	SetWindowText(UL_("Main"));
 	SetBaseOctave(4);
 	SetCurrentSong(nullptr);
 	EnableDocking(CBRS_ALIGN_ANY);
@@ -399,9 +400,9 @@ void CMainToolBar::UpdateSizes()
 {
 	mfcless::DC *dc = GetDC();
 	if(!m_font.m_hObject)
-		HighDPISupport::CreateGUIFont(m_font, m_hWnd);
-	const double scaling = HighDPISupport::GetDpiForWindow(m_hWnd) / 96.0;
-	const int imgSize = HighDPISupport::ScalePixels(16, m_hWnd), btnSizeX = HighDPISupport::ScalePixels(23, m_hWnd), btnSizeY = HighDPISupport::ScalePixels(22, m_hWnd);
+		HighDPISupport::CreateGUIFont(m_font, this);
+	const double scaling = HighDPISupport::GetDpiForWindow(this) / 96.0;
+	const int imgSize = HighDPISupport::ScalePixels(16, this), btnSizeX = HighDPISupport::ScalePixels(23, this), btnSizeY = HighDPISupport::ScalePixels(22, this);
 	m_ImageList.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, false);
 	m_ImageListDisabled.Create(IDB_MAINBAR, 16, 16, IMGLIST_NUMIMAGES, 1, dc, scaling, true);
 	
@@ -413,19 +414,19 @@ void CMainToolBar::UpdateSizes()
 	};
 	const TextWndInfo TextWnds[] =
 	{
-		{m_EditOctave,         U_("Octave 9"),       EDITOCTAVE_INDEX,    IDC_EDIT_BASEOCTAVE  },
-		{m_StaticTempo,        U_("Tempo"),          TEMPOTEXT_INDEX,     IDC_TEXT_CURRENTTEMPO},
-		{m_EditTempo,          U_("999.9999"),       EDITTEMPO_INDEX,     IDC_EDIT_CURRENTTEMPO},
-		{m_StaticSpeed,        U_("Ticks/Row:"),     SPEEDTEXT_INDEX,     IDC_TEXT_CURRENTSPEED},
-		{m_EditSpeed,          U_("999"),            EDITSPEED_INDEX,     IDC_EDIT_CURRENTSPEED},
-		{m_StaticRowsPerBeat,  U_("Rows/Beat:"),     RPBTEXT_INDEX,       IDC_TEXT_RPB         },
-		{m_EditRowsPerBeat,    U_("9999"),           EDITRPB_INDEX,       IDC_EDIT_RPB         },
-		{m_StaticGlobalVolume, U_("Global Volume:"), GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL   },
-		{m_EditGlobalVolume,   U_("999"),            EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL   },
+		{m_EditOctave,         UL_("Octave 9"),       EDITOCTAVE_INDEX,    IDC_EDIT_BASEOCTAVE  },
+		{m_StaticTempo,        UL_("Tempo"),          TEMPOTEXT_INDEX,     IDC_TEXT_CURRENTTEMPO},
+		{m_EditTempo,          UL_("999.9999"),       EDITTEMPO_INDEX,     IDC_EDIT_CURRENTTEMPO},
+		{m_StaticSpeed,        UL_("Ticks/Row:"),     SPEEDTEXT_INDEX,     IDC_TEXT_CURRENTSPEED},
+		{m_EditSpeed,          UL_("999"),            EDITSPEED_INDEX,     IDC_EDIT_CURRENTSPEED},
+		{m_StaticRowsPerBeat,  UL_("Rows/Beat:"),     RPBTEXT_INDEX,       IDC_TEXT_RPB         },
+		{m_EditRowsPerBeat,    UL_("9999"),           EDITRPB_INDEX,       IDC_EDIT_RPB         },
+		{m_StaticGlobalVolume, UL_("Global Volume:"), GLOBALVOLTEXT_INDEX, IDC_TEXT_GLOBALVOL   },
+		{m_EditGlobalVolume,   UL_("999"),            EDITGLOBALVOL_INDEX, IDC_EDIT_GLOBALVOL   },
 	};
 	
 	auto oldFont = dc->SelectObject(m_font);
-	const int textPaddingX = HighDPISupport::ScalePixels(10, m_hWnd), textPaddingY = HighDPISupport::ScalePixels(4, m_hWnd), textMinHeight = HighDPISupport::ScalePixels(20, m_hWnd);
+	const int textPaddingX = HighDPISupport::ScalePixels(10, this), textPaddingY = HighDPISupport::ScalePixels(4, this), textMinHeight = HighDPISupport::ScalePixels(20, this);
 	for(auto &info : TextWnds)
 	{
 		info.wnd.SetFont(&m_font, false);
@@ -433,7 +434,7 @@ void CMainToolBar::UpdateSizes()
 		const int width = size.cx + textPaddingX;
 		const int height = std::max(static_cast<int>(size.cy) + textPaddingY, textMinHeight);
 		// For some reason, DeferWindowPos doesn't work here
-		info.wnd.SetWindowPos(nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+		info.wnd.SetWindowPos(nullptr, 0, 0, width, height, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate | mfcless::swp::NoCopyBits);
 	}
 	dc->SelectObject(oldFont);
 	ReleaseDC(dc);
@@ -450,11 +451,11 @@ void CMainToolBar::UpdateSizes()
 	SetButtonStyle(CommandToIndex(ID_MIDI_RECORD), GetButtonStyle(CommandToIndex(ID_MIDI_RECORD)) | TBSTYLE_DROPDOWN);
 
 	const int spinnerWidth = SPINNER_WIDTH, spinnerHeight = SPINNER_HEIGHT;
-	m_SpinOctave->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE);
-	m_SpinTempo->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE);
-	m_SpinSpeed->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE);
-	m_SpinRowsPerBeat->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE);
-	m_SpinGlobalVolume->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE);
+	m_SpinOctave->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
+	m_SpinTempo->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
+	m_SpinSpeed->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
+	m_SpinRowsPerBeat->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
+	m_SpinGlobalVolume->SetWindowPos(nullptr, 0, 0, spinnerWidth, spinnerHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate);
 }
 
 
@@ -530,9 +531,9 @@ void CMainToolBar::UpdateControls()
 
 	m_VuMeter->SetOrientation(!m_bVertical);
 	if(m_bVertical)
-		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_HEIGHT, VUMETER_HEIGHT, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_HEIGHT, VUMETER_HEIGHT, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 	else
-		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_WIDTH, VUMETER_HEIGHT, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+		m_VuMeter->SetWindowPos(nullptr, 0, 0, VUMETER_WIDTH, VUMETER_HEIGHT, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 	UpdateControl(visibleItems[MainToolBarItem::VUMeter], m_VuMeter, VUMETER_INDEX, IDC_VUMETER, VUMETER_HEIGHT);
 }
 
@@ -564,8 +565,8 @@ void CMainToolBar::SetBaseOctave(uint32 octave)
 
 	m_currentOctave = octave;
 	mpt::uchar s[32];
-	wsprintf(s, U_("Octave %d"), octave);
-	m_EditOctave.SetWindowText(s);
+	wsprintf(s, UL_("Octave %d"), octave);
+	mfcless::SetWindowText(m_EditOctave, s);
 	m_SpinOctave->SetPos(octave);
 }
 
@@ -607,7 +608,7 @@ static void EnableEdit(CEdit &edit, CSpinButtonCtrl &spin, bool enable)
 	// Avoid flicker when enabling / disabling controls
 	edit.SetRedraw(false);
 	if(!enable)
-		edit.SetWindowText(U_("---"));
+		mfcless::SetWindowText(edit, UL_("---"));
 	edit.EnableWindow(enable ? true : false);
 	edit.SetReadOnly(enable ? false : true);
 	edit.SetRedraw(true);
@@ -620,7 +621,7 @@ void CMainToolBar::SetCurrentSong(CSoundFile *pSndFile)
 {
 	// Update Info
 	m_updating = true;
-	const QWidget *focus = GetFocus();
+	const QWidget *focus = mfcless::GetFocus();
 	const FlagSet<MainToolBarItem> visibleItems = TrackerSettings::Instance().mainToolBarVisibleItems.Get();
 	if(pSndFile)
 	{
@@ -788,7 +789,7 @@ void CMainToolBar::OnTempoChanged()
 	{
 		TEMPO newTempo = m_EditTempo->GetTempoValue();
 		CSoundFile *sndFile = mainFrm->GetSoundFilePlaying();
-		if(sndFile && m_EditTempo->GetWindowTextLength() > 0)
+		if(sndFile && mfcless::GetWindowTextLength(m_EditTempo) > 0)
 		{
 			const auto &specs = sndFile->GetModSpecifications();
 			sndFile->m_PlayState.m_nMusicTempo = Clamp(newTempo, specs.GetTempoMin(), specs.GetTempoMax());
@@ -843,7 +844,7 @@ void CMainToolBar::OnTbnDropDownToolBar()
 			auto [newMenu, newPos] = CMainFrame::FindMenuItemByCommand(*mainFrm->GetMenu(), ID_FILE_NEWIT);
 			auto [templateMenu, templatePos] = CMainFrame::FindMenuItemByCommand(*mainFrm->GetMenu(), ID_FILE_OPENTEMPLATE);
 			if(templateMenu)
-				newMenu->AppendMenu(mfcless::menu::Popup, templateMenu, U_("&Templates"));
+				newMenu->AppendMenu(mfcless::menu::Popup, templateMenu, UL_("&Templates"));
 			newMenu->TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pToolBar->rcButton.left, pToolBar->rcButton.bottom, this);
 			if(templateMenu)
 				newMenu->RemoveMenu(newMenu->GetMenuItemCount() - 1, mfcless::menu::ByPosition);
@@ -867,7 +868,7 @@ void CMainToolBar::OnTbnDropDownToolBar()
 			}
 			if(!numDevs)
 			{
-				hMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, 0, U_("No MIDI input devices found"));
+				hMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, 0, UL_("No MIDI input devices found"));
 			}
 			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pToolBar->rcButton.left, pToolBar->rcButton.bottom, this);
 			hMenu.DestroyMenu();
@@ -950,20 +951,20 @@ bool CMainToolBar::OnToolTipText(uint32 )
 	CommandID cmd = kcNull;
 	switch(id)
 	{
-	case ID_FILE_NEW: s = U_("New"); cmd = kcFileNew; break;
-	case ID_FILE_OPEN: s = U_("Open"); cmd = kcFileOpen; break;
-	case ID_FILE_SAVE: s = U_("Save"); cmd = kcFileSave; break;
-	case ID_EDIT_CUT: s = U_("Cut"); cmd = kcEditCut; break;
-	case ID_EDIT_COPY: s = U_("Copy"); cmd = kcEditCopy; break;
-	case ID_EDIT_PASTE: s = U_("Paste"); cmd = kcEditPaste; break;
-	case ID_MIDI_RECORD: s = U_("MIDI Record"); cmd = kcMidiRecord; break;
-	case ID_PLAYER_STOP: s = U_("Stop"); cmd = kcStopSong; break;
-	case ID_PLAYER_PLAY: s = U_("Play"); cmd = kcPlayPauseSong; break;
-	case ID_PLAYER_PAUSE: s = U_("Pause"); cmd = kcPlayPauseSong; break;
-	case ID_PLAYER_PLAYFROMSTART: s = U_("Play From Start"); cmd = kcPlaySongFromStart; break;
-	case ID_VIEW_OPTIONS: s = U_("Setup"); cmd = kcViewOptions; break;
-	case ID_PANIC: s = U_("Stop all hanging plugin and sample voices"); cmd = kcPanic; break;
-	case ID_UPDATE_AVAILABLE: s = U_("A new update is available."); break;
+	case ID_FILE_NEW: s = UL_("New"); cmd = kcFileNew; break;
+	case ID_FILE_OPEN: s = UL_("Open"); cmd = kcFileOpen; break;
+	case ID_FILE_SAVE: s = UL_("Save"); cmd = kcFileSave; break;
+	case ID_EDIT_CUT: s = UL_("Cut"); cmd = kcEditCut; break;
+	case ID_EDIT_COPY: s = UL_("Copy"); cmd = kcEditCopy; break;
+	case ID_EDIT_PASTE: s = UL_("Paste"); cmd = kcEditPaste; break;
+	case ID_MIDI_RECORD: s = UL_("MIDI Record"); cmd = kcMidiRecord; break;
+	case ID_PLAYER_STOP: s = UL_("Stop"); cmd = kcStopSong; break;
+	case ID_PLAYER_PLAY: s = UL_("Play"); cmd = kcPlayPauseSong; break;
+	case ID_PLAYER_PAUSE: s = UL_("Pause"); cmd = kcPlayPauseSong; break;
+	case ID_PLAYER_PLAYFROMSTART: s = UL_("Play From Start"); cmd = kcPlaySongFromStart; break;
+	case ID_VIEW_OPTIONS: s = UL_("Setup"); cmd = kcViewOptions; break;
+	case ID_PANIC: s = UL_("Stop all hanging plugin and sample voices"); cmd = kcPanic; break;
+	case ID_UPDATE_AVAILABLE: s = UL_("A new update is available."); break;
 	}
 
 	if(s == nullptr)
@@ -981,7 +982,7 @@ bool CMainToolBar::OnToolTipText(uint32 )
 
 	// bring the tooltip window above other popup windows
 	::SetWindowPos(pNMHDR->hwndFrom, HWND_TOP, 0, 0, 0, 0,
-		SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE | SWP_NOOWNERZORDER);
+		mfcless::swp::NoActivate | mfcless::swp::NoSize | mfcless::swp::NoMove | mfcless::swp::NoOwnerZOrder);
 
 	return true;    // message was handled
 }
@@ -1025,7 +1026,7 @@ intptr_t CModTreeBar::OnInitDialog(uintptr_t wParam, intptr_t lParam)
 	m_pModTree = new CModTree(m_pModTreeData);
 	m_pModTree->SubclassDlgItem(IDC_TREEVIEW, this);
 	m_status.reset();
-	m_sizeDefault.cx = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, m_hWnd) + Padding();
+	m_sizeDefault.cx = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this) + Padding();
 	m_sizeDefault.cy = 32767;
 	return l;
 }
@@ -1053,14 +1054,14 @@ void CModTreeBar::Init()
 
 bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 {
-	if(m_filterEdit && pMsg->hwnd == m_filterEdit->m_hWnd && pMsg->message == mfcless::msg::KeyDown && m_filterSource != nullptr)
+	if(m_filterEdit && pMsg->hwnd == m_filterEdit && pMsg->message == mfcless::msg::KeyDown && m_filterSource != nullptr)
 	{
 		switch(pMsg->wParam)
 		{
 		case mfcless::vk::RETURN:
 			if(const auto modItem = m_filterSource->GetModItem(m_filterSource->GetSelectedItem()); (modItem.type == CModTree::MODITEM_INSLIB_FOLDER || modItem.type == CModTree::MODITEM_INSLIB_SONG))
 			{
-				m_filterSource->PostMessage(WM_COMMAND, ID_MODTREE_EXECUTE);
+				m_filterSource->mfcless::PostCommand(this, ID_MODTREE_EXECUTE);
 			}
 			[[fallthrough]];
 		case mfcless::vk::ESCAPE:
@@ -1093,7 +1094,7 @@ bool CModTreeBar::PreTranslateMessage(mfcless::Message *pMsg)
 
 void CModTreeBar::DelayShow(bool show)
 {
-	if(!show && IsChild(GetFocus()))
+	if(!show && IsChild(mfcless::GetFocus()))
 		CMainFrame::GetMainFrame()->SetFocus();
 	mfcless::Window<QWidget>::DelayShow(show);
 }
@@ -1119,7 +1120,7 @@ void CModTreeBar::OnOptionsChanged()
 
 int CModTreeBar::Padding() const
 {
-	return HighDPISupport::ScalePixels(3, m_hWnd);
+	return HighDPISupport::ScalePixels(3, this);
 }
 
 
@@ -1140,20 +1141,20 @@ void CModTreeBar::RecalcLayout()
 		auto dwp = ::BeginDeferWindowPos(3);
 		if(m_filterSource == m_pModTree)
 		{
-			int editHeight = HighDPISupport::ScalePixels(20, m_hWnd);
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree - editHeight, SWP_NOZORDER | SWP_NOACTIVATE);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, SWP_NOZORDER | SWP_NOACTIVATE);
-			::DeferWindowPos(dwp, m_filterEdit, *m_pModTree, 0, cytree - editHeight, rect.Width(), editHeight, SWP_NOACTIVATE);
+			int editHeight = HighDPISupport::ScalePixels(20, this);
+			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree - editHeight, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			::DeferWindowPos(dwp, m_filterEdit, *m_pModTree, 0, cytree - editHeight, rect.Width(), editHeight, mfcless::swp::NoActivate);
 		} else if(m_filterSource == m_pModTreeData)
 		{
-			int editHeight = HighDPISupport::ScalePixels(20, m_hWnd);
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, SWP_NOZORDER | SWP_NOACTIVATE);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata - editHeight, SWP_NOZORDER | SWP_NOACTIVATE);
-			::DeferWindowPos(dwp, m_filterEdit, *m_pModTreeData, 0, cytree + padding + cydata - editHeight, rect.Width(), editHeight, SWP_NOACTIVATE);
+			int editHeight = HighDPISupport::ScalePixels(20, this);
+			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata - editHeight, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			::DeferWindowPos(dwp, m_filterEdit, *m_pModTreeData, 0, cytree + padding + cydata - editHeight, rect.Width(), editHeight, mfcless::swp::NoActivate);
 		} else
 		{
-			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, SWP_NOZORDER | SWP_NOACTIVATE);
-			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, SWP_NOZORDER | SWP_NOACTIVATE);
+			::DeferWindowPos(dwp, *m_pModTree, nullptr, 0, 0, rect.Width(), cytree, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+			::DeferWindowPos(dwp, *m_pModTreeData, nullptr, 0, cytree + padding, rect.Width(), cydata, mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 		}
 		::EndDeferWindowPos(dwp);
 	}
@@ -1162,7 +1163,7 @@ void CModTreeBar::RecalcLayout()
 
 mfcless::Size CModTreeBar::CalcFixedLayout(bool, bool)
 {
-	int width = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, m_hWnd);
+	int width = HighDPISupport::ScalePixels(TrackerSettings::Instance().glTreeWindowWidth, this);
 	mfcless::Size sz;
 	m_sizeDefault.cx = width;
 	m_sizeDefault.cy = 32767;
@@ -1180,7 +1181,7 @@ void CModTreeBar::DoMouseMove(mfcless::Point pt)
 	mfcless::Rect rect;
 	GetClientRect(&rect);
 
-	if(m_status[MTB_CAPTURE | MTB_DRAGGING] && (::GetCapture() != m_hWnd))
+	if(m_status[MTB_CAPTURE | MTB_DRAGGING] && (::GetCapture() != this))
 	{
 		CancelTracking();
 	}
@@ -1226,7 +1227,7 @@ void CModTreeBar::DoMouseMove(mfcless::Point pt)
 		uint32 nCursor = 0;
 
 		const int padding = Padding();
-		const int extraPadding = HighDPISupport::ScalePixels(2, m_hWnd);
+		const int extraPadding = HighDPISupport::ScalePixels(2, this);
 		if(BarOnLeft())
 		{
 			rect.left = rect.right - extraPadding;
@@ -1330,7 +1331,7 @@ void CModTreeBar::DoLButtonUp()
 			CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
 			if((m_nTrackPos != (uint32)rect.Width()) && (pMainFrm))
 			{
-				TrackerSettings::Instance().glTreeWindowWidth = HighDPISupport::ScalePixelsInv(m_nTrackPos - padding, m_hWnd);
+				TrackerSettings::Instance().glTreeWindowWidth = HighDPISupport::ScalePixelsInv(m_nTrackPos - padding, this);
 				m_sizeDefault.cx = m_nTrackPos;
 				m_sizeDefault.cy = 32767;
 				pMainFrm->RecalcLayout();
@@ -1423,7 +1424,7 @@ void CModTreeBar::UpdatePlayPos(CModDoc *pModDoc, Notification *pNotify)
 void CModTreeBar::SetBarOnLeft(const bool left)
 {
 	SetBarStyle(left ? CBRS_LEFT : CBRS_RIGHT);
-	SetWindowPos(nullptr, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_DRAWFRAME);
+	SetWindowPos(nullptr, 0, 0, 0, 0, mfcless::swp::NoActivate | mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoSize | mfcless::swp::FrameChanged | mfcless::swp::FrameChanged);
 }
 
 
@@ -1552,14 +1553,14 @@ void CModTreeBar::StartTreeFilter(CModTree &source)
 	{
 		mfcless::Rect rect;
 		GetClientRect(rect);
-		rect.bottom = HighDPISupport::ScalePixels(20, m_hWnd);
+		rect.bottom = HighDPISupport::ScalePixels(20, this);
 
 		m_pModTree->GetItemRect(m_pModTree->GetFirstVisibleItem(), rect, false);
 		m_filterEdit->Create(WS_VISIBLE | WS_CHILD | WS_BORDER | WS_TABSTOP | ES_LEFT | ES_AUTOHSCROLL, rect, this, IDC_EDIT1);
 		m_filterEdit->SetFont(GetFont());
 	} else if(m_filterSource != &source)
 	{
-		m_filterEdit->SetWindowText(U_(""));
+		mfcless::SetWindowText(m_filterEdit, UL_(""));
 	}
 	m_filterEdit->setFocus();
 	m_filterSource = &source;
@@ -1573,7 +1574,7 @@ void CModTreeBar::OnFilterChanged()
 		return;
 
 	mpt::ustring filter;
-	m_filterEdit->GetWindowText(filter);
+	mfcless::GetWindowText(m_filterEdit, filter);
 	if(filter.GetLength() < 1 || filter.GetLength() > 2)
 	{
 		CancelTimer();
@@ -1594,7 +1595,7 @@ void CModTreeBar::OnTimer(uintptr_t id)
 	if(m_filterSource)
 	{
 		mpt::ustring filter;
-		m_filterEdit->GetWindowText(filter);
+		mfcless::GetWindowText(m_filterEdit, filter);
 		m_filterSource->SetInstrumentLibraryFilter(mpt::ToUnicode(filter));
 	}
 	CancelTimer();
@@ -1603,7 +1604,7 @@ void CModTreeBar::OnTimer(uintptr_t id)
 
 void CModTreeBar::OnFilterLostFocus()
 {
-	if(m_filterEdit && !m_filterEdit->GetWindowTextLength())
+	if(m_filterEdit && !mfcless::GetWindowTextLength(m_filterEdit))
 		CloseTreeFilter();
 }
 
@@ -1614,7 +1615,7 @@ void CModTreeBar::CloseTreeFilter()
 	if(m_filterSource)
 	{
 		m_filterSource->SetInstrumentLibraryFilter({});
-		if(GetFocus() == &m_filterEdit)
+		if(mfcless::GetFocus() == &m_filterEdit)
 			m_filterSource->SetFocus();
 		m_filterSource = nullptr;
 	}

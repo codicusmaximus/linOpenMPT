@@ -10,6 +10,7 @@
 
 
 #include "IPCWindow.h"
+#include "mfcless/Widgets.h"
 #include "Mainfrm.h"
 #include "ModDocTemplate.h"
 #include "Mptrack.h"
@@ -23,7 +24,7 @@ OPENMPT_NAMESPACE_BEGIN
 namespace IPCWindow
 {
 
-	static constexpr mpt::uchar ClassName[] = U_("OpenMPT_IPC_Wnd");
+	static constexpr mpt::uchar ClassName[] = UL_("OpenMPT_IPC_Wnd");
 	static QWidget * ipcWindow = nullptr;
 
 	static intptr_t CALLBACK IPCWindowProc(QWidget * hwnd, uint32 uMsg, uintptr_t wParam, intptr_t lParam)
@@ -39,7 +40,7 @@ namespace IPCWindow
 					std::size_t count = copyData.cbData / sizeof(WCHAR);
 					const WCHAR* data = static_cast<const WCHAR *>(copyData.lpData);
 					const std::wstring name = std::wstring(data, data + count);
-					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).ToCString()) ? 1 : 2;
+					result = theApp.OpenDocumentFile(mpt::PathString::FromWide(name).ToUnicode()) ? 1 : 2;
 				}
 				break;
 			case Function::SetWindowForeground:
@@ -49,7 +50,7 @@ namespace IPCWindow
 					{
 						if(mainWnd->IsIconic())
 						{
-							mainWnd->ShowWindow(SW_RESTORE);
+							mainWnd->ShowWindow(mfcless::show::Restore);
 						}
 						mainWnd->SetForegroundWindow();
 						result = 1;
@@ -121,7 +122,7 @@ namespace IPCWindow
 			ClassName
 		};
 		auto ipcAtom = RegisterClass(&ipcWindowClass);
-		ipcWindow = CreateWindow(MAKEINTATOM(ipcAtom), U_("OpenMPT IPC Window"), 0, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, 0);
+		ipcWindow = CreateWindow(MAKEINTATOM(ipcAtom), UL_("OpenMPT IPC Window"), 0, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, 0);
 	}
 
 	void Close()

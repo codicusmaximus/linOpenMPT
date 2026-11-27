@@ -11,6 +11,7 @@
 
 
 #include "Ctrl_pat.h"
+#include "mfcless/Widgets.h"
 #include "ChannelManagerDlg.h"
 #include "Childfrm.h"
 #include "Globals.h"
@@ -116,8 +117,8 @@ CCtrlPatterns::CCtrlPatterns(CModControlView &parent, CModDoc &document)
 	: CModControlDlg{parent, document}
 	, m_OrderList{*this, document}
 {
-	m_BtnPrev->SetAccessibleText(U_("Select Previous Order"));
-	m_BtnNext->SetAccessibleText(U_("Select Next Order"));
+	m_BtnPrev->SetAccessibleText(UL_("Select Previous Order"));
+	m_BtnNext->SetAccessibleText(UL_("Select Next Order"));
 	m_bVUMeters = TrackerSettings::Instance().gbPatternVUMeters;
 	m_bPluginNames = TrackerSettings::Instance().gbPatternPluginNames;
 	m_bRecord = TrackerSettings::Instance().gbPatternRecord;
@@ -138,7 +139,7 @@ bool CCtrlPatterns::OnInitDialog()
 	const int cyHScroll = HighDPISupport::GetSystemMetrics(SM_CYHSCROLL, GetDPI());
 	m_BtnNext->GetWindowRect(&rect);
 	ScreenToClient(&rect);
-	auto margins = HighDPISupport::ScalePixels(4, m_hWnd);
+	auto margins = HighDPISupport::ScalePixels(4, this);
 	rcOrderList.left = rect.right + margins;
 	rcOrderList.top = rect.top;
 	rcOrderList.bottom = rect.bottom + cyHScroll;
@@ -214,7 +215,7 @@ Setting<int32> &CCtrlPatterns::GetSplitPosRef() { return TrackerSettings::Instan
 void CCtrlPatterns::RecalcLayout()
 {
 	// Update Order List Position
-	if(m_OrderList->m_hWnd)
+	if(m_OrderList)
 	{
 		mfcless::Rect rect;
 		int cx, cy, cellcx;
@@ -231,7 +232,7 @@ void CCtrlPatterns::RecalcLayout()
 		cx += 2;
 		if((cx > 0) && (cy > 0))
 		{
-			m_OrderList->SetWindowPos(nullptr, 0, 0, cx, cy, SWP_NOMOVE | SWP_NOZORDER | SWP_DRAWFRAME);
+			m_OrderList->SetWindowPos(nullptr, 0, 0, cx, cy, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::FrameChanged);
 		}
 	}
 }
@@ -309,11 +310,11 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 		mpt::ustring s;
 		if(updateAll || updateSmpNames || updateInsNames)
 		{
-			constexpr mpt::uchar szSplitFormat[] = U_("%02u %s %02u: %s/%s");
+			constexpr mpt::uchar szSplitFormat[] = UL_("%02u %s %02u: %s/%s");
 			uint32 nPos = 0;
 			m_CbnInstrument->setUpdatesEnabled(false);
 			m_CbnInstrument->clear();
-			mfcless::SetItemData(m_CbnInstrument, mfcless::AddItem(m_CbnInstrument, U_(" No Instrument")), 0);
+			mfcless::SetItemData(m_CbnInstrument, mfcless::AddItem(m_CbnInstrument, UL_(" No Instrument")), 0);
 			const INSTRUMENTINDEX nSplitIns = m_modDoc.GetSplitKeyboardSettings().splitInstrument;
 			const ModCommand::NOTE noteSplit = 1 + m_modDoc.GetSplitKeyboardSettings().splitNote;
 			const mpt::ustring sSplitInsName = m_modDoc.GetPatternViewInstrumentName(nSplitIns, true, false);
@@ -330,10 +331,10 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 					{
 						s.Format(szSplitFormat,
 							nSplitIns,
-							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).GetString(),
+							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).c_str(),
 							i,
-							sSplitInsName.GetString(),
-							m_modDoc.GetPatternViewInstrumentName(i, true, false).GetString());
+							sSplitInsName.c_str(),
+							m_modDoc.GetPatternViewInstrumentName(i, true, false).c_str());
 						sDisplayName = s;
 					}
 					else
@@ -352,14 +353,14 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 					if (m_modDoc.GetSplitKeyboardSettings().IsSplitActive())
 						s.Format(szSplitFormat,
 							nSplitIns,
-							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).GetString(),
+							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).c_str(),
 							i,
-							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[nSplitIns]).GetString(),
-							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[i]).GetString());
+							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[nSplitIns]).c_str(),
+							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[i]).c_str());
 					else
-						s.Format(U_("%02u: %s"),
+						s = mfcless::PrintF(UL_("%02u: %s"),
 							i,
-							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[i]).GetString());
+							mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_szNames[i]).c_str());
 
 					uint32 n = mfcless::AddItem(m_CbnInstrument, s);
 					if(n == m_nInstrument) nPos = n;
@@ -381,7 +382,7 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 				nPat = (PATTERNINDEX)SendViewMessage(VIEWMSG_GETCURRENTPATTERN);
 			if(m_sndFile.Patterns.IsValidIndex(nPat))
 			{
-				m_EditPatName->SetWindowText(mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.Patterns[nPat].GetName()));
+				mfcless::SetWindowText(m_EditPatName, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.Patterns[nPat].GetName()));
 			}
 
 			bool bXMIT = (m_sndFile.GetType() & (MOD_TYPE_XM | MOD_TYPE_IT | MOD_TYPE_MPT)) ? true : false;
@@ -718,7 +719,7 @@ void CCtrlPatterns::OnKeyDown(uint32 nChar, uint32 nRepCnt, uint32 nFlags)
 
 void CCtrlPatterns::OnSpacingChanged()
 {
-	if((m_EditSpacing->m_hWnd) && (m_EditSpacing->GetWindowTextLength() > 0))
+	if((m_EditSpacing) && (mfcless::GetWindowTextLength(m_EditSpacing) > 0))
 	{
 		TrackerSettings::Instance().gnPatternSpacing = GetItemInt(IDC_EDIT_SPACING);
 		if(TrackerSettings::Instance().gnPatternSpacing > MAX_SPACING)
@@ -748,7 +749,7 @@ void CCtrlPatterns::OnInstrumentChanged()
 			m_instrDropdownOpen = false;
 			SwitchToView();
 		}
-		::EnableWindow(::GetDlgItem(m_hWnd, IDC_PATINSTROPLUGGUI), HasValidPlug(m_nInstrument));
+		::EnableWindow(::GetDlgItem(this, IDC_PATINSTROPLUGGUI), HasValidPlug(m_nInstrument));
 	}
 }
 
@@ -942,7 +943,7 @@ void CCtrlPatterns::OnPatternMerge()
 	}
 	if(!numRows || !numOrders)
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		SwitchToViewIfMouse();
 		return;
 	}
@@ -977,7 +978,7 @@ void CCtrlPatterns::OnPatternMerge()
 	ROWINDEX patternSize = minRows;
 	if(minRows != specs.patternRowsMax)
 	{
-		CInputDlg dlg(this, U_("New pattern length:"), static_cast<int32>(minRows), static_cast<int32>(specs.patternRowsMax), static_cast<int32>(std::clamp(numRows, minRows, specs.patternRowsMax)));
+		CInputDlg dlg(this, UL_("New pattern length:"), static_cast<int32>(minRows), static_cast<int32>(specs.patternRowsMax), static_cast<int32>(std::clamp(numRows, minRows, specs.patternRowsMax)));
 		if(dlg.DoModal() != IDOK)
 		{
 			SwitchToViewIfMouse();
@@ -987,7 +988,7 @@ void CCtrlPatterns::OnPatternMerge()
 	}
 	if(minPatternSize == maxPatternSize && minPatternSize == patternSize)
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		SwitchToViewIfMouse();
 		return;
 	}
@@ -1216,7 +1217,7 @@ void CCtrlPatterns::OnPatternNameChanged()
 		const PATTERNINDEX nPat = (PATTERNINDEX)SendViewMessage(VIEWMSG_GETCURRENTPATTERN);
 
 		mpt::ustring tmp;
-		m_EditPatName->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditPatName, tmp);
 		const std::string s = mpt::ToCharset(m_sndFile.GetCharsetInternal(), tmp);
 
 		if(m_sndFile.Patterns[nPat].GetName() != s)
@@ -1260,7 +1261,7 @@ void CCtrlPatterns::OnTbnDropDownToolBar()
 	CInputHandler *ih = CMainFrame::GetInputHandler();
 	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
 	ClientToScreen(&(pToolBar->rcButton));
-	const int offset = HighDPISupport::ScalePixels(4, m_hWnd);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
+	const int offset = HighDPISupport::ScalePixels(4, this);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
 	int x = pToolBar->rcButton.left + offset, y = pToolBar->rcButton.bottom + offset;
 	const auto visibleColumns = std::bitset<PatternCursor::numColumns>{static_cast<unsigned long>(SendViewMessage(VIEWMSG_GETDETAIL))};
 	mfcless::Menu menu;
@@ -1268,23 +1269,23 @@ void CCtrlPatterns::OnTbnDropDownToolBar()
 	{
 	case IDC_PATTERN_NEW:
 		menu.CreatePopupMenu();
-		menu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, U_("&Duplicate Pattern")));
+		menu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, UL_("&Duplicate Pattern")));
 		menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, x, y, this);
 		menu.DestroyMenu();
 		break;
 
 	case IDC_METRONOME:
 		menu.CreatePopupMenu();
-		menu.AppendMenu(mfcless::menu::String, ID_METRONOME_SETTINGS, U_("&Metronome Settings"));
+		menu.AppendMenu(mfcless::menu::String, ID_METRONOME_SETTINGS, UL_("&Metronome Settings"));
 		menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, x, y, this);
 		menu.DestroyMenu();
 		break;
 
 	case ID_PATTERNDETAIL_DROPDOWN:
 		menu.CreatePopupMenu();
-		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::instrColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_INSTR, ih->GetKeyTextFromCommand(kcToggleVisibilityInstrColumn, U_("Show &Instrument Column")));
-		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::volumeColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_VOLUME, ih->GetKeyTextFromCommand(kcToggleVisibilityVolumeColumn, U_("Show &Volume Column")));
-		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::effectColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_EFFECT, ih->GetKeyTextFromCommand(kcToggleVisibilityEffectColumn, U_("Show &Effect Column")));
+		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::instrColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_INSTR, ih->GetKeyTextFromCommand(kcToggleVisibilityInstrColumn, UL_("Show &Instrument Column")));
+		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::volumeColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_VOLUME, ih->GetKeyTextFromCommand(kcToggleVisibilityVolumeColumn, UL_("Show &Volume Column")));
+		menu.AppendMenu(mfcless::menu::String | (visibleColumns[PatternCursor::effectColumn] ? mfcless::menu::Checked : 0), ID_PATTERNDETAIL_EFFECT, ih->GetKeyTextFromCommand(kcToggleVisibilityEffectColumn, UL_("Show &Effect Column")));
 		menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, x, y, this);
 		menu.DestroyMenu();
 		break;
@@ -1373,41 +1374,41 @@ mpt::ustring CCtrlPatterns::GetToolTipText(uint32 id, QWidget *) const
 	CommandID cmd = kcNull;
 	switch(id)
 	{
-	case IDC_PATTERN_NEW: s = U_("Insert Pattern"); cmd = kcNewPattern; break;
-	case IDC_PATTERN_PLAY: s = U_("Play Pattern (Shift-click to play song from cursor)"); cmd = kcPlayPatternFromCursor; break;
-	case IDC_PATTERN_PLAYFROMSTART: s = U_("Replay Pattern (Shift-click to play song from start of pattern)"); cmd = kcPlayPatternFromStart; break;
-	case IDC_PATTERN_STOP: s = U_("Stop"); cmd = kcPauseSong; break;
-	case ID_PATTERN_PLAYROW: s = U_("Play Row"); cmd = kcPatternPlayRow; break;
-	case IDC_PATTERN_RECORD: s = U_("Record"); cmd = kcPatternRecord; break;
-	case IDC_METRONOME: s = U_("Metronome"); cmd = kcToggleMetronome; break;
-	case ID_PATTERN_VUMETERS: s = U_("VU-Meters"); break;
-	case ID_VIEWPLUGNAMES: s = U_("Show Plugins"); break;
-	case ID_PATTERN_CHANNELMANAGER: s = U_("Channel Manager"); cmd = kcViewChannelManager; break;
-	case ID_PATTERN_MIDIMACRO: s = U_("Zxx Macro Configuration"); cmd = kcShowMacroConfig; break;
-	case ID_PATTERN_CHORDEDIT: s = U_("Chord Editor"); cmd = kcChordEditor; break;
+	case IDC_PATTERN_NEW: s = UL_("Insert Pattern"); cmd = kcNewPattern; break;
+	case IDC_PATTERN_PLAY: s = UL_("Play Pattern (Shift-click to play song from cursor)"); cmd = kcPlayPatternFromCursor; break;
+	case IDC_PATTERN_PLAYFROMSTART: s = UL_("Replay Pattern (Shift-click to play song from start of pattern)"); cmd = kcPlayPatternFromStart; break;
+	case IDC_PATTERN_STOP: s = UL_("Stop"); cmd = kcPauseSong; break;
+	case ID_PATTERN_PLAYROW: s = UL_("Play Row"); cmd = kcPatternPlayRow; break;
+	case IDC_PATTERN_RECORD: s = UL_("Record"); cmd = kcPatternRecord; break;
+	case IDC_METRONOME: s = UL_("Metronome"); cmd = kcToggleMetronome; break;
+	case ID_PATTERN_VUMETERS: s = UL_("VU-Meters"); break;
+	case ID_VIEWPLUGNAMES: s = UL_("Show Plugins"); break;
+	case ID_PATTERN_CHANNELMANAGER: s = UL_("Channel Manager"); cmd = kcViewChannelManager; break;
+	case ID_PATTERN_MIDIMACRO: s = UL_("Zxx Macro Configuration"); cmd = kcShowMacroConfig; break;
+	case ID_PATTERN_CHORDEDIT: s = UL_("Chord Editor"); cmd = kcChordEditor; break;
 	case ID_EDIT_UNDO:
-		s = U_("Undo");
+		s = UL_("Undo");
 		if(m_modDoc.GetPatternUndo().CanUndo())
-			s += U_(" ") + m_modDoc.GetPatternUndo().GetUndoName();
+			s += UL_(" ") + m_modDoc.GetPatternUndo().GetUndoName();
 		cmd = kcEditUndo;
 		break;
-	case ID_PATTERN_PROPERTIES: s = U_("Pattern Properties"); cmd = kcShowPatternProperties; break;
-	case ID_PATTERN_EXPAND: s = U_("Expand Pattern"); cmd = kcPatternExpand; break;
-	case ID_PATTERN_SHRINK: s = U_("Shrink Pattern"); cmd = kcPatternShrink; break;
-	case ID_PATTERNDETAIL_DROPDOWN: s = U_("Change Pattern Detail Level"); break;
-	case ID_OVERFLOWPASTE: s = U_("Toggle Overflow Paste"); cmd = kcToggleOverflowPaste; break;
-	case IDC_PATTERN_LOOP: s = U_("Toggle Loop Pattern"); cmd = kcChangeLoopStatus; break;
-	case IDC_PATTERN_FOLLOWSONG: s = U_("Toggle Follow Song"); cmd = kcToggleFollowSong; break;
+	case ID_PATTERN_PROPERTIES: s = UL_("Pattern Properties"); cmd = kcShowPatternProperties; break;
+	case ID_PATTERN_EXPAND: s = UL_("Expand Pattern"); cmd = kcPatternExpand; break;
+	case ID_PATTERN_SHRINK: s = UL_("Shrink Pattern"); cmd = kcPatternShrink; break;
+	case ID_PATTERNDETAIL_DROPDOWN: s = UL_("Change Pattern Detail Level"); break;
+	case ID_OVERFLOWPASTE: s = UL_("Toggle Overflow Paste"); cmd = kcToggleOverflowPaste; break;
+	case IDC_PATTERN_LOOP: s = UL_("Toggle Loop Pattern"); cmd = kcChangeLoopStatus; break;
+	case IDC_PATTERN_FOLLOWSONG: s = UL_("Toggle Follow Song"); cmd = kcToggleFollowSong; break;
 
 	case IDC_SPIN_SEQNUM:
 	case IDC_EDIT_SEQNUM:
 	case IDC_EDIT_SEQUENCE_NAME:
 		if(!GetDlgItem(id)->IsWindowEnabled())
-			s = U_("Multiple sequences are only supported in the MPTM format.");
+			s = UL_("Multiple sequences are only supported in the MPTM format.");
 		break;
 
-	case IDC_BUTTON1: s = U_("Next Pattern"); cmd = kcNextOrder; break;
-	case IDC_BUTTON2: s = U_("Previous Pattern"); cmd = kcPrevOrder; break;
+	case IDC_BUTTON1: s = UL_("Next Pattern"); cmd = kcNextOrder; break;
+	case IDC_BUTTON2: s = UL_("Previous Pattern"); cmd = kcPrevOrder; break;
 	}
 
 	if(cmd != kcNull)
@@ -1422,7 +1423,7 @@ mpt::ustring CCtrlPatterns::GetToolTipText(uint32 id, QWidget *) const
 
 void CCtrlPatterns::OnSequenceNumChanged()
 {
-	if((m_EditSequence->m_hWnd) && (m_EditSequence->GetWindowTextLength() > 0))
+	if((m_EditSequence) && (mfcless::GetWindowTextLength(m_EditSequence) > 0))
 	{
 		SEQUENCEINDEX newSeq = static_cast<SEQUENCEINDEX>(GetItemInt(IDC_EDIT_SEQNUM) - 1);
 

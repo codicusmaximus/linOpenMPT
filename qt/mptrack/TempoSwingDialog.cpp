@@ -10,6 +10,7 @@
 
 
 #include "TempoSwingDialog.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mainfrm.h"
 #include "resource.h"
@@ -128,7 +129,7 @@ bool CTempoSwingDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 	
-	TempoSwingMeasurements m{m_hWnd};
+	TempoSwingMeasurements m{this};
 	mfcless::Rect windowRect, rect;
 	GetWindowRect(windowRect);
 	GetClientRect(rect);
@@ -143,7 +144,7 @@ bool CTempoSwingDlg::OnInitDialog()
 	mfcless::Rect containerRect;
 	m_container.GetClientRect(containerRect);
 	containerRect.bottom = displayHeight;
-	m_container.SetWindowPos(nullptr, 0, m.paddingTop, rect.right - m.scrollbarWidth, containerRect.bottom, SWP_NOZORDER);
+	m_container.SetWindowPos(nullptr, 0, m.paddingTop, rect.right - m.scrollbarWidth, containerRect.bottom, mfcless::swp::NoZOrder);
 	m_container.ModifyStyleEx(0, WS_EX_CONTROLPARENT, 0);
 
 	// Need scrollbar?
@@ -160,7 +161,7 @@ bool CTempoSwingDlg::OnInitDialog()
 
 		mfcless::Rect scrollRect;
 		m_scrollBar->GetClientRect(scrollRect);
-		m_scrollBar->SetWindowPos(nullptr, containerRect.right, m.paddingTop, scrollRect.Width(), displayHeight, SWP_NOZORDER);
+		m_scrollBar->SetWindowPos(nullptr, containerRect.right, m.paddingTop, scrollRect.Width(), displayHeight, mfcless::swp::NoZOrder);
 	} else
 	{
 		m_scrollBar->setVisible(false);
@@ -168,7 +169,7 @@ bool CTempoSwingDlg::OnInitDialog()
 
 	rect.DeflateRect(m.paddingX, 0, m.paddingX + m.scrollbarWidth, 0);
 
-	ShowItem(IDC_BUTTON2, (m_pattern != PATTERNINDEX_INVALID) ? true : false);
+	ShowItem(IDC_BUTTON2, (m_pattern != PATTERNINDEX_INVALID) ? mfcless::show::Show : mfcless::show::Hide);
 
 	m_controls.resize(m_tempoSwing.size());
 	QFont *font = GetFont();
@@ -181,7 +182,7 @@ bool CTempoSwingDlg::OnInitDialog()
 		r->rowLabel.SetFont(font);
 
 		// Value label
-		r->valueLabel.Create(U_("100%"), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, m.ValueLabelRect(rect), &m_container);
+		r->valueLabel.Create(UL_("100%"), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, m.ValueLabelRect(rect), &m_container);
 		r->valueLabel.SetFont(font);
 
 		// Value slider
@@ -210,12 +211,12 @@ bool CTempoSwingDlg::OnInitDialog()
 		{
 			auto wnd = GetDlgItem(i);
 			wnd->GetWindowRect(buttonRect);
-			wnd->SetWindowPos(nullptr, buttonRect.left - windowRect.left - cxEdge, rect.top, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
+			wnd->SetWindowPos(nullptr, buttonRect.left - windowRect.left - cxEdge, rect.top, 0, 0, mfcless::swp::NoSize | mfcless::swp::NoActivate | mfcless::swp::NoZOrder);
 		}
 	}
 
 	windowRect.bottom += displayHeight + m.paddingTop + m.footerHeight;
-	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
+	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoMove | mfcless::swp::NoActivate | mfcless::swp::NoZOrder);
 
 	return true;
 }
@@ -226,7 +227,7 @@ void CTempoSwingDlg::OnDPIChanged()
 	DialogBase::OnDPIChanged();
 
 	// For some reason, these controls are not sized automatically and lose their intended font because they are parented in the static text field...
-	TempoSwingMeasurements m{m_hWnd};
+	TempoSwingMeasurements m{this};
 	QFont *font = GetFont();
 	auto dwp = ::BeginDeferWindowPos(static_cast<int>(m_controls.size() * 3));
 	mfcless::Rect rect;
@@ -241,9 +242,9 @@ void CTempoSwingDlg::OnDPIChanged()
 		const mfcless::Rect rowLabelRect = m.RowLabelRect(rect);
 		const mfcless::Rect valueLabelRect = m.ValueLabelRect(rect);
 		const mfcless::Rect valueSliderRect = m.ValueSliderRect(rect);
-		::DeferWindowPos(dwp, r->rowLabel, nullptr, rowLabelRect.left, rowLabelRect.top, rowLabelRect.Width(), rowLabelRect.Height(), SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOCOPYBITS);
-		::DeferWindowPos(dwp, r->valueLabel, nullptr, valueLabelRect.left, valueLabelRect.top, valueLabelRect.Width(), valueLabelRect.Height(), SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOCOPYBITS);
-		::DeferWindowPos(dwp, r->valueSlider, nullptr, valueSliderRect.left, valueSliderRect.top, valueSliderRect.Width(), valueSliderRect.Height(), SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOCOPYBITS);
+		::DeferWindowPos(dwp, r->rowLabel, nullptr, rowLabelRect.left, rowLabelRect.top, rowLabelRect.Width(), rowLabelRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
+		::DeferWindowPos(dwp, r->valueLabel, nullptr, valueLabelRect.left, valueLabelRect.top, valueLabelRect.Width(), valueLabelRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
+		::DeferWindowPos(dwp, r->valueSlider, nullptr, valueSliderRect.left, valueSliderRect.top, valueSliderRect.Width(), valueSliderRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
 		rect.MoveToY(rect.top + m.rowHeight);
 	}
 	::EndDeferWindowPos(dwp);
@@ -423,7 +424,7 @@ void CTempoSwingDlg::SliderContainer::OnHScroll(uint32 nSBCode, uint32 nPos, CSc
 		int editedValue = reinterpret_cast<CSliderCtrl *>(pScrollBar)->GetPos();
 		for(size_t i = 0; i < m_parent.m_controls.size(); i++)
 		{
-			if(m_parent.m_controls[i]->valueSlider.m_hWnd == pScrollBar->m_hWnd)
+			if(m_parent.m_controls[i]->valueSlider.m_hWnd == pScrollBar)
 			{
 				editedGroup = (i / m_parent.m_groupSize) % 2u;
 				break;
@@ -455,7 +456,7 @@ void CTempoSwingDlg::SliderContainer::OnHScroll(uint32 nSBCode, uint32 nPos, CSc
 	for(size_t i = 0; i < m_parent.m_tempoSwing.size(); i++)
 	{
 		mpt::uchar s[32];
-		wsprintf(s, U_("%i%%"), Util::muldivr(m_parent.m_tempoSwing[i], 100, TempoSwing::Unity));
+		wsprintf(s, UL_("%i%%"), Util::muldivr(m_parent.m_tempoSwing[i], 100, TempoSwing::Unity));
 		m_parent.m_controls[i]->valueLabel.SetWindowText(s);
 	}
 
@@ -472,7 +473,7 @@ bool CTempoSwingDlg::SliderContainer::OnToolTipNotify(uint32 )
 	if(slider != nullptr)
 	{
 		int32 val = Util::muldivr(m_parent.m_tempoSwing[GetWindowLongPtr(*slider, GWLP_USERDATA)], 100, TempoSwing::Unity) - 100;
-		wsprintf(pTTT->szText, U_("%s%d"), val > 0 ? U_("+") : U_(""), val);
+		wsprintf(pTTT->szText, UL_("%s%d"), val > 0 ? UL_("+") : UL_(""), val);
 		return true;
 	}
 	return false;

@@ -11,6 +11,7 @@
 
 
 #include "PatternEditorDialogs.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "HighDPISupport.h"
 #include "InputHandler.h"
@@ -175,7 +176,7 @@ bool CPatternPropertiesDlg::OnInitDialog()
 		mfcless::AddItem(m_numRows, mpt::ufmt::dec(irow));
 	}
 	m_numRows->setUpdatesEnabled(true);
-	GotoDlgCtrl(m_numRows);
+	mfcless::GotoDlgCtrl(m_numRows);
 	m_spinRPB->SetRange(1, MAX_ROWS_PER_BEAT);
 	m_spinRPM->SetRange(1, MAX_ROWS_PER_MEASURE);
 	m_spinPattern->SetRange(-1, 1);
@@ -215,9 +216,9 @@ void CPatternPropertiesDlg::SetCurrentPattern(PATTERNINDEX pat)
 		mpt::ustring s = MPT_UFORMAT("Pattern Properties for Pattern #{}")(m_nPattern);
 		if(!patternName.IsEmpty())
 		{
-			s += U_(" (");
+			s += UL_(" (");
 			s += patternName;
-			s += U_(")");
+			s += UL_(")");
 		}
 		SetWindowText(s);
 
@@ -236,7 +237,7 @@ void CPatternPropertiesDlg::SetCurrentPattern(PATTERNINDEX pat)
 		OnOverrideSignature();
 	} else
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 	}
 }
 
@@ -275,7 +276,7 @@ bool CPatternPropertiesDlg::ValidatePatternProperties()
 		Reporting::Error("Invalid time signature!", "Pattern Properties");
 		SetCurrentPattern(m_nPattern);
 		SetItemInt(IDC_EDIT1, m_nPattern);
-		GotoDlgCtrl(GetDlgItem(IDC_ROWSPERBEAT));
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_ROWSPERBEAT));
 		return false;
 	}
 
@@ -297,7 +298,7 @@ bool CPatternPropertiesDlg::ValidatePatternProperties()
 				{
 					SetCurrentPattern(m_nPattern);
 					SetItemInt(IDC_EDIT1, m_nPattern);
-					GotoDlgCtrl(m_numRows);
+					mfcless::GotoDlgCtrl(m_numRows);
 					return false;
 				}
 				break;
@@ -476,7 +477,7 @@ void CPatternPropertiesDlg::OnOK()
 		if(resize)
 		{
 			const bool copyContents = (newSize > oldSize) && prop.repeatContents;
-			m_modDoc.BeginWaitCursor();
+			m_modDoc.mfcless::BeginWaitCursor();
 			m_modDoc.GetPatternUndo().PrepareUndo(m_nPattern, 0, 0, sndFile.Patterns[m_nPattern].GetNumChannels(), oldSize, "Resize");
 			if(sndFile.Patterns[m_nPattern].Resize(newSize, true, resizeAtEnd))
 			{
@@ -496,7 +497,7 @@ void CPatternPropertiesDlg::OnOK()
 				}
 				updateHint.Data();
 			}
-			m_modDoc.EndWaitCursor();
+			m_modDoc.mfcless::EndWaitCursor();
 		}
 		if(pattern.GetName() != prop.name)
 		{
@@ -627,8 +628,8 @@ bool CEditCommand::ShowEditWindow(PATTERNINDEX pat, const PatternCursor &cursor,
 	SetWindowPos(CMainFrame::GetMainFrame(),
 		rectParent.left + (rectParent.Width() - rectWnd.right) / 2,
 		rectParent.top + (rectParent.Height() - rectWnd.bottom) / 2,
-		-1, -1, SWP_NOSIZE | SWP_NOACTIVATE);
-	ShowWindow(SW_RESTORE);
+		-1, -1, mfcless::swp::NoSize | mfcless::swp::NoActivate);
+	ShowWindow(mfcless::show::Restore);
 	return true;
 }
 
@@ -640,7 +641,7 @@ void CEditCommand::InitNote()
 	if(oldSpecs != &sndFile.GetModSpecifications())
 	{
 		cbnNote.ResetContent();
-		cbnNote.SetItemData(cbnNote.AddString(U_("No Note")), 0);
+		cbnNote.SetItemData(cbnNote.AddString(UL_("No Note")), 0);
 		AppendNotesToControlEx(cbnNote, sndFile, m->instr);
 		oldSpecs = &sndFile.GetModSpecifications();
 	}
@@ -678,11 +679,11 @@ void CEditCommand::InitNote()
 	} else
 	{
 		// instrument / sample
-		cbnInstr.SetItemData(cbnInstr.AddString(U_("No Instrument")), 0);
+		cbnInstr.SetItemData(cbnInstr.AddString(UL_("No Instrument")), 0);
 		const uint32 nmax = sndFile.GetNumInstruments() ? sndFile.GetNumInstruments() : sndFile.GetNumSamples();
 		for(uint32 i = 1; i <= nmax; i++)
 		{
-			mpt::ustring s = mpt::ufmt::val(i) + U_(": ");
+			mpt::ustring s = mpt::ufmt::val(i) + UL_(": ");
 			// instrument / sample
 			if(sndFile.GetNumInstruments())
 			{
@@ -712,7 +713,7 @@ void CEditCommand::InitVolume()
 		cbnVolCmd.EnableWindow(true);
 		sldVolParam.EnableWindow(true);
 		uint32 count = effectInfo.GetNumVolCmds();
-		cbnVolCmd.SetItemData(cbnVolCmd.AddString(U_(" None")), (uintptr_t)-1);
+		cbnVolCmd.SetItemData(cbnVolCmd.AddString(UL_(" None")), (uintptr_t)-1);
 		cbnVolCmd.SetCurSel(0);
 		uint32 fxndx = effectInfo.GetIndexFromVolCmd(m->volcmd);
 		for(uint32 i = 0; i < count; i++)
@@ -748,7 +749,7 @@ void CEditCommand::InitEffect()
 	cbnCommand.ResetContent();
 	uint32 numfx = effectInfo.GetNumEffects();
 	uint32 fxndx = effectInfo.GetIndexFromEffect(m->command, m->param);
-	cbnCommand.SetItemData(cbnCommand.AddString(U_(" None")), (uintptr_t)-1);
+	cbnCommand.SetItemData(cbnCommand.AddString(UL_(" None")), (uintptr_t)-1);
 	if(m->command == CMD_NONE)
 		cbnCommand.SetCurSel(0);
 
@@ -1001,7 +1002,7 @@ void CEditCommand::UpdateVolCmdValue()
 	{
 		// plugin param control note
 		uint16 plugParam = static_cast<uint16>(sldVolParam.GetPos());
-		s.Format(U_("Value: %u"), plugParam);
+		s = mfcless::PrintF(UL_("Value: %u"), plugParam);
 	} else
 	{
 		// process as effect
@@ -1022,7 +1023,7 @@ void CEditCommand::UpdateEffectValue(bool set)
 	{
 		// plugin param control note
 		newPlugParam = static_cast<uint16>(sldParam.GetPos());
-		s.Format(U_("Value: %u"), newPlugParam);
+		s = mfcless::PrintF(UL_("Value: %u"), newPlugParam);
 	} else
 	{
 		// process as effect
@@ -1140,7 +1141,7 @@ bool CChordEditor::OnInitDialog()
 
 	m_CbnShortcut->setCurrentIndex(0);
 	// Base Note combo box
-	mfcless::SetItemData(m_CbnBaseNote, mfcless::AddItem(m_CbnBaseNote, U_("Relative")), MPTChord::relativeMode);
+	mfcless::SetItemData(m_CbnBaseNote, mfcless::AddItem(m_CbnBaseNote, UL_("Relative")), MPTChord::relativeMode);
 	AppendNotesToControl(m_CbnBaseNote, NOTE_MIN, NOTE_MIN + 3 * 12 - 1);
 
 	// Chord Note combo boxes
@@ -1150,16 +1151,16 @@ bool CChordEditor::OnInitDialog()
 		int noteVal = note;
 		if(note == CHORD_MIN - 1)
 		{
-			s = U_("--");
+			s = UL_("--");
 			noteVal = MPTChord::noNote;
 		} else
 		{
 			s = mpt::ToUnicode(CSoundFile::GetDefaultNoteName(mpt::wrapping_modulo(note, 12)));
 			const int octave = mpt::wrapping_divide(note, 12);
 			if(octave > 0)
-				s.AppendFormat(U_(" (+%d)"), octave);
+				s += mfcless::PrintF(UL_(" (+%d)"), octave);
 			else if(octave < 0)
-				s.AppendFormat(U_(" (%d)"), octave);
+				s += mfcless::PrintF(UL_(" (%d)"), octave);
 		}
 		for(auto &combo : m_CbnNote)
 			combo.SetItemData(combo.AddString(s), noteVal);
@@ -1386,7 +1387,7 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	m_CbnSplitVolume->InitStorage(numItems, static_cast<uint32>(numItems * 9 * sizeof(mpt::uchar)));
 	for(int i = -SplitKeyboardSettings::splitOctaveRange; i < SplitKeyboardSettings::splitOctaveRange + 1; i++)
 	{
-		s.Format(i < 0 ? U_("Octave -%d") : i > 0 ? U_("Octave +%d") : U_("No Change"), std::abs(i));
+		s.Format(i < 0 ? UL_("Octave -%d") : i > 0 ? UL_("Octave +%d") : UL_("No Change"), std::abs(i));
 		int n = mfcless::AddItem(m_CbnOctaveModifier, s);
 		mfcless::SetItemData(m_CbnOctaveModifier, n, i);
 	}
@@ -1397,11 +1398,11 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	// Volume
 	m_CbnSplitVolume->setUpdatesEnabled(false);
 	m_CbnSplitVolume->InitStorage(65, 65 * 4 * sizeof(mpt::uchar));
-	mfcless::AddItem(m_CbnSplitVolume, U_("No Change"));
+	mfcless::AddItem(m_CbnSplitVolume, UL_("No Change"));
 	mfcless::SetItemData(m_CbnSplitVolume, 0, 0);
 	for(int i = 1; i <= 64; i++)
 	{
-		s.Format(U_("%d"), i);
+		s = mfcless::PrintF(UL_("%d"), i);
 		int n = mfcless::AddItem(m_CbnSplitVolume, s);
 		mfcless::SetItemData(m_CbnSplitVolume, n, i);
 	}
@@ -1412,7 +1413,7 @@ bool CSplitKeyboardSettings::OnInitDialog()
 	m_CbnSplitInstrument->setUpdatesEnabled(false);
 	numItems = 1 + (sndFile.GetNumInstruments() ? sndFile.GetNumInstruments() : sndFile.GetNumSamples());
 	m_CbnSplitInstrument->InitStorage(numItems, static_cast<uint32>(numItems * 16 * sizeof(mpt::uchar)));
-	mfcless::SetItemData(m_CbnSplitInstrument, mfcless::AddItem(m_CbnSplitInstrument, U_("No Change")), 0);
+	mfcless::SetItemData(m_CbnSplitInstrument, mfcless::AddItem(m_CbnSplitInstrument, UL_("No Change")), 0);
 
 	if(sndFile.GetNumInstruments())
 	{
@@ -1431,7 +1432,7 @@ bool CSplitKeyboardSettings::OnInitDialog()
 		{
 			if(sndFile.GetSample(nSmp).HasSampleData())
 			{
-				s.Format(U_("%02d: "), nSmp);
+				s = mfcless::PrintF(UL_("%02d: "), nSmp);
 				s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]);
 				int n = mfcless::AddItem(m_CbnSplitInstrument, s);
 				mfcless::SetItemData(m_CbnSplitInstrument, n, nSmp);
@@ -1522,7 +1523,7 @@ void QuickChannelProperties::OnActivate(uint32 nState, QWidget *, bool)
 // Show channel properties for a given channel at a given screen position.
 void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Point position)
 {
-	if(!m_hWnd)
+	if(!this)
 	{
 		Create(IDD_CHANNELSETTINGS, nullptr);
 		m_colorBtn->SubclassDlgItem(IDC_BUTTON4, this);
@@ -1559,13 +1560,13 @@ void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Po
 	// Volume controls
 	m_volSlider->setEnabled(itOnly);
 	m_volSpin->setEnabled(itOnly);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT1), itOnly);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT1), itOnly);
 
 	// Pan controls
 	m_panSlider->setEnabled(enablePan);
 	m_panSpin->setEnabled(enablePan);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT2), enablePan);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_CHECK2), itOnly);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT2), enablePan);
+	::EnableWindow(::GetDlgItem(this, IDC_CHECK2), itOnly);
 
 	// Channel name
 	m_nameEdit->setEnabled((m_document->GetModType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_XM)) ? true : false);
@@ -1578,7 +1579,7 @@ void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Po
 
 void QuickChannelProperties::UpdateDisplay()
 {
-	const QWidget *oldFocusWnd = GetFocus();
+	const QWidget *oldFocusWnd = mfcless::GetFocus();
 	SetWindowText(MPT_UFORMAT("Settings for Channel {}")(m_channel + 1).c_str());
 
 	// Set up channel properties
@@ -1592,10 +1593,10 @@ void QuickChannelProperties::UpdateDisplay()
 	SetChecked(IDC_CHECK2, (settings.dwFlags[CHN_SURROUND]) ? true : false);
 
 	mpt::uchar description[16];
-	wsprintf(description, U_("Channel %d:"), m_channel + 1);
+	wsprintf(description, UL_("Channel %d:"), m_channel + 1);
 	SetItemText(IDC_STATIC_CHANNEL_NAME, description);
 	m_nameEdit->setMaxLength(MAX_CHANNELNAME - 1);
-	m_nameEdit->SetWindowText(mpt::ToUnicode(m_document->GetSoundFile().GetCharsetInternal(), settings.szName));
+	mfcless::SetWindowText(m_nameEdit, mpt::ToUnicode(m_document->GetSoundFile().GetCharsetInternal(), settings.szName));
 
 	const bool isFirst = (m_channel <= 0), isLast = (m_channel >= m_document->GetNumChannels() - 1);
 
@@ -1610,8 +1611,8 @@ void QuickChannelProperties::UpdateDisplay()
 	m_settingsChanged = false;
 	m_visible = true;
 
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1), isFirst ? false : true);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_BUTTON2), isLast ? false : true);
+	::EnableWindow(::GetDlgItem(this, IDC_BUTTON1), isFirst ? false : true);
+	::EnableWindow(::GetDlgItem(this, IDC_BUTTON2), isLast ? false : true);
 
 	// Avoid focus trap if we just navigated to the first or last channel
 	const int PrevNextButtons[] = {IDC_BUTTON1, IDC_BUTTON2, IDC_BUTTON5, IDC_BUTTON6};
@@ -1685,7 +1686,7 @@ void QuickChannelProperties::OnHScroll(mfcless::ScrollCode code, int pos, QWidge
 	bool update = false;
 
 	// Volume slider
-	if(bar->m_hWnd == m_volSlider->m_hWnd)
+	if(bar == m_volSlider)
 	{
 		uint16 pos = static_cast<uint16>(m_volSlider->value());
 		PrepareUndo();
@@ -1696,7 +1697,7 @@ void QuickChannelProperties::OnHScroll(mfcless::ScrollCode code, int pos, QWidge
 		}
 	}
 	// Pan slider
-	if(bar->m_hWnd == m_panSlider->m_hWnd)
+	if(bar == m_panSlider)
 	{
 		uint16 pos = static_cast<uint16>(m_panSlider->value());
 		PrepareUndo();
@@ -1750,7 +1751,7 @@ void QuickChannelProperties::OnNameChanged()
 
 	ModChannelSettings &settings = m_document->GetSoundFile().ChnSettings[m_channel];
 	mpt::ustring newNameTmp;
-	m_nameEdit->GetWindowText(newNameTmp);
+	mfcless::GetWindowText(m_nameEdit, newNameTmp);
 	std::string newName = mpt::ToCharset(m_document->GetSoundFile().GetCharsetInternal(), newNameTmp);
 
 	if(newName != settings.szName)
@@ -1887,19 +1888,19 @@ mpt::ustring QuickChannelProperties::GetToolTipText(uint32 id, QWidget *) const
 		text = CModDoc::PanningToString(m_document->GetSoundFile().ChnSettings[m_channel].nPan, 128);
 		break;
 	case IDC_BUTTON1:
-		text = U_("Previous Channel");
+		text = UL_("Previous Channel");
 		cmd = kcChnSettingsPrev;
 		break;
 	case IDC_BUTTON2:
-		text = U_("Next Channel");
+		text = UL_("Next Channel");
 		cmd = kcChnSettingsNext;
 		break;
 	case IDC_BUTTON5:
-		text = U_("Take color from previous channel");
+		text = UL_("Take color from previous channel");
 		cmd = kcChnColorFromPrev;
 		break;
 	case IDC_BUTTON6:
-		text = U_("Take color from next channel");
+		text = UL_("Take color from next channel");
 		cmd = kcChnColorFromNext;
 		break;
 	}
@@ -1963,7 +1964,7 @@ void MetronomeSettingsDlg::SetSampleInfo(const mpt::PathString &path, CComboBox 
 	} else
 	{
 		combo.SetCurSel(2);
-		edit.SetWindowText(path.ToCString());
+		mfcless::SetWindowText(edit, path.ToUnicode());
 		enable = true;
 	}
 	edit.EnableWindow(enable);
@@ -1978,7 +1979,7 @@ bool MetronomeSettingsDlg::OnInitDialog()
 	m_volumeSlider->setRange(static_cast<int>(-48 / METRONOME_VOLUME_SCALE), 0, true);
 	m_volumeSlider->setValue(mpt::saturate_round<int>(TrackerSettings::Instance().metronomeVolume / METRONOME_VOLUME_SCALE));
 	m_volumeSlider->setTickInterval(static_cast<int>(3 / METRONOME_VOLUME_SCALE));
-	static const mpt::uchar *Options[] = {U_("Off"), U_("Default (Sine)"), U_("Custom Sample")};
+	static const mpt::uchar *Options[] = {UL_("Off"), UL_("Default (Sine)"), UL_("Custom Sample")};
 	for(const mpt::uchar *option : Options)
 	{
 		mfcless::AddItem(m_measureCombo, option);
@@ -1993,8 +1994,8 @@ bool MetronomeSettingsDlg::OnInitDialog()
 
 mpt::ustring MetronomeSettingsDlg::GetVolumeString() const
 {
-	mpt::ustring s = (m_volumeSlider->value() >= 0) ? U_("+") : U_("");
-	s.AppendFormat(U_("%.2f dB"), m_volumeSlider->value() * METRONOME_VOLUME_SCALE);
+	mpt::ustring s = (m_volumeSlider->value() >= 0) ? UL_("+") : UL_("");
+	s += mfcless::PrintF(UL_("%.2f dB"), m_volumeSlider->value() * METRONOME_VOLUME_SCALE);
 	return s;
 }
 
@@ -2039,8 +2040,8 @@ bool MetronomeSettingsDlg::GetSampleInfo(Setting<mpt::PathString> &path, CComboB
 		}
 		break;
 	case 2:
-		edit.GetWindowText(s);
-		if(auto newPath = mpt::PathString::FromCString(s); path != newPath)
+		mfcless::GetWindowText(edit, s);
+		if(auto newPath = mpt::PathString::FromUnicode(s); path != newPath)
 		{
 			path = newPath;
 			modified = true;
@@ -2084,7 +2085,7 @@ void MetronomeSettingsDlg::OnBrowseMeasure()
 	auto newPath = BrowseForSample(TrackerSettings::Instance().metronomeSampleMeasure);
 	if(newPath.empty())
 		return;
-	m_measureEdit->SetWindowText(newPath.ToCString());
+	mfcless::SetWindowText(m_measureEdit, newPath.ToUnicode());
 	OnSampleChanged();
 }
 
@@ -2094,7 +2095,7 @@ void MetronomeSettingsDlg::OnBrowseBeat()
 	auto newPath = BrowseForSample(TrackerSettings::Instance().metronomeSampleBeat);
 	if(newPath.empty())
 		return;
-	m_beatEdit->SetWindowText(newPath.ToCString());
+	mfcless::SetWindowText(m_beatEdit, newPath.ToUnicode());
 	OnSampleChanged();
 }
 

@@ -346,6 +346,8 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		if(!c) break;
 		const uint32_t type = s & 0x3;  // CBS_SIMPLE 1, CBS_DROPDOWN 2, CBS_DROPDOWNLIST 3
 		c->setEditable(type != 3);
+		c->setInsertPolicy(QComboBox::NoInsert);
+		c->setProperty("mfclessSorted", (s & 0x100) != 0);  // CBS_SORT
 		c->setMaxVisibleItems(20);
 		w = c;
 		break;

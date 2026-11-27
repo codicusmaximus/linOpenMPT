@@ -10,6 +10,7 @@
 
 
 #include "PlugNotFoundDlg.h"
+#include "mfcless/Widgets.h"
 #include "../soundlib/plugins/PluginManager.h"
 #include "Mptrack.h"
 #include "resource.h"
@@ -44,18 +45,18 @@ bool PlugNotFoundDialog::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{ U_("Plugin"),		128, LVCFMT_LEFT },
-		{ U_("File Path"),	308, LVCFMT_LEFT },
+		{ UL_("Plugin"),		128, LVCFMT_LEFT },
+		{ UL_("File Path"),	308, LVCFMT_LEFT },
 	};
 	m_List->SetHeaders(headers);
 	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 
 	for(const auto &plug : m_plugins)
 	{
-		const int insertAt = m_List->InsertItem(m_List->GetItemCount(), plug->libraryName.ToCString());
+		const int insertAt = m_List->InsertItem(m_List->GetItemCount(), plug->libraryName.ToUnicode());
 		if(insertAt == -1)
 			continue;
-		m_List->SetItemText(insertAt, 1, plug->dllPath.ToCString());
+		m_List->SetItemText(insertAt, 1, plug->dllPath.ToUnicode());
 		m_List->SetItemDataPtr(insertAt, plug);
 		m_List->SetCheck(insertAt);
 	}

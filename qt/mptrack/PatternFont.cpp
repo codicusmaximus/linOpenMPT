@@ -10,6 +10,7 @@
 
 
 #include "PatternFont.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mptrack.h"
 #include "Mainfrm.h"
@@ -256,13 +257,13 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 	mfcless::DC hDC;
 	hDC.CreateCompatibleDC(mfcless::DC::FromHandle(::GetDC(hwnd)));
 	// Point size to pixels
-	font.size = -MulDiv(font.size, dpi, 720);
+	font.size = -mfcless::MulDiv(font.size, dpi, 720);
 
 	QFont gdiFont;
 	gdiFont.CreateFont(font.size, 0, 0, 0, font.flags[FontSetting::Bold] ? FW_BOLD : FW_NORMAL, font.flags[FontSetting::Italic] ? true : false, false, false, DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY, FIXED_PITCH | FF_DONTCARE, mpt::ToUnicode(font.name));
 	QFont *oldFont = hDC.SelectObject(&gdiFont);
 
-	mfcless::Point pt = hDC.GetTextExtent(U_("W"));
+	mfcless::Point pt = hDC.GetTextExtent(UL_("W"));
 	const int charWidth = pt.x, charHeight = pt.y;
 	const int spacing = charWidth / 4;
 	const int width = charWidth * 12 + spacing * 2 + 4, height = charHeight * 21;

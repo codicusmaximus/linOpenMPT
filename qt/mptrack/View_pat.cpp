@@ -11,6 +11,7 @@
 
 
 #include "View_pat.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Ctrl_pat.h"
 #include "EffectVis.h"
@@ -184,7 +185,7 @@ void CViewPattern::OnInitialUpdate()
 	m_nXScroll = m_nYScroll = 0;
 	m_nPattern = 0;
 	m_nSpacing = 0;
-	PatternFont::UpdateFont(m_hWnd);
+	PatternFont::UpdateFont(this);
 	UpdateSizes();
 	UpdateScrollSize();
 	SetCurrentPattern(0);
@@ -203,7 +204,7 @@ void CViewPattern::OnInitialUpdate()
 void CViewPattern::OnDPIChanged()
 {
 	CModScrollView::OnDPIChanged();
-	PatternFont::UpdateFont(m_hWnd);
+	PatternFont::UpdateFont(this);
 }
 
 
@@ -436,7 +437,7 @@ void CViewPattern::SetModified(bool updateAllViews)
 
 bool CViewPattern::IsSelectionPressed() const
 {
-	return ::GetFocus() == m_hWnd && CMainFrame::GetInputHandler()->SelectionPressed();
+	return mfcless::GetFocus() == this && CMainFrame::GetInputHandler()->SelectionPressed();
 }
 
 
@@ -793,7 +794,7 @@ void CViewPattern::OnSetFocus(QWidget *pOldWnd)
 	if(pModDoc)
 	{
 		pModDoc->SetNotifications(Notification::Position | Notification::VUMeters);
-		pModDoc->SetFollowWnd(m_hWnd);
+		pModDoc->SetFollowWnd(this);
 		UpdateIndicator();
 	}
 }
@@ -816,7 +817,7 @@ void CViewPattern::OnGrowSelection()
 		return;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	m_Selection.Sanitize(pSndFile->Patterns[m_nPattern].GetNumRows(), pSndFile->GetNumChannels());
 	const PatternCursor startSel = m_Selection.GetUpperLeft();
@@ -886,8 +887,8 @@ void CViewPattern::OnGrowSelection()
 
 	InvalidatePattern();
 	SetModified();
-	EndWaitCursor();
-	SetFocus();
+	mfcless::EndWaitCursor();
+	setFocus();
 }
 
 
@@ -899,7 +900,7 @@ void CViewPattern::OnShrinkSelection()
 		return;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	m_Selection.Sanitize(pSndFile->Patterns[m_nPattern].GetNumRows(), pSndFile->GetNumChannels());
 	const PatternCursor startSel = m_Selection.GetUpperLeft();
@@ -988,8 +989,8 @@ void CViewPattern::OnShrinkSelection()
 
 	InvalidatePattern();
 	SetModified();
-	EndWaitCursor();
-	SetFocus();
+	mfcless::EndWaitCursor();
+	setFocus();
 }
 
 
@@ -1006,7 +1007,7 @@ void CViewPattern::OnClearSelection(bool ITStyle, std::bitset<PatternCursor::num
 		return;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	// If selection ends to a note column, in ITStyle extending it to instrument column since the instrument data is
 	// removed with note data.
@@ -1090,8 +1091,8 @@ void CViewPattern::OnClearSelection(bool ITStyle, std::bitset<PatternCursor::num
 
 	InvalidateArea(m_Selection.GetUpperLeft(), endCursor);
 	SetModified();
-	EndWaitCursor();
-	SetFocus();
+	mfcless::EndWaitCursor();
+	setFocus();
 }
 
 
@@ -1109,7 +1110,7 @@ void CViewPattern::OnEditCopy()
 	if(pModDoc)
 	{
 		CopyPattern(m_nPattern, m_Selection);
-		SetFocus();
+		setFocus();
 	}
 }
 
@@ -1138,7 +1139,7 @@ void CViewPattern::OnLButtonDown(uint32 nFlags, mfcless::Point point)
 		return;
 	const auto &sndFile = modDoc->GetSoundFile();
 
-	SetFocus();
+	setFocus();
 	m_nDropItem = m_nDragItem = GetDragItem(point, m_rcDragItem);
 	m_Status.set(psDragging);
 	m_bInItemRect = true;
@@ -1527,7 +1528,7 @@ void CViewPattern::OnRButtonUp(uint32 flags, mfcless::Point pt)
 			} else
 			{
 				if(BuildSoloMuteCtxMenu(hMenu, ih, nChn, sndFile))
-					hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+					hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 				BuildRecordCtxMenu(hMenu, ih, nChn);
 				BuildChannelControlCtxMenu(hMenu, ih);
 			}
@@ -1538,35 +1539,35 @@ void CViewPattern::OnRButtonUp(uint32 flags, mfcless::Point pt)
 		{
 			// When combining menus, use bitwise ORs to avoid shortcuts
 			if(BuildSelectionCtxMenu(hMenu, ih))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			if(BuildEditCtxMenu(hMenu, ih, modDoc))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			bool addSeparator = BuildInterpolationCtxMenu(hMenu, ih);
 			addSeparator |= BuildTransposeCtxMenu(hMenu, ih);
 			if(addSeparator)
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			addSeparator = BuildVisFXCtxMenu(hMenu, ih);
 			addSeparator |= BuildAmplifyCtxMenu(hMenu, ih);
 			addSeparator |= BuildSetInstCtxMenu(hMenu, ih);
 			if(addSeparator)
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			if(BuildPCNoteCtxMenu(hMenu, ih))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			if(BuildGrowShrinkCtxMenu(hMenu, ih))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			if(BuildMiscCtxMenu(hMenu, ih))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			if(BuildRowInsDelCtxMenu(hMenu, ih))
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 
-			mpt::ustring s = U_("&Quantize ");
+			mpt::ustring s = UL_("&Quantize ");
 			if(TrackerSettings::Instance().recordQuantizeRows != 0)
 			{
 				uint32 rows = TrackerSettings::Instance().recordQuantizeRows.Get();
-				s += MPT_UFORMAT("(Currently: {} Row{})")(rows, mpt::ustring(rows == 1 ? U_("") : U_("s")));
+				s += MPT_UFORMAT("(Currently: {} Row{})")(rows, mpt::ustring(rows == 1 ? UL_("") : UL_("s")));
 			} else
 			{
-				s += U_("Settings...");
+				s += UL_("Settings...");
 			}
 			hMenu.AppendMenu(mfcless::menu::String | (TrackerSettings::Instance().recordQuantizeRows != 0 ? mfcless::menu::Checked : 0), ID_SETQUANTIZE, ih->GetKeyTextFromCommand(kcQuantizeSettings, s));
 		}
@@ -1577,7 +1578,7 @@ void CViewPattern::OnRButtonUp(uint32 flags, mfcless::Point pt)
 	{
 		// Click outside of pattern: Offer easy way to add more channels
 		m_MenuCursor.Set(0, sndFile.GetNumChannels() - 1);
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_AFTER, U_("&Add Channel"));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_AFTER, UL_("&Add Channel"));
 		ClientToScreen(&pt);
 		hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x, pt.y, this);
 	}
@@ -2120,7 +2121,7 @@ void CViewPattern::OnSplitPattern()
 	const ROWINDEX splitRow = m_MenuCursor.GetRow();
 	if(splitRow < 1 || !sndFile.Patterns.IsValidPat(sourcePat) || !sndFile.Patterns[sourcePat].IsValidRow(splitRow))
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		return;
 	}
 
@@ -2256,7 +2257,7 @@ void CViewPattern::PatternStep(ROWINDEX row)
 
 		if(pMainFrm->GetModPlaying() != pModDoc)
 		{
-			pModDoc->SetFollowWnd(m_hWnd);
+			pModDoc->SetFollowWnd(this);
 			pMainFrm->PlayMod(pModDoc);
 		}
 		pModDoc->SetNotifications(Notification::Position | Notification::VUMeters);
@@ -2268,7 +2269,7 @@ void CViewPattern::PatternStep(ROWINDEX row)
 							  ? WrapMode::WrapAround
 							  : WrapMode::LimitAtPatternEnd);
 		}
-		SetFocus();
+		setFocus();
 	}
 }
 
@@ -2371,7 +2372,7 @@ void CViewPattern::OnCursorPaste()
 		PatternStep(GetCurrentRow());
 	}
 
-	if(sndFile.IsPaused() || !m_Status[psFollowSong] || (CMainFrame::GetMainFrame() && CMainFrame::GetMainFrame()->GetFollowSong(GetDocument()) != m_hWnd))
+	if(sndFile.IsPaused() || !m_Status[psFollowSong] || (CMainFrame::GetMainFrame() && CMainFrame::GetMainFrame()->GetFollowSong(GetDocument()) != this))
 	{
 		InvalidateCell(m_Cursor);
 		SetCurrentRow(GetCurrentRow() + m_nSpacing, patternSetup[PatternSetup::ContinuousScrolling] ? WrapMode::WrapAround : WrapMode::LimitAtPatternEnd);
@@ -2774,7 +2775,7 @@ void CViewPattern::OnChannelSettings()
 
 void CViewPattern::OnTransposeChannel()
 {
-	CInputDlg dlg(this, U_("Enter transpose amount (affects all patterns):"), -(NOTE_MAX - NOTE_MIN), (NOTE_MAX - NOTE_MIN), m_nTransposeAmount);
+	CInputDlg dlg(this, UL_("Enter transpose amount (affects all patterns):"), -(NOTE_MAX - NOTE_MIN), (NOTE_MAX - NOTE_MIN), m_nTransposeAmount);
 	if(dlg.DoModal() == IDOK)
 	{
 		m_nTransposeAmount = dlg.resultAsInt;
@@ -2820,7 +2821,7 @@ void CViewPattern::OnTransposeChannel()
 
 void CViewPattern::OnTransposeCustom()
 {
-	CInputDlg dlg(this, U_("Enter transpose amount:"), -(NOTE_MAX - NOTE_MIN), (NOTE_MAX - NOTE_MIN), m_nTransposeAmount);
+	CInputDlg dlg(this, UL_("Enter transpose amount:"), -(NOTE_MAX - NOTE_MIN), (NOTE_MAX - NOTE_MIN), m_nTransposeAmount);
 	if(dlg.DoModal() == IDOK)
 	{
 		m_nTransposeAmount = dlg.resultAsInt;
@@ -3136,7 +3137,7 @@ void CViewPattern::OnDropSelection()
 
 	const bool moveSelection = !m_Status[psCtrlDragSelect] && !IsSelectionPressed();
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	pModDoc->GetPatternUndo().PrepareUndo(m_nPattern, 0, 0, sndFile.GetNumChannels(), pattern.GetNumRows(), moveSelection ? "Move Selection" : "Copy Selection");
 
 	const ModCommand empty{};
@@ -3195,7 +3196,7 @@ void CViewPattern::OnDropSelection()
 	SetCurSel(destination);
 	InvalidatePattern();
 	SetModified(false);
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3232,7 +3233,7 @@ void CViewPattern::OnRemoveChannel()
 	const bool isEmpty = pModDoc->IsChannelUnused(nChn);
 
 	mpt::ustring str;
-	str.Format(U_("Remove channel %d? This channel still contains note data!"), nChn + 1);
+	str = mfcless::PrintF(UL_("Remove channel %d? This channel still contains note data!"), nChn + 1);
 	if(isEmpty || Reporting::Confirm(str, "Remove channel") == cnfYes)
 	{
 		std::vector<bool> keepMask(pModDoc->GetNumChannels(), true);
@@ -3250,7 +3251,7 @@ void CViewPattern::AddChannel(CHANNELINDEX parent, bool afterCurrent)
 	if(pModDoc == nullptr)
 		return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	// Create new channel order, with channel nBefore being an invalid (and thus empty) channel.
 	std::vector<CHANNELINDEX> channels(pModDoc->GetNumChannels() + 1, CHANNELINDEX_INVALID);
 	CHANNELINDEX i = 0;
@@ -3270,7 +3271,7 @@ void CViewPattern::AddChannel(CHANNELINDEX parent, bool afterCurrent)
 		pModDoc->UpdateAllViews(nullptr, GeneralHint().General().Channels(), this);  //refresh channel headers
 		SetCurrentPattern(m_nPattern);
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3284,10 +3285,10 @@ void CViewPattern::OnDuplicateChannel()
 	if(dupChn >= pModDoc->GetNumChannels())
 		return;
 
-	if(!pModDoc->IsChannelUnused(dupChn) && Reporting::Confirm(U_("This affects all patterns, proceed?"), U_("Duplicate Channel")) != cnfYes)
+	if(!pModDoc->IsChannelUnused(dupChn) && Reporting::Confirm(UL_("This affects all patterns, proceed?"), UL_("Duplicate Channel")) != cnfYes)
 		return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	// Create new channel order, with channel nDupChn duplicated.
 	std::vector<CHANNELINDEX> channels(pModDoc->GetNumChannels() + 1, 0);
 	CHANNELINDEX i = 0;
@@ -3305,7 +3306,7 @@ void CViewPattern::OnDuplicateChannel()
 		pModDoc->UpdateAllViews(nullptr, GeneralHint().General().Channels(), this);  //refresh channel headers
 		SetCurrentPattern(m_nPattern);
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3384,7 +3385,7 @@ void CViewPattern::OnUpdateUndo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanUndo());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, U_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
 	}
 }
 
@@ -3395,7 +3396,7 @@ void CViewPattern::OnUpdateRedo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanRedo());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, U_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
 	}
 }
 
@@ -3493,7 +3494,7 @@ void CViewPattern::OnPatternAmplify()
 
 	const bool useVolCol = sndFile.GetModSpecifications().HasVolCommand(VOLCMD_VOLUME);
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	PrepareUndo(m_Selection, "Amplify");
 
 	m_Selection.Sanitize(sndFile.Patterns[m_nPattern].GetNumRows(), sndFile.GetNumChannels());
@@ -3518,7 +3519,7 @@ void CViewPattern::OnPatternAmplify()
 	// XXX if only the effect column is marked in the XM format, we cannot amplify volume commands there. Does anyone use that?
 	if((!firstChannelValid && firstChannel >= lastChannel) || (!lastChannelValid && lastChannel <= firstChannel))
 	{
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 		return;
 	}
 
@@ -3597,7 +3598,7 @@ void CViewPattern::OnPatternAmplify()
 	});
 	SetModified(false);
 	InvalidateSelection();
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3638,7 +3639,7 @@ intptr_t CViewPattern::OnPlayerNotify(Notification *pnotify)
 				ord = ORDERINDEX_INVALID;
 			}
 
-			if(m_pEffectVis && m_pEffectVis->m_hWnd)
+			if(m_pEffectVis && m_pEffectVis)
 			{
 				m_pEffectVis->SetPlayCursor(pat, row);
 			}
@@ -3848,7 +3849,7 @@ bool CViewPattern::IsLiveRecord() const
 		return false;
 	}
 	//      (following song)      &&       (following in correct document)           &&    (playback is on)
-	return m_Status[psFollowSong] && mainFrm->GetFollowSong(GetDocument()) == m_hWnd && !sndFile->IsPaused();
+	return m_Status[psFollowSong] && mainFrm->GetFollowSong(GetDocument()) == this && !sndFile->IsPaused();
 }
 
 
@@ -4226,8 +4227,8 @@ intptr_t CViewPattern::OnModViewMsg(uintptr_t wParam, intptr_t lParam)
 			if(pModDoc)
 				pModDoc->SetNotifications(Notification::Position | Notification::VUMeters);
 			if(pModDoc)
-				pModDoc->SetFollowWnd(m_hWnd);
-			SetFocus();
+				pModDoc->SetFollowWnd(this);
+			setFocus();
 		} else
 		{
 			InvalidateRow();
@@ -4411,9 +4412,9 @@ static void ToggleFlag(CachedSetting<FlagSet<T>> &flagSet, T flag, const mpt::uc
 	flagSet = flagSet.Get().flip(flag);
 	mpt::ustring text = description;
 	if(flagSet & flag)
-		text += U_(" is now On");
+		text += UL_(" is now On");
 	else
-		text += U_(" is now Off");
+		text += UL_(" is now Off");
 	CMainFrame::GetMainFrame()->SetHelpText(text);
 }
 
@@ -4788,31 +4789,31 @@ intptr_t CViewPattern::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 		case kcDuplicatePattern:     SendCtrlMessage(CTRLMSG_PAT_DUPPATTERN); return wParam;
 		case kcSwitchToOrderList:    OnSwitchToOrderList(); return wParam;
 		
-		case kcToggleNoteOffRecordPC: ToggleFlag(TrackerSettings::Instance().patternSetup, PatternSetup::RecordNoteOff, U_("Record Note Off")); return wParam;
-		case kcToggleNoteOffRecordMIDI: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordNoteOff, U_("Record MIDI Note Off")); return wParam;
-		case kcToggleOctaveTransposeMIDI: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::TransposeKeyboard, U_("Apply Octave Transpose")); return wParam;
-		case kcToggleContinueSongOnMIDINote: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::PlayPatternOnMidiNote, U_("Continue Song when MIDI Note is received")); return wParam;
-		case kcToggleContinueSongOnMIDIPlayEvents: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RespondToPlayControl, U_("Respond to Play / Continue Song MIDI messages")); return wParam;
-		case kcToggleRecordMIDIVelocity: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordVelocity, U_("Record MIDI Velocity")); return wParam;
-		case kcToggleRecordMIDICCs: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordCCsAsMacros, U_("Record MIDI CCs")); return wParam;
+		case kcToggleNoteOffRecordPC: ToggleFlag(TrackerSettings::Instance().patternSetup, PatternSetup::RecordNoteOff, UL_("Record Note Off")); return wParam;
+		case kcToggleNoteOffRecordMIDI: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordNoteOff, UL_("Record MIDI Note Off")); return wParam;
+		case kcToggleOctaveTransposeMIDI: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::TransposeKeyboard, UL_("Apply Octave Transpose")); return wParam;
+		case kcToggleContinueSongOnMIDINote: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::PlayPatternOnMidiNote, UL_("Continue Song when MIDI Note is received")); return wParam;
+		case kcToggleContinueSongOnMIDIPlayEvents: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RespondToPlayControl, UL_("Respond to Play / Continue Song MIDI messages")); return wParam;
+		case kcToggleRecordMIDIVelocity: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordVelocity, UL_("Record MIDI Velocity")); return wParam;
+		case kcToggleRecordMIDICCs: ToggleFlag(TrackerSettings::Instance().midiSetup, MidiSetup::RecordCCsAsMacros, UL_("Record MIDI CCs")); return wParam;
 		case kcToggleRecordMIDIPitchBend:
 			switch(TrackerSettings::Instance().pitchBendBehaviour)
 			{
 			case RecordPitchBend::DoNotRecord:
 				TrackerSettings::Instance().pitchBendBehaviour = RecordPitchBend::RecordAsMacro;
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Record MIDI Pitch Bend: Record only as MIDI Macro"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Record MIDI Pitch Bend: Record only as MIDI Macro"));
 				break;
 			case RecordPitchBend::RecordAsMacro:
 				TrackerSettings::Instance().pitchBendBehaviour = RecordPitchBend::RecordAsFinetuneOrMacro;
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Record MIDI Pitch Bend: Record as Finetune or MIDI Macro"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Record MIDI Pitch Bend: Record as Finetune or MIDI Macro"));
 				break;
 			case RecordPitchBend::RecordAsFinetuneOrMacro:
 				TrackerSettings::Instance().pitchBendBehaviour = RecordPitchBend::RecordAsFinetune;
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Record MIDI Pitch Bend: Record only as Finetune"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Record MIDI Pitch Bend: Record only as Finetune"));
 				break;
 			case RecordPitchBend::RecordAsFinetune:
 				TrackerSettings::Instance().pitchBendBehaviour = RecordPitchBend::DoNotRecord;
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Record MIDI Pitch Bend: Do not Record"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Record MIDI Pitch Bend: Do not Record"));
 				break;
 			}
 			return wParam;
@@ -4907,7 +4908,7 @@ intptr_t CViewPattern::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 		case kcTogglePatternPlayRow:
 			TrackerSettings::Instance().patternSetup ^= PatternSetup::PlayRowOnNavigate;
 			CMainFrame::GetMainFrame()->SetHelpText((TrackerSettings::Instance().patternSetup & PatternSetup::PlayRowOnNavigate)
-				? U_("Play whole row when navigating is now enabled.") : U_("Play whole row when navigating is now disabled."));
+				? UL_("Play whole row when navigating is now enabled.") : UL_("Play whole row when navigating is now disabled."));
 			return wParam;
 	}
 
@@ -6340,7 +6341,7 @@ PATTERNINDEX CViewPattern::GetNextPattern() const
 
 void CViewPattern::OnSetQuantize()
 {
-	CInputDlg dlg(this, U_("Quantize amount in rows for live recording (0 to disable):"), 0, MAX_PATTERN_ROWS, TrackerSettings::Instance().recordQuantizeRows);
+	CInputDlg dlg(this, UL_("Quantize amount in rows for live recording (0 to disable):"), 0, MAX_PATTERN_ROWS, TrackerSettings::Instance().recordQuantizeRows);
 	if(dlg.DoModal())
 	{
 		TrackerSettings::Instance().recordQuantizeRows = static_cast<ROWINDEX>(dlg.resultAsInt);
@@ -6480,7 +6481,7 @@ void CViewPattern::OnClearField(const std::bitset<PatternCursor::numColumns> mas
 	}
 
 	if(step && (sndFile->IsPaused() || !m_Status[psFollowSong] ||
-		(CMainFrame::GetMainFrame() != nullptr && CMainFrame::GetMainFrame()->GetFollowSong(GetDocument()) != m_hWnd)))
+		(CMainFrame::GetMainFrame() != nullptr && CMainFrame::GetMainFrame()->GetFollowSong(GetDocument()) != this)))
 	{
 		// Preview Row
 		const FlagSet<PatternSetup> patternSetup = TrackerSettings::Instance().patternSetup;
@@ -6614,14 +6615,14 @@ bool CViewPattern::BuildPluginCtxMenu(mfcless::Menu hMenu, uint32 nChn, const CS
 		mpt::ustring s;
 		if(!plug)
 		{
-			s = U_("No Plugin");
+			s = UL_("No Plugin");
 			itemFound = true;
 		} else
 		{
 			const SNDMIXPLUGIN &plugin = sndFile.m_MixPlugins[plug - 1];
 			if(plugin.IsValidPlugin())
 			{
-				s.Format(U_("FX%u: "), plug);
+				s = mfcless::PrintF(UL_("FX%u: "), plug);
 				s += mpt::ToUnicode(plugin.GetName());
 				itemFound = true;
 			}
@@ -6639,7 +6640,7 @@ bool CViewPattern::BuildPluginCtxMenu(mfcless::Menu hMenu, uint32 nChn, const CS
 
 bool CViewPattern::BuildSoloMuteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, uint32 nChn, const CSoundFile &sndFile) const
 {
-	hMenu.AppendMenu(sndFile.ChnSettings[nChn].dwFlags[CHN_MUTE] ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_PATTERN_MUTE, ih->GetKeyTextFromCommand(kcChannelMute, U_("&Mute Channel")));
+	hMenu.AppendMenu(sndFile.ChnSettings[nChn].dwFlags[CHN_MUTE] ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_PATTERN_MUTE, ih->GetKeyTextFromCommand(kcChannelMute, UL_("&Mute Channel")));
 	bool solo = false, unmuteAll = false;
 	bool soloPending = false, unmuteAllPending = false;  // doesn't work perfectly yet
 
@@ -6664,18 +6665,18 @@ bool CViewPattern::BuildSoloMuteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, 
 			unmuteAllPending = true;
 	}
 	if(solo)
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_SOLO, ih->GetKeyTextFromCommand(kcChannelSolo, U_("&Solo Channel")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_SOLO, ih->GetKeyTextFromCommand(kcChannelSolo, UL_("&Solo Channel")));
 	if(unmuteAll)
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_UNMUTEALL, ih->GetKeyTextFromCommand(kcChannelUnmuteAll, U_("&Unmute All")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_UNMUTEALL, ih->GetKeyTextFromCommand(kcChannelUnmuteAll, UL_("&Unmute All")));
 
-	hMenu.AppendMenu(sndFile.m_bChannelMuteTogglePending[nChn] ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_PATTERN_TRANSITIONMUTE, ih->GetKeyTextFromCommand(kcToggleChanMuteOnPatTransition, sndFile.ChnSettings[nChn].dwFlags[CHN_MUTE] ? U_("On Transition: Unmute\t") : U_("On Transition: Mute\t")));
+	hMenu.AppendMenu(sndFile.m_bChannelMuteTogglePending[nChn] ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_PATTERN_TRANSITIONMUTE, ih->GetKeyTextFromCommand(kcToggleChanMuteOnPatTransition, sndFile.ChnSettings[nChn].dwFlags[CHN_MUTE] ? UL_("On Transition: Unmute\t") : UL_("On Transition: Mute\t")));
 
 	if(unmuteAllPending)
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSITION_UNMUTEALL, ih->GetKeyTextFromCommand(kcUnmuteAllChnOnPatTransition, U_("On Transition: Unmute All")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSITION_UNMUTEALL, ih->GetKeyTextFromCommand(kcUnmuteAllChnOnPatTransition, UL_("On Transition: Unmute All")));
 	if(soloPending)
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSITIONSOLO, ih->GetKeyTextFromCommand(kcSoloChnOnPatTransition, U_("On Transition: Solo")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSITIONSOLO, ih->GetKeyTextFromCommand(kcSoloChnOnPatTransition, UL_("On Transition: Solo")));
 
-	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_CHNRESET, ih->GetKeyTextFromCommand(kcChannelReset, U_("&Reset Channel")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_CHNRESET, ih->GetKeyTextFromCommand(kcChannelReset, UL_("&Reset Channel")));
 
 	return true;
 }
@@ -6683,8 +6684,8 @@ bool CViewPattern::BuildSoloMuteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, 
 bool CViewPattern::BuildRecordCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, CHANNELINDEX nChn) const
 {
 	const auto recordGroup = GetDocument()->GetChannelRecordGroup(nChn);
-	hMenu.AppendMenu((recordGroup == RecordGroup::Group1) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_EDIT_RECSELECT, ih->GetKeyTextFromCommand(kcChannelRecordSelect, U_("R&ecord Select")));
-	hMenu.AppendMenu((recordGroup == RecordGroup::Group2) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_EDIT_SPLITRECSELECT, ih->GetKeyTextFromCommand(kcChannelSplitRecordSelect, U_("S&plit Record Select")));
+	hMenu.AppendMenu((recordGroup == RecordGroup::Group1) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_EDIT_RECSELECT, ih->GetKeyTextFromCommand(kcChannelRecordSelect, UL_("R&ecord Select")));
+	hMenu.AppendMenu((recordGroup == RecordGroup::Group2) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String, ID_EDIT_SPLITRECSELECT, ih->GetKeyTextFromCommand(kcChannelSplitRecordSelect, UL_("S&plit Record Select")));
 	return true;
 }
 
@@ -6696,30 +6697,30 @@ bool CViewPattern::BuildRowInsDelCtxMenu(mfcless::Menu hMenu, CInputHandler *ih)
 	mfcless::Menu subMenuDelete = CreatePopupMenu();
 
 	const auto numRows = m_Selection.GetNumRows();
-	const mpt::ustring label = (numRows != 1) ? MPT_UFORMAT("{} Rows")(numRows) : mpt::ustring(U_("Row"));
+	const mpt::ustring label = (numRows != 1) ? MPT_UFORMAT("{} Rows")(numRows) : mpt::ustring(UL_("Row"));
 
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROW, ih->GetKeyTextFromCommand(kcInsertRow, U_("Insert ") + label + U_(" (&Selection)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROW, ih->GetKeyTextFromCommand(kcInsertWholeRow, U_("Insert ") + label + U_(" (&All Channels)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertRowGlobal, U_("Insert ") + label + U_(" (Selection, &Global)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertWholeRowGlobal, U_("Insert ") + label + U_(" (All &Channels, Global)")));
-	hMenu.AppendMenu(mfcless::menu::Popup, subMenuInsert, U_("&Insert ") + label);
+	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROW, ih->GetKeyTextFromCommand(kcInsertRow, UL_("Insert ") + label + UL_(" (&Selection)")));
+	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROW, ih->GetKeyTextFromCommand(kcInsertWholeRow, UL_("Insert ") + label + UL_(" (&All Channels)")));
+	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertRowGlobal, UL_("Insert ") + label + UL_(" (Selection, &Global)")));
+	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertWholeRowGlobal, UL_("Insert ") + label + UL_(" (All &Channels, Global)")));
+	hMenu.AppendMenu(mfcless::menu::Popup, subMenuInsert, UL_("&Insert ") + label);
 
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROW, ih->GetKeyTextFromCommand(kcDeleteRow, U_("Delete ") + label + U_(" (&Selection)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROW, ih->GetKeyTextFromCommand(kcDeleteWholeRow, U_("Delete ") + label + U_(" (&All Channels)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteRowGlobal, U_("Delete ") + label + U_(" (Selection, &Global)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteWholeRowGlobal, U_("Delete ") + label + U_(" (All &Channels, Global)")));
-	hMenu.AppendMenu(mfcless::menu::Popup, subMenuDelete, U_("&Delete ") + label);
+	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROW, ih->GetKeyTextFromCommand(kcDeleteRow, UL_("Delete ") + label + UL_(" (&Selection)")));
+	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROW, ih->GetKeyTextFromCommand(kcDeleteWholeRow, UL_("Delete ") + label + UL_(" (&All Channels)")));
+	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteRowGlobal, UL_("Delete ") + label + UL_(" (Selection, &Global)")));
+	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteWholeRowGlobal, UL_("Delete ") + label + UL_(" (All &Channels, Global)")));
+	hMenu.AppendMenu(mfcless::menu::Popup, subMenuDelete, UL_("&Delete ") + label);
 	return true;
 }
 
 bool CViewPattern::BuildMiscCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const
 {
-	hMenu.AppendMenu(mfcless::menu::String, ID_SHOWTIMEATROW, ih->GetKeyTextFromCommand(kcTimeAtRow, U_("Show Row Play Time")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_SHOWTIMEATROW, ih->GetKeyTextFromCommand(kcTimeAtRow, UL_("Show Row Play Time")));
 
 	if(m_Selection.GetStartRow() == m_Selection.GetEndRow())
 	{
 		mpt::ustring s;
-		s.Format(U_("Split Pattern at Ro&w %u"), m_Selection.GetStartRow());
+		s = mfcless::PrintF(UL_("Split Pattern at Ro&w %u"), m_Selection.GetStartRow());
 		hMenu.AppendMenu(mfcless::menu::String | (m_Selection.GetStartRow() < 1 ? mfcless::menu::Grayed : 0), ID_PATTERN_SPLIT, ih->GetKeyTextFromCommand(kcSplitPattern, s));
 	}
 
@@ -6728,14 +6729,14 @@ bool CViewPattern::BuildMiscCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) cons
 	bool lockActive = (sndFile.m_lockRowStart != ROWINDEX_INVALID);
 	if(m_Selection.GetUpperLeft() != m_Selection.GetLowerRight())
 	{
-		lockStr = U_("&Lock Playback to Selection");
+		lockStr = UL_("&Lock Playback to Selection");
 		if(lockActive)
 		{
-			lockStr.AppendFormat(U_(" (Current: %u-%u)"), sndFile.m_lockRowStart, sndFile.m_lockRowEnd);
+			lockStr += mfcless::PrintF(UL_(" (Current: %u-%u)"), sndFile.m_lockRowStart, sndFile.m_lockRowEnd);
 		}
 	} else if(lockActive)
 	{
-		lockStr = U_("Reset Playback &Lock");
+		lockStr = UL_("Reset Playback &Lock");
 	} else
 	{
 		return true;
@@ -6746,15 +6747,15 @@ bool CViewPattern::BuildMiscCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) cons
 
 bool CViewPattern::BuildSelectionCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const
 {
-	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_SELECTCOLUMN, ih->GetKeyTextFromCommand(kcSelectChannel, U_("Select &Channel")));
-	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_SELECT_ALL, ih->GetKeyTextFromCommand(kcEditSelectAll, U_("Select &Pattern")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_SELECTCOLUMN, ih->GetKeyTextFromCommand(kcSelectChannel, UL_("Select &Channel")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_SELECT_ALL, ih->GetKeyTextFromCommand(kcEditSelectAll, UL_("Select &Pattern")));
 	return true;
 }
 
 bool CViewPattern::BuildGrowShrinkCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const
 {
-	hMenu.AppendMenu(mfcless::menu::String, ID_GROW_SELECTION, ih->GetKeyTextFromCommand(kcPatternGrowSelection, U_("&Grow selection")));
-	hMenu.AppendMenu(mfcless::menu::String, ID_SHRINK_SELECTION, ih->GetKeyTextFromCommand(kcPatternShrinkSelection, U_("&Shrink selection")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_GROW_SELECTION, ih->GetKeyTextFromCommand(kcPatternGrowSelection, UL_("&Grow selection")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_SHRINK_SELECTION, ih->GetKeyTextFromCommand(kcPatternShrinkSelection, UL_("&Shrink selection")));
 	return true;
 }
 
@@ -6766,13 +6767,13 @@ bool CViewPattern::BuildInterpolationCtxMenu(mfcless::Menu hMenu, CInputHandler 
 
 	mfcless::Menu subMenu = CreatePopupMenu();
 	bool addSeparator = false;
-	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::noteColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateNote, U_("&Note Column")), ID_PATTERN_INTERPOLATE_NOTE);
-	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::instrColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateInstr, isPCNote ? U_("&Plugin Column") : U_("&Instrument Column")), ID_PATTERN_INTERPOLATE_INSTR);
-	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::volumeColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateVol, isPCNote ? U_("&Parameter Column") : U_("&Volume Column")), ID_PATTERN_INTERPOLATE_VOLUME);
-	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::effectColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateEffect, isPCNote ? U_("&Value Column") : U_("&Effect Column")), ID_PATTERN_INTERPOLATE_EFFECT);
+	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::noteColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateNote, UL_("&Note Column")), ID_PATTERN_INTERPOLATE_NOTE);
+	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::instrColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateInstr, isPCNote ? UL_("&Plugin Column") : UL_("&Instrument Column")), ID_PATTERN_INTERPOLATE_INSTR);
+	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::volumeColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateVol, isPCNote ? UL_("&Parameter Column") : UL_("&Volume Column")), ID_PATTERN_INTERPOLATE_VOLUME);
+	addSeparator |= BuildInterpolationCtxMenu(subMenu, PatternCursor::effectColumn, ih->GetKeyTextFromCommand(kcPatternInterpolateEffect, isPCNote ? UL_("&Value Column") : UL_("&Effect Column")), ID_PATTERN_INTERPOLATE_EFFECT);
 	if(addSeparator || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		hMenu.AppendMenu(mfcless::menu::Popup | (addSeparator ? 0 : mfcless::menu::Grayed), subMenu, U_("I&nterpolate..."));
+		hMenu.AppendMenu(mfcless::menu::Popup | (addSeparator ? 0 : mfcless::menu::Grayed), subMenu, UL_("I&nterpolate..."));
 		return true;
 	}
 	return false;
@@ -6800,27 +6801,27 @@ bool CViewPattern::BuildInterpolationCtxMenu(mfcless::Menu hMenu, PatternCursor:
 bool CViewPattern::BuildEditCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, CModDoc *pModDoc) const
 {
 	mfcless::Menu pasteSpecialMenu = mfcless::Menu::CreatePopup();
-	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, U_("Cu&t")));
-	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, U_("&Copy")));
-	hMenu.AppendMenu(mfcless::menu::String | (PatternClipboard::CanPaste() ? 0 : mfcless::menu::Grayed), ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, U_("&Paste")));
-	hMenu.AppendMenu(mfcless::menu::Popup, pasteSpecialMenu, U_("Paste Special"));
-	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_MIXPASTE, ih->GetKeyTextFromCommand(kcEditMixPaste, U_("&Mix Paste")));
-	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_MIXPASTE_ITSTYLE, ih->GetKeyTextFromCommand(kcEditMixPasteITStyle, U_("M&ix Paste (IT Style)")));
-	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_PASTEFLOOD, ih->GetKeyTextFromCommand(kcEditPasteFlood, U_("Paste Fl&ood")));
-	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_PUSHFORWARDPASTE, ih->GetKeyTextFromCommand(kcEditPushForwardPaste, U_("&Push Forward Paste (Insert)")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, UL_("Cu&t")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, UL_("&Copy")));
+	hMenu.AppendMenu(mfcless::menu::String | (PatternClipboard::CanPaste() ? 0 : mfcless::menu::Grayed), ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("&Paste")));
+	hMenu.AppendMenu(mfcless::menu::Popup, pasteSpecialMenu, UL_("Paste Special"));
+	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_MIXPASTE, ih->GetKeyTextFromCommand(kcEditMixPaste, UL_("&Mix Paste")));
+	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_MIXPASTE_ITSTYLE, ih->GetKeyTextFromCommand(kcEditMixPasteITStyle, UL_("M&ix Paste (IT Style)")));
+	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_PASTEFLOOD, ih->GetKeyTextFromCommand(kcEditPasteFlood, UL_("Paste Fl&ood")));
+	pasteSpecialMenu.AppendMenu(mfcless::menu::String, ID_EDIT_PUSHFORWARDPASTE, ih->GetKeyTextFromCommand(kcEditPushForwardPaste, UL_("&Push Forward Paste (Insert)")));
 
 	uint32 greyed = pModDoc->GetPatternUndo().CanUndo() ? mfcless::menu::Enabled : mfcless::menu::Grayed;
 	if(!greyed || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_EDIT_UNDO, ih->GetKeyTextFromCommand(kcEditUndo, U_("&Undo")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_EDIT_UNDO, ih->GetKeyTextFromCommand(kcEditUndo, UL_("&Undo")));
 	}
 	greyed = pModDoc->GetPatternUndo().CanRedo() ? mfcless::menu::Enabled : mfcless::menu::Grayed;
 	if(!greyed || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_EDIT_REDO, ih->GetKeyTextFromCommand(kcEditRedo, U_("&Redo")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_EDIT_REDO, ih->GetKeyTextFromCommand(kcEditRedo, UL_("&Redo")));
 	}
 
-	hMenu.AppendMenu(mfcless::menu::String, ID_CLEAR_SELECTION, ih->GetKeyTextFromCommand(kcSampleDelete, U_("Clear Selection")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_CLEAR_SELECTION, ih->GetKeyTextFromCommand(kcSampleDelete, UL_("Clear Selection")));
 
 	return true;
 }
@@ -6831,7 +6832,7 @@ bool CViewPattern::BuildVisFXCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) con
 
 	if(!greyed || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_VISUALIZE_EFFECT, ih->GetKeyTextFromCommand(kcPatternVisualizeEffect, U_("&Visualize Effect")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_VISUALIZE_EFFECT, ih->GetKeyTextFromCommand(kcPatternVisualizeEffect, UL_("&Visualize Effect")));
 		return true;
 	}
 	return false;
@@ -6846,12 +6847,12 @@ bool CViewPattern::BuildTransposeCtxMenu(mfcless::Menu hMenu, CInputHandler *ih)
 
 	if(!greyed || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_UP, ih->GetKeyTextFromCommand(kcTransposeUp, U_("Transpose +&1")));
-		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_DOWN, ih->GetKeyTextFromCommand(kcTransposeDown, U_("Transpose -&1")));
-		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_OCTUP, ih->GetKeyTextFromCommand(kcTransposeOctUp, U_("Transpose +1&2")));
-		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_OCTDOWN, ih->GetKeyTextFromCommand(kcTransposeOctDown, U_("Transpose -1&2")));
-		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_CUSTOM, ih->GetKeyTextFromCommand(kcTransposeCustom, U_("&Custom...")));
-		hMenu.AppendMenu(mfcless::menu::Popup | greyed, transMenu, U_("&Transpose..."));
+		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_UP, ih->GetKeyTextFromCommand(kcTransposeUp, UL_("Transpose +&1")));
+		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_DOWN, ih->GetKeyTextFromCommand(kcTransposeDown, UL_("Transpose -&1")));
+		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_OCTUP, ih->GetKeyTextFromCommand(kcTransposeOctUp, UL_("Transpose +1&2")));
+		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_OCTDOWN, ih->GetKeyTextFromCommand(kcTransposeOctDown, UL_("Transpose -1&2")));
+		transMenu.AppendMenu(mfcless::menu::String | greyed, ID_TRANSPOSE_CUSTOM, ih->GetKeyTextFromCommand(kcTransposeCustom, UL_("&Custom...")));
+		hMenu.AppendMenu(mfcless::menu::Popup | greyed, transMenu, UL_("&Transpose..."));
 		return true;
 	}
 	return false;
@@ -6864,7 +6865,7 @@ bool CViewPattern::BuildAmplifyCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 
 	if(!greyed || !(TrackerSettings::Instance().patternSetup & PatternSetup::HideUnavailableMenuEntries))
 	{
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_AMPLIFY, ih->GetKeyTextFromCommand(kcPatternAmplify, U_("&Amplify")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_AMPLIFY, ih->GetKeyTextFromCommand(kcPatternAmplify, UL_("&Amplify")));
 		return true;
 	}
 	return false;
@@ -6878,24 +6879,24 @@ bool CViewPattern::BuildChannelControlCtxMenu(mfcless::Menu hMenu, CInputHandler
 	uint32 canAddChannels = (numChannels < specs.channelsMax) ? 0 : mfcless::menu::Grayed;
 	uint32 canRemoveChannels = (numChannels > specs.channelsMin) ? 0 : mfcless::menu::Grayed;
 
-	hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
-	hMenu.AppendMenu(mfcless::menu::String, ID_CHANNEL_SETTINGS, ih->GetKeyTextFromCommand(kcChannelSettings, U_("C&hannel Settings")));
-	hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+	hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
+	hMenu.AppendMenu(mfcless::menu::String, ID_CHANNEL_SETTINGS, ih->GetKeyTextFromCommand(kcChannelSettings, UL_("C&hannel Settings")));
+	hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 
-	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSPOSECHANNEL, ih->GetKeyTextFromCommand(kcChannelTranspose, U_("&Transpose Channel")));
-	hMenu.AppendMenu(mfcless::menu::String | canAddChannels, ID_PATTERN_DUPLICATECHANNEL, ih->GetKeyTextFromCommand(kcChannelDuplicate, U_("&Duplicate Channel")));
+	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_TRANSPOSECHANNEL, ih->GetKeyTextFromCommand(kcChannelTranspose, UL_("&Transpose Channel")));
+	hMenu.AppendMenu(mfcless::menu::String | canAddChannels, ID_PATTERN_DUPLICATECHANNEL, ih->GetKeyTextFromCommand(kcChannelDuplicate, UL_("&Duplicate Channel")));
 
 	mfcless::Menu addChannelMenu = mfcless::Menu::CreatePopup();
-	hMenu.AppendMenu(mfcless::menu::Popup | canAddChannels, addChannelMenu, U_("&Add Channel\t"));
-	addChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_FRONT, ih->GetKeyTextFromCommand(kcChannelAddBefore, U_("&Before this channel")));
-	addChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_AFTER, ih->GetKeyTextFromCommand(kcChannelAddAfter, U_("&After this channel")));
+	hMenu.AppendMenu(mfcless::menu::Popup | canAddChannels, addChannelMenu, UL_("&Add Channel\t"));
+	addChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_FRONT, ih->GetKeyTextFromCommand(kcChannelAddBefore, UL_("&Before this channel")));
+	addChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_ADDCHANNEL_AFTER, ih->GetKeyTextFromCommand(kcChannelAddAfter, UL_("&After this channel")));
 
 	mfcless::Menu removeChannelMenu = mfcless::Menu::CreatePopup();
-	hMenu.AppendMenu(mfcless::menu::Popup | canRemoveChannels, removeChannelMenu, U_("Remo&ve Channel\t"));
-	removeChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_REMOVECHANNEL, ih->GetKeyTextFromCommand(kcChannelRemove, U_("&Remove this channel\t")));
-	removeChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_REMOVECHANNELDIALOG, U_("&Choose channels to remove...\t"));
+	hMenu.AppendMenu(mfcless::menu::Popup | canRemoveChannels, removeChannelMenu, UL_("Remo&ve Channel\t"));
+	removeChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_REMOVECHANNEL, ih->GetKeyTextFromCommand(kcChannelRemove, UL_("&Remove this channel\t")));
+	removeChannelMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_REMOVECHANNELDIALOG, UL_("&Choose channels to remove...\t"));
 
-	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_RESETCHANNELCOLORS, U_("Reset Channel &Colours"));
+	hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_RESETCHANNELCOLORS, UL_("Reset Channel &Colours"));
 
 	return false;
 }
@@ -6926,7 +6927,7 @@ bool CViewPattern::BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 
 		// Create the new menu and add it to the existing menu.
 		mfcless::Menu instrumentChangeMenu = mfcless::Menu::CreatePopup();
-		hMenu.AppendMenu(mfcless::menu::Popup | greyed, instrumentChangeMenu, ih->GetKeyTextFromCommand(kcPatternSetInstrument, U_("Change Instrument")));
+		hMenu.AppendMenu(mfcless::menu::Popup | greyed, instrumentChangeMenu, ih->GetKeyTextFromCommand(kcPatternSetInstrument, UL_("Change Instrument")));
 
 		if(!greyed)
 		{
@@ -6953,7 +6954,7 @@ bool CViewPattern::BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 				{
 					if(!sndFile->GetSample(i).HasSampleData())
 						continue;
-					s.Format(U_("%02d: "), i);
+					s = mfcless::PrintF(UL_("%02d: "), i);
 					s += mpt::ToUnicode(sndFile->GetCharsetInternal(), sndFile->GetSampleName(i));
 					instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT + i, s);
 					addSeparator = true;
@@ -6965,9 +6966,9 @@ bool CViewPattern::BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) c
 			{
 				instrumentChangeMenu.AppendMenu(mfcless::menu::Separator, 0, 0);
 			}
-			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT, U_("&Remove Instrument"));
-			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT + GetCurrentInstrument(), ih->GetKeyTextFromCommand(kcPatternSetInstrument, U_("&Current Instrument")));
-			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_SETINSTRUMENT, ih->GetKeyTextFromCommand(kcPatternSetInstrumentNotEmpty, U_("Current Instrument (&only change existing)")));
+			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT, UL_("&Remove Instrument"));
+			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_CHANGE_INSTRUMENT + GetCurrentInstrument(), ih->GetKeyTextFromCommand(kcPatternSetInstrument, UL_("&Current Instrument")));
+			instrumentChangeMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_SETINSTRUMENT, ih->GetKeyTextFromCommand(kcPatternSetInstrumentNotEmpty, UL_("Current Instrument (&only change existing)")));
 		}
 		return BuildTogglePlugEditorCtxMenu(hMenu, ih);
 	}
@@ -6994,7 +6995,7 @@ bool CViewPattern::BuildPCNoteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) co
 
 	// Create sub menu for "change plugin"
 	mfcless::Menu pluginChangeMenu = mfcless::Menu::CreatePopup();
-	hMenu.AppendMenu(mfcless::menu::Popup, pluginChangeMenu, ih->GetKeyTextFromCommand(kcPatternSetInstrument, U_("Change Plugin")));
+	hMenu.AppendMenu(mfcless::menu::Popup, pluginChangeMenu, ih->GetKeyTextFromCommand(kcPatternSetInstrument, UL_("Change Plugin")));
 	for(PLUGINDEX nPlg = 0; nPlg < MAX_MIXPLUGINS; nPlg++)
 	{
 		if(sndFile->m_MixPlugins[nPlg].pMixPlugin != nullptr)
@@ -7012,7 +7013,7 @@ bool CViewPattern::BuildPCNoteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) co
 
 			// Create sub menu for "change plugin param"
 			mfcless::Menu paramChangeMenu = mfcless::Menu::CreatePopup();
-			hMenu.AppendMenu(mfcless::menu::Popup, paramChangeMenu, U_("Change Plugin Parameter\t"));
+			hMenu.AppendMenu(mfcless::menu::Popup, paramChangeMenu, UL_("Change Plugin Parameter\t"));
 
 			const PlugParamIndex curParam = selStart.GetValueVolCol(), nParams = plug.pMixPlugin->GetNumVisibleParameters();
 
@@ -7051,7 +7052,7 @@ bool CViewPattern::BuildTogglePlugEditorCtxMenu(mfcless::Menu hMenu, CInputHandl
 
 	if(plug && plug <= MAX_MIXPLUGINS && sndFile->m_MixPlugins[plug - 1].pMixPlugin != nullptr)
 	{
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_EDIT_PCNOTE_PLUGIN, ih->GetKeyTextFromCommand(kcPatternEditPCNotePlugin, U_("Toggle Plugin &Editor")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERN_EDIT_PCNOTE_PLUGIN, ih->GetKeyTextFromCommand(kcPatternEditPCNotePlugin, UL_("Toggle Plugin &Editor")));
 		return true;
 	}
 	return false;
@@ -7256,16 +7257,16 @@ void CViewPattern::OnShowTimeAtRow()
 	{
 		const double t = pSndFile->GetPlaybackTimeAt(currentOrder, GetCurrentRow(), false, false);
 		if(t < 0)
-			msg.Format(U_("Unable to determine the time. Possible cause: No order %d, row %u found in play sequence."), currentOrder, GetCurrentRow());
+			msg = mfcless::PrintF(UL_("Unable to determine the time. Possible cause: No order %d, row %u found in play sequence."), currentOrder, GetCurrentRow());
 		else
 		{
 			const uint32 minutes = static_cast<uint32>(t / 60.0);
 			const double seconds = t - (minutes * 60);
-			msg.Format(U_("Estimate for playback time at order %d (pattern %d), row %u: %u minute%s %.2f seconds."), currentOrder, m_nPattern, GetCurrentRow(), minutes, (minutes == 1) ? U_("") : U_("s"), seconds);
+			msg = mfcless::PrintF(UL_("Estimate for playback time at order %d (pattern %d), row %u: %u minute%s %.2f seconds."), currentOrder, m_nPattern, GetCurrentRow(), minutes, (minutes == 1) ? UL_("") : UL_("s"), seconds);
 		}
 	} else
 	{
-		msg.Format(U_("Unable to determine the time: pattern at current order (%d) does not correspond to pattern in pattern view (pattern %d)."), currentOrder, m_nPattern);
+		msg = mfcless::PrintF(UL_("Unable to determine the time: pattern at current order (%d) does not correspond to pattern in pattern view (pattern %d)."), currentOrder, m_nPattern);
 	}
 
 	Reporting::Notification(msg);
@@ -7294,7 +7295,7 @@ void CViewPattern::ExecutePaste(PatternClipboard::PasteModes mode)
 	if(IsEditingEnabled_bmsg() && PastePattern(m_nPattern, m_Selection.GetUpperLeft(), mode))
 	{
 		InvalidatePattern(false);
-		SetFocus();
+		setFocus();
 	}
 }
 
@@ -7363,7 +7364,7 @@ void CViewPattern::SetSelectionInstrument(const INSTRUMENTINDEX instr, bool setE
 		return;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	PrepareUndo(m_Selection, "Set Instrument");
 
 	bool modified = false;
@@ -7385,7 +7386,7 @@ void CViewPattern::SetSelectionInstrument(const INSTRUMENTINDEX instr, bool setE
 		SetModified();
 		InvalidatePattern();
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -7551,9 +7552,9 @@ void CViewPattern::JumpToPrevOrNextEntry(bool nextEntry, bool select)
 // Copy to clipboard
 bool CViewPattern::CopyPattern(PATTERNINDEX nPattern, const PatternRect &selection)
 {
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	bool result = PatternClipboard::Copy(*GetSoundFile(), nPattern, selection);
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	PatternClipboardDialog::UpdateList();
 	return result;
 }
@@ -7562,7 +7563,7 @@ bool CViewPattern::CopyPattern(PATTERNINDEX nPattern, const PatternRect &selecti
 // Paste from clipboard
 bool CViewPattern::PastePattern(PATTERNINDEX nPattern, const PatternCursor &pastePos, PatternClipboard::PasteModes mode)
 {
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	PatternEditPos pos;
 	pos.pattern = nPattern;
 	pos.row = pastePos.GetRow();
@@ -7572,7 +7573,7 @@ bool CViewPattern::PastePattern(PATTERNINDEX nPattern, const PatternCursor &past
 	const bool patternExisted = GetSoundFile()->Patterns.IsValidPat(nPattern);
 	bool orderChanged = false;
 	bool result = PatternClipboard::Paste(*GetSoundFile(), pos, mode, rect, orderChanged);
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	PatternHint updateHint = PatternHint(PATTERNINDEX_INVALID).Data();
 	if(pos.pattern != nPattern)
@@ -7631,7 +7632,7 @@ intptr_t CViewPattern::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pT
 	{
 	case DragItem::PatternHeader:
 	{
-		text = U_("Show Pattern Properties");
+		text = UL_("Show Pattern Properties");
 		auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(kcShowPatternProperties, 0);
 		if(!keyText.IsEmpty())
 			text += MPT_UFORMAT(" ({})")(keyText);
@@ -7653,7 +7654,7 @@ intptr_t CViewPattern::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pT
 			if(mixPlug && mixPlug <= MAX_MIXPLUGINS)
 				text = MPT_UFORMAT("{}: {}")(mixPlug, mpt::ToUnicode(sndFile.m_MixPlugins[mixPlug - 1].GetName()));
 			else
-				text = U_("No Plugin");
+				text = UL_("No Plugin");
 		}
 		break;
 	}
@@ -7661,7 +7662,7 @@ intptr_t CViewPattern::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pT
 	if(text.empty())
 		return mfcless::Window<QAbstractScrollArea>::OnToolHitTest(point, pTI);
 
-	pTI->hwnd = m_hWnd;
+	pTI->hwnd = this;
 	pTI->uId = item.ToIntPtr();
 	pTI->rect = rect;
 	// MFC will free() the text
@@ -7678,9 +7679,9 @@ HRESULT CViewPattern::get_accName(VARIANT varChild, BSTR *pszName)
 {
 	const ModCommand &m = GetCursorCommand();
 	const size_t columnIndex = m_Cursor.GetColumnType();
-	const mpt::uchar *column = U_("");
-	static constexpr const mpt::uchar *regularColumns[] = {U_("Note"), U_("Instrument"), U_("Volume"), U_("Effect"), U_("Parameter")};
-	static constexpr const mpt::uchar *pcColumns[] = {U_("Note"), U_("Plugin"), U_("Plugin Parameter"), U_("Parameter Value"), U_("Parameter Value")};
+	const mpt::uchar *column = UL_("");
+	static constexpr const mpt::uchar *regularColumns[] = {UL_("Note"), UL_("Instrument"), UL_("Volume"), UL_("Effect"), UL_("Parameter")};
+	static constexpr const mpt::uchar *pcColumns[] = {UL_("Note"), UL_("Plugin"), UL_("Plugin Parameter"), UL_("Parameter Value"), UL_("Parameter Value")};
 	static_assert(PatternCursor::lastColumn + 1 == std::size(regularColumns));
 	static_assert(PatternCursor::lastColumn + 1 == std::size(pcColumns));
 
@@ -7695,17 +7696,17 @@ HRESULT CViewPattern::get_accName(VARIANT varChild, BSTR *pszName)
 	const auto channelNumber = mpt::ufmt::val(chn + 1);
 	mpt::ustring channelName = channelNumber;
 	if(chn < sndFile->GetNumChannels() && !sndFile->ChnSettings[chn].szName.empty())
-		channelName += U_(": ") + mpt::ToUnicode(sndFile->GetCharsetInternal(), sndFile->ChnSettings[chn].szName);
+		channelName += UL_(": ") + mpt::ToUnicode(sndFile->GetCharsetInternal(), sndFile->ChnSettings[chn].szName);
 
 	mpt::ustring str = TrackerSettings::Instance().patternAccessibilityFormat;
-	str.Replace(U_("%sequence%"), mpt::ufmt::val(sndFile->Order.GetCurrentSequenceIndex()));
-	str.Replace(U_("%order%"), FormatOrderRow(GetCurrentOrder()));
-	str.Replace(U_("%pattern%"), mpt::ufmt::val(GetCurrentPattern()));
-	str.Replace(U_("%row%"), FormatOrderRow(m_Cursor.GetRow()));
-	str.Replace(U_("%channel%"), channelNumber);
-	str.Replace(U_("%column_type%"), column);
-	str.Replace(U_("%column_description%"), GetCursorDescription());
-	str.Replace(U_("%channel_name%"), channelName);
+	str.Replace(UL_("%sequence%"), mpt::ufmt::val(sndFile->Order.GetCurrentSequenceIndex()));
+	str.Replace(UL_("%order%"), FormatOrderRow(GetCurrentOrder()));
+	str.Replace(UL_("%pattern%"), mpt::ufmt::val(GetCurrentPattern()));
+	str.Replace(UL_("%row%"), FormatOrderRow(m_Cursor.GetRow()));
+	str.Replace(UL_("%channel%"), channelNumber);
+	str.Replace(UL_("%column_type%"), column);
+	str.Replace(UL_("%column_description%"), GetCursorDescription());
+	str.Replace(UL_("%channel_name%"), channelName);
 
 	if(str.IsEmpty())
 		return CModScrollView::get_accName(varChild, pszName);

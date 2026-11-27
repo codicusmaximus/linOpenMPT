@@ -11,6 +11,7 @@
 
 
 #include "CleanupSong.h"
+#include "mfcless/Widgets.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -130,7 +131,7 @@ bool CModCleanupDlg::OnInitDialog()
 
 void CModCleanupDlg::OnOK()
 {
-	ScopedLogCapturer logcapturer(modDoc, U_("Cleanup"), this);
+	ScopedLogCapturer logcapturer(modDoc, UL_("Cleanup"), this);
 	for(int i = 0; i < kMaxCleanupOptions; i++)
 	{
 		m_CheckBoxes[i] = IsChecked(m_CleanupIDtoDlgID[i]) != 0;
@@ -183,7 +184,7 @@ void CModCleanupDlg::OnOK()
 
 void CModCleanupDlg::OnVerifyMutualExclusive()
 {
-	QWidget * hFocus = GetFocus()->m_hWnd;
+	QWidget * hFocus = mfcless::GetFocus()->m_hWnd;
 	for(int i = 0; i < kMaxCleanupOptions; i++)	
 	{
 		// if this item is focussed, we have just (un)checked it.
@@ -264,62 +265,62 @@ void CModCleanupDlg::OnPresetCompoCleanup()
 
 mpt::ustring CModCleanupDlg::GetToolTipText(uint32 id, QWidget *) const
 {
-	const mpt::uchar * lpszText = U_("");
+	const mpt::uchar * lpszText = UL_("");
 	switch(id)
 	{
 	// patterns
 	case IDC_CHK_CLEANUP_PATTERNS:
-		lpszText = U_("Remove all unused patterns and rearrange them.");
+		lpszText = UL_("Remove all unused patterns and rearrange them.");
 		break;
 	case IDC_CHK_REMOVE_PATTERNS:
-		lpszText = U_("Remove all patterns.");
+		lpszText = UL_("Remove all patterns.");
 		break;
 	case IDC_CHK_REARRANGE_PATTERNS:
-		lpszText = U_("Number the patterns given by their order in the sequence.");
+		lpszText = UL_("Number the patterns given by their order in the sequence.");
 		break;
 	case IDC_CHK_REMOVE_DUPLICATES:
-		lpszText = U_("Merge patterns with identical content.");
+		lpszText = UL_("Merge patterns with identical content.");
 		break;
 	// orders
 	case IDC_CHK_REMOVE_ORDERS:
-		lpszText = U_("Reset the order list.");
+		lpszText = UL_("Reset the order list.");
 		break;
 	case IDC_CHK_MERGE_SEQUENCES:
-		lpszText = U_("Merge multiple sequences into one.");
+		lpszText = UL_("Merge multiple sequences into one.");
 		break;
 	// samples
 	case IDC_CHK_CLEANUP_SAMPLES:
-		lpszText = U_("Remove all unused samples.");
+		lpszText = UL_("Remove all unused samples.");
 		break;
 	case IDC_CHK_REMOVE_SAMPLES:
-		lpszText = U_("Remove all samples.");
+		lpszText = UL_("Remove all samples.");
 		break;
 	case IDC_CHK_REARRANGE_SAMPLES:
-		lpszText = U_("Reorder sample list by removing empty samples.");
+		lpszText = UL_("Reorder sample list by removing empty samples.");
 		break;
 	case IDC_CHK_OPTIMIZE_SAMPLES:
-		lpszText = U_("Remove unused data after the sample loop end.");
+		lpszText = UL_("Remove unused data after the sample loop end.");
 		break;
 	// instruments
 	case IDC_CHK_CLEANUP_INSTRUMENTS:
-		lpszText = U_("Remove all unused instruments.");
+		lpszText = UL_("Remove all unused instruments.");
 		break;
 	case IDC_CHK_REMOVE_INSTRUMENTS:
-		lpszText = U_("Remove all instruments and convert them to samples.");
+		lpszText = UL_("Remove all instruments and convert them to samples.");
 		break;
 	// plugins
 	case IDC_CHK_CLEANUP_PLUGINS:
-		lpszText = U_("Remove all unused plugins.");
+		lpszText = UL_("Remove all unused plugins.");
 		break;
 	case IDC_CHK_REMOVE_PLUGINS:
-		lpszText = U_("Remove all plugins.");
+		lpszText = UL_("Remove all plugins.");
 		break;
 	// misc
 	case IDC_CHK_SAMPLEPACK:
-		lpszText = U_("Convert the module to .IT and reset song / sample / instrument variables");
+		lpszText = UL_("Convert the module to .IT and reset song / sample / instrument variables");
 		break;
 	case IDC_CHK_UNUSED_CHANNELS:
-		lpszText = U_("Removes all empty pattern channels.");
+		lpszText = UL_("Removes all empty pattern channels.");
 		break;
 	}
 	return lpszText;
@@ -335,7 +336,7 @@ bool CModCleanupDlg::RemoveDuplicatePatterns()
 	const PATTERNINDEX numPatterns = sndFile.Patterns.Size();
 	std::vector<PATTERNINDEX> patternMapping(numPatterns, PATTERNINDEX_INVALID);
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	CriticalSection cs;
 
 	PATTERNINDEX foundDupes = 0;
@@ -377,7 +378,7 @@ bool CModCleanupDlg::RemoveDuplicatePatterns()
 		}
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	return foundDupes != 0;
 }
@@ -390,7 +391,7 @@ bool CModCleanupDlg::RemoveUnusedPatterns()
 	const PATTERNINDEX numPatterns = sndFile.Patterns.Size();
 	std::vector<bool> patternUsed(numPatterns, false);
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	// First, find all used patterns in all sequences.
 	for(auto &order : sndFile.Order)
 	{
@@ -415,7 +416,7 @@ bool CModCleanupDlg::RemoveUnusedPatterns()
 			sndFile.Patterns.Remove(pat);
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	if(numRemovedPatterns)
 	{
@@ -436,7 +437,7 @@ bool CModCleanupDlg::RearrangePatterns()
 
 	bool modified = false;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	CriticalSection cs;
 
 	// First, find all used patterns in all sequences.
@@ -487,7 +488,7 @@ bool CModCleanupDlg::RearrangePatterns()
 		modified = true;
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	return modified;
 }
@@ -506,7 +507,7 @@ public:
 protected:
 	void Run() override
 	{
-		SetTitle(U_("Cleanup"));
+		SetTitle(UL_("Cleanup"));
 
 		CSoundFile &sndFile = m_modDoc.GetSoundFile();
 
@@ -585,7 +586,7 @@ protected:
 // Remove unused samples
 bool CModCleanupDlg::RemoveUnusedSamples()
 {
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	CSoundFile &sndFile = modDoc.GetSoundFile();
 	SAMPLEINDEX numRemoved = 0;
@@ -667,7 +668,7 @@ bool CModCleanupDlg::RemoveUnusedSamples()
 		}
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	if(sndFile.GetNumInstruments())
 	{
@@ -853,7 +854,7 @@ bool CModCleanupDlg::RemoveUnusedInstruments()
 		removeSamples = deleteAssociatedSamples;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	std::vector<bool> instrUsed(sndFile.GetNumInstruments());
 	bool prevUsed = true, reorder = false;
@@ -873,7 +874,7 @@ bool CModCleanupDlg::RemoveUnusedInstruments()
 		prevUsed = instrUsed[i];
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	if(reorder && numUsed >= 1)
 	{
@@ -887,7 +888,7 @@ bool CModCleanupDlg::RemoveUnusedInstruments()
 
 	if(numRemoved != 0)
 	{
-		BeginWaitCursor();
+		mfcless::BeginWaitCursor();
 
 		std::vector<INSTRUMENTINDEX> instrMap;
 		instrMap.reserve(sndFile.GetNumInstruments());
@@ -904,7 +905,7 @@ bool CModCleanupDlg::RemoveUnusedInstruments()
 
 		modDoc.ReArrangeInstruments(instrMap, removeSamples);
 
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 
 		modDoc.AddToLog(LogNotification, MPT_UFORMAT("{} unused instrument{} removed")(numRemoved, (numRemoved == 1) ? U_("") : U_("s")));
 		return true;
@@ -977,13 +978,13 @@ bool CModCleanupDlg::ResetVariables()
 {
 	CSoundFile &sndFile = modDoc.GetSoundFile();
 
-	if(Reporting::Confirm(U_("OpenMPT will convert the module to IT format and reset all song, sample and instrument attributes to default values. Continue?"), U_("Resetting variables"), false, false, this) == cnfNo)
+	if(Reporting::Confirm(UL_("OpenMPT will convert the module to IT format and reset all song, sample and instrument attributes to default values. Continue?"), UL_("Resetting variables"), false, false, this) == cnfNo)
 		return false;
 
 	// Stop play.
 	CMainFrame::GetMainFrame()->StopMod(&modDoc);
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	CriticalSection cs;
 
 	// Convert to IT...
@@ -1033,7 +1034,7 @@ bool CModCleanupDlg::ResetVariables()
 	SampleEdit::ResetSamples(sndFile, SampleEdit::SmpResetCompo);
 
 	cs.Leave();
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	return true;
 }

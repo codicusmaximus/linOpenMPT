@@ -10,6 +10,7 @@
 
 
 #include "KeyConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "CListCtrl.h"
 #include "FileDialog.h"
 #include "Mainfrm.h"
@@ -106,7 +107,7 @@ void CCustEdit::OnSetFocus(QWidget *pOldWnd)
 	// Lock the input handler
 	CMainFrame::GetInputHandler()->Bypass(true);
 	// Accept MIDI input
-	CMainFrame::GetMainFrame()->SetMidiRecordWnd(m_hWnd);
+	CMainFrame::GetMainFrame()->SetMidiRecordWnd(this);
 
 	m_isFocussed = true;
 }
@@ -129,8 +130,8 @@ void CCustEdit::OnKillFocus(QWidget *pNewWnd)
 
 static constexpr CListCtrlEx::Header KeyListHeaders[] =
 {
-	{U_("Shortcut"),      274, LVCFMT_LEFT},
-	{U_("Assigned Keys"), 174, LVCFMT_LEFT},
+	{UL_("Shortcut"),      274, LVCFMT_LEFT},
+	{UL_("Assigned Keys"), 174, LVCFMT_LEFT},
 };
 
 void COptionsKeyboard::RegisterMessageMap()
@@ -227,7 +228,7 @@ bool COptionsKeyboard::OnInitDialog()
 
 	EnableKeyChoice(false);
 
-	m_eChordWaitTime->SetWindowText(mpt::ufmt::val(TrackerSettings::Instance().gnAutoChordWaitTime.Get()));
+	mfcless::SetWindowText(m_eChordWaitTime, mpt::ufmt::val(TrackerSettings::Instance().gnAutoChordWaitTime.Get()));
 	return true;
 }
 
@@ -257,112 +258,112 @@ intptr_t COptionsKeyboard::OnDPIChangedAfterParent(uintptr_t, intptr_t)
 void COptionsKeyboard::DefineCommandCategories()
 {
 	{
-		auto &commands = commandCategories.emplace_back(U_("Global"), kCtxAllContexts).commandRanges;
-		commands.emplace_back(kcStartFile, kcEndFile, U_("File"));
-		commands.emplace_back(kcStartPlayCommands, kcEndPlayCommands, U_("Player"));
-		commands.emplace_back(kcStartEditCommands, kcEndEditCommands, U_("Edit"));
-		commands.emplace_back(kcStartView, kcEndView, U_("View"));
-		commands.emplace_back(kcStartMisc, kcEndMisc, U_("Miscellaneous"));
-		commands.emplace_back(kcDummyShortcut, kcDummyShortcut, U_(""));
+		auto &commands = commandCategories.emplace_back(UL_("Global"), kCtxAllContexts).commandRanges;
+		commands.emplace_back(kcStartFile, kcEndFile, UL_("File"));
+		commands.emplace_back(kcStartPlayCommands, kcEndPlayCommands, UL_("Player"));
+		commands.emplace_back(kcStartEditCommands, kcEndEditCommands, UL_("Edit"));
+		commands.emplace_back(kcStartView, kcEndView, UL_("View"));
+		commands.emplace_back(kcStartMisc, kcEndMisc, UL_("Miscellaneous"));
+		commands.emplace_back(kcDummyShortcut, kcDummyShortcut, UL_(""));
 	}
 
-	commandCategories.emplace_back(U_("  General [Top]"), kCtxCtrlGeneral);
-	commandCategories.emplace_back(U_("  General [Bottom]"), kCtxViewGeneral);
-	commandCategories.emplace_back(U_("  Pattern Editor [Top]"), kCtxCtrlPatterns);
+	commandCategories.emplace_back(UL_("  General [Top]"), kCtxCtrlGeneral);
+	commandCategories.emplace_back(UL_("  General [Bottom]"), kCtxViewGeneral);
+	commandCategories.emplace_back(UL_("  Pattern Editor [Top]"), kCtxCtrlPatterns);
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("  Pattern Editor - Order List"), kCtxCtrlOrderlist).commandRanges;
-		commands.emplace_back(kcStartOrderlistEdit, kcEndOrderlistEdit, U_("Edit"));
-		commands.emplace_back(kcStartOrderlistNavigation, kcEndOrderlistNavigation, U_("Navigation"));
-		commands.emplace_back(kcStartOrderlistNum, kcEndOrderlistNum, U_("Pattern Entry"));
-		commands.emplace_back(kcStartOrderlistMisc, kcEndOrderlistMisc, U_("Miscellaneous"));
-	}
-
-	{
-		auto &commands = commandCategories.emplace_back(U_("  Pattern Editor - Quick Channel Settings"), kCtxChannelSettings).commandRanges;
-		commands.emplace_back(kcStartChnSettingsCommands, kcEndChnSettingsCommands, U_(""));
+		auto &commands = commandCategories.emplace_back(UL_("  Pattern Editor - Order List"), kCtxCtrlOrderlist).commandRanges;
+		commands.emplace_back(kcStartOrderlistEdit, kcEndOrderlistEdit, UL_("Edit"));
+		commands.emplace_back(kcStartOrderlistNavigation, kcEndOrderlistNavigation, UL_("Navigation"));
+		commands.emplace_back(kcStartOrderlistNum, kcEndOrderlistNum, UL_("Pattern Entry"));
+		commands.emplace_back(kcStartOrderlistMisc, kcEndOrderlistMisc, UL_("Miscellaneous"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("    Pattern Editor - General"), kCtxViewPatterns).commandRanges;
-		commands.emplace_back(kcStartPlainNavigate, kcEndPlainNavigate, U_("Navigation"));
-		commands.emplace_back(kcStartJumpSnap, kcEndJumpSnap, U_("Jump"));
-		commands.emplace_back(kcStartHomeEnd, kcEndHomeEnd, U_("Go To"));
-		commands.emplace_back(kcStartGotoColumn, kcEndGotoColumn, U_("Go To Column"));
-		commands.emplace_back(kcPrevPattern, kcNextSequence, U_("Order List Navigation"));
-		commands.emplace_back(kcStartPatternScrolling, kcEndPatternScrolling, U_("Scrolling"));
-		commands.emplace_back(kcStartSelect, kcEndSelect, U_("Selection"));
-		commands.emplace_back(kcStartPatternClipboard, kcEndPatternClipboard, U_("Clipboard"));
-		commands.emplace_back(kcClearRow, kcInsertWholeRowGlobal, U_("Clear / Insert"));
-		commands.emplace_back(kcStartChannelKeys, kcEndChannelKeys, U_("Channels"));
-		commands.emplace_back(kcBeginTranspose, kcEndTranspose, U_("Transpose"));
-		commands.emplace_back(kcStartPatternEditMisc, kcEndPatternEditMisc, U_("Edit"));
-		commands.emplace_back(kcStartPatternMisc, kcEndPatternMisc, U_("Miscellaneous"));
+		auto &commands = commandCategories.emplace_back(UL_("  Pattern Editor - Quick Channel Settings"), kCtxChannelSettings).commandRanges;
+		commands.emplace_back(kcStartChnSettingsCommands, kcEndChnSettingsCommands, UL_(""));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("        Pattern Editor - Note Column"), kCtxViewPatternsNote).commandRanges;
-		commands.emplace_back(kcVPStartNotes, kcVPEndNotes, U_("Note Entry"));
-		commands.emplace_back(kcSetOctave0, kcSetOctave9, U_("Octave Entry"));
-		commands.emplace_back(kcStartNoteMisc, kcEndNoteMisc, U_("Miscellaneous"));
+		auto &commands = commandCategories.emplace_back(UL_("    Pattern Editor - General"), kCtxViewPatterns).commandRanges;
+		commands.emplace_back(kcStartPlainNavigate, kcEndPlainNavigate, UL_("Navigation"));
+		commands.emplace_back(kcStartJumpSnap, kcEndJumpSnap, UL_("Jump"));
+		commands.emplace_back(kcStartHomeEnd, kcEndHomeEnd, UL_("Go To"));
+		commands.emplace_back(kcStartGotoColumn, kcEndGotoColumn, UL_("Go To Column"));
+		commands.emplace_back(kcPrevPattern, kcNextSequence, UL_("Order List Navigation"));
+		commands.emplace_back(kcStartPatternScrolling, kcEndPatternScrolling, UL_("Scrolling"));
+		commands.emplace_back(kcStartSelect, kcEndSelect, UL_("Selection"));
+		commands.emplace_back(kcStartPatternClipboard, kcEndPatternClipboard, UL_("Clipboard"));
+		commands.emplace_back(kcClearRow, kcInsertWholeRowGlobal, UL_("Clear / Insert"));
+		commands.emplace_back(kcStartChannelKeys, kcEndChannelKeys, UL_("Channels"));
+		commands.emplace_back(kcBeginTranspose, kcEndTranspose, UL_("Transpose"));
+		commands.emplace_back(kcStartPatternEditMisc, kcEndPatternEditMisc, UL_("Edit"));
+		commands.emplace_back(kcStartPatternMisc, kcEndPatternMisc, UL_("Miscellaneous"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("        Pattern Editor - Instrument Column"), kCtxViewPatternsIns).commandRanges;
-		commands.emplace_back(kcSetIns0, kcSetIns9, U_("Instrument Entry"));
+		auto &commands = commandCategories.emplace_back(UL_("        Pattern Editor - Note Column"), kCtxViewPatternsNote).commandRanges;
+		commands.emplace_back(kcVPStartNotes, kcVPEndNotes, UL_("Note Entry"));
+		commands.emplace_back(kcSetOctave0, kcSetOctave9, UL_("Octave Entry"));
+		commands.emplace_back(kcStartNoteMisc, kcEndNoteMisc, UL_("Miscellaneous"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("        Pattern Editor - Volume Column"), kCtxViewPatternsVol).commandRanges;
-		commands.emplace_back(kcStartVolumeDigits, kcEndVolumeDigits, U_("Volume Entry"));
-		commands.emplace_back(kcStartVolumeCommands, kcEndVolumeCommands, U_("Volume Command Entry"));
+		auto &commands = commandCategories.emplace_back(UL_("        Pattern Editor - Instrument Column"), kCtxViewPatternsIns).commandRanges;
+		commands.emplace_back(kcSetIns0, kcSetIns9, UL_("Instrument Entry"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("        Pattern Editor - Effect Column"), kCtxViewPatternsFX).commandRanges;
-		commands.emplace_back(kcSetFXStart, kcSetFXEnd, U_("Effect Command Entry"));
+		auto &commands = commandCategories.emplace_back(UL_("        Pattern Editor - Volume Column"), kCtxViewPatternsVol).commandRanges;
+		commands.emplace_back(kcStartVolumeDigits, kcEndVolumeDigits, UL_("Volume Entry"));
+		commands.emplace_back(kcStartVolumeCommands, kcEndVolumeCommands, UL_("Volume Command Entry"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("        Pattern Editor - Effect Parameter Column"), kCtxViewPatternsFXparam).commandRanges;
-		commands.emplace_back(kcSetFXParam0, kcSetFXParamF, U_("Parameter Digit Entry"));
-	}
-
-	commandCategories.emplace_back(U_("  Sample [Top]"), kCtxCtrlSamples);
-
-	{
-		auto &commands = commandCategories.emplace_back(U_("    Sample Editor"), kCtxViewSamples).commandRanges;
-		commands.emplace_back(kcStartSampleEditing, kcEndSampleEditing, U_("Edit"));
-		commands.emplace_back(kcStartSampleMisc, kcEndSampleMisc, U_("Miscellaneous"));
-		commands.emplace_back(kcStartSampleCues, kcEndSampleCueGroup, U_("Sample Cues"));
+		auto &commands = commandCategories.emplace_back(UL_("        Pattern Editor - Effect Column"), kCtxViewPatternsFX).commandRanges;
+		commands.emplace_back(kcSetFXStart, kcSetFXEnd, UL_("Effect Command Entry"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("  Instrument Editor"), kCtxCtrlInstruments).commandRanges;
-		commands.emplace_back(kcStartInstrumentCtrl, kcEndInstrumentCtrl, U_("Miscellaneous"));
-		commands.emplace_back(kcStartInsNoteMap, kcEndInsNoteMap, U_("Note Map"));
+		auto &commands = commandCategories.emplace_back(UL_("        Pattern Editor - Effect Parameter Column"), kCtxViewPatternsFXparam).commandRanges;
+		commands.emplace_back(kcSetFXParam0, kcSetFXParamF, UL_("Parameter Digit Entry"));
+	}
+
+	commandCategories.emplace_back(UL_("  Sample [Top]"), kCtxCtrlSamples);
+
+	{
+		auto &commands = commandCategories.emplace_back(UL_("    Sample Editor"), kCtxViewSamples).commandRanges;
+		commands.emplace_back(kcStartSampleEditing, kcEndSampleEditing, UL_("Edit"));
+		commands.emplace_back(kcStartSampleMisc, kcEndSampleMisc, UL_("Miscellaneous"));
+		commands.emplace_back(kcStartSampleCues, kcEndSampleCueGroup, UL_("Sample Cues"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("    Envelope Editor"), kCtxViewInstruments).commandRanges;
-		commands.emplace_back(kcStartInsEnvelopeEdit, kcEndInsEnvelopeEdit, U_(""));
-	}
-
-	commandCategories.emplace_back(U_("  Comments [Top]"), kCtxCtrlComments);
-
-	{
-		auto &commands = commandCategories.emplace_back(U_("  Comments [Bottom]"), kCtxViewComments).commandRanges;
-		commands.emplace_back(kcStartCommentsCommands, kcEndCommentsCommands, U_(""));
+		auto &commands = commandCategories.emplace_back(UL_("  Instrument Editor"), kCtxCtrlInstruments).commandRanges;
+		commands.emplace_back(kcStartInstrumentCtrl, kcEndInstrumentCtrl, UL_("Miscellaneous"));
+		commands.emplace_back(kcStartInsNoteMap, kcEndInsNoteMap, UL_("Note Map"));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("  Plugin Editor"), kCtxVSTGUI).commandRanges;
-		commands.emplace_back(kcStartVSTGUICommands, kcEndVSTGUICommands, U_(""));
+		auto &commands = commandCategories.emplace_back(UL_("    Envelope Editor"), kCtxViewInstruments).commandRanges;
+		commands.emplace_back(kcStartInsEnvelopeEdit, kcEndInsEnvelopeEdit, UL_(""));
+	}
+
+	commandCategories.emplace_back(UL_("  Comments [Top]"), kCtxCtrlComments);
+
+	{
+		auto &commands = commandCategories.emplace_back(UL_("  Comments [Bottom]"), kCtxViewComments).commandRanges;
+		commands.emplace_back(kcStartCommentsCommands, kcEndCommentsCommands, UL_(""));
 	}
 
 	{
-		auto &commands = commandCategories.emplace_back(U_("  Tree View"), kCtxViewTree).commandRanges;
-		commands.emplace_back(kcStartTreeViewCommands, kcEndTreeViewCommands, U_(""));
+		auto &commands = commandCategories.emplace_back(UL_("  Plugin Editor"), kCtxVSTGUI).commandRanges;
+		commands.emplace_back(kcStartVSTGUICommands, kcEndVSTGUICommands, UL_(""));
+	}
+
+	{
+		auto &commands = commandCategories.emplace_back(UL_("  Tree View"), kCtxViewTree).commandRanges;
+		commands.emplace_back(kcStartTreeViewCommands, kcEndTreeViewCommands, UL_(""));
 	}
 }
 
@@ -390,8 +391,8 @@ void COptionsKeyboard::OnCategorySelChanged()
 	if(cat < 0)
 		return;
 
-	const bool refresh = cat != m_curCategory || m_eFind->GetWindowTextLength() > 0 || m_eFindHotKey->GetWindowTextLength() > 0;
-	m_eFind->SetWindowText(U_(""));
+	const bool refresh = cat != m_curCategory || mfcless::GetWindowTextLength(m_eFind) > 0 || mfcless::GetWindowTextLength(m_eFindHotKey) > 0;
+	mfcless::SetWindowText(m_eFind, UL_(""));
 	OnClearHotKey();
 	if(refresh)
 	{
@@ -421,7 +422,7 @@ void COptionsKeyboard::OnSearchTermChanged()
 		return;
 
 	mpt::ustring findString;
-	m_eFind->GetWindowText(findString);
+	mfcless::GetWindowText(m_eFind, findString);
 
 	if(findString.IsEmpty())
 	{
@@ -434,30 +435,30 @@ void COptionsKeyboard::OnSearchTermChanged()
 void COptionsKeyboard::OnClearSearch()
 {
 	m_eFindHotKey->SetKey(ModNone, 0);
-	m_eFind->SetWindowText(U_(""));
+	mfcless::SetWindowText(m_eFind, UL_(""));
 }
 
 
 void COptionsKeyboard::OnEnableFindHotKey()
 {
 	OnClearHotKey();
-	ShowItem(IDC_BUTTON2, false);
-	ShowItem(IDC_FINDHOTKEY_LABEL, true);
-	ShowItem(IDC_FINDHOTKEY, true);
+	ShowItem(IDC_BUTTON2, mfcless::show::Hide);
+	ShowItem(IDC_FINDHOTKEY_LABEL, mfcless::show::Show);
+	ShowItem(IDC_FINDHOTKEY, mfcless::show::Show);
 	GetDlgItem(IDC_FINDHOTKEY)->SetFocus();
 }
 
 
 void COptionsKeyboard::OnFindHotKey()
 {
-	ShowItem(IDC_BUTTON2, true);
-	ShowItem(IDC_FINDHOTKEY_LABEL, false);
-	ShowItem(IDC_FINDHOTKEY, false);
+	ShowItem(IDC_BUTTON2, mfcless::show::Show);
+	ShowItem(IDC_FINDHOTKEY_LABEL, mfcless::show::Hide);
+	ShowItem(IDC_FINDHOTKEY, mfcless::show::Hide);
 	const bool hasKey = m_eFindHotKey->HasKey();
 	if(!hasKey)
 		UpdateCategory();
 	UpdateShortcutList(hasKey ? -1 : m_curCategory);
-	GotoDlgCtrl(m_lbnCommandKeys);
+	mfcless::GotoDlgCtrl(m_lbnCommandKeys);
 }
 
 
@@ -490,8 +491,8 @@ void COptionsKeyboard::InsertGroup(const mpt::uchar *title, int groupId)
 	group.stateMask = 0;
 	group.state = 0;
 	group.uAlign = LVGA_HEADER_LEFT;
-	ListView_InsertGroup(m_lbnCommandKeys->m_hWnd, -1, &group);
-	ListView_SetGroupState(m_lbnCommandKeys->m_hWnd, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
+	ListView_InsertGroup(m_lbnCommandKeys, -1, &group);
+	ListView_SetGroupState(m_lbnCommandKeys, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
 }
 
 
@@ -499,7 +500,7 @@ void COptionsKeyboard::InsertGroup(const mpt::uchar *title, int groupId)
 void COptionsKeyboard::UpdateShortcutList(int category)
 {
 	mpt::ustring findString;
-	m_eFind->GetWindowText(findString);
+	mfcless::GetWindowText(m_eFind, findString);
 	findString.MakeLower();
 
 	const bool searchByName = !findString.IsEmpty(), searchByKey = m_eFindHotKey->HasKey();
@@ -584,10 +585,10 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 						lvi.lParam = kcNull;
 						mpt::ustring catName;
 						if(range.name.IsEmpty())
-							catName = const_cast<mpt::uchar *>(U_("------------------------------------------------------"));
+							catName = const_cast<mpt::uchar *>(UL_("------------------------------------------------------"));
 						else
-							catName = U_("------ ") + range.name + U_(" ------");
-						lvi.pszText = const_cast<mpt::uchar *>(catName.GetString());
+							catName = UL_("------ ") + range.name + UL_(" ------");
+						lvi.pszText = const_cast<mpt::uchar *>(catName.c_str());
 						m_lbnCommandKeys->InsertItem(&lvi);
 						if(itemToSelect == -1)
 							itemToSelect = itemID;
@@ -603,22 +604,22 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 							InsertGroup(mpt::ustring{commandCategories[cat].name}.TrimLeft(), ++currentGroup);
 						} else
 						{
-							const mpt::ustring catName = U_("------ ") + mpt::ustring{commandCategories[cat].name}.TrimLeft() + U_(" ------");
+							const mpt::ustring catName = UL_("------ ") + mpt::ustring{commandCategories[cat].name}.TrimLeft() + UL_(" ------");
 							lvi.iItem = ++itemID;
 							lvi.lParam = kcNull;
-							lvi.pszText = const_cast<mpt::uchar *>(catName.GetString());
+							lvi.pszText = const_cast<mpt::uchar *>(catName.c_str());
 							m_lbnCommandKeys->InsertItem(&lvi);
 						}
 						addCategoryName = false;
 					} else if(currentGroup == -1 && m_listGrouped)
 					{
-						InsertGroup(U_(""), ++currentGroup);
+						InsertGroup(UL_(""), ++currentGroup);
 					}
 
 					const mpt::ustring text = m_localCmdSet->GetCommandText(com);
 					lvi.iItem = ++itemID;
 					lvi.lParam = static_cast<intptr_t>(com);
-					lvi.pszText = const_cast<mpt::uchar *>(text.GetString());
+					lvi.pszText = const_cast<mpt::uchar *>(text.c_str());
 					lvi.iGroupId = currentGroup;
 					m_lbnCommandKeys->InsertItem(&lvi);
 					m_lbnCommandKeys->SetItemText(itemID, 1, m_localCmdSet->GetKeyTextFromCommand(com));
@@ -678,21 +679,21 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 	//Separator
 	if(cmd == kcNull)
 	{
-		m_cmbKeyChoice->SetWindowText(U_(""));
-		m_eCustHotKey->SetWindowText(U_(""));
+		mfcless::SetWindowText(m_cmbKeyChoice, UL_(""));
+		mfcless::SetWindowText(m_eCustHotKey, UL_(""));
 		m_bKeyDown->setChecked(0);
 		m_bKeyHold->setChecked(0);
 		m_bKeyUp->setChecked(0);
 		m_curCommand = kcNull;
 
-		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(U_("&Key setup for selected command"));
+		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(UL_("&Key setup for selected command"));
 		UpdateWarning();
 	}
 
 	//Fill "choice" list
 	else if((cmd >= kcFirst && cmd != m_curCommand) || m_forceUpdate)  // Have we changed command?
 	{
-		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(U_("&Key setup for ") + m_localCmdSet->GetCommandText(cmd));
+		GetDlgItem(IDC_GROUPBOX_KEYSETUP)->SetWindowText(UL_("&Key setup for ") + m_localCmdSet->GetCommandText(cmd));
 
 		m_forceUpdate = false;
 
@@ -709,7 +710,7 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 				mfcless::SetItemData(m_cmbKeyChoice, mfcless::AddItem(m_cmbKeyChoice, s), i);
 			}
 		}
-		mfcless::SetItemData(m_cmbKeyChoice, mfcless::AddItem(m_cmbKeyChoice, U_("<new>")), numChoices);
+		mfcless::SetItemData(m_cmbKeyChoice, mfcless::AddItem(m_cmbKeyChoice, UL_("<new>")), numChoices);
 		m_cmbKeyChoice->setCurrentIndex(0);
 		m_curKeyChoice = -1;
 		OnKeyChoiceSelect();
@@ -773,12 +774,12 @@ void COptionsKeyboard::OnChordWaitTimeChanged()
 {
 	mpt::ustring s;
 	uint32 val;
-	m_eChordWaitTime->GetWindowText(s);
+	mfcless::GetWindowText(m_eChordWaitTime, s);
 	val = _tstoi(s);
 	if(val > 5000)
 	{
 		val = 5000;
-		m_eChordWaitTime->SetWindowText(U_("5000"));
+		mfcless::SetWindowText(m_eChordWaitTime, UL_("5000"));
 	}
 	OnSettingsChanged();
 }
@@ -794,7 +795,7 @@ void COptionsKeyboard::OnRestoreKeyChoice()
 	// Do nothing if there's nothing to restore
 	if(cmd == kcNull || ((m_curKeyChoice < 0 || m_curKeyChoice >= ih->GetKeyListSize(cmd)) && ih->GetKeyListSize(cmd) != 0))
 	{
-		::MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		return;
 	}
 
@@ -840,12 +841,12 @@ void COptionsKeyboard::OnListenForKeys()
 
 void COptionsKeyboard::EnableKeyChoice(bool enable)
 {
-	if(!enable && GetFocus() == &m_eCustHotKey)
-		GotoDlgCtrl(GetDlgItem(IDC_BUTTON1));
+	if(!enable && mfcless::GetFocus() == &m_eCustHotKey)
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_BUTTON1));
 	m_eCustHotKey->Bypass(!enable);
-	GetDlgItem(IDC_BUTTON1)->SetWindowText(enable ? U_("Cancel") : U_("&Set"));
+	GetDlgItem(IDC_BUTTON1)->SetWindowText(enable ? UL_("Cancel") : UL_("&Set"));
 	if(enable)
-		GotoDlgCtrl(m_eCustHotKey);
+		mfcless::GotoDlgCtrl(m_eCustHotKey);
 }
 
 
@@ -856,7 +857,7 @@ void COptionsKeyboard::OnDeleteKeyChoice()
 	// Do nothing if there's no key defined for this slot.
 	if(m_curCommand == kcNull || m_curKeyChoice < 0 || m_curKeyChoice >= m_localCmdSet->GetKeyListSize(cmd))
 	{
-		::MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		return;
 	}
 
@@ -872,9 +873,9 @@ void COptionsKeyboard::OnCancelKeyChoice(const QWidget *source)
 {
 	if(source == &m_eFindHotKey)
 	{
-		ShowItem(IDC_BUTTON2, true);
-		ShowItem(IDC_FINDHOTKEY_LABEL, false);
-		ShowItem(IDC_FINDHOTKEY, false);
+		ShowItem(IDC_BUTTON2, mfcless::show::Show);
+		ShowItem(IDC_FINDHOTKEY_LABEL, mfcless::show::Hide);
+		ShowItem(IDC_FINDHOTKEY, mfcless::show::Hide);
 	} else
 	{
 		EnableKeyChoice(false);
@@ -923,11 +924,11 @@ void COptionsKeyboard::OnSetKeyChoice(const QWidget *source)
 	{
 		KeyCombination origKc = m_localCmdSet->GetKey(cmd, m_curKeyChoice);
 		m_eCustHotKey->SetKey(origKc.Modifier(), origKc.KeyCode());
-		UpdateWarning(m_localCmdSet->GetCommandText(cmd) + U_(" must be a modifier (Shift/Ctrl/Alt), but you chose ") + kc.GetKeyText(), true);
+		UpdateWarning(m_localCmdSet->GetCommandText(cmd) + UL_(" must be a modifier (Shift/Ctrl/Alt), but you chose ") + kc.GetKeyText(), true);
 		add = false;
 	} else if((conflictCmd = m_localCmdSet->IsConflicting(kc, cmd)).first != kcNull && conflictCmd.first != cmd && !m_localCmdSet->IsCrossContextConflict(kc, conflictCmd.second))
 	{
-		ConfirmAnswer delOld = Reporting::Confirm(U_("New shortcut (") + kc.GetKeyText() + U_(") has the same key combination as ") + m_localCmdSet->GetCommandText(conflictCmd.first) + U_(" in ") + conflictCmd.second.GetContextText() + U_(".\nDo you want to delete the other shortcut, only keeping the new one?"), U_("Shortcut Conflict"), true, false, this);
+		ConfirmAnswer delOld = Reporting::Confirm(UL_("New shortcut (") + kc.GetKeyText() + UL_(") has the same key combination as ") + m_localCmdSet->GetCommandText(conflictCmd.first) + UL_(" in ") + conflictCmd.second.GetContextText() + UL_(".\nDo you want to delete the other shortcut, only keeping the new one?"), UL_("Shortcut Conflict"), true, false, this);
 		if(delOld == cnfYes)
 		{
 			m_localCmdSet->Remove(conflictCmd.second, conflictCmd.first);
@@ -942,7 +943,7 @@ void COptionsKeyboard::OnSetKeyChoice(const QWidget *source)
 				m_eCustHotKey->SetKey(origKc.Modifier(), origKc.KeyCode());
 			} else
 			{
-				m_eCustHotKey->SetWindowText(U_(""));
+				mfcless::SetWindowText(m_eCustHotKey, UL_(""));
 			}
 		}
 	}
@@ -976,25 +977,25 @@ static QIcon LoadScaledIcon(const mpt::uchar *resourceName, int iconSize)
 
 void COptionsKeyboard::UpdateWarning(mpt::ustring text, bool notify)
 {
-	const int iconSize = HighDPISupport::ScalePixels(16, m_hWnd);
+	const int iconSize = HighDPISupport::ScalePixels(16, this);
 	QIcon icon;
 	if(text.IsEmpty())
 	{
-		m_warnText->SetWindowText(U_("No conflicts found."));
+		mfcless::SetWindowText(m_warnText, UL_("No conflicts found."));
 		if(!m_infoIcon)
 			m_infoIcon = LoadScaledIcon(IDI_INFORMATION, iconSize);
 		icon = m_infoIcon;
 	} else
 	{
 		if(notify)
-			::MessageBeep(MB_ICONWARNING);
+			mfcless::MessageBeep(nfIconWarning);
 
-		m_warnText->SetWindowText(text);
+		mfcless::SetWindowText(m_warnText, text);
 		if(!m_warnIcon)
 			m_warnIcon = LoadScaledIcon(IDI_EXCLAMATION, iconSize);
 		icon = m_warnIcon;
 	}
-	m_warnIconCtl->SetWindowPos(nullptr, 0, 0, iconSize, iconSize, SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOREDRAW | SWP_NOMOVE | SWP_NOACTIVATE);
+	m_warnIconCtl->SetWindowPos(nullptr, 0, 0, iconSize, iconSize, mfcless::swp::ShowWindow | mfcless::swp::NoZOrder | mfcless::swp::NoRedraw | mfcless::swp::NoMove | mfcless::swp::NoActivate);
 	m_warnIconCtl->SetIcon(icon);
 	m_lastWarning = std::move(text);
 }
@@ -1005,7 +1006,7 @@ void COptionsKeyboard::OnOK()
 	CMainFrame::GetInputHandler()->SetNewCommandSet(*m_localCmdSet);
 
 	mpt::ustring cs;
-	m_eChordWaitTime->GetWindowText(cs);
+	mfcless::GetWindowText(m_eChordWaitTime, cs);
 	TrackerSettings::Instance().gnAutoChordWaitTime = _tstoi(cs);
 
 	PropertyPage::OnOK();
@@ -1147,9 +1148,9 @@ void COptionsKeyboard::ShowRestoreKeymapMenu()
 	mfcless::Menu menu;
 	if(!menu.CreatePopupMenu())
 		return;
-	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_MPT, U_("&OpenMPT style"));
-	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_IT, U_("&Impulse Tracker style"));
-	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_FT2, U_("&Fast Tracker style"));
+	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_MPT, UL_("&OpenMPT style"));
+	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_IT, UL_("&Impulse Tracker style"));
+	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_FT2, UL_("&Fast Tracker style"));
 	menu.TrackPopupMenuEx(mfcless::menu::LeftAlign | mfcless::menu::TopAlign | mfcless::menu::LeftButton, rect.left, rect.bottom, this, &tpmParams);
 }
 

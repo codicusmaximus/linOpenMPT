@@ -10,6 +10,7 @@
 
 
 #include "AdvancedConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "dlg_misc.h"
 #include "Mainfrm.h"
 #include "Mptrack.h"
@@ -72,20 +73,20 @@ bool COptionsAdvanced::OnInitDialog()
 	{
 		static constexpr ListCtrl::Header headers[] =
 		{
-			{ U_("Setting"), 170, LVCFMT_LEFT },
-			{ U_("Type"),    40,  LVCFMT_LEFT },
-			{ U_("Value"),   160, LVCFMT_LEFT },
-			{ U_("Default"), 76,  LVCFMT_LEFT },
+			{ UL_("Setting"), 170, LVCFMT_LEFT },
+			{ UL_("Type"),    40,  LVCFMT_LEFT },
+			{ UL_("Value"),   160, LVCFMT_LEFT },
+			{ UL_("Default"), 76,  LVCFMT_LEFT },
 		};
 		m_List.SetHeaders(headers);
 	} else
 	{
 		static constexpr ListCtrl::Header headers[] =
 		{
-			{ U_("Setting"), 220, LVCFMT_LEFT },
-			{ U_("Type"),    40,  LVCFMT_LEFT },
-			{ U_("Value"),   120, LVCFMT_LEFT },
-			{ U_("Default"), 66,  LVCFMT_LEFT },
+			{ UL_("Setting"), 220, LVCFMT_LEFT },
+			{ UL_("Type"),    40,  LVCFMT_LEFT },
+			{ UL_("Value"),   120, LVCFMT_LEFT },
+			{ UL_("Default"), 66,  LVCFMT_LEFT },
 		};
 		m_List.SetHeaders(headers);
 	}
@@ -301,7 +302,7 @@ void COptionsAdvanced::OnOptionDblClick()
 		val = !val.as<bool>();
 	} else
 	{
-		CInputDlg inputDlg(this, U_("Enter new value for ") + mpt::ToUnicode(path.FormatAsString()), mpt::ToUnicode(val.FormatValueAsString()));
+		CInputDlg inputDlg(this, UL_("Enter new value for ") + mpt::ToUnicode(path.FormatAsString()), mpt::ToUnicode(val.FormatValueAsString()));
 		if(inputDlg.DoModal() != IDOK)
 		{
 			return;

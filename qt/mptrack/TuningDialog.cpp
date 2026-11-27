@@ -10,6 +10,7 @@
 
 
 #include "TuningDialog.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "Mainfrm.h"
 #include "Mptrack.h"
@@ -52,7 +53,7 @@ CTuningDialog::CTuningDialog(QWidget* pParent, INSTRUMENTINDEX inst, CSoundFile 
 	, m_TreeItemTuningItemMap(s_notFoundItemTree, s_notFoundItemTuning)
 {
 	m_TuningCollections.push_back(&(m_sndFile.GetTuneSpecificTunings()));
-	m_TuningCollectionsNames[&(m_sndFile.GetTuneSpecificTunings())] = U_("Tunings");
+	m_TuningCollectionsNames[&(m_sndFile.GetTuneSpecificTunings())] = UL_("Tunings");
 	m_pActiveTuning = m_sndFile.Instruments[inst]->pTuning;
 	m_RatioMapWnd->m_pTuning = m_pActiveTuning; //pTun is the tuning to show when dialog opens.
 }
@@ -73,7 +74,7 @@ CTuningDialog::~CTuningDialog()
 
 QTreeWidgetItem * CTuningDialog::AddTreeItem(CTuningCollection* pTC, QTreeWidgetItem * parent, QTreeWidgetItem * insertAfter)
 {
-	const QTreeWidgetItem * temp = m_TreeCtrlTuning->InsertItem((IsDeletable(pTC) ? mpt::ustring(U_("loaded: ")) : mpt::ustring()) +  m_TuningCollectionsNames[pTC], parent, insertAfter);
+	const QTreeWidgetItem * temp = m_TreeCtrlTuning->InsertItem((IsDeletable(pTC) ? mpt::ustring(UL_("loaded: ")) : mpt::ustring()) +  m_TuningCollectionsNames[pTC], parent, insertAfter);
 	QTreeWidgetItem * temp2 = NULL;
 	m_TreeItemTuningItemMap.AddPair(temp, TUNINGTREEITEM(pTC));
 	for(const auto &tuning : *pTC)
@@ -175,9 +176,9 @@ bool CTuningDialog::OnInitDialog()
 	m_pActiveTuningCollection = GetpTuningCollection(m_pActiveTuning);
 
 	//Adding tuning type names to corresponding combobox.
-	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, U_("General")), static_cast<uint16>(Tuning::Type::GENERAL));
-	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, U_("GroupGeometric")), static_cast<uint16>(Tuning::Type::GROUPGEOMETRIC));
-	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, U_("Geometric")), static_cast<uint16>(Tuning::Type::GEOMETRIC));
+	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, UL_("General")), static_cast<uint16>(Tuning::Type::GENERAL));
+	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, UL_("GroupGeometric")), static_cast<uint16>(Tuning::Type::GROUPGEOMETRIC));
+	mfcless::SetItemData(m_CombobTuningType, mfcless::AddItem(m_CombobTuningType, UL_("Geometric")), static_cast<uint16>(Tuning::Type::GEOMETRIC));
 	m_CombobTuningType->setEnabled(false);
 
 	m_ButtonSet->setEnabled(false);
@@ -251,7 +252,7 @@ void CTuningDialog::UpdateView(const int updateMask)
 			if(m_pActiveTuning)
 				m_TreeCtrlTuning->SetItemText(treeitem, mpt::ToUnicode(m_pActiveTuning->GetName()));
 			else
-				m_TreeCtrlTuning->SetItemText(treeitem, (IsDeletable(m_pActiveTuningCollection) ? mpt::ustring(U_("loaded: ")) : mpt::ustring()) + m_TuningCollectionsNames[m_pActiveTuningCollection]);
+				m_TreeCtrlTuning->SetItemText(treeitem, (IsDeletable(m_pActiveTuningCollection) ? mpt::ustring(UL_("loaded: ")) : mpt::ustring()) + m_TuningCollectionsNames[m_pActiveTuningCollection]);
 		}
 	}
 	//<--Updating treeview
@@ -272,11 +273,11 @@ void CTuningDialog::UpdateView(const int updateMask)
 	{
 		UpdateTuningType();
 
-		m_EditName->SetWindowText(mpt::ToUnicode(m_pActiveTuning->GetName()));
+		mfcless::SetWindowText(m_EditName, mpt::ToUnicode(m_pActiveTuning->GetName()));
 		m_EditName->update();
 
 		//Finetunesteps-edit
-		m_EditFineTuneSteps->SetWindowText(mpt::ufmt::val(m_pActiveTuning->GetFineStepCount()));
+		mfcless::SetWindowText(m_EditFineTuneSteps, mpt::ufmt::val(m_pActiveTuning->GetFineStepCount()));
 		m_EditFineTuneSteps->update();
 
 		//Making sure that ratiomap window is showing and
@@ -293,14 +294,14 @@ void CTuningDialog::UpdateView(const int updateMask)
 		{
 			m_EditSteps->setEnabled(true);
 			m_EditRatioPeriod->setEnabled(true);
-			m_EditSteps->SetWindowText(mpt::ufmt::val(period));
-			m_EditRatioPeriod->SetWindowText(mpt::ufmt::flt(GroupRatio, 6));
+			mfcless::SetWindowText(m_EditSteps, mpt::ufmt::val(period));
+			mfcless::SetWindowText(m_EditRatioPeriod, mpt::ufmt::flt(GroupRatio, 6));
 		} else
 		{
 			m_EditSteps->setEnabled(false);
 			m_EditRatioPeriod->setEnabled(false);
-			m_EditSteps->SetWindowText(U_(""));
-			m_EditRatioPeriod->SetWindowText(U_(""));
+			mfcless::SetWindowText(m_EditSteps, UL_(""));
+			mfcless::SetWindowText(m_EditRatioPeriod, UL_(""));
 		}
 
 		m_EditRatioPeriod->update();
@@ -327,14 +328,14 @@ void CTuningDialog::UpdateView(const int updateMask)
 	{
 		if(m_pActiveTuning == NULL) //No active tuning, clearing tuning part.
 		{
-			m_EditName->SetWindowText(U_(""));
-			m_EditSteps->SetWindowText(U_(""));
-			m_EditRatioPeriod->SetWindowText(U_(""));
-			m_EditRatio->SetWindowText(U_(""));
-			m_EditNotename->SetWindowText(U_(""));
-			m_EditMiscActions->SetWindowText(U_(""));
-			m_EditFineTuneSteps->SetWindowText(U_(""));
-			m_EditName->SetWindowText(U_(""));
+			mfcless::SetWindowText(m_EditName, UL_(""));
+			mfcless::SetWindowText(m_EditSteps, UL_(""));
+			mfcless::SetWindowText(m_EditRatioPeriod, UL_(""));
+			mfcless::SetWindowText(m_EditRatio, UL_(""));
+			mfcless::SetWindowText(m_EditNotename, UL_(""));
+			mfcless::SetWindowText(m_EditMiscActions, UL_(""));
+			mfcless::SetWindowText(m_EditFineTuneSteps, UL_(""));
+			mfcless::SetWindowText(m_EditName, UL_(""));
 
 			m_CombobTuningType->setCurrentIndex(-1);
 
@@ -404,7 +405,7 @@ void CTuningDialog::DoErrorExit()
 	m_DoErrorExit = false;
 	m_pActiveTuning = NULL;
 	m_pActiveTuningCollection = NULL;
-	Reporting::Message(LogInformation, U_("Dialog encountered an error and needs to close"), this);
+	Reporting::Message(LogInformation, UL_("Dialog encountered an error and needs to close"), this);
 	OnOK();
 }
 
@@ -492,7 +493,7 @@ void CTuningDialog::OnEnChangeEditNotename()
 
 	const NOTEINDEXTYPE currentNote = m_RatioMapWnd->GetShownCentre();
 	mpt::ustring buffer;
-	m_EditNotename->GetWindowText(buffer);
+	mfcless::GetWindowText(m_EditNotename, buffer);
 	mpt::ustring str = mpt::ToUnicode(buffer);
 	{
 		if(str.size() > 3)
@@ -534,14 +535,14 @@ void CTuningDialog::OnBnClickedButtonSetvalues()
 {
 	if(m_pActiveTuning)
 	{
-		if(m_EditMiscActions->GetWindowTextLength() < 1)
+		if(mfcless::GetWindowTextLength(m_EditMiscActions) < 1)
 			return;
 
 		mpt::ustring buffer;
-		m_EditMiscActions->GetWindowText(buffer);
+		mfcless::GetWindowText(m_EditMiscActions, buffer);
 		m_pActiveTuning->Multiply(mpt::parse<RATIOTYPE>(buffer));
 		m_ModifiedTCs[GetpTuningCollection(m_pActiveTuning)] = true;
-		m_EditMiscActions->SetWindowText(U_(""));
+		mfcless::SetWindowText(m_EditMiscActions, UL_(""));
 		m_RatioMapWnd->update();
 	}
 }
@@ -552,9 +553,9 @@ void CTuningDialog::UpdateRatioMapEdits(const NOTEINDEXTYPE& note)
 		return;
 
 	m_RatioEditApply = false;
-	m_EditRatio->SetWindowText(mpt::ufmt::val(m_pActiveTuning->GetRatio(note)));
+	mfcless::SetWindowText(m_EditRatio, mpt::ufmt::val(m_pActiveTuning->GetRatio(note)));
 	m_NoteEditApply = false;
-	m_EditNotename->SetWindowText(mpt::ToUnicode(m_pActiveTuning->GetNoteName(note, false)));
+	mfcless::SetWindowText(m_EditNotename, mpt::ToUnicode(m_pActiveTuning->GetNoteName(note, false)));
 
 	m_EditRatio->update();
 	m_EditNotename->update();
@@ -569,13 +570,13 @@ void CTuningDialog::OnBnClickedButtonNew()
 	mfcless::Menu popUpMenu = CreatePopupMenu();
 	if(popUpMenu == NULL) return;
 
-	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGROUPGEOMETRIC, U_("Add &GroupGeometric tuning"));
-	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGEOMETRIC, U_("Add G&eometric tuning"));
-	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGENERAL, U_("Add Ge&neral tuning"));
+	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGROUPGEOMETRIC, UL_("Add &GroupGeometric tuning"));
+	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGEOMETRIC, UL_("Add G&eometric tuning"));
+	popUpMenu.AppendMenu(mfcless::menu::String, ID_ADDTUNINGGENERAL, UL_("Add Ge&neral tuning"));
 
 	m_CommandItemDest.Set(m_TuningCollections[0]);
 
-	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, m_hWnd, NULL);
+	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
 	DestroyMenu(popUpMenu);
 }
 
@@ -585,7 +586,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 
 	if(m_pActiveTuning == NULL && m_pActiveTuningCollection == NULL)
 	{
-		Reporting::Message(LogInformation, U_("Operation failed - No tuning file selected."), this);
+		Reporting::Message(LogInformation, UL_("Operation failed - No tuning file selected."), this);
 		return;
 	}
 
@@ -620,7 +621,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 
 		if (!dlg.Show(this)) return;
 
-		BeginWaitCursor();
+		mfcless::BeginWaitCursor();
 		try
 		{
 			mpt::IO::SafeOutputFile sfout(dlg.GetFirstFile(), std::ios::binary, mpt::IO::FlushModeFromBool(TrackerSettings::Instance().MiscFlushFileBuffersOnSave));
@@ -637,7 +638,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 				{
 					if(m_pActiveTuning->GetType() == Tuning::Type::GENERAL)
 					{
-						Reporting::Message(LogWarning, U_("The Scala SCL file format does not contain enough information to represent General Tunings without data loss.\n\nOpenMPT exported as much information as possible, but other software as well as OpenMPT itself will not be able to re-import the just exported Scala SCL in a way that resembles the original data completely.\n\nPlease consider additionally exporting the Tuning as an OpenMPT .tun file."), U_("Tuning - Incompatible export"), this);
+						Reporting::Message(LogWarning, UL_("The Scala SCL file format does not contain enough information to represent General Tunings without data loss.\n\nOpenMPT exported as much information as possible, but other software as well as OpenMPT itself will not be able to re-import the just exported Scala SCL in a way that resembles the original data completely.\n\nPlease consider additionally exporting the Tuning as an OpenMPT .tun file."), UL_("Tuning - Incompatible export"), this);
 					}
 				}
 			}
@@ -645,7 +646,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 		{
 			failure = true;
 		}
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 
 	} else
 	{
@@ -675,7 +676,7 @@ void CTuningDialog::OnBnClickedButtonExport()
 
 		if (!dlg.Show(this)) return;
 
-		BeginWaitCursor();
+		mfcless::BeginWaitCursor();
 
 		failure = false;
 
@@ -714,13 +715,13 @@ void CTuningDialog::OnBnClickedButtonExport()
 			}
 		}
 
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 
 	}
 
 	if(failure)
 	{
-		Reporting::Message(LogError, U_("Export failed"), U_("Error!"), this);
+		Reporting::Message(LogError, UL_("Export failed"), UL_("Error!"), this);
 	}
 
 }
@@ -937,9 +938,9 @@ void CTuningDialog::OnEnKillfocusEditFinetunesteps()
 	if(m_pActiveTuning)
 	{
 		mpt::ustring buffer;
-		m_EditFineTuneSteps->GetWindowText(buffer);
+		mfcless::GetWindowText(m_EditFineTuneSteps, buffer);
 		m_pActiveTuning->SetFineStepCount(mpt::parse<Tuning::USTEPINDEXTYPE>(buffer));
-		m_EditFineTuneSteps->SetWindowText(mpt::ufmt::val(m_pActiveTuning->GetFineStepCount()));
+		mfcless::SetWindowText(m_EditFineTuneSteps, mpt::ufmt::val(m_pActiveTuning->GetFineStepCount()));
 		m_ModifiedTCs[GetpTuningCollection(m_pActiveTuning)] = true;
 		m_EditFineTuneSteps->update();
 	}
@@ -951,7 +952,7 @@ void CTuningDialog::OnEnKillfocusEditName()
 	if(m_pActiveTuning != NULL)
 	{
 		mpt::ustring buffer;
-		m_EditName->GetWindowText(buffer);
+		mfcless::GetWindowText(m_EditName, buffer);
 		m_pActiveTuning->SetName(mpt::ToUnicode(buffer));
 		m_ModifiedTCs[GetpTuningCollection(m_pActiveTuning)] = true;
 		UpdateView(UM_TUNINGDATA);
@@ -965,7 +966,7 @@ void CTuningDialog::OnEnKillfocusEditSteps()
 	if(m_pActiveTuning)
 	{
 		mpt::ustring buffer;
-		m_EditSteps->GetWindowText(buffer);
+		mfcless::GetWindowText(m_EditSteps, buffer);
 		m_pActiveTuning->ChangeGroupsize(mpt::parse<UNOTEINDEXTYPE>(buffer));
 		m_ModifiedTCs[GetpTuningCollection(m_pActiveTuning)] = true;
 		UpdateView(UM_TUNINGDATA);
@@ -1130,7 +1131,7 @@ void CTuningDialog::OnNMRclickTreeTuning()
 			{
 				mask |= mfcless::menu::Grayed;
 			}
-			popUpMenu.AppendMenu(mask, ID_REMOVETUNING, U_("&Remove"));
+			popUpMenu.AppendMenu(mask, ID_REMOVETUNING, UL_("&Remove"));
 
 			m_CommandItemDest.Set(pT);
 		}
@@ -1144,21 +1145,21 @@ void CTuningDialog::OnNMRclickTreeTuning()
 			mask = mfcless::menu::String;
 			if (!CanEdit(pTC))
 				mask |= mfcless::menu::Grayed;
-			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGROUPGEOMETRIC, U_("Add &GroupGeometric tuning"));
-			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGEOMETRIC, U_("Add G&eometric tuning"));
-			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGENERAL, U_("Add Ge&neral tuning"));
+			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGROUPGEOMETRIC, UL_("Add &GroupGeometric tuning"));
+			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGEOMETRIC, UL_("Add G&eometric tuning"));
+			popUpMenu.AppendMenu(mask, ID_ADDTUNINGGENERAL, UL_("Add Ge&neral tuning"));
 
 			mask = mfcless::menu::String;
 			if(!IsDeletable(pTC))
 				mask |= mfcless::menu::Grayed;
-			popUpMenu.AppendMenu(mask, ID_REMOVETUNINGCOLLECTION, U_("&Unload tuning collection"));
+			popUpMenu.AppendMenu(mask, ID_REMOVETUNINGCOLLECTION, UL_("&Unload tuning collection"));
 
 			m_CommandItemDest.Set(pTC);
 		}
 	}
 
 	GetCursorPos(&point);
-	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, m_hWnd, NULL);
+	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
 	DestroyMenu(popUpMenu);
 }
 
@@ -1184,7 +1185,7 @@ void CTuningDialog::OnTvnBegindragTreeTuning()
 
 	if(tunitem.GetT() == NULL)
 	{
-		Reporting::Message(LogNotification, U_("For the time being Drag and Drop is only supported for tuning instances."), this);
+		Reporting::Message(LogNotification, UL_("For the time being Drag and Drop is only supported for tuning instances."), this);
 		return;
 	}
 
@@ -1262,10 +1263,10 @@ void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 		{
 			mask |= mfcless::menu::Grayed;
 		}
-		popUpMenu.AppendMenu(mask, ID_COPYTUNING, U_("&Copy here"));
+		popUpMenu.AppendMenu(mask, ID_COPYTUNING, UL_("&Copy here"));
 
 		GetCursorPos(&point);
-		TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, m_hWnd, NULL);
+		TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
 		DestroyMenu(popUpMenu);
 
 		m_CommandItemDest.Set(pTCdest);
@@ -1365,7 +1366,7 @@ void CTuningDialog::OnRemoveTuning()
 			}
 			if(used)
 			{
-				mpt::ustring s = U_("Tuning '") + mpt::ToUnicode(pT->GetName()) + U_("' is used by instruments. Remove anyway?");
+				mpt::ustring s = UL_("Tuning '") + mpt::ToUnicode(pT->GetName()) + UL_("' is used by instruments. Remove anyway?");
 				if(Reporting::Confirm(s, false, true) == cnfYes)
 				{
 					CriticalSection cs;
@@ -1384,7 +1385,7 @@ void CTuningDialog::OnRemoveTuning()
 				}
 			} else
 			{
-				mpt::ustring s = U_("Remove tuning '") + mpt::ToUnicode(pT->GetName()) + U_("'?");
+				mpt::ustring s = UL_("Remove tuning '") + mpt::ToUnicode(pT->GetName()) + UL_("'?");
 				if(Reporting::Confirm(s) == cnfYes)
 				{
 					pTC->Remove(pT);
@@ -1452,7 +1453,7 @@ void CTuningDialog::OnRemoveTuningCollection()
 void CTuningDialog::OnOK()
 {
 	// Prevent return-key from closing the window.
-	if(GetKeyState(mfcless::vk::RETURN) <= -127 && GetFocus() != GetDlgItem(IDOK))
+	if(GetKeyState(mfcless::vk::RETURN) <= -127 && mfcless::GetFocus() != GetDlgItem(IDOK))
 		return;
 	else
 		ResizableDialog::OnOK();
@@ -1513,28 +1514,28 @@ mpt::ustring CTuningDialog::GetSclImportFailureMsg(EnSclImport id)
 			return MPT_UFORMAT("OpenMPT supports importing scl-files with at most {} notes")(mpt::ufmt::val(s_nSclImportMaxNoteCount));
 
 		case enSclImportFailTooLargeNumDenomIntegers:
-			return U_("Invalid numerator or denominator");
+			return UL_("Invalid numerator or denominator");
 
 		case enSclImportFailZeroDenominator:
-			return U_("Zero denominator");
+			return UL_("Zero denominator");
 
 		case enSclImportFailNegativeRatio:
-			return U_("Negative ratio");
+			return UL_("Negative ratio");
 
 		case enSclImportFailUnableToOpenFile:
-			return U_("Unable to open file");
+			return UL_("Unable to open file");
 
 		case enSclImportLineCountMismatch:
-			return U_("Note count error");
+			return UL_("Note count error");
 
 		case enSclImportTuningCreationFailure:
-			return U_("Unknown tuning creation error");
+			return UL_("Unknown tuning creation error");
 
 		case enSclImportAddTuningFailure:
-			return U_("Can't add tuning to tuning collection");
+			return UL_("Can't add tuning to tuning collection");
 
 		default:
-			return U_("");
+			return UL_("");
 	}
 }
 

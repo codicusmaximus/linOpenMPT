@@ -10,6 +10,7 @@
 
 
 #include "SampleConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
 #include "Mptrack.h"
@@ -55,8 +56,8 @@ void COptionsSampleEditor::DoDataExchange(DataExchange &dx)
 
 COptionsSampleEditor::COptionsSampleEditor() : CPropertyPage{IDD_OPTIONS_SAMPLEEDITOR}
 {
-	m_undoBufferEdit->SetAccessibleSuffix(U_("%"));
-	m_finetuneEdit->SetAccessibleSuffix(U_("cents"));
+	m_undoBufferEdit->SetAccessibleSuffix(UL_("%"));
+	m_finetuneEdit->SetAccessibleSuffix(UL_("cents"));
 }
 
 
@@ -69,11 +70,11 @@ bool COptionsSampleEditor::OnInitDialog()
 	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, 200);
 	RecalcUndoSize();
 
-	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, U_("FLAC")), dfFLAC);
-	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, U_("WAV")), dfWAV);
-	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, U_("RAW")), dfRAW);
-	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, U_("S3I")), dfS3I);
-	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, U_("IFF")), dfIFF);
+	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("FLAC")), dfFLAC);
+	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("WAV")), dfWAV);
+	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("RAW")), dfRAW);
+	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("S3I")), dfS3I);
+	mfcless::SetItemData(m_cbnDefaultSampleFormat, mfcless::AddItem(m_cbnDefaultSampleFormat, UL_("IFF")), dfIFF);
 	m_cbnDefaultSampleFormat->setCurrentIndex(TrackerSettings::Instance().m_defaultSampleFormat);
 
 	CSliderCtrl *slider = static_cast<CSliderCtrl *>(GetDlgItem(IDC_SLIDER1));
@@ -86,9 +87,9 @@ bool COptionsSampleEditor::OnInitDialog()
 
 	SetChecked(IDC_COMPRESS_ITI, TrackerSettings::Instance().compressITI ? 1 : 0);
 
-	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, U_("MIDI volume")), PLUGIN_VOLUMEHANDLING_MIDI);
-	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, U_("Dry/Wet ratio")), PLUGIN_VOLUMEHANDLING_DRYWET);
-	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, U_("None")), PLUGIN_VOLUMEHANDLING_IGNORE);
+	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, UL_("MIDI volume")), PLUGIN_VOLUMEHANDLING_MIDI);
+	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, UL_("Dry/Wet ratio")), PLUGIN_VOLUMEHANDLING_DRYWET);
+	mfcless::SetItemData(m_cbnDefaultVolumeHandling, mfcless::AddItem(m_cbnDefaultVolumeHandling, UL_("None")), PLUGIN_VOLUMEHANDLING_IGNORE);
 	m_cbnDefaultVolumeHandling->setCurrentIndex(TrackerSettings::Instance().DefaultPlugVolumeHandling);
 
 	SetChecked(IDC_PREVIEW_SAMPLES, TrackerSettings::Instance().previewInFileDialogs ? 1 : 0);
@@ -140,11 +141,11 @@ void COptionsSampleEditor::RecalcUndoSize()
 {
 	uint32 sizePercent = GetItemInt(IDC_EDIT_UNDOSIZE);
 	uint32 sizeMB = mpt::saturate_cast<uint32>(SampleUndoBufferSize(sizePercent).GetSizeInBytes() >> 20);
-	mpt::ustring text = U_("% of physical memory (");
+	mpt::ustring text = UL_("% of physical memory (");
 	if(sizePercent)
-		text.AppendFormat(U_("%u MiB)"), sizeMB);
+		text += mfcless::PrintF(UL_("%u MiB)"), sizeMB);
 	else
-		text.Append(U_("disabled)"));
+		text.Append(UL_("disabled)"));
 	SetItemText(IDC_UNDOSIZE, text);
 }
 

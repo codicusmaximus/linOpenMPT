@@ -10,6 +10,7 @@
 
 
 #include "DefaultVstEditor.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "resource.h"
 #include "../soundlib/Sndfile.h"
@@ -60,11 +61,11 @@ ParamControlSet::ParamControlSet(QWidget *parent, const mfcless::Rect &rect, int
 	const int horizSplit = rect.left + rect.Width() - m.rightWidth;
 	
 	// Parameter name
-	nameLabel.Create(U_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(rect.left, rect.top, horizSplit - m.spacing, rect.top + m.lineHeight), parent);
+	nameLabel.Create(UL_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(rect.left, rect.top, horizSplit - m.spacing, rect.top + m.lineHeight), parent);
 	nameLabel.SetFont(parent->GetFont());
 
 	// Parameter value as reported by the plugin
-	valueLabel.Create(U_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(horizSplit, rect.top, rect.right, rect.top + m.lineHeight), parent);
+	valueLabel.Create(UL_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(horizSplit, rect.top, rect.right, rect.top + m.lineHeight), parent);
 	valueLabel.SetFont(parent->GetFont());
 
 	// Parameter value slider
@@ -74,7 +75,7 @@ ParamControlSet::ParamControlSet(QWidget *parent, const mfcless::Rect &rect, int
 	valueSlider.SetTicFreq(PARAM_RESOLUTION / 10);
 
 	// Parameter value edit box
-	valueEdit.CreateEx(WS_EX_CLIENTEDGE, U_("EDIT"), NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL | ES_NUMBER, mfcless::Rect(horizSplit, rect.bottom - m.lineHeight, horizSplit + m.editWidth, rect.bottom), parent, ID_PLUGINEDITOR_EDIT_BASE + setID);
+	valueEdit.CreateEx(WS_EX_CLIENTEDGE, UL_("EDIT"), NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL | ES_NUMBER, mfcless::Rect(horizSplit, rect.bottom - m.lineHeight, horizSplit + m.editWidth, rect.bottom), parent, ID_PLUGINEDITOR_EDIT_BASE + setID);
 	valueEdit.SetFont(parent->GetFont());
 
 	// "Per mil" label
@@ -108,16 +109,16 @@ void ParamControlSet::EnableControls(bool enable)
 // Reset the content of a set of parameter controls
 void ParamControlSet::ResetContent()
 {
-	nameLabel.SetWindowText(U_(""));
-	valueLabel.SetWindowText(U_(""));
+	mfcless::SetWindowText(nameLabel, UL_(""));
+	mfcless::SetWindowText(valueLabel, UL_(""));
 	valueSlider.SetPos(0);
-	valueEdit.SetWindowText(U_(""));
+	mfcless::SetWindowText(valueEdit, UL_(""));
 }
 
 
 void ParamControlSet::SetParamName(const mpt::ustring &name)
 {
-	nameLabel.SetWindowText(name);
+	mfcless::SetWindowText(nameLabel, name);
 }
 
 
@@ -128,10 +129,10 @@ void ParamControlSet::SetParamValue(int value, const mpt::ustring &text)
 	{
 		// Don't update textbox when it has focus, else this will prevent user from changing the content.
 		mpt::ustring paramValue;
-		paramValue.Format(U_("%0000d"), value);
-		valueEdit.SetWindowText(paramValue);
+		paramValue = mfcless::PrintF(UL_("%0000d"), value);
+		mfcless::SetWindowText(valueEdit, paramValue);
 	}
-	valueLabel.SetWindowText(text);
+	mfcless::SetWindowText(valueLabel, text);
 }
 
 
@@ -144,7 +145,7 @@ int ParamControlSet::GetParamValueFromSlider() const
 int ParamControlSet::GetParamValueFromEdit() const
 {
 	mpt::uchar s[16];
-	valueEdit.GetWindowText(s, 16);
+	mfcless::GetWindowText(valueEdit, s, 16);
 	int val = _tstoi(s);
 	Limit(val, int(0), int(PARAM_RESOLUTION));
 	return val;
@@ -194,7 +195,7 @@ void CDefaultVstEditor::CreateControls()
 	{
 		return;
 	}
-	PluginEditorMeasurements m(m_hWnd);
+	PluginEditorMeasurements m(this);
 
 	mfcless::Rect window;
 	GetWindowRect(&window);

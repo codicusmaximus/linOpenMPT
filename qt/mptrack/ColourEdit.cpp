@@ -10,6 +10,7 @@
 
 
 #include "ColourEdit.h"
+#include "mfcless/Widgets.h"
 
 
 OPENMPT_NAMESPACE_BEGIN

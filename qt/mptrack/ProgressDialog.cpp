@@ -10,6 +10,7 @@
 
 
 #include "ProgressDialog.h"
+#include "mfcless/Widgets.h"
 #include "Mptrack.h"
 #include "resource.h"
 
@@ -34,7 +35,7 @@ CProgressDialog::~CProgressDialog()
 		m_taskBarList->Release();
 	}
 
-	if(IsWindow(m_hWnd))
+	if(IsWindow(this))
 	{
 		// This should only happen if this dialog gets destroyed as part of stack unwinding
 		EndDialog(IDCANCEL);
@@ -46,7 +47,7 @@ bool CProgressDialog::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 	if(!m_customDialog)
-		PostMessage(WM_COMMAND, IDC_BUTTON1);
+		mfcless::PostCommand(this, IDC_BUTTON1);
 	return true;
 }
 
@@ -82,13 +83,13 @@ void CProgressDialog::SetRange(uint64 min, uint64 max)
 		m_shift++;
 		max >>= 1;
 	}
-	::SendMessage(::GetDlgItem(m_hWnd, IDC_PROGRESS1), PBM_SETRANGE32, static_cast<uint32>(m_min >> m_shift), static_cast<uint32>(m_max >> m_shift));
+	::SendMessage(::GetDlgItem(this, IDC_PROGRESS1), PBM_SETRANGE32, static_cast<uint32>(m_min >> m_shift), static_cast<uint32>(m_max >> m_shift));
 }
 
 
 void CProgressDialog::SetProgress(uint64 progress)
 {
-	::SendMessage(::GetDlgItem(m_hWnd, IDC_PROGRESS1), PBM_SETPOS, static_cast<uint32>(progress >> m_shift), 0);
+	::SendMessage(::GetDlgItem(this, IDC_PROGRESS1), PBM_SETPOS, static_cast<uint32>(progress >> m_shift), 0);
 	if(m_taskBarList != nullptr)
 	{
 		m_taskBarList->SetProgressValue(*theApp.m_pMainWnd, progress - m_min, m_max - m_min);

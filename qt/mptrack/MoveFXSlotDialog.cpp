@@ -10,6 +10,7 @@
 
 
 #include "MoveFXSlotDialog.h"
+#include "mfcless/Widgets.h"
 #include "Mptrack.h"
 #include "Reporting.h"
 #include "resource.h"
@@ -33,14 +34,14 @@ CMoveFXSlotDialog::CMoveFXSlotDialog(QWidget *pParent, PLUGINDEX currentSlot, co
 {
 	if(clone)
 	{
-		m_csPrompt.Format(U_("Clone plugin in slot %d to the following empty slot:"), currentSlot + 1);
-		m_csTitle = U_("Clone To Slot...");
-		m_csChain = U_("&Clone follow-up plugin chain if possible");
+		m_csPrompt = mfcless::PrintF(UL_("Clone plugin in slot %d to the following empty slot:"), currentSlot + 1);
+		m_csTitle = UL_("Clone To Slot...");
+		m_csChain = UL_("&Clone follow-up plugin chain if possible");
 	} else
 	{
-		m_csPrompt.Format(U_("Move plugin in slot %d to the following empty slot:"), currentSlot + 1);
-		m_csTitle = U_("Move To Slot...");
-		m_csChain = U_("&Move follow-up plugin chain if possible");
+		m_csPrompt = mfcless::PrintF(UL_("Move plugin in slot %d to the following empty slot:"), currentSlot + 1);
+		m_csTitle = UL_("Move To Slot...");
+		m_csChain = UL_("&Move follow-up plugin chain if possible");
 	}
 }
 
@@ -64,7 +65,7 @@ bool CMoveFXSlotDialog::OnInitDialog()
 	bool foundDefault = false;
 	for(size_t nSlot = 0; nSlot < m_EmptySlots.size(); nSlot++)
 	{
-		slotText.Format(U_("FX%d"), m_EmptySlots[nSlot] + 1);
+		slotText = mfcless::PrintF(UL_("FX%d"), m_EmptySlots[nSlot] + 1);
 		mfcless::SetItemData(m_CbnEmptySlots, mfcless::AddItem(m_CbnEmptySlots, slotText), nSlot);
 		if(m_EmptySlots[nSlot] >= m_nDefaultSlot && !foundDefault)
 		{

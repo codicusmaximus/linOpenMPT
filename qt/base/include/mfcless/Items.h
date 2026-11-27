@@ -17,10 +17,19 @@ namespace mfcless
 {
 
 // Adds an item with a number attached; returns its index.
+// A combo box made with CBS_SORT keeps its items in order (case-insensitive,
+// as Windows sorts them).
 inline int AddItem(QComboBox *combo, const QString &text, uintptr_t data = 0)
 {
-	combo->addItem(text, QVariant::fromValue<qulonglong>(data));
-	return combo->count() - 1;
+	int index = combo->count();
+	if(combo->property("mfclessSorted").toBool())
+	{
+		index = 0;
+		while(index < combo->count() && QString::compare(combo->itemText(index), text, Qt::CaseInsensitive) <= 0)
+			index++;
+	}
+	combo->insertItem(index, text, QVariant::fromValue<qulonglong>(data));
+	return index;
 }
 inline int AddItem(QComboBox *combo, const ::mpt::ustring &text, uintptr_t data = 0) { return AddItem(combo, ToQString(text), data); }
 inline int InsertItem(QComboBox *combo, int index, const ::mpt::ustring &text, uintptr_t data = 0)
@@ -60,7 +69,7 @@ inline int AddItem(QListWidget *list, const QString &text, uintptr_t data = 0)
 {
 	auto *item = new QListWidgetItem(text, list);
 	item->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(data));
-	return list->count() - 1;
+	return list->row(item);
 }
 inline int AddItem(QListWidget *list, const ::mpt::ustring &text, uintptr_t data = 0) { return AddItem(list, ToQString(text), data); }
 inline int InsertItem(QListWidget *list, int index, const ::mpt::ustring &text, uintptr_t data = 0)

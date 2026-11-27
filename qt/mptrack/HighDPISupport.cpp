@@ -10,6 +10,7 @@
 
 
 #include "HighDPISupport.h"
+#include "mfcless/Widgets.h"
 #include "../misc/mptLibrary.h"
 
 
@@ -190,7 +191,7 @@ void HighDPISupport::CreateGUIFont(QFont &font, QWidget * hwnd)
 }
 
 
-bool HighDPISupport::SetWindowPlacement(QWidget * hwnd, const WINDOWPLACEMENT &wpl)
+bool HighDPISupport::SetWindowPlacement(QWidget * hwnd, const mfcless::WindowPlacement &wpl)
 {
 	// https://blogs.windows.com/windowsdeveloper/2016/10/24/high-dpi-scaling-improvements-for-desktop-applications-and-mixed-mode-dpi-scaling-in-the-windows-10-anniversary-update/
 	// What is not mentioned there: The first SetWindowPlacement call will restore the window to the wrong dimensions if it's not on the main screen...
@@ -200,11 +201,11 @@ bool HighDPISupport::SetWindowPlacement(QWidget * hwnd, const WINDOWPLACEMENT &w
 }
 
 
-bool HighDPISupport::GetWindowPlacement(QWidget * hwnd, WINDOWPLACEMENT &wpl)
+bool HighDPISupport::GetWindowPlacement(QWidget * hwnd, mfcless::WindowPlacement &wpl)
 {
 	// https://blogs.windows.com/windowsdeveloper/2016/10/24/high-dpi-scaling-improvements-for-desktop-applications-and-mixed-mode-dpi-scaling-in-the-windows-10-anniversary-update/
 	HighDPISupport::DPIAwarenessBypass bypass{HighDPISupport::Mode::LowDpi};
-	wpl.length = sizeof(WINDOWPLACEMENT);
+	wpl.length = sizeof(mfcless::WindowPlacement);
 	return ::GetWindowPlacement(hwnd, &wpl) != false;
 }
 

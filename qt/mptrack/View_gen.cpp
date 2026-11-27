@@ -11,6 +11,7 @@
 
 
 #include "View_gen.h"
+#include "mfcless/Widgets.h"
 #include "AbstractVstEditor.h"
 #include "Childfrm.h"
 #include "Ctrl_gen.h"
@@ -38,7 +39,7 @@ OPENMPT_NAMESPACE_BEGIN
 
 void CViewGlobals::RegisterMessageMap()
 {
-	DialogBase, public mfcless::DocumentView::RegisterMessageMap();
+	DialogBase::RegisterMessageMap();
 	// ON_WM_SIZE() (mfcless::Window)
 	AddScroll(Qt::Horizontal, &CViewGlobals::OnHScroll);
 	AddScroll(Qt::Vertical, &CViewGlobals::OnVScroll);
@@ -116,7 +117,7 @@ void CViewGlobals::RegisterMessageMap()
 
 void CViewGlobals::DoDataExchange(DataExchange &dx)
 {
-	DialogBase, public mfcless::DocumentView::DoDataExchange(dx);
+	DialogBase::DoDataExchange(dx);
 	//{{AFX_DATA_MAP(CViewGlobals)
 	ExchangeControl(dx, IDC_TABCTRL1, m_TabCtrl);
 	ExchangeControl(dx, IDC_COMBO1, m_CbnEffects[0]);
@@ -159,8 +160,8 @@ void CViewGlobals::DoDataExchange(DataExchange &dx)
 
 CViewGlobals::CViewGlobals() : CFormView{IDD_VIEW_GLOBALS}
 {
-	m_prevPluginButton->SetAccessibleText(U_("Previous Plugin"));
-	m_nextPluginButton->SetAccessibleText(U_("Next Plugin"));
+	m_prevPluginButton->SetAccessibleText(UL_("Previous Plugin"));
+	m_nextPluginButton->SetAccessibleText(UL_("Next Plugin"));
 }
 
 
@@ -215,23 +216,23 @@ void CViewGlobals::OnInitialUpdate()
 	m_sbValue->setValue(0);
 	m_sbValue->setRange(0, 100);
 
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Default"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Wet Subtract"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Dry Subtract"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Mix Subtract"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Middle Subtract"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("LR Balance"));
-	mfcless::AddItem(m_CbnSpecialMixProcessing, U_("Instrument"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Default"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Wet Subtract"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Dry Subtract"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Mix Subtract"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Middle Subtract"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("LR Balance"));
+	mfcless::AddItem(m_CbnSpecialMixProcessing, UL_("Instrument"));
 	m_SpinMixGain->SetRange(0, 80);
 	m_SpinMixGain->SetPos(10);
-	SetItemText(IDC_EDIT16, U_("Gain: x1.0"));
+	SetItemText(IDC_EDIT16, UL_("Gain: x1.0"));
 
 	UpdateView(UpdateHint().ModType());
 	OnParamChanged();
 	m_nLockCount = 0;
 
 	// Use tab background color rather than regular dialog background color (required for Aero/etc. where they are not the same color)
-	EnableThemeDialogTexture(m_hWnd, ETDT_ENABLETAB);
+	EnableThemeDialogTexture(this, ETDT_ENABLETAB);
 }
 
 
@@ -271,13 +272,13 @@ intptr_t CViewGlobals::OnMidiMsg(uintptr_t midiData_, intptr_t)
 
 void CViewGlobals::RecalcLayout()
 {
-	if (m_TabCtrl->m_hWnd != NULL)
+	if (m_TabCtrl != NULL)
 	{
 		mfcless::Rect rect;
 		GetClientRect(&rect);
 		if (rect.right < m_rcClient.right) rect.right = m_rcClient.right;
 		if (rect.bottom < m_rcClient.bottom) rect.bottom = m_rcClient.bottom;
-		m_TabCtrl->SetWindowPos(&mfcless::Window<QWidget>::wndBottom, 0,0, rect.right, rect.bottom, SWP_NOMOVE);
+		m_TabCtrl->SetWindowPos(&mfcless::Window<QWidget>::wndBottom, 0,0, rect.right, rect.bottom, mfcless::swp::NoMove);
 	}
 }
 
@@ -289,7 +290,7 @@ int CViewGlobals::GetDlgItemIntEx(uint32 nID)
 {
 	mpt::ustring s;
 	s = GetItemText(nID);
-	if(s.GetLength() < 1 || s[0] < _T('0') || s[0] > _T('9')) return -1;
+	if(s.GetLength() < 1 || s[0] < u8'0' || s[0] > u8'9') return -1;
 	return _ttoi(s);
 }
 
@@ -297,7 +298,7 @@ int CViewGlobals::GetDlgItemIntEx(uint32 nID)
 void CViewGlobals::OnSize(uint32 nType, int cx, int cy)
 {
 	Window::OnSize(nType, cx, cy);
-	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0) && (m_hWnd))
+	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0) && (this))
 	{
 		RecalcLayout();
 	}
@@ -346,7 +347,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 			s = MPT_UFORMAT("{} - {}")(iItem * CHANNELS_IN_TAB + 1, lastItem);
 			TC_ITEM tci;
 			tci.mask = TCIF_TEXT | TCIF_PARAM;
-			tci.pszText = const_cast<mpt::uchar *>(s.GetString());
+			tci.pszText = const_cast<mpt::uchar *>(s.c_str());
 			tci.lParam = iItem * CHANNELS_IN_TAB;
 			m_TabCtrl->InsertItem(iItem, &tci);
 		}
@@ -375,7 +376,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 				if(bEnable)
 					s = MPT_UFORMAT("Channel {}")(nChn + 1);
 				else
-					s = U_("");
+					s = UL_("");
 				SetItemText(IDC_TEXT1 + ichn, s);
 				// Channel color
 				m_channelColor[ichn].SetColor(chnSettings.color);
@@ -401,8 +402,8 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 				((CEdit*)(GetDlgItem(IDC_EDIT9 + ichn)))->LimitText(MAX_CHANNELNAME - 1);
 			} else
 			{
-				SetItemText(IDC_TEXT1 + ichn, U_(""));
-				SetItemText(IDC_EDIT9 + ichn, U_(""));
+				SetItemText(IDC_TEXT1 + ichn, UL_(""));
+				SetItemText(IDC_EDIT9 + ichn, UL_(""));
 				m_channelColor[ichn].EnableWindow(false);
 			}
 
@@ -461,7 +462,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 		int gain = plugin.GetGain();
 		if(gain == 0) gain = 10;
 		float value = 0.1f * (float)gain;
-		s.Format(U_("Gain: x%1.1f"), value);
+		s = mfcless::PrintF(UL_("Gain: x%1.1f"), value);
 		SetItemText(IDC_EDIT16, s);
 		m_SpinMixGain->SetPos(gain);
 
@@ -483,13 +484,13 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 
 			// Input / Output type
 			int in = pPlugin->GetNumInputChannels(), out = pPlugin->GetNumOutputChannels();
-			if (in < 1) s = U_("No input");
-			else if (in == 1) s = U_("Mono-In");
-			else s = U_("Stereo-In");
-			s += U_(", ");
-			if (out < 1) s += U_("No output");
-			else if (out == 1) s += U_("Mono-Out");
-			else s += U_("Stereo-Out");
+			if (in < 1) s = UL_("No input");
+			else if (in == 1) s = UL_("Mono-In");
+			else s = UL_("Stereo-In");
+			s += UL_(", ");
+			if (out < 1) s += UL_("No output");
+			else if (out == 1) s += UL_("Mono-Out");
+			else s += UL_("Stereo-Out");
 
 			// For now, only display the "current" preset.
 			// This prevents the program from hanging when switching between plugin slots or
@@ -512,7 +513,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 
 			m_CbnPreset->setUpdatesEnabled(false);
 			m_CbnPreset->clear();
-			mfcless::SetItemData(m_CbnPreset, mfcless::AddItem(m_CbnPreset, U_("none")), 0);
+			mfcless::SetItemData(m_CbnPreset, mfcless::AddItem(m_CbnPreset, UL_("none")), 0);
 			m_CbnPreset->setUpdatesEnabled(true);
 			m_CbnPreset->setCurrentIndex(0);
 			m_sbValue->setEnabled(false);
@@ -529,13 +530,13 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 		if(updateWholePluginView)
 		{
 			m_CbnOutput->clear();
-			mfcless::SetItemData(m_CbnOutput, mfcless::AddItem(m_CbnOutput, U_("Default")), 0);
+			mfcless::SetItemData(m_CbnOutput, mfcless::AddItem(m_CbnOutput, UL_("Default")), 0);
 
 			for(PLUGINDEX i = m_nCurrentPlugin + 1; i < MAX_MIXPLUGINS; i++)
 			{
 				if(!sndFile.m_MixPlugins[i].IsValidPlugin())
 				{
-					mfcless::SetItemData(m_CbnOutput, mfcless::AddItem(m_CbnOutput, U_("New Plugin...")), 1);
+					mfcless::SetItemData(m_CbnOutput, mfcless::AddItem(m_CbnOutput, UL_("New Plugin...")), 1);
 					insertAt = 2;
 					break;
 				}
@@ -563,13 +564,13 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 			if(outPlug.IsValidPlugin())
 			{
 				const auto name = outPlug.GetName(), libName = outPlug.GetLibraryName();
-				s.Format(U_("FX%d: "), iOut + 1);
+				s = mfcless::PrintF(UL_("FX%d: "), iOut + 1);
 				s += mpt::ToUnicode(name.empty() ? libName : name);
 				if(!name.empty() && libName != name)
 				{
-					s += U_(" (");
+					s += UL_(" (");
 					s += mpt::ToUnicode(libName);
-					s += U_(")");
+					s += UL_(")");
 				}
 
 				insertAt = mfcless::InsertItem(m_CbnOutput, insertAt, s);
@@ -636,7 +637,7 @@ void CViewGlobals::OnUpdateUndo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanUndoChannelSettings());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, U_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
 	}
 }
 
@@ -647,7 +648,7 @@ void CViewGlobals::OnUpdateRedo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanRedoChannelSettings());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, U_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
 	}
 }
 
@@ -840,7 +841,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 			}
 		}
 
-		if ((pScrollBar) && (pScrollBar->m_hWnd == m_sbDryRatio->m_hWnd))
+		if ((pScrollBar) && (pScrollBar == m_sbDryRatio))
 		{
 			int n = 100 - m_sbDryRatio->value();
 			if ((n >= 0) && (n <= 100) && (m_nCurrentPlugin < MAX_MIXPLUGINS))
@@ -859,7 +860,7 @@ void CViewGlobals::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 		if (bUpdate) pModDoc->UpdateAllViews(this, GeneralHint(nChn).Channels());
 		UnlockControls();
 
-		if ((pScrollBar) && (pScrollBar->m_hWnd == m_sbValue->m_hWnd))
+		if ((pScrollBar) && (pScrollBar == m_sbValue))
 		{
 			int n = (short int)m_sbValue->value();
 			if ((n >= 0) && (n <= 100) && (m_nCurrentPlugin < MAX_MIXPLUGINS))
@@ -905,9 +906,9 @@ void CViewGlobals::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pScroll
 			plugin.SetGain(gain);
 
 			float fValue = 0.1f * (float)gain;
-			_stprintf(s, U_("Gain: x%1.1f"), fValue);
+			_stprintf(s, UL_("Gain: x%1.1f"), fValue);
 			CEdit *gainEdit = (CEdit *)GetDlgItem(IDC_EDIT16);
-			gainEdit->SetWindowText(s);
+			mfcless::SetWindowText(gainEdit, s);
 
 			SetPluginModified();
 		}
@@ -1112,12 +1113,12 @@ void CViewGlobals::OnParamChanged()
 			const auto value = pPlugin->GetScaledUIParam(m_nCurrentParam);
 			int intValue = mpt::saturate_round<int>(value * 100.0f);
 			LockControls();
-			if(GetFocus() != GetDlgItem(IDC_EDIT14))
+			if(mfcless::GetFocus() != GetDlgItem(IDC_EDIT14))
 			{
 				mpt::ustring s = pPlugin->GetFormattedParamValue(m_nCurrentParam).Trim();
 				if(s.IsEmpty())
 				{
-					s.Format(U_("%f"), value);
+					s = mfcless::PrintF(UL_("%f"), value);
 				}
 				SetItemText(IDC_EDIT14, s);
 			}
@@ -1126,7 +1127,7 @@ void CViewGlobals::OnParamChanged()
 			return;
 		}
 	}
-	SetItemText(IDC_EDIT14, U_(""));
+	SetItemText(IDC_EDIT14, UL_(""));
 	m_sbValue->setValue(0);
 }
 
@@ -1142,7 +1143,7 @@ void CViewGlobals::OnFocusParam()
 		{
 			mpt::uchar s[32];
 			float fValue = pPlugin->GetScaledUIParam(m_nCurrentParam);
-			_stprintf(s, U_("%f"), fValue);
+			_stprintf(s, UL_("%f"), fValue);
 			LockControls();
 			SetItemText(IDC_EDIT14, s);
 			UnlockControls();
@@ -1406,7 +1407,7 @@ intptr_t CViewGlobals::OnModViewMsg(uintptr_t wParam, intptr_t /*lParam*/)
 		case VIEWMSG_SETFOCUS:
 		case VIEWMSG_SETACTIVE:
 			GetParentFrame()->SetActiveView(this);
-			SetFocus();
+			setFocus();
 			return 0;
 		default:
 			return 0;
@@ -1492,7 +1493,7 @@ bool CViewGlobals::MovePlug(PLUGINDEX src, PLUGINDEX dest, bool bAdjustPat)
 	CModDoc *pModDoc = GetDocument();
 	CSoundFile &sndFile = pModDoc->GetSoundFile();
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	CriticalSection cs;
 
@@ -1560,7 +1561,7 @@ bool CViewGlobals::MovePlug(PLUGINDEX src, PLUGINDEX dest, bool bAdjustPat)
 
 	SetPluginModified();
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	return true;
 }
@@ -1586,7 +1587,7 @@ void CViewGlobals::OnInsertSlot()
 {
 	mpt::ustring prompt;
 	CSoundFile &sndFile = GetDocument()->GetSoundFile();
-	prompt.Format(U_("Insert empty slot before slot FX%d?"), m_nCurrentPlugin + 1);
+	prompt = mfcless::PrintF(UL_("Insert empty slot before slot FX%d?"), m_nCurrentPlugin + 1);
 
 	// If last plugin slot is occupied, move it so that the plugin is not lost.
 	// This could certainly be improved...
@@ -1599,7 +1600,7 @@ void CViewGlobals::OnInsertSlot()
 			moveLastPlug = true;
 		} else
 		{
-			prompt += U_("\nWarning: plugin data in last slot will be lost.");
+			prompt += UL_("\nWarning: plugin data in last slot will be lost.");
 		}
 	}
 	if(Reporting::Confirm(prompt) == cnfYes)
@@ -1820,10 +1821,10 @@ bool CViewGlobals::OnToolTipText(uint32 )
 			}
 			break;
 		case IDC_BUTTON5:
-			text = U_("Previous Plugin");
+			text = UL_("Previous Plugin");
 			break;
 		case IDC_BUTTON4:
-			text = U_("Next Plugin");
+			text = UL_("Next Plugin");
 			break;
 		default:
 			return false;
@@ -1833,7 +1834,7 @@ bool CViewGlobals::OnToolTipText(uint32 )
 	CurrentNotify().result = 0;
 
 	// bring the tooltip window above other popup windows
-	::SetWindowPos(pNMHDR->hwndFrom, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOMOVE | SWP_NOOWNERZORDER);
+	::SetWindowPos(pNMHDR->hwndFrom, HWND_TOP, 0, 0, 0, 0, mfcless::swp::NoActivate | mfcless::swp::NoSize | mfcless::swp::NoMove | mfcless::swp::NoOwnerZOrder);
 
 	return true;  // message was handled
 }

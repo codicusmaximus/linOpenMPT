@@ -13,6 +13,7 @@
 
 
 #include "ResizableDialog.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "MPTrackUtil.h"
 #include "resource.h"
@@ -29,7 +30,7 @@ public:
 		std::vector<ResizableDialog::DynamicItem> items;
 		QWidget *child = parentWnd.GetWindow(GW_CHILD);
 		POSITION pos = m_listCtrls.GetHeadPosition();
-		while(pos != nullptr)
+		while(pos)
 		{
 			const Item &item = m_listCtrls.GetNext(pos);
 			if(!item.m_moveSettings.IsNone() || !item.m_sizeSettings.IsNone())
@@ -99,7 +100,7 @@ void ResizableDialog::PostNcDestroy()
 
 void ResizableDialog::LoadDynamicLayout(const mpt::uchar *lpszResourceName)
 {
-	if(!m_hWnd || !lpszResourceName)
+	if(!this || !lpszResourceName)
 		return;
 
 	const auto resource = GetResource(lpszResourceName, RT_DIALOG_LAYOUT);
@@ -135,10 +136,10 @@ mfcless::Rect ResizableDialog::AdjustItemRect(const DynamicItem &item, const mfc
 	auto itemSize = item.initialSize + size;
 	if(GetDPI() != m_originalDPI)
 	{
-		itemPoint.x = MulDiv(itemPoint.x, GetDPI(), m_originalDPI);
-		itemPoint.y = MulDiv(itemPoint.y, GetDPI(), m_originalDPI);
-		itemSize.cx = MulDiv(itemSize.cx, GetDPI(), m_originalDPI);
-		itemSize.cy = MulDiv(itemSize.cy, GetDPI(), m_originalDPI);
+		itemPoint.x = mfcless::MulDiv(itemPoint.x, GetDPI(), m_originalDPI);
+		itemPoint.y = mfcless::MulDiv(itemPoint.y, GetDPI(), m_originalDPI);
+		itemSize.cx = mfcless::MulDiv(itemSize.cx, GetDPI(), m_originalDPI);
+		itemSize.cy = mfcless::MulDiv(itemSize.cy, GetDPI(), m_originalDPI);
 	}
 
 	return mfcless::Rect{itemPoint, itemSize};
@@ -159,7 +160,7 @@ void ResizableDialog::ResizeDynamicLayout()
 		if(::IsWindow(item.hwnd))
 		{
 			mfcless::Rect rect = AdjustItemRect(item, windowSize);
-			::DeferWindowPos(dwp, item.hwnd, nullptr, rect.left, rect.top, rect.Width(), rect.Height(), SWP_NOZORDER | SWP_NOREPOSITION | SWP_NOACTIVATE | SWP_NOCOPYBITS);
+			::DeferWindowPos(dwp, item.hwnd, nullptr, rect.left, rect.top, rect.Width(), rect.Height(), mfcless::swp::NoZOrder | SWP_NOREPOSITION | mfcless::swp::NoActivate | mfcless::swp::NoCopyBits);
 		}
 	}
 	::EndDeferWindowPos(dwp);
@@ -173,8 +174,8 @@ void ResizableDialog::OnGetMinMaxInfo(MINMAXINFO *mmi)
 		auto size = m_minSize;
 		if(GetDPI() != m_originalDPI)
 		{
-			size.x = MulDiv(size.x, GetDPI(), m_originalDPI);
-			size.y = MulDiv(size.y, GetDPI(), m_originalDPI);
+			size.x = mfcless::MulDiv(size.x, GetDPI(), m_originalDPI);
+			size.y = mfcless::MulDiv(size.y, GetDPI(), m_originalDPI);
 		}
 		mmi->ptMinTrackSize = size;
 	}

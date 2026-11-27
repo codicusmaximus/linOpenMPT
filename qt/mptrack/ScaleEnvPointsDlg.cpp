@@ -10,6 +10,7 @@
 
 
 #include "ScaleEnvPointsDlg.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "../soundlib/ModInstrument.h"
 

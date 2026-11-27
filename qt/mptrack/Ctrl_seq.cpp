@@ -11,6 +11,7 @@
 
 
 #include "Ctrl_pat.h"
+#include "mfcless/Widgets.h"
 #include "Globals.h"
 #include "HighDPISupport.h"
 #include "InputHandler.h"
@@ -204,7 +205,7 @@ mfcless::Rect COrderList::GetRectFromOrder(ORDERINDEX ord) const
 
 bool COrderList::Init(const mfcless::Rect &rect)
 {
-	CreateEx(WS_EX_STATICEDGE, NULL, U_(""), WS_CHILD | WS_VISIBLE, rect, &m_pParent, IDC_ORDERLIST);
+	CreateEx(WS_EX_STATICEDGE, NULL, UL_(""), WS_CHILD | WS_VISIBLE, rect, &m_pParent, IDC_ORDERLIST);
 	m_hFont = CMainFrame::GetGUIFont();
 	SendMessage(WM_SETFONT, (uintptr_t)m_hFont);
 	SetScrollPos(0);
@@ -246,11 +247,11 @@ void COrderList::UpdateScrollInfo()
 
 int COrderList::GetFontWidth()
 {
-	if((m_cxFont <= 0) && (m_hWnd) && (m_hFont))
+	if((m_cxFont <= 0) && (this) && (m_hFont))
 	{
 		mfcless::PaintDC dc(this);
 		HGDIOBJ oldfont = dc.SelectObject(m_hFont);
-		mfcless::Size sz = dc.GetTextExtent(U_("000+"), 4);
+		mfcless::Size sz = dc.GetTextExtent(UL_("000+"), 4);
 		if(oldfont)
 			dc.SelectObject(oldfont);
 		return sz.cx;
@@ -669,10 +670,10 @@ void COrderList::OnEditCut()
 void COrderList::OnCopy(bool onlyOrders)
 {
 	const OrdSelection ordsel = GetCurSel();
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	PatternClipboard::Copy(m_modDoc.GetSoundFile(), ordsel.firstOrd, ordsel.lastOrd, onlyOrders);
 	PatternClipboardDialog::UpdateList();
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -698,7 +699,7 @@ void COrderList::OnSwitchToView()
 
 void COrderList::UpdateInfoText()
 {
-	if(::GetFocus() != m_hWnd)
+	if(mfcless::GetFocus() != this)
 		return;
 
 	CSoundFile &sndFile = m_modDoc.GetSoundFile();
@@ -707,14 +708,14 @@ void COrderList::UpdateInfoText()
 	const ORDERINDEX length = order.GetLengthTailTrimmed();
 	mpt::ustring s;
 	if(TrackerSettings::Instance().patternSetup & PatternSetup::RowAndOrderNumbersHex)
-		s.Format(U_("Position %02Xh of %02Xh"), m_nScrollPos, length);
+		s = mfcless::PrintF(UL_("Position %02Xh of %02Xh"), m_nScrollPos, length);
 	else
-		s.Format(U_("Position %u of %u (%02Xh of %02Xh)"), m_nScrollPos, length, m_nScrollPos, length);
+		s = mfcless::PrintF(UL_("Position %u of %u (%02Xh of %02Xh)"), m_nScrollPos, length, m_nScrollPos, length);
 
 	if(order.IsValidPat(m_nScrollPos))
 	{
 		if(const auto patName = sndFile.Patterns[order[m_nScrollPos]].GetName(); !patName.empty())
-			s += U_(": ") + mpt::ToUnicode(sndFile.GetCharsetInternal(), patName);
+			s += UL_(": ") + mpt::ToUnicode(sndFile.GetCharsetInternal(), patName);
 	}
 	CMainFrame::GetMainFrame()->SetInfoText(s);
 
@@ -739,19 +740,19 @@ HRESULT COrderList::get_accName(VARIANT, BSTR *pszName)
 	for(ORDERINDEX o = firstOrd; o <= lastOrd; o++)
 	{
 		if(!first)
-			s += U_(", ");
+			s += UL_(", ");
 		first = false;
 		PATTERNINDEX pat = order[o];
 		if(pat == PATTERNINDEX_SKIP)
-			s += U_(" Skip");
+			s += UL_(" Skip");
 		else if(pat == PATTERNINDEX_INVALID)
-			s += U_(" Stop");
+			s += UL_(" Stop");
 		else
 			s += MPT_UFORMAT("Pattern {}")(pat);
 		if(sndFile.Patterns.IsValidPat(pat))
 		{
 			if(const auto patName = sndFile.Patterns[pat].GetName(); !patName.empty())
-				s += U_(" (") + mpt::ToUnicode(sndFile.GetCharsetInternal(), patName) + U_(")");
+				s += UL_(" (") + mpt::ToUnicode(sndFile.GetCharsetInternal(), patName) + UL_(")");
 		}
 	}
 	
@@ -779,16 +780,16 @@ void COrderList::OnPaint()
 	mfcless::PaintDC dc(this);
 	HGDIOBJ oldfont = dc.SelectObject(m_hFont);
 	HGDIOBJ oldpen = dc.SelectStockObject(mfcless::Stock::DCPen);
-	const auto separatorColor = GetSysColor(COLOR_WINDOW) ^ 0x808080;
-	const auto colorText = GetSysColor(COLOR_WINDOWTEXT), colorInvalid = GetSysColor(COLOR_GRAYTEXT), colorTextSel = GetSysColor(COLOR_HIGHLIGHTTEXT);
-	const auto windowColor = GetSysColor(COLOR_WINDOW), highlightColor = GetSysColor(COLOR_HIGHLIGHT), faceColor = GetSysColor(COLOR_BTNFACE);
+	const auto separatorColor = mfcless::SystemColor(mfcless::SysColor::Window) ^ 0x808080;
+	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText), colorInvalid = mfcless::SystemColor(mfcless::SysColor::GrayText), colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
+	const auto windowColor = mfcless::SystemColor(mfcless::SysColor::Window), highlightColor = mfcless::SystemColor(mfcless::SysColor::Highlight), faceColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 
 	SetDCPenColor(dc, separatorColor);
 
 	// First time?
 	if(m_cxFont <= 0 || m_cyFont <= 0)
 	{
-		mfcless::Size sz = dc.GetTextExtent(U_("000+"), 4);
+		mfcless::Size sz = dc.GetTextExtent(UL_("000+"), 4);
 		m_cxFont = sz.cx;
 		m_cyFont = sz.cy;
 	}
@@ -803,9 +804,9 @@ void COrderList::OnPaint()
 		dc.SetBkMode(mfcless::bk::Transparent);
 		const OrdSelection selection = GetCurSel();
 
-		const int lineWidth1 = HighDPISupport::ScalePixels(1, m_hWnd);
-		const int lineWidth2 = HighDPISupport::ScalePixels(2, m_hWnd);
-		const bool isFocussed = (::GetFocus() == m_hWnd);
+		const int lineWidth1 = HighDPISupport::ScalePixels(1, this);
+		const int lineWidth2 = HighDPISupport::ScalePixels(2, this);
+		const bool isFocussed = (mfcless::GetFocus() == this);
 
 		const auto &order = Order();
 		CSoundFile &sndFile = m_modDoc.GetSoundFile();
@@ -866,16 +867,16 @@ void COrderList::OnPaint()
 				dc.FillSolidRect(mfcless::Rect{dropLeft ? (rect.left + 2) : (rect.right - 2 - lineWidth2), rect.top + 2, dropLeft ? (rect.left + 2 + lineWidth2) : (rect.right - 2), rect.bottom - 2}, separatorColor);
 			}
 
-			s[0] = _T('\0');
+			s[0] = u8'\0';
 			const PATTERNINDEX pat = (ord < order.size()) ? order[ord] : PATTERNINDEX_INVALID;
 			if(ord < maxEntries && (rect.left + m_cxFont - 4) <= rcClient.right)
 			{
 				if(pat == PATTERNINDEX_INVALID)
-					_tcscpy(s, U_("---"));
+					_tcscpy(s, UL_("---"));
 				else if(pat == PATTERNINDEX_SKIP)
-					_tcscpy(s, U_("+++"));
+					_tcscpy(s, UL_("+++"));
 				else
-					wsprintf(s, U_("%u"), pat);
+					wsprintf(s, UL_("%u"), pat);
 			}
 
 			uint32 textCol;
@@ -917,7 +918,7 @@ void COrderList::OnLButtonDown(uint32 nFlags, mfcless::Point pt)
 	GetClientRect(&rect);
 	if(pt.y < rect.bottom)
 	{
-		SetFocus();
+		setFocus();
 
 		const ORDERINDEX ord = GetOrderFromPoint(pt);
 		if((nFlags & mfcless::MouseKey::Control) != 0)
@@ -1015,7 +1016,7 @@ void COrderList::OnLButtonUp(uint32 nFlags, mfcless::Point pt)
 				{
 					// Remove selection if we didn't drag anything but multiselect was active
 					m_nScrollPos2nd = ORDERINDEX_INVALID;
-					SetFocus();
+					setFocus();
 					SetCurSel(n);
 				}
 			}
@@ -1087,7 +1088,7 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 
 	if(!multiSelection)
 		SetCurSel(m_menuOrder, false, false, false);
-	SetFocus();
+	setFocus();
 	mfcless::Menu hMenu = mfcless::Menu::CreatePopup();
 	if(!hMenu)
 		return;
@@ -1110,45 +1111,45 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 	if(multiSelection)
 	{
 		// Several patterns are selected.
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT, ih->GetKeyTextFromCommand(kcOrderlistEditInsert, U_("&Insert Patterns")));
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_DELETE, ih->GetKeyTextFromCommand(kcOrderlistEditDelete, U_("&Remove Patterns")));
-		hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, U_("&Copy Patterns")));
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_COPY_ORDERS, ih->GetKeyTextFromCommand(kcOrderlistEditCopyOrders, U_("&Copy Orders")));
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, U_("&C&ut Patterns")));
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERNPASTE, ih->GetKeyTextFromCommand(kcEditPaste, U_("P&aste Patterns")));
-		hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, U_("&Duplicate Patterns")));
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_MERGE, ih->GetKeyTextFromCommand(kcMergePatterns, U_("&Merge Patterns")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT, ih->GetKeyTextFromCommand(kcOrderlistEditInsert, UL_("&Insert Patterns")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_DELETE, ih->GetKeyTextFromCommand(kcOrderlistEditDelete, UL_("&Remove Patterns")));
+		hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, UL_("&Copy Patterns")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_COPY_ORDERS, ih->GetKeyTextFromCommand(kcOrderlistEditCopyOrders, UL_("&Copy Orders")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, UL_("&C&ut Patterns")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERNPASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("P&aste Patterns")));
+		hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, UL_("&Duplicate Patterns")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_MERGE, ih->GetKeyTextFromCommand(kcMergePatterns, UL_("&Merge Patterns")));
 	} else
 	{
 		// Only one pattern is selected
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT, ih->GetKeyTextFromCommand(kcOrderlistEditInsert, U_("&Insert Pattern")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT, ih->GetKeyTextFromCommand(kcOrderlistEditInsert, UL_("&Insert Pattern")));
 		if(sndFile.GetModSpecifications().hasIgnoreIndex)
 		{
-			hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT_SEPARATOR, ih->GetKeyTextFromCommand(kcOrderlistEditInsertSeparator, U_("&Insert Separator")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_INSERT_SEPARATOR, ih->GetKeyTextFromCommand(kcOrderlistEditInsertSeparator, UL_("&Insert Separator")));
 		}
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_DELETE, ih->GetKeyTextFromCommand(kcOrderlistEditDelete, U_("&Remove Pattern")));
-		hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
-		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_NEW, ih->GetKeyTextFromCommand(kcNewPattern, U_("Create &New Pattern")));
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, U_("&Duplicate Pattern")));
-		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERNCOPY, U_("&Copy Pattern"));
-		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERNPASTE, ih->GetKeyTextFromCommand(kcEditPaste, U_("P&aste Pattern")));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_DELETE, ih->GetKeyTextFromCommand(kcOrderlistEditDelete, UL_("&Remove Pattern")));
+		hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
+		hMenu.AppendMenu(mfcless::menu::String, ID_ORDERLIST_NEW, ih->GetKeyTextFromCommand(kcNewPattern, UL_("Create &New Pattern")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_COPY, ih->GetKeyTextFromCommand(kcDuplicatePattern, UL_("&Duplicate Pattern")));
+		hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERNCOPY, UL_("&Copy Pattern"));
+		hMenu.AppendMenu(mfcless::menu::String, ID_PATTERNPASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("P&aste Pattern")));
 		const bool hasPatternProperties = sndFile.GetModSpecifications().patternRowsMin != sndFile.GetModSpecifications().patternRowsMax;
 		if(hasPatternProperties || sndFile.GetModSpecifications().hasRestartPos)
 		{
-			hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
+			hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
 			if(hasPatternProperties)
-				hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_PROPERTIES, U_("&Pattern Properties..."));
+				hMenu.AppendMenu(mfcless::menu::String | greyed, ID_PATTERN_PROPERTIES, UL_("&Pattern Properties..."));
 			if(sndFile.GetModSpecifications().hasRestartPos)
-				hMenu.AppendMenu(mfcless::menu::String | greyed | ((Order().GetRestartPos() == m_nScrollPos) ? mfcless::menu::Checked : 0), ID_SETRESTARTPOS, U_("R&estart Position"));
+				hMenu.AppendMenu(mfcless::menu::String | greyed | ((Order().GetRestartPos() == m_nScrollPos) ? mfcless::menu::Checked : 0), ID_SETRESTARTPOS, UL_("R&estart Position"));
 		}
 		if(sndFile.GetModSpecifications().sequencesMax > 1)
 		{
-			hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
+			hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
 
 			mfcless::Menu menuSequence = mfcless::Menu::CreatePopup();
-			hMenu.AppendMenu(mfcless::menu::Popup, (uintptr_t)menuSequence, U_("&Sequences"));
+			hMenu.AppendMenu(mfcless::menu::Popup, (uintptr_t)menuSequence, UL_("&Sequences"));
 
 			const SEQUENCEINDEX numSequences = sndFile.Order.GetNumSequences();
 			for(SEQUENCEINDEX i = 0; i < numSequences; i++)
@@ -1163,30 +1164,30 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 			}
 			if(sndFile.Order.GetNumSequences() < sndFile.GetModSpecifications().sequencesMax)
 			{
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDuplicateSequence, U_("&Duplicate current sequence"));
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kAddSequence, U_("&Create empty sequence"));
+				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDuplicateSequence, UL_("&Duplicate current sequence"));
+				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kAddSequence, UL_("&Create empty sequence"));
 			}
 			if(sndFile.Order.GetNumSequences() > 1)
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDeleteSequence, U_("D&elete current sequence"));
+				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDeleteSequence, UL_("D&elete current sequence"));
 			else
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kSplitSequence, U_("&Split sub songs into sequences"));
+				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kSplitSequence, UL_("&Split sub songs into sequences"));
 		}
 	}
-	hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
-	hMenu.AppendMenu(((selection.firstOrd == sndFile.m_lockOrderStart && selection.lastOrd == sndFile.m_lockOrderEnd) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String), ID_ORDERLIST_LOCKPLAYBACK, ih->GetKeyTextFromCommand(kcOrderlistLockPlayback, U_("&Lock Playback to Selection")));
-	hMenu.AppendMenu((sndFile.m_lockOrderStart == ORDERINDEX_INVALID ? (mfcless::menu::String | mfcless::menu::Grayed) : mfcless::menu::String), ID_ORDERLIST_UNLOCKPLAYBACK, ih->GetKeyTextFromCommand(kcOrderlistUnlockPlayback, U_("&Unlock Playback")));
+	hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
+	hMenu.AppendMenu(((selection.firstOrd == sndFile.m_lockOrderStart && selection.lastOrd == sndFile.m_lockOrderEnd) ? (mfcless::menu::String | mfcless::menu::Checked) : mfcless::menu::String), ID_ORDERLIST_LOCKPLAYBACK, ih->GetKeyTextFromCommand(kcOrderlistLockPlayback, UL_("&Lock Playback to Selection")));
+	hMenu.AppendMenu((sndFile.m_lockOrderStart == ORDERINDEX_INVALID ? (mfcless::menu::String | mfcless::menu::Grayed) : mfcless::menu::String), ID_ORDERLIST_UNLOCKPLAYBACK, ih->GetKeyTextFromCommand(kcOrderlistUnlockPlayback, UL_("&Unlock Playback")));
 	if(!multiSelection)
 	{
 		mfcless::Menu menuQueue = mfcless::Menu::CreatePopup();
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_PATTERN_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtPatternEnd, U_("Transition at end of current &pattern")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_MEASURE_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtMeasureEnd, U_("Transition at end of current &measure")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_BEAT_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtBeatEnd, U_("Transition at end of current &beat")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_ROW_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtRowEnd, U_("Transition at end of current &row")));
-		hMenu.AppendMenu(mfcless::menu::Popup, menuQueue, U_("&Queue Pattern"));
+		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_PATTERN_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtPatternEnd, UL_("Transition at end of current &pattern")));
+		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_MEASURE_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtMeasureEnd, UL_("Transition at end of current &measure")));
+		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_BEAT_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtBeatEnd, UL_("Transition at end of current &beat")));
+		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_ROW_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtRowEnd, UL_("Transition at end of current &row")));
+		hMenu.AppendMenu(mfcless::menu::Popup, menuQueue, UL_("&Queue Pattern"));
 	}
 
-	hMenu.AppendMenu(mfcless::menu::Separator, NULL, U_(""));
-	hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_RENDER, ih->GetKeyTextFromCommand(kcOrderlistStreamExport, U_("Stream E&xport")));
+	hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
+	hMenu.AppendMenu(mfcless::menu::String | greyed, ID_ORDERLIST_RENDER, ih->GetKeyTextFromCommand(kcOrderlistStreamExport, UL_("Stream E&xport")));
 
 	ClientToScreen(&pt);
 	hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x, pt.y, this);
@@ -1198,7 +1199,7 @@ void COrderList::OnLButtonDblClk(uint32, mfcless::Point)
 {
 	auto &sndFile = m_modDoc.GetSoundFile();
 	m_nScrollPos2nd = ORDERINDEX_INVALID;
-	SetFocus();
+	setFocus();
 	if(!EnsureEditable(m_nScrollPos))
 		return;
 	PATTERNINDEX pat = Order()[m_nScrollPos];
@@ -1360,43 +1361,43 @@ void COrderList::OnPatternProperties()
 
 void COrderList::OnPlayerPlay()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAY);
+	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PLAY);
 }
 
 
 void COrderList::OnPlayerPause()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PAUSE);
+	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PAUSE);
 }
 
 
 void COrderList::OnPlayerPlayFromStart()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAYFROMSTART);
+	m_pParent.mfcless::PostCommand(this, ID_PLAYER_PLAYFROMSTART);
 }
 
 
 void COrderList::OnPatternPlayFromStart()
 {
-	m_pParent.PostMessage(WM_COMMAND, IDC_PATTERN_PLAYFROMSTART);
+	m_pParent.mfcless::PostCommand(this, IDC_PATTERN_PLAYFROMSTART);
 }
 
 
 void COrderList::OnCreateNewPattern()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_NEW);
+	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_NEW);
 }
 
 
 void COrderList::OnDuplicatePattern()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_COPY);
+	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_COPY);
 }
 
 
 void COrderList::OnMergePatterns()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_MERGE);
+	m_pParent.mfcless::PostCommand(this, ID_ORDERLIST_MERGE);
 }
 
 
@@ -1412,7 +1413,7 @@ void COrderList::OnPatternCopy()
 
 void COrderList::OnPatternPaste()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PATTERNPASTE);
+	m_pParent.mfcless::PostCommand(this, ID_PATTERNPASTE);
 }
 
 
@@ -1648,7 +1649,7 @@ intptr_t COrderList::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI)
 	mfcless::Rect rect;
 	GetClientRect(&rect);
 
-	pTI->hwnd = m_hWnd;
+	pTI->hwnd = this;
 	pTI->uId = GetOrderFromPoint(point);
 	pTI->rect = rect;
 	pTI->lpszText = LPSTR_TEXTCALLBACK;
@@ -1666,7 +1667,7 @@ bool COrderList::OnToolTipText(uint32 )
 		const CSoundFile &sndFile = m_modDoc.GetSoundFile();
 		const ModSequence &order = Order();
 		const ORDERINDEX ord = mpt::saturate_cast<ORDERINDEX>(pNMHDR->idFrom), ordLen = order.GetLengthTailTrimmed();
-		text.Format(U_("Position %u of %u [%02Xh of %02Xh]"), ord, ordLen, ord, ordLen);
+		text = mfcless::PrintF(UL_("Position %u of %u [%02Xh of %02Xh]"), ord, ordLen, ord, ordLen);
 		if(order.IsValidPat(ord))
 		{
 			PATTERNINDEX pat = order[ord];
@@ -1674,7 +1675,7 @@ bool COrderList::OnToolTipText(uint32 )
 			if(!name.empty())
 			{
 				::SendMessage(pNMHDR->hwndFrom, TTM_SETMAXTIPWIDTH, 0, int32_max);  // Allow multiline tooltip
-				text += U_("\r\n") + mpt::ToUnicode(sndFile.GetCharsetInternal(), name);
+				text += UL_("\r\n") + mpt::ToUnicode(sndFile.GetCharsetInternal(), name);
 			}
 		}
 		mpt::String::WriteCStringBuf(pTTT->szText) = text;

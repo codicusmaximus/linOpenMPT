@@ -26,6 +26,7 @@
 #define IDCANCEL 2
 #define IDC_STATIC (-1)
 #define IDOK 1
+#define ID_SEPARATOR 0
 #define ID_APP_ABOUT 0xE140
 #define ID_APP_EXIT 0xE141
 #define ID_CONTEXT_HELP 0xE145

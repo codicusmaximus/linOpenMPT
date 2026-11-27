@@ -10,6 +10,7 @@
 
 
 #include "dlg_misc.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Dlsbank.h"
 #include "HighDPISupport.h"
@@ -88,11 +89,11 @@ bool CModTypeDlg::OnInitDialog()
 
 	// Mod types
 
-	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, U_("ProTracker MOD")), MOD_TYPE_MOD);
-	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, U_("Scream Tracker S3M")), MOD_TYPE_S3M);
-	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, U_("FastTracker XM")), MOD_TYPE_XM);
-	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, U_("Impulse Tracker IT")), MOD_TYPE_IT);
-	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, U_("OpenMPT MPTM")), MOD_TYPE_MPT);
+	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, UL_("ProTracker MOD")), MOD_TYPE_MOD);
+	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, UL_("Scream Tracker S3M")), MOD_TYPE_S3M);
+	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, UL_("FastTracker XM")), MOD_TYPE_XM);
+	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, UL_("Impulse Tracker IT")), MOD_TYPE_IT);
+	mfcless::SetItemData(m_TypeBox, mfcless::AddItem(m_TypeBox, UL_("OpenMPT MPTM")), MOD_TYPE_MPT);
 	switch(m_nType)
 	{
 	case MOD_TYPE_S3M:	m_TypeBox->setCurrentIndex(1); break;
@@ -109,7 +110,7 @@ bool CModTypeDlg::OnInitDialog()
 
 	// Version information
 
-	if(sndFile.m_dwCreatedWithVersion) SetItemText(IDC_EDIT_CREATEDWITH, U_("OpenMPT ") + FormatVersionNumber(sndFile.m_dwCreatedWithVersion));
+	if(sndFile.m_dwCreatedWithVersion) SetItemText(IDC_EDIT_CREATEDWITH, UL_("OpenMPT ") + FormatVersionNumber(sndFile.m_dwCreatedWithVersion));
 	SetItemText(IDC_EDIT_SAVEDWITH, mpt::ToUnicode(sndFile.m_modFormat.madeWithTracker.empty() ? sndFile.m_modFormat.formatName : sndFile.m_modFormat.madeWithTracker));
 
 	OnDPIChanged();
@@ -124,7 +125,7 @@ void CModTypeDlg::OnDPIChanged()
 {
 	DialogBase::OnDPIChanged();
 
-	const int iconSize = HighDPISupport::ScalePixels(32, m_hWnd);
+	const int iconSize = HighDPISupport::ScalePixels(32, this);
 	DestroyIcon(m_warnIcon);
 	m_warnIcon = nullptr;
 
@@ -168,7 +169,7 @@ void CModTypeDlg::UpdateChannelCBox()
 		mpt::ustring s;
 		for(CHANNELINDEX i = minChans; i <= maxChans; i++)
 		{
-			s.Format(U_("%u Channel%s"), i, (i != 1) ? U_("s") : U_(""));
+			s = mfcless::PrintF(UL_("%u Channel%s"), i, (i != 1) ? UL_("s") : UL_(""));
 			mfcless::SetItemData(m_ChannelsBox, mfcless::AddItem(m_ChannelsBox, s), i);
 		}
 
@@ -202,19 +203,19 @@ void CModTypeDlg::UpdateDialog()
 	m_CheckBoxAmigaLimits->setEnabled(allowedFlags[SONG_AMIGALIMITS]);
 
 	// These two checkboxes are mutually exclusive and share the same screen space
-	m_CheckBoxPT1x->setVisible(m_nType == MOD_TYPE_MOD ? true : false);
-	m_CheckBox5->setVisible(m_nType != MOD_TYPE_MOD ? true : false);
+	m_CheckBoxPT1x->setVisible(m_nType == MOD_TYPE_MOD ? mfcless::show::Show : mfcless::show::Hide);
+	m_CheckBox5->setVisible(m_nType != MOD_TYPE_MOD ? mfcless::show::Show : mfcless::show::Hide);
 	if(allowedFlags[SONG_PT_MODE]) OnPTModeChanged();
 
 	// Tempo modes
 	const TempoMode oldTempoMode = m_initialized ? static_cast<TempoMode>(mfcless::GetItemData(m_TempoModeBox, m_TempoModeBox->currentIndex())) : sndFile.m_nTempoMode;
 	m_TempoModeBox->clear();
 
-	mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, U_("Classic")), static_cast<uintptr_t>(TempoMode::Classic));
+	mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, UL_("Classic")), static_cast<uintptr_t>(TempoMode::Classic));
 	if(m_nType == MOD_TYPE_MPT || (sndFile.GetType() != MOD_TYPE_MPT && sndFile.m_nTempoMode == TempoMode::Alternative))
-		mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, U_("Alternative")), static_cast<uintptr_t>(TempoMode::Alternative));
+		mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, UL_("Alternative")), static_cast<uintptr_t>(TempoMode::Alternative));
 	if(m_nType == MOD_TYPE_MPT || (sndFile.GetType() != MOD_TYPE_MPT && sndFile.m_nTempoMode == TempoMode::Modern))
-		mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, U_("Modern (accurate)")), static_cast<uintptr_t>(TempoMode::Modern));
+		mfcless::SetItemData(m_TempoModeBox, mfcless::AddItem(m_TempoModeBox, UL_("Modern (accurate)")), static_cast<uintptr_t>(TempoMode::Modern));
 	m_TempoModeBox->setCurrentIndex(0);
 	for(int i = m_TempoModeBox->count(); i > 0; i--)
 	{
@@ -230,17 +231,17 @@ void CModTypeDlg::UpdateDialog()
 	const MixLevels oldMixLevels = m_initialized ? static_cast<MixLevels>(mfcless::GetItemData(m_PlugMixBox, m_PlugMixBox->currentIndex())) : sndFile.GetMixLevels();
 	m_PlugMixBox->clear();
 	if(m_nType == MOD_TYPE_MPT || sndFile.GetMixLevels() == MixLevels::v1_17RC3) // In XM/IT, this is only shown for backwards compatibility with existing tunes
-		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, U_("OpenMPT 1.17RC3")), static_cast<uintptr_t>(MixLevels::v1_17RC3));
+		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, UL_("OpenMPT 1.17RC3")), static_cast<uintptr_t>(MixLevels::v1_17RC3));
 	if(sndFile.GetMixLevels() == MixLevels::v1_17RC2) // Only shown for backwards compatibility with existing tunes
-		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, U_("OpenMPT 1.17RC2")), static_cast<uintptr_t>(MixLevels::v1_17RC2));
+		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, UL_("OpenMPT 1.17RC2")), static_cast<uintptr_t>(MixLevels::v1_17RC2));
 	if(sndFile.GetMixLevels() == MixLevels::v1_17RC1) // Ditto
-		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, U_("OpenMPT 1.17RC1")), static_cast<uintptr_t>(MixLevels::v1_17RC1));
+		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, UL_("OpenMPT 1.17RC1")), static_cast<uintptr_t>(MixLevels::v1_17RC1));
 	if(sndFile.GetMixLevels() == MixLevels::Original) // Ditto
-		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, U_("Original (MPT 1.16)")), static_cast<uintptr_t>(MixLevels::Original));
-	int compatMixMode = mfcless::AddItem(m_PlugMixBox, U_("Compatible"));
+		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, UL_("Original (MPT 1.16)")), static_cast<uintptr_t>(MixLevels::Original));
+	int compatMixMode = mfcless::AddItem(m_PlugMixBox, UL_("Compatible"));
 	mfcless::SetItemData(m_PlugMixBox, compatMixMode, static_cast<uintptr_t>(MixLevels::Compatible));
 	if(m_nType == MOD_TYPE_XM)
-		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, U_("Compatible (FT2 Pan Law)")), static_cast<uintptr_t>(MixLevels::CompatibleFT2));
+		mfcless::SetItemData(m_PlugMixBox, mfcless::AddItem(m_PlugMixBox, UL_("Compatible (FT2 Pan Law)")), static_cast<uintptr_t>(MixLevels::CompatibleFT2));
 
 	// Default to compatible mix mode
 	m_PlugMixBox->setCurrentIndex(compatMixMode);
@@ -302,8 +303,8 @@ void CModTypeDlg::UpdateDialog()
 	}
 	static_cast<CStatic *>(GetDlgItem(IDC_STATIC1))->SetIcon(m_showWarning ? m_warnIcon : nullptr);
 	GetDlgItem(IDC_STATIC2)->SetWindowText(m_showWarning
-		? U_("Playback settings have been set to legacy compatibility mode. Click \"Set Defaults\" to use the recommended settings instead.")
-		: U_("Compatibility settings are currently optimal. It is advised to not edit them."));
+		? UL_("Playback settings have been set to legacy compatibility mode. Click \"Set Defaults\" to use the recommended settings instead.")
+		: UL_("Compatibility settings are currently optimal. It is advised to not edit them."));
 	EnableItem(IDC_BUTTON3, enableSetDefaults ? true : false);
 }
 
@@ -373,13 +374,13 @@ bool CModTypeDlg::VerifyData()
 	if(newRPB > newRPM)
 	{
 		Reporting::Warning("Error: Rows per measure must be greater than or equal to rows per beat.");
-		GotoDlgCtrl(GetDlgItem(IDC_ROWSPERMEASURE));
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_ROWSPERMEASURE));
 		return false;
 	}
 	if(newRPB == 0 && static_cast<TempoMode>(mfcless::GetItemData(m_TempoModeBox, m_TempoModeBox->currentIndex())) == TempoMode::Modern)
 	{
 		Reporting::Warning("Error: Rows per beat must be greater than 0 in modern tempo mode.");
-		GotoDlgCtrl(GetDlgItem(IDC_ROWSPERBEAT));
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_ROWSPERBEAT));
 		return false;
 	}
 
@@ -391,7 +392,7 @@ bool CModTypeDlg::VerifyData()
 	if(sel > maxChans)
 	{
 		mpt::ustring error;
-		error.Format(U_("Error: Maximum number of channels for this module type is %u."), maxChans);
+		error = mfcless::PrintF(UL_("Error: Maximum number of channels for this module type is %u."), maxChans);
 		Reporting::Warning(error);
 		return false;
 	}
@@ -486,42 +487,42 @@ mpt::ustring CModTypeDlg::GetToolTipText(uint32 id, QWidget *) const
 	switch(id)
 	{
 	case IDC_CHECK1:
-		text = U_("Note slides always slide the same amount, not depending on the sample frequency.");
+		text = UL_("Note slides always slide the same amount, not depending on the sample frequency.");
 		break;
 	case IDC_CHECK2:
-		text = U_("Old Scream Tracker 3 volume slide behaviour (not recommended).");
+		text = UL_("Old Scream Tracker 3 volume slide behaviour (not recommended).");
 		break;
 	case IDC_CHECK3:
-		text = U_("Play some effects like in early versions of Impulse Tracker (not recommended).");
+		text = UL_("Play some effects like in early versions of Impulse Tracker (not recommended).");
 		break;
 	case IDC_CHECK4:
-		text = U_("Gxx and Exx/Fxx won't share effect memory. Gxx resets instrument envelopes.");
+		text = UL_("Gxx and Exx/Fxx won't share effect memory. Gxx resets instrument envelopes.");
 		break;
 	case IDC_CHECK5:
-		text = U_("The resonant filter's frequency range is increased from about 5kHz to 10kHz.");
+		text = UL_("The resonant filter's frequency range is increased from about 5kHz to 10kHz.");
 		break;
 	case IDC_CHECK_PT1X:
-		text = U_("Enforce Amiga frequency limits, ProTracker offset bug emulation.");
+		text = UL_("Enforce Amiga frequency limits, ProTracker offset bug emulation.");
 		break;
 	case IDC_COMBO_MIXLEVELS:
-		text = U_("Mixing method of sample and instrument plugin levels.");
+		text = UL_("Mixing method of sample and instrument plugin levels.");
 		break;
 	case IDC_BUTTON1:
 		if(!GetDlgItem(IDC_BUTTON1)->IsWindowEnabled())
 		{
-			text = U_("Tempo swing is only available in modern tempo mode.");
+			text = UL_("Tempo swing is only available in modern tempo mode.");
 		} else
 		{
-			text = U_("Swing setting: ");
+			text = UL_("Swing setting: ");
 			if(m_tempoSwing.empty())
 			{
-				text += U_("Default");
+				text += UL_("Default");
 			} else
 			{
 				for(size_t i = 0; i < m_tempoSwing.size(); i++)
 				{
 					if(i > 0)
-						text += U_(" / ");
+						text += UL_(" / ");
 					text += MPT_UFORMAT("{}%")(Util::muldivr(m_tempoSwing[i], 100, TempoSwing::Unity));
 				}
 			}
@@ -605,160 +606,160 @@ void CLegacyPlaybackSettingsDlg::OnFilterStringChanged()
 	const auto allowedFlags = CSoundFile::GetSupportedPlaybackBehaviour(m_modType);
 	for(size_t i = 0; i < kMaxPlayBehaviours; i++)
 	{
-		const mpt::uchar *desc = U_("");
+		const mpt::uchar *desc = UL_("");
 		switch(i)
 		{
 		case MSF_COMPATIBLE_PLAY: continue;
 
-		case kMPTOldSwingBehaviour: desc = U_("OpenMPT 1.17 compatible random variation behaviour for instruments"); break;
-		case kMIDICCBugEmulation: desc = U_("Plugin volume MIDI CC bug emulation"); break;
-		case kOldMIDIPitchBends: desc = U_("Old Pitch Wheel behaviour for instrument plugins"); break;
-		case kFT2VolumeRamping: desc = U_("Use smooth Fasttracker 2 volume ramping"); break;
-		case kMODVBlankTiming: desc = U_("VBlank timing: F20 and above sets speed instead of tempo"); break;
+		case kMPTOldSwingBehaviour: desc = UL_("OpenMPT 1.17 compatible random variation behaviour for instruments"); break;
+		case kMIDICCBugEmulation: desc = UL_("Plugin volume MIDI CC bug emulation"); break;
+		case kOldMIDIPitchBends: desc = UL_("Old Pitch Wheel behaviour for instrument plugins"); break;
+		case kFT2VolumeRamping: desc = UL_("Use smooth Fasttracker 2 volume ramping"); break;
+		case kMODVBlankTiming: desc = UL_("VBlank timing: F20 and above sets speed instead of tempo"); break;
 
-		case kSlidesAtSpeed1: desc = U_("Execute regular portamento slides at speed 1"); break;
-		case kPeriodsAreHertz: desc = U_("Compute note frequency in Hertz rather than periods"); break;
-		case kTempoClamp: desc = U_("Clamp tempo to 32-255 range"); break;
-		case kPerChannelGlobalVolSlide: desc = U_("Global volume slide memory is per-channel"); break;
-		case kPanOverride: desc = U_("Panning commands override surround and random pan variation"); break;
+		case kSlidesAtSpeed1: desc = UL_("Execute regular portamento slides at speed 1"); break;
+		case kPeriodsAreHertz: desc = UL_("Compute note frequency in Hertz rather than periods"); break;
+		case kTempoClamp: desc = UL_("Clamp tempo to 32-255 range"); break;
+		case kPerChannelGlobalVolSlide: desc = UL_("Global volume slide memory is per-channel"); break;
+		case kPanOverride: desc = UL_("Panning commands override surround and random pan variation"); break;
 
-		case kITInstrWithoutNote: desc = U_("Retrigger instrument envelopes on instrument change"); break;
-		case kITVolColFinePortamento: desc = U_("Volume column portamento never does fine portamento"); break;
-		case kITArpeggio: desc = U_("IT arpeggio algorithm"); break;
-		case kITOutOfRangeDelay: desc = U_("Out-of-range delay commands queue new instrument"); break;
-		case kITPortaMemoryShare: desc = U_("Gxx shares memory with Exx and Fxx"); break;
-		case kITPatternLoopTargetReset: desc = U_("After finishing a pattern loop, set the pattern loop target to the next row"); break;
-		case kITFT2PatternLoop: desc = U_("Nested pattern loop behaviour"); break;
-		case kITPingPongNoReset: desc = U_("Do not reset ping pong direction with instrument numbers"); break;
-		case kITEnvelopeReset: desc = U_("IT envelope reset behaviour"); break;
-		case kITClearOldNoteAfterCut: desc = U_("Forget the previous note after cutting it"); break;
-		case kITVibratoTremoloPanbrello: desc = U_("More IT-like Vibrato, Tremolo and Panbrello handling"); break;
-		case kITTremor: desc = U_("Ixx behaves like in IT"); break;
-		case kITRetrigger: desc = U_("Qxx behaves like in IT"); break;
-		case kITMultiSampleBehaviour: desc = U_("Properly update C-5 frequency when changing note in multisampled instrument"); break;
-		case kITPortaTargetReached: desc = U_("Clear portamento target after it has been reached"); break;
-		case kITPatternLoopBreak: desc = U_("Do not reset loop count on pattern break"); break;
-		case kITOffset: desc = U_("Offset after sample end is treated like in IT"); break;
-		case kITSwingBehaviour: desc = U_("Volume and panning random variation work more like in IT"); break;
-		case kITNNAReset: desc = U_("NNA is reset on every note change, not every instrument change"); break;
-		case kITSCxStopsSample: desc = U_("SCx really stops the sample and does not just mute it"); break;
-		case kITEnvelopePositionHandling: desc = U_("IT-style envelope position advance + enable/disable behaviour"); break;
-		case kITPortamentoInstrument: desc = U_("More compatible instrument change + portamento"); break;
-		case kITPingPongMode: desc = U_("Do not repeat last sample point in ping pong loop, like IT's software mixer"); break;
-		case kITRealNoteMapping: desc = U_("Use triggered note rather than translated note for PPS and DNA note check"); break;
-		case kITHighOffsetNoRetrig: desc = U_("SAx does not apply an offset effect to a note next to it"); break;
-		case kITFilterBehaviour: desc = U_("User IT's filter coefficients (unless extended filter range is used) and behaviour"); break;
-		case kITNoSurroundPan: desc = U_("Panning modulation is disabled on surround channels"); break;
-		case kITShortSampleRetrig: desc = U_("Do not retrigger already stopped channels"); break;
-		case kITPortaNoNote: desc = U_("Do not apply any portamento if no previous note is playing"); break;
+		case kITInstrWithoutNote: desc = UL_("Retrigger instrument envelopes on instrument change"); break;
+		case kITVolColFinePortamento: desc = UL_("Volume column portamento never does fine portamento"); break;
+		case kITArpeggio: desc = UL_("IT arpeggio algorithm"); break;
+		case kITOutOfRangeDelay: desc = UL_("Out-of-range delay commands queue new instrument"); break;
+		case kITPortaMemoryShare: desc = UL_("Gxx shares memory with Exx and Fxx"); break;
+		case kITPatternLoopTargetReset: desc = UL_("After finishing a pattern loop, set the pattern loop target to the next row"); break;
+		case kITFT2PatternLoop: desc = UL_("Nested pattern loop behaviour"); break;
+		case kITPingPongNoReset: desc = UL_("Do not reset ping pong direction with instrument numbers"); break;
+		case kITEnvelopeReset: desc = UL_("IT envelope reset behaviour"); break;
+		case kITClearOldNoteAfterCut: desc = UL_("Forget the previous note after cutting it"); break;
+		case kITVibratoTremoloPanbrello: desc = UL_("More IT-like Vibrato, Tremolo and Panbrello handling"); break;
+		case kITTremor: desc = UL_("Ixx behaves like in IT"); break;
+		case kITRetrigger: desc = UL_("Qxx behaves like in IT"); break;
+		case kITMultiSampleBehaviour: desc = UL_("Properly update C-5 frequency when changing note in multisampled instrument"); break;
+		case kITPortaTargetReached: desc = UL_("Clear portamento target after it has been reached"); break;
+		case kITPatternLoopBreak: desc = UL_("Do not reset loop count on pattern break"); break;
+		case kITOffset: desc = UL_("Offset after sample end is treated like in IT"); break;
+		case kITSwingBehaviour: desc = UL_("Volume and panning random variation work more like in IT"); break;
+		case kITNNAReset: desc = UL_("NNA is reset on every note change, not every instrument change"); break;
+		case kITSCxStopsSample: desc = UL_("SCx really stops the sample and does not just mute it"); break;
+		case kITEnvelopePositionHandling: desc = UL_("IT-style envelope position advance + enable/disable behaviour"); break;
+		case kITPortamentoInstrument: desc = UL_("More compatible instrument change + portamento"); break;
+		case kITPingPongMode: desc = UL_("Do not repeat last sample point in ping pong loop, like IT's software mixer"); break;
+		case kITRealNoteMapping: desc = UL_("Use triggered note rather than translated note for PPS and DNA note check"); break;
+		case kITHighOffsetNoRetrig: desc = UL_("SAx does not apply an offset effect to a note next to it"); break;
+		case kITFilterBehaviour: desc = UL_("User IT's filter coefficients (unless extended filter range is used) and behaviour"); break;
+		case kITNoSurroundPan: desc = UL_("Panning modulation is disabled on surround channels"); break;
+		case kITShortSampleRetrig: desc = UL_("Do not retrigger already stopped channels"); break;
+		case kITPortaNoNote: desc = UL_("Do not apply any portamento if no previous note is playing"); break;
 		case kITFT2DontResetNoteOffOnPorta:
 			if(m_modType == MOD_TYPE_XM)
-				desc = U_("Reset note-off on portamento if there is an instrument number");
+				desc = UL_("Reset note-off on portamento if there is an instrument number");
 			else
-				desc = U_("Reset note-off on portamento if there is an instrument number in Compatible Gxx mode");
+				desc = UL_("Reset note-off on portamento if there is an instrument number in Compatible Gxx mode");
 			break;
-		case kITVolColMemory: desc = U_("Volume column effects share their memory with the effect column"); break;
-		case kITPortamentoSwapResetsPos: desc = U_("Portamento with sample swap plays the new sample from the beginning"); break;
-		case kITEmptyNoteMapSlot: desc = U_("Ignore instrument note map entries with no note completely"); break;
-		case kITFirstTickHandling: desc = U_("IT-style first tick handling"); break;
-		case kITSampleAndHoldPanbrello: desc = U_("IT-style sample&hold panbrello waveform"); break;
-		case kITClearPortaTarget: desc = U_("New notes reset portamento target in IT"); break;
-		case kITPanbrelloHold: desc = U_("Do not reset panbrello effect until next note or panning effect"); break;
-		case kITPanningReset: desc = U_("Sample and instrument panning is only applied on note change, not instrument change"); break;
-		case kITPatternLoopWithJumpsOld: desc = U_("Bxx on the same row as SBx terminates the loop in IT"); break;
-		case kITInstrWithNoteOff: desc = U_("Instrument number with note-off recalls default volume"); break;
-		case kFT2Arpeggio: desc = U_("FT2 arpeggio algorithm"); break;
-		case kFT2Retrigger: desc = U_("Rxx behaves like in FT2"); break;
-		case kFT2VolColVibrato: desc = U_("Vibrato speed in volume column does not actually execute the vibrato effect"); break;
-		case kFT2PortaNoNote: desc = U_("Do not play portamento-ed note if no previous note is playing"); break;
-		case kFT2KeyOff: desc = U_("FT2-style Kxx handling"); break;
-		case kFT2PanSlide: desc = U_("Volume-column pan slides are finer"); break;
-		case kFT2ST3OffsetOutOfRange: desc = U_("Offset past sample end stops the note"); break;
-		case kFT2RestrictXCommand: desc = U_("Do not allow ModPlug extensions to X command"); break;
-		case kFT2RetrigWithNoteDelay: desc = U_("Retrigger envelopes if there is a note delay with no note"); break;
-		case kFT2SetPanEnvPos: desc = U_("Lxx only sets the pan envelope position if the volume envelope's sustain flag is set"); break;
-		case kFT2PortaIgnoreInstr: desc = U_("Portamento with instrument number applies volume settings of new sample, but not the new sample itself"); break;
-		case kFT2VolColMemory: desc = U_("No volume column memory"); break;
-		case kFT2LoopE60Restart: desc = U_("Next pattern starts on the same row as the last E60 command"); break;
-		case kFT2ProcessSilentChannels: desc = U_("Keep processing faded channels for later portamento pickup"); break;
-		case kFT2ReloadSampleSettings: desc = U_("Reload sample settings even if a note-off is placed next to an instrument number"); break;
-		case kFT2PortaDelay: desc = U_("Portamento with note delay next to it is ignored"); break;
-		case kFT2Transpose: desc = U_("Ignore out-of-range transposed notes"); break;
-		case kFT2PatternLoopWithJumps: desc = U_("Bxx or Dxx on the same row as E6x terminates the loop"); break;
-		case kFT2PortaTargetNoReset: desc = U_("Portamento target is not reset with new notes"); break;
-		case kFT2EnvelopeEscape: desc = U_("Sustain point at end of envelope loop stops the loop after release"); break;
-		case kFT2Tremor: desc = U_("Txx behaves like in FT2"); break;
-		case kFT2OutOfRangeDelay: desc = U_("Do not trigger notes with out-of-range note delay"); break;
-		case kFT2Periods: desc = U_("Use FT2's broken period handling"); break;
-		case kFT2PanWithDelayedNoteOff: desc = U_("Panning command with delayed note-off is ignored"); break;
-		case kFT2VolColDelay: desc = U_("FT2-style volume column handling if there is a note delay"); break;
-		case kFT2FinetunePrecision: desc = U_("Round sample finetune to multiples of 8"); break;
-		case kFT2NoteOffFlags: desc = U_("Fade instrument on note-off when there is no volume envelope; instrument numbers reset note-off status"); break;
-		case kITMultiSampleInstrumentNumber: desc = U_("Lone instrument number after portamento within multi-sampled instrument sets the target sample's settings"); break;
-		case kRowDelayWithNoteDelay: desc = U_("Note delays next to a row delay are repeated on every row repetition"); break;
-		case kFT2MODTremoloRampWaveform: desc = U_("Emulate FT2/ProTracker tremolo ramp down / triangle waveform"); break;
-		case kFT2PortaUpDownMemory: desc = U_("Portamento Up and Down have separate effect memory"); break;
-		case kST3NoMutedChannels: desc = U_("Do not process any effects on muted S3M channels"); break;
-		case kST3EffectMemory: desc = U_("Most effects share the same memory"); break;
-		case kST3PortaSampleChange: desc = U_("Portamento with instrument number applies volume settings of new sample, but not the new sample itself (GUS)"); break;
-		case kST3VibratoMemory: desc = U_("Do not remember vibrato type in effect memory"); break;
-		case kST3LimitPeriod: desc = U_("Stop note when reaching the format's maximum note frequency"); break;
-		case KST3PortaAfterArpeggio: desc = U_("Portamento immediately following an arpeggio effect continues at the last arpeggiated note"); break;
-		case kMODOneShotLoops: desc = U_("ProTracker one-shot loops"); break;
-		case kMODIgnorePanning: desc = U_("Ignore panning commands"); break;
-		case kMODSampleSwap: desc = U_("Enable on-the-fly sample swapping"); break;
-		case kMODOutOfRangeNoteDelay: desc = U_("Out-of-range note delay is played on next row"); break;
-		case kMODTempoOnSecondTick: desc = U_("Tempo changes are handled on second tick instead of first"); break;
-		case kFT2PanSustainRelease: desc = U_("If the sustain point of the panning envelope is reached before key-off, it is never released"); break;
-		case kLegacyReleaseNode: desc = U_("Old volume envelope release node scaling behaviour"); break;
-		case kOPLBeatingOscillators: desc = U_("Beating OPL oscillators"); break;
-		case kST3OffsetWithoutInstrument: desc = U_("Notes without instrument use the previous note's sample offset"); break;
-		case kReleaseNodePastSustainBug: desc = U_("Broken release node after sustain end behaviour"); break;
-		case kFT2NoteDelayWithoutInstr: desc = U_("Delayed instrument-less notes should not recall volume and panning"); break;
-		case kOPLFlexibleNoteOff: desc = U_("Full control over OPL notes after note-off"); break;
-		case kITInstrWithNoteOffOldEffects: desc = U_("Instrument number with note-off retriggers envelopes with Old Effects enabled"); break;
-		case kMIDIVolumeOnNoteOffBug: desc = U_("Reset VST volume on note-off"); break;
-		case kITDoNotOverrideChannelPan: desc = U_("Instruments / samples with forced panning do not override channel panning for following instruments / samples"); break;
-		case kITPatternLoopWithJumps: desc = U_("Bxx right of SBx terminates the loop in IT"); break;
-		case kITDCTBehaviour: desc = U_("Duplicate Sample Check requires same instrument, Duplicate Note Check uses pattern notes for comparison"); break;
-		case kOPLwithNNA: desc = U_("New Note Action / Duplicate Note Action set to Note Off and Note Fade affect OPL notes like samples"); break;
-		case kST3RetrigAfterNoteCut: desc = U_("Notes cannot be retriggered after they have been cut"); break;
-		case kST3SampleSwap: desc = U_("Enable on-the-fly sample swapping (SoundBlaster driver)"); break;
-		case kOPLRealRetrig: desc = U_("Retrigger (Qxy) affects OPL notes"); break;
-		case kOPLNoResetAtEnvelopeEnd: desc = U_("Do not reset OPL channel status at end of envelopes"); break;
-		case kOPLNoteStopWith0Hz: desc = U_("OPL key-off sets note frequency to 0 Hz"); break;
-		case kOPLNoteOffOnNoteChange: desc = U_("Send OPL key-off when triggering notes"); break;
-		case kFT2PortaResetDirection: desc = U_("Tone Portamento direction resets after reaching portamento target from below"); break;
-		case kApplyUpperPeriodLimit: desc = U_("Apply lower frequency limit"); break;
-		case kApplyOffsetWithoutNote: desc = U_("Offset commands work without a note next to them"); break;
-		case kITPitchPanSeparation: desc = U_("Pitch / Pan Separation can be overridden by panning commands"); break;
-		case kImprecisePingPongLoops: desc = U_("Use old imprecise ping-pong loop end calculation"); break;
+		case kITVolColMemory: desc = UL_("Volume column effects share their memory with the effect column"); break;
+		case kITPortamentoSwapResetsPos: desc = UL_("Portamento with sample swap plays the new sample from the beginning"); break;
+		case kITEmptyNoteMapSlot: desc = UL_("Ignore instrument note map entries with no note completely"); break;
+		case kITFirstTickHandling: desc = UL_("IT-style first tick handling"); break;
+		case kITSampleAndHoldPanbrello: desc = UL_("IT-style sample&hold panbrello waveform"); break;
+		case kITClearPortaTarget: desc = UL_("New notes reset portamento target in IT"); break;
+		case kITPanbrelloHold: desc = UL_("Do not reset panbrello effect until next note or panning effect"); break;
+		case kITPanningReset: desc = UL_("Sample and instrument panning is only applied on note change, not instrument change"); break;
+		case kITPatternLoopWithJumpsOld: desc = UL_("Bxx on the same row as SBx terminates the loop in IT"); break;
+		case kITInstrWithNoteOff: desc = UL_("Instrument number with note-off recalls default volume"); break;
+		case kFT2Arpeggio: desc = UL_("FT2 arpeggio algorithm"); break;
+		case kFT2Retrigger: desc = UL_("Rxx behaves like in FT2"); break;
+		case kFT2VolColVibrato: desc = UL_("Vibrato speed in volume column does not actually execute the vibrato effect"); break;
+		case kFT2PortaNoNote: desc = UL_("Do not play portamento-ed note if no previous note is playing"); break;
+		case kFT2KeyOff: desc = UL_("FT2-style Kxx handling"); break;
+		case kFT2PanSlide: desc = UL_("Volume-column pan slides are finer"); break;
+		case kFT2ST3OffsetOutOfRange: desc = UL_("Offset past sample end stops the note"); break;
+		case kFT2RestrictXCommand: desc = UL_("Do not allow ModPlug extensions to X command"); break;
+		case kFT2RetrigWithNoteDelay: desc = UL_("Retrigger envelopes if there is a note delay with no note"); break;
+		case kFT2SetPanEnvPos: desc = UL_("Lxx only sets the pan envelope position if the volume envelope's sustain flag is set"); break;
+		case kFT2PortaIgnoreInstr: desc = UL_("Portamento with instrument number applies volume settings of new sample, but not the new sample itself"); break;
+		case kFT2VolColMemory: desc = UL_("No volume column memory"); break;
+		case kFT2LoopE60Restart: desc = UL_("Next pattern starts on the same row as the last E60 command"); break;
+		case kFT2ProcessSilentChannels: desc = UL_("Keep processing faded channels for later portamento pickup"); break;
+		case kFT2ReloadSampleSettings: desc = UL_("Reload sample settings even if a note-off is placed next to an instrument number"); break;
+		case kFT2PortaDelay: desc = UL_("Portamento with note delay next to it is ignored"); break;
+		case kFT2Transpose: desc = UL_("Ignore out-of-range transposed notes"); break;
+		case kFT2PatternLoopWithJumps: desc = UL_("Bxx or Dxx on the same row as E6x terminates the loop"); break;
+		case kFT2PortaTargetNoReset: desc = UL_("Portamento target is not reset with new notes"); break;
+		case kFT2EnvelopeEscape: desc = UL_("Sustain point at end of envelope loop stops the loop after release"); break;
+		case kFT2Tremor: desc = UL_("Txx behaves like in FT2"); break;
+		case kFT2OutOfRangeDelay: desc = UL_("Do not trigger notes with out-of-range note delay"); break;
+		case kFT2Periods: desc = UL_("Use FT2's broken period handling"); break;
+		case kFT2PanWithDelayedNoteOff: desc = UL_("Panning command with delayed note-off is ignored"); break;
+		case kFT2VolColDelay: desc = UL_("FT2-style volume column handling if there is a note delay"); break;
+		case kFT2FinetunePrecision: desc = UL_("Round sample finetune to multiples of 8"); break;
+		case kFT2NoteOffFlags: desc = UL_("Fade instrument on note-off when there is no volume envelope; instrument numbers reset note-off status"); break;
+		case kITMultiSampleInstrumentNumber: desc = UL_("Lone instrument number after portamento within multi-sampled instrument sets the target sample's settings"); break;
+		case kRowDelayWithNoteDelay: desc = UL_("Note delays next to a row delay are repeated on every row repetition"); break;
+		case kFT2MODTremoloRampWaveform: desc = UL_("Emulate FT2/ProTracker tremolo ramp down / triangle waveform"); break;
+		case kFT2PortaUpDownMemory: desc = UL_("Portamento Up and Down have separate effect memory"); break;
+		case kST3NoMutedChannels: desc = UL_("Do not process any effects on muted S3M channels"); break;
+		case kST3EffectMemory: desc = UL_("Most effects share the same memory"); break;
+		case kST3PortaSampleChange: desc = UL_("Portamento with instrument number applies volume settings of new sample, but not the new sample itself (GUS)"); break;
+		case kST3VibratoMemory: desc = UL_("Do not remember vibrato type in effect memory"); break;
+		case kST3LimitPeriod: desc = UL_("Stop note when reaching the format's maximum note frequency"); break;
+		case KST3PortaAfterArpeggio: desc = UL_("Portamento immediately following an arpeggio effect continues at the last arpeggiated note"); break;
+		case kMODOneShotLoops: desc = UL_("ProTracker one-shot loops"); break;
+		case kMODIgnorePanning: desc = UL_("Ignore panning commands"); break;
+		case kMODSampleSwap: desc = UL_("Enable on-the-fly sample swapping"); break;
+		case kMODOutOfRangeNoteDelay: desc = UL_("Out-of-range note delay is played on next row"); break;
+		case kMODTempoOnSecondTick: desc = UL_("Tempo changes are handled on second tick instead of first"); break;
+		case kFT2PanSustainRelease: desc = UL_("If the sustain point of the panning envelope is reached before key-off, it is never released"); break;
+		case kLegacyReleaseNode: desc = UL_("Old volume envelope release node scaling behaviour"); break;
+		case kOPLBeatingOscillators: desc = UL_("Beating OPL oscillators"); break;
+		case kST3OffsetWithoutInstrument: desc = UL_("Notes without instrument use the previous note's sample offset"); break;
+		case kReleaseNodePastSustainBug: desc = UL_("Broken release node after sustain end behaviour"); break;
+		case kFT2NoteDelayWithoutInstr: desc = UL_("Delayed instrument-less notes should not recall volume and panning"); break;
+		case kOPLFlexibleNoteOff: desc = UL_("Full control over OPL notes after note-off"); break;
+		case kITInstrWithNoteOffOldEffects: desc = UL_("Instrument number with note-off retriggers envelopes with Old Effects enabled"); break;
+		case kMIDIVolumeOnNoteOffBug: desc = UL_("Reset VST volume on note-off"); break;
+		case kITDoNotOverrideChannelPan: desc = UL_("Instruments / samples with forced panning do not override channel panning for following instruments / samples"); break;
+		case kITPatternLoopWithJumps: desc = UL_("Bxx right of SBx terminates the loop in IT"); break;
+		case kITDCTBehaviour: desc = UL_("Duplicate Sample Check requires same instrument, Duplicate Note Check uses pattern notes for comparison"); break;
+		case kOPLwithNNA: desc = UL_("New Note Action / Duplicate Note Action set to Note Off and Note Fade affect OPL notes like samples"); break;
+		case kST3RetrigAfterNoteCut: desc = UL_("Notes cannot be retriggered after they have been cut"); break;
+		case kST3SampleSwap: desc = UL_("Enable on-the-fly sample swapping (SoundBlaster driver)"); break;
+		case kOPLRealRetrig: desc = UL_("Retrigger (Qxy) affects OPL notes"); break;
+		case kOPLNoResetAtEnvelopeEnd: desc = UL_("Do not reset OPL channel status at end of envelopes"); break;
+		case kOPLNoteStopWith0Hz: desc = UL_("OPL key-off sets note frequency to 0 Hz"); break;
+		case kOPLNoteOffOnNoteChange: desc = UL_("Send OPL key-off when triggering notes"); break;
+		case kFT2PortaResetDirection: desc = UL_("Tone Portamento direction resets after reaching portamento target from below"); break;
+		case kApplyUpperPeriodLimit: desc = UL_("Apply lower frequency limit"); break;
+		case kApplyOffsetWithoutNote: desc = UL_("Offset commands work without a note next to them"); break;
+		case kITPitchPanSeparation: desc = UL_("Pitch / Pan Separation can be overridden by panning commands"); break;
+		case kImprecisePingPongLoops: desc = UL_("Use old imprecise ping-pong loop end calculation"); break;
 		case kPluginIgnoreTonePortamento:
 			if(m_modType == MOD_TYPE_XM)
-				desc = U_("Ignore tone portamento and fine pitch slides for instrument plugins");
+				desc = UL_("Ignore tone portamento and fine pitch slides for instrument plugins");
 			else
-				desc = U_("Ignore tone portamento for instrument plugins");
+				desc = UL_("Ignore tone portamento for instrument plugins");
 			break;
-		case kST3TonePortaWithAdlibNote: desc = U_("OPL notes with Tone Portamento are delayed until the next row"); break;
-		case kITResetFilterOnPortaSmpChange: desc = U_("Reset filter on portamento if new note plays a different sample"); break;
-		case kITInitialNoteMemory: desc = U_("Initial Last Note Memory of each channel is C-0 instead of No Note"); break;
-		case kPluginDefaultProgramAndBank1: desc = U_("Assume initial plugin MIDI program and bank number is 1"); break;
-		case kITNoSustainOnPortamento: desc = U_("Portamento after note-off does not re-enable sample sustain loop"); break;
-		case kITEmptyNoteMapSlotIgnoreCell: desc = U_("Ignore pattern cell completely when trying to play unmapped instrument note"); break;
-		case kITOffsetWithInstrNumber: desc = U_("Offset command with instrument number recalls offset with last note"); break;
-		case kContinueSampleWithoutInstr: desc = U_("New note without instrument number does not play looped samples from the start"); break;
-		case kMIDINotesFromChannelPlugin: desc = U_("MIDI notes can be sent to channel plugins"); break;
-		case kITDoublePortamentoSlides: desc = U_("Parameters of conflicting volume and effect column portamento commands may overwrite each other"); break;
-		case kS3MIgnoreCombinedFineSlides: desc =U_("Ignore combined fine slides (Kxy / Lxy)"); break;
-		case kFT2AutoVibratoAbortSweep: desc = U_("Key-off before auto-vibrato sweep-in is complete resets auto-vibrato depth"); break;
-		case kLegacyPPQpos: desc = U_("Report inaccurate PPQ position to VST plugins (like OpenMPT 1.31 and older)"); break;
-		case kLegacyPluginNNABehaviour: desc = U_("Plugin notes with New Note Action set to Continue are affected by note-offs (like OpenMPT 1.31 and older)"); break;
-		case kITCarryAfterNoteOff: desc = U_("Note-Off status does not influence Envelope Carry behaviour"); break;
-		case kFT2OffsetMemoryRequiresNote: desc = U_("Offset effect memory is only updated when the command is next to a note"); break;
-		case kITNoteCutWithPorta: desc = U_("Note Cut (SCx) resets note pitch and interacts with tone portamento + row delay"); break;
-		case kITVolColNoSlidePropagation: desc = U_("Do not propagate volume column volume slide memory to regular effect column"); break;
-		case kITStoppedFilterEnvAtStart: desc = U_("Stopped filter envelope is still applied even if its first tick has not been processed yet"); break;
-		case kITCompatGxxCarryPortaWithIns: desc = U_("Envelope Carry quirk in Compatible Gxx mode with portamento and instrument number"); break;
+		case kST3TonePortaWithAdlibNote: desc = UL_("OPL notes with Tone Portamento are delayed until the next row"); break;
+		case kITResetFilterOnPortaSmpChange: desc = UL_("Reset filter on portamento if new note plays a different sample"); break;
+		case kITInitialNoteMemory: desc = UL_("Initial Last Note Memory of each channel is C-0 instead of No Note"); break;
+		case kPluginDefaultProgramAndBank1: desc = UL_("Assume initial plugin MIDI program and bank number is 1"); break;
+		case kITNoSustainOnPortamento: desc = UL_("Portamento after note-off does not re-enable sample sustain loop"); break;
+		case kITEmptyNoteMapSlotIgnoreCell: desc = UL_("Ignore pattern cell completely when trying to play unmapped instrument note"); break;
+		case kITOffsetWithInstrNumber: desc = UL_("Offset command with instrument number recalls offset with last note"); break;
+		case kContinueSampleWithoutInstr: desc = UL_("New note without instrument number does not play looped samples from the start"); break;
+		case kMIDINotesFromChannelPlugin: desc = UL_("MIDI notes can be sent to channel plugins"); break;
+		case kITDoublePortamentoSlides: desc = UL_("Parameters of conflicting volume and effect column portamento commands may overwrite each other"); break;
+		case kS3MIgnoreCombinedFineSlides: desc =UL_("Ignore combined fine slides (Kxy / Lxy)"); break;
+		case kFT2AutoVibratoAbortSweep: desc = UL_("Key-off before auto-vibrato sweep-in is complete resets auto-vibrato depth"); break;
+		case kLegacyPPQpos: desc = UL_("Report inaccurate PPQ position to VST plugins (like OpenMPT 1.31 and older)"); break;
+		case kLegacyPluginNNABehaviour: desc = UL_("Plugin notes with New Note Action set to Continue are affected by note-offs (like OpenMPT 1.31 and older)"); break;
+		case kITCarryAfterNoteOff: desc = UL_("Note-Off status does not influence Envelope Carry behaviour"); break;
+		case kFT2OffsetMemoryRequiresNote: desc = UL_("Offset effect memory is only updated when the command is next to a note"); break;
+		case kITNoteCutWithPorta: desc = UL_("Note Cut (SCx) resets note pitch and interacts with tone portamento + row delay"); break;
+		case kITVolColNoSlidePropagation: desc = UL_("Do not propagate volume column volume slide memory to regular effect column"); break;
+		case kITStoppedFilterEnvAtStart: desc = UL_("Stopped filter envelope is still applied even if its first tick has not been processed yet"); break;
+		case kITCompatGxxCarryPortaWithIns: desc = UL_("Envelope Carry quirk in Compatible Gxx mode with portamento and instrument number"); break;
 
 		default: MPT_ASSERT_NOTREACHED();
 		}
@@ -817,7 +818,7 @@ bool CRemoveChannelsDlg::OnInitDialog()
 		s = MPT_UFORMAT("Channel {}")(n + 1);
 		if(sndFile.ChnSettings[n].szName[0] >= 0x20)
 		{
-			s += U_(": ");
+			s += UL_(": ");
 			s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.ChnSettings[n].szName);
 		}
 		mfcless::SetItemData(m_RemChansList, mfcless::AddItem(m_RemChansList, s), n);
@@ -825,7 +826,7 @@ bool CRemoveChannelsDlg::OnInitDialog()
 	}
 
 	if (m_nRemove > 0)
-		s = MPT_UFORMAT("Select {} channel{} to remove:")(m_nRemove, (m_nRemove != 1) ? mpt::ustring(U_("s")) : mpt::ustring(U_("")));
+		s = MPT_UFORMAT("Select {} channel{} to remove:")(m_nRemove, (m_nRemove != 1) ? mpt::ustring(UL_("s")) : mpt::ustring(UL_("")));
 	else
 		s = MPT_UFORMAT("Select channels to remove (the minimum number of remaining channels is {})")(sndFile.GetModSpecifications().channelsMin);
 	
@@ -907,7 +908,7 @@ CSoundBankProperties::CSoundBankProperties(const CDLSBank &bank, QWidget *parent
 		info += "\r\nSoftware:\t" + bi.szSoftware;
 	if (bi.szComments.size())
 		info += "\r\n\r\nComments:\r\n" + bi.szComments;
-	SetCaption((bank.GetFileName().ToWide() + U_(" - Sound Bank Information")));
+	SetCaption((bank.GetFileName().ToWide() + UL_(" - Sound Bank Information")));
 	SetContent(mpt::ToUnicode(mpt::Charset::Locale, info));
 }
 
@@ -944,9 +945,9 @@ void CKeyboardControl::Init(QWidget *parent, int octaves, bool cursorNotify)
 intptr_t CKeyboardControl::OnDPIChanged(uintptr_t, intptr_t)
 {
 	// Point size to pixels
-	int fontSize = -MulDiv(60, HighDPISupport::GetDpiForWindow(m_hWnd), 720);
+	int fontSize = -mfcless::MulDiv(60, HighDPISupport::GetDpiForWindow(this), 720);
 	m_font.DeleteObject();
-	m_font.CreateFont(fontSize, 0, 0, 0, FW_NORMAL, false, false, false, DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH | FF_DONTCARE, U_("MS Shell Dlg"));
+	m_font.CreateFont(fontSize, 0, 0, 0, FW_NORMAL, false, false, false, DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH | FF_DONTCARE, UL_("MS Shell Dlg"));
 	return 0;
 }
 
@@ -978,7 +979,7 @@ void CKeyboardControl::DrawKey(mfcless::PaintDC &dc, const mfcless::Rect rect, i
 		{
 			dc.SetTextColor((KeyFlags[key] & KEYFLAG_BRIGHTDOT) ? mfcless::Rgb(0, 0, 0) : mfcless::Rgb(255, 255, 255));
 			mpt::uchar s[16];
-			wsprintf(s, U_("%u"), m_sampleNum[key]);
+			wsprintf(s, UL_("%u"), m_sampleNum[key]);
 			dc.DrawText(s, -1, ellipseRect, mfcless::dt::Center | mfcless::dt::SingleLine | mfcless::dt::VCenter);
 		}
 
@@ -1241,7 +1242,7 @@ void CSampleMapDlg::OnUpdateSamples()
 	m_CbnSample->clear();
 	const bool showAll = (IsChecked(IDC_CHECK1) != false) || (*std::max_element(std::begin(KeyboardMap), std::end(KeyboardMap)) == 0);
 
-	uint32 insertPos = mfcless::AddItem(m_CbnSample, U_("0: No sample"));
+	uint32 insertPos = mfcless::AddItem(m_CbnSample, UL_("0: No sample"));
 	mfcless::SetItemData(m_CbnSample, insertPos, 0);
 
 	for(SAMPLEINDEX i = 1; i <= sndFile.GetNumSamples(); i++)
@@ -1250,7 +1251,7 @@ void CSampleMapDlg::OnUpdateSamples()
 		if(isUsed)
 		{
 			mpt::ustring sampleName;
-			sampleName.Format(U_("%d: %s"), i, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.GetSampleName(i)).GetString());
+			sampleName = mfcless::PrintF(UL_("%d: %s"), i, mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.GetSampleName(i)).c_str());
 			insertPos = mfcless::AddItem(m_CbnSample, sampleName);
 
 			mfcless::SetItemData(m_CbnSample, insertPos, i);
@@ -1268,7 +1269,7 @@ void CSampleMapDlg::OnUpdateOctave()
 {
 	mpt::uchar s[64];
 	const uint32 baseOctave = m_SbOctave->value() & 7;
-	wsprintf(s, U_("Octaves %u-%u"), baseOctave, baseOctave + 2);
+	wsprintf(s, UL_("Octaves %u-%u"), baseOctave, baseOctave + 2);
 	SetItemText(IDC_TEXT1, s);
 }
 
@@ -1303,7 +1304,7 @@ void CSampleMapDlg::OnUpdateKeyboard()
 
 intptr_t CSampleMapDlg::OnKeyboardNotify(uintptr_t wParam, intptr_t lParam)
 {
-	mpt::uchar s[32] = U_("--");
+	mpt::uchar s[32] = UL_("--");
 
 	if((lParam >= 0) && (lParam < 3 * 12))
 	{
@@ -1312,9 +1313,9 @@ intptr_t CSampleMapDlg::OnKeyboardNotify(uintptr_t wParam, intptr_t lParam)
 
 		const mpt::ustring temp = mpt::ToUnicode(sndFile.GetNoteName(static_cast<ModCommand::NOTE>(lParam + 1 + 12 * baseOctave), m_nInstrument));
 		if(temp.GetLength() >= mpt::saturate_cast<int>(std::size(s)))
-			wsprintf(s, U_("%s"), U_("..."));
+			wsprintf(s, UL_("%s"), UL_("..."));
 		else
-			wsprintf(s, U_("%s"), temp.GetString());
+			wsprintf(s, UL_("%s"), temp.c_str());
 
 		ModInstrument *pIns = sndFile.Instruments[m_nInstrument];
 		if((wParam == KBDNOTIFY_LBUTTONDOWN) && (sample < MAX_SAMPLES) && (pIns))
@@ -1411,14 +1412,14 @@ bool CEditHistoryDlg::OnInitDialog()
 	{
 		totalTime += entry.openTime;
 		// Date
-		mpt::ustring sDate = mpt::ustring(U_("<unknown date>"));
+		mpt::ustring sDate = mpt::ustring(UL_("<unknown date>"));
 		if(entry.HasValidDate())
 		{
 			const mpt::Date::Unix unixdate = ((m_modDoc.GetSoundFile().GetTimezoneInternal() == mpt::Date::LogicalTimezone::Local) || (m_modDoc.GetSoundFile().GetTimezoneInternal() == mpt::Date::LogicalTimezone::Unspecified))
 				? mpt::Date::UnixFromLocal(mpt::Date::interpret_as_timezone<mpt::Date::LogicalTimezone::Local>(entry.loadDate))
 				: mpt::Date::UnixFromUTC(mpt::Date::interpret_as_timezone<mpt::Date::LogicalTimezone::UTC>(entry.loadDate));
 				;
-			sDate = CTime(mpt::Date::UnixAsSeconds(unixdate)).Format(U_("%d %b %Y, %H:%M:%S"));
+			sDate = CTime(mpt::Date::UnixAsSeconds(unixdate)).Format(UL_("%d %b %Y, %H:%M:%S"));
 		}
 		// Time + stuff
 		uint32 duration = mpt::saturate_round<uint32>(entry.openTime / HISTORY_TIMER_PRECISION);
@@ -1427,7 +1428,7 @@ bool CEditHistoryDlg::OnInitDialog()
 	}
 	if(isEmpty)
 	{
-		s = U_("No information available about the previous edit history of this module.");
+		s = UL_("No information available about the previous edit history of this module.");
 	}
 	SetItemText(IDC_EDIT_HISTORY, s);
 
@@ -1437,10 +1438,10 @@ bool CEditHistoryDlg::OnInitDialog()
 	{
 		totalTime = mpt::saturate_round<uint64>(totalTime / HISTORY_TIMER_PRECISION);
 
-		s.Format(U_("Total edit time: %lluh %02llum %02llus (%zu session%s)"), totalTime / 3600, (totalTime / 60) % 60, totalTime % 60, editHistory.size(), (editHistory.size() != 1) ? U_("s") : U_(""));
+		s = mfcless::PrintF(UL_("Total edit time: %lluh %02llum %02llus (%zu session%s)"), totalTime / 3600, (totalTime / 60) % 60, totalTime % 60, editHistory.size(), (editHistory.size() != 1) ? UL_("s") : UL_(""));
 		SetItemText(IDC_TOTAL_EDIT_TIME, s);
 		// Window title
-		s.Format(U_("Edit History for %s"), m_modDoc.GetTitle().GetString());
+		s = mfcless::PrintF(UL_("Edit History for %s"), m_modDoc.GetTitle().c_str());
 		SetWindowText(s);
 	}
 	// Enable or disable Clear button
@@ -1509,21 +1510,21 @@ bool CInputDlg::OnInitDialog()
 	ScreenToClient(cancelRect);
 
 	// Find out how big our label shall be
-	mfcless::DC * dc = ::GetDC(m_hWnd);
+	mfcless::DC * dc = ::GetDC(this);
 	mfcless::Rect textRect(0,0,0,0);
 	DrawText(dc, m_description, m_description.GetLength(), textRect, mfcless::dt::CalcRect);
 	LPtoDP(dc, &textRect.BottomRight(), 1);
-	::ReleaseDC(m_hWnd, dc);
+	::ReleaseDC(this, dc);
 	if(textRect.right < 320) textRect.right = 320;
 	const int windowWidth = windowRect.Width() - labelRect.Width() + textRect.right;
 	const int windowHeight = windowRect.Height() - labelRect.Height() + textRect.bottom;
 
 	// Resize and move all controls
-	GetDlgItem(IDC_PROMPT)->SetWindowPos(nullptr, 0, 0, textRect.right, textRect.bottom, SWP_NOMOVE | SWP_NOZORDER);
-	GetDlgItem(IDC_EDIT1)->SetWindowPos(nullptr, inputRect.left, labelRect.top + textRect.bottom + (inputRect.top - labelRect.bottom), textRect.right, inputRect.Height(), SWP_NOZORDER);
-	GetDlgItem(IDOK)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - okRect.left), windowHeight - (windowRect.Height() - okRect.top), 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	GetDlgItem(IDCANCEL)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - cancelRect.left), windowHeight - (windowRect.Height() - cancelRect.top), 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-	SetWindowPos(nullptr, 0, 0, windowWidth, windowHeight, SWP_NOMOVE | SWP_NOZORDER);
+	GetDlgItem(IDC_PROMPT)->SetWindowPos(nullptr, 0, 0, textRect.right, textRect.bottom, mfcless::swp::NoMove | mfcless::swp::NoZOrder);
+	GetDlgItem(IDC_EDIT1)->SetWindowPos(nullptr, inputRect.left, labelRect.top + textRect.bottom + (inputRect.top - labelRect.bottom), textRect.right, inputRect.Height(), mfcless::swp::NoZOrder);
+	GetDlgItem(IDOK)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - okRect.left), windowHeight - (windowRect.Height() - okRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
+	GetDlgItem(IDCANCEL)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - cancelRect.left), windowHeight - (windowRect.Height() - cancelRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
+	SetWindowPos(nullptr, 0, 0, windowWidth, windowHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder);
 
 	if(m_minValueInt != m_maxValueInt)
 	{
@@ -1582,10 +1583,10 @@ struct MsgBoxHidableMessage
 
 static constexpr MsgBoxHidableMessage HidableMessages[] =
 {
-	{ U_("Compatibility Notice"), U_("The first two bytes of oneshot samples are silenced for ProTracker compatibility."), 1, true },
-	{ U_("Compatibility Hint"), U_("To create IT files without OpenMPT-specific extensions included, try compatibility export from File menu."), 1 << 1, true },
-	{ U_("Compatibility Hint"), U_("To create XM files without OpenMPT-specific extensions included, try compatibility export from File menu."), 1 << 3, true },
-	{ U_("Compatibility Notice"), U_("The exported file will not contain any of OpenMPT's file format hacks."), 1 << 4, true },
+	{ UL_("Compatibility Notice"), UL_("The first two bytes of oneshot samples are silenced for ProTracker compatibility."), 1, true },
+	{ UL_("Compatibility Hint"), UL_("To create IT files without OpenMPT-specific extensions included, try compatibility export from File menu."), 1 << 1, true },
+	{ UL_("Compatibility Hint"), UL_("To create XM files without OpenMPT-specific extensions included, try compatibility export from File menu."), 1 << 3, true },
+	{ UL_("Compatibility Notice"), UL_("The exported file will not contain any of OpenMPT's file format hacks."), 1 << 4, true },
 };
 
 static_assert(mpt::array_size<decltype(HidableMessages)>::size == enMsgBoxHidableMessage_count);
@@ -1604,7 +1605,7 @@ void MsgBoxHidable(enMsgBoxHidableMessage enMsg)
 	   && !(mpt::OS::Windows::IsWine() && theApp.GetWineVersion()->Version().IsBefore(mpt::OS::Wine::Version(3, 13, 0))))
 	{
 		CTaskDialog taskDialog(msg.message, msg.mainTitle ? mpt::ustring{msg.mainTitle} : mpt::ustring{}, AfxGetAppName(), TDCBF_OK_BUTTON);
-		taskDialog.SetVerificationCheckboxText(U_("Do not show this message again"));
+		taskDialog.SetVerificationCheckboxText(UL_("Do not show this message again"));
 		taskDialog.SetVerificationCheckbox(msg.defaultDontShowAgainStatus);
 		taskDialog.DoModal();
 
@@ -1615,7 +1616,7 @@ void MsgBoxHidable(enMsgBoxHidableMessage enMsg)
 	} else
 #endif
 	{
-		if(Reporting::Confirm(msg.message + mpt::ustring(U_("\n\nShow this message again?")), msg.mainTitle ? mpt::ustring{msg.mainTitle} : mpt::ustring{}, msg.defaultDontShowAgainStatus) == cnfNo)
+		if(Reporting::Confirm(msg.message + mpt::ustring(UL_("\n\nShow this message again?")), msg.mainTitle ? mpt::ustring{msg.mainTitle} : mpt::ustring{}, msg.defaultDontShowAgainStatus) == cnfNo)
 			TrackerSettings::Instance().gnMsgBoxVisiblityFlags &= ~msg.mask;
 		else
 			TrackerSettings::Instance().gnMsgBoxVisiblityFlags |= msg.mask;

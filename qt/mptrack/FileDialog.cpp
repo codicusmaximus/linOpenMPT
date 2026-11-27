@@ -10,6 +10,7 @@
 
 
 #include "FileDialog.h"
+#include "mfcless/Widgets.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
 #include "Mptrack.h"
@@ -114,7 +115,7 @@ protected:
 			if(!name.IsEmpty() && name != oldName)
 			{
 				oldName = name;
-				if(CMainFrame::GetMainFrame()->PlaySoundFile(mpt::PathString::FromCString(name), NOTE_MIDDLEC))
+				if(CMainFrame::GetMainFrame()->PlaySoundFile(mpt::PathString::FromUnicode(name), NOTE_MIDDLEC))
 				{
 					played = true;
 				}
@@ -190,15 +191,15 @@ bool FileDialog::Show(QWidget *parent)
 #endif
 		{
 			POSITION pos = dlg.GetStartPosition();
-			while(pos != nullptr)
+			while(pos)
 			{
-				m_filenames.push_back(mpt::PathString::FromCString(dlg.GetNextPathName(pos)));
+				m_filenames.push_back(mpt::PathString::FromUnicode(dlg.GetNextPathName(pos)));
 			}
 		}
 	} else
 	{
 		// Only one file
-		m_filenames.push_back(mpt::PathString::FromCString(dlg.GetPathName()));
+		m_filenames.push_back(mpt::PathString::FromUnicode(dlg.GetPathName()));
 	}
 
 	if(m_filenames.empty())
@@ -247,7 +248,7 @@ bool BrowseForFolder::Show(QWidget *parent)
 #endif
 		if(dlg.DoModal() != IDOK)
 			return false;
-		m_workingDirectory = mpt::PathString::FromCString(dlg.GetPathName());
+		m_workingDirectory = mpt::PathString::FromUnicode(dlg.GetPathName());
 		return true;
 	}
 

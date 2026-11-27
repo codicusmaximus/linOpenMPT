@@ -278,7 +278,7 @@ CModControlView::~CModControlView()
 
 void CModControlView::OnInitialUpdate() // called first time after construct
 {
-	CChildFrame *pParentFrame = GetParentFrame(this);
+	CChildFrame *pParentFrame = GetParentFrame();
 	if (pParentFrame) m_hWndView = pParentFrame->GetHwndView();
 	m_TabCtrl = new CModTabCtrl(this);
 	m_TabCtrl->show();
@@ -383,7 +383,7 @@ bool CModControlView::SetActivePage(Page page, intptr_t lParam)
 	if(page < Page::First || page >= Page::NumPages || !pMainFrm)
 		return false;
 
-	CChildFrame *parentFrame = GetParentFrame(this);
+	CChildFrame *parentFrame = GetParentFrame();
 	CModControlDlg *oldActiveDlg = GetCurrentControlDlg();
 	if(oldActiveDlg && parentFrame)
 		oldActiveDlg->GetSplitPosRef() = parentFrame->GetSplitterHeight();
@@ -697,7 +697,7 @@ intptr_t CModScrollView::OnModViewMsg(uintptr_t wParam, intptr_t lParam)
 
 	case VIEWMSG_SETFOCUS:
 	case VIEWMSG_SETACTIVE:
-		if(CChildFrame *frame = GetParentFrame(this))
+		if(CChildFrame *frame = GetParentFrame())
 			frame->SetActiveView(this);
 		if(m_lastFocusItem)
 			RestoreLastFocusItem(this, m_lastFocusItem);

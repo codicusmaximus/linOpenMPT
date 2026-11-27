@@ -10,6 +10,7 @@
 
 
 #include "mod2midi.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
@@ -489,7 +490,7 @@ namespace MidiExport
 			m_tracks.reserve(m_sndFile.GetNumInstruments() + 1);
 			MidiTrack &tempoTrack = *(new MidiTrack{m_plugFactory, m_sndFile, m_subsongInfo, tempoTrackPlugin, nullptr, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_songName), nullptr, overlappingInstruments, nullptr});
 			tempoTrackPlugin.pMixPlugin = &tempoTrack;
-			tempoTrack.WriteString(kText, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_songMessage.GetString()));
+			tempoTrack.WriteString(kText, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.m_songMessage.c_str()));
 			tempoTrack.WriteString(kCopyright, m_sndFile.m_songArtist);
 			m_tracks.push_back(&tempoTrack);
 
@@ -710,7 +711,7 @@ bool CModToMidi::OnInitDialog()
 		{
 			if(m_modDoc.IsSampleUsed(nSmp, false))
 			{
-				s.Format(U_("%02d: "), nSmp);
+				s = mfcless::PrintF(UL_("%02d: "), nSmp);
 				s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nSmp]);
 				mfcless::SetItemData(m_CbnInstrument, mfcless::AddItem(m_CbnInstrument, s), nSmp);
 			}
@@ -721,14 +722,14 @@ bool CModToMidi::OnInitDialog()
 
 	// Fill channels box
 	m_CbnChannel->setUpdatesEnabled(false);
-	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, U_("Don't Export")), MidiNoChannel);
-	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, U_("Melodic (any)")), MidiMappedChannel);
-	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, U_("Percussions")), MidiFirstChannel + 9);
+	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, UL_("Don't Export")), MidiNoChannel);
+	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, UL_("Melodic (any)")), MidiMappedChannel);
+	mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, UL_("Percussions")), MidiFirstChannel + 9);
 	for(uint32 chn = 1; chn <= 16; chn++)
 	{
 		if(chn == 10)
 			continue;
-		s.Format(U_("Melodic %u"), chn);
+		s = mfcless::PrintF(UL_("Melodic %u"), chn);
 		mfcless::SetItemData(m_CbnChannel, mfcless::AddItem(m_CbnChannel, s), MidiFirstChannel - 1 + chn);
 	}
 	m_CbnChannel->setUpdatesEnabled(true);
@@ -746,7 +747,7 @@ bool CModToMidi::OnInitDialog()
 
 	static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(1, static_cast<int>(m_subSongs.size()));
 	SetItemInt(IDC_EDIT1, static_cast<uint32>(m_selectedSong + 1));
-	m_EditSubSong->SetAccessibleName(U_("Sub Song"));
+	m_EditSubSong->SetAccessibleName(UL_("Sub Song"));
 	if(m_subSongs.size() <= 1)
 	{
 		const int controls[] = {IDC_RADIO4, IDC_RADIO5, IDC_EDIT1, IDC_SPIN2};
@@ -769,7 +770,7 @@ void CModToMidi::FillProgramBox(bool percussion)
 	m_CbnProgram->clear();
 	if(percussion)
 	{
-		mfcless::SetItemData(m_CbnProgram, mfcless::AddItem(m_CbnProgram, U_("Mapped")), 0);
+		mfcless::SetItemData(m_CbnProgram, mfcless::AddItem(m_CbnProgram, UL_("Mapped")), 0);
 		for(ModCommand::NOTE i = 0; i < 61; i++)
 		{
 			ModCommand::NOTE note = i + 24;
@@ -781,7 +782,7 @@ void CModToMidi::FillProgramBox(bool percussion)
 		}
 	} else
 	{
-		mfcless::SetItemData(m_CbnProgram, mfcless::AddItem(m_CbnProgram, U_("No Program Change")), 0);
+		mfcless::SetItemData(m_CbnProgram, mfcless::AddItem(m_CbnProgram, UL_("No Program Change")), 0);
 		for(int i = 1; i <= 128; i++)
 		{
 			auto s = MPT_UFORMAT("{}: {}")(
@@ -915,7 +916,7 @@ void CModToMidi::OnOK()
 
 	if (!ok)
 	{
-		auto choice = Reporting::Confirm(U_("No instruments have been selected for export. Would you still like to export the file?"), true, true);
+		auto choice = Reporting::Confirm(UL_("No instruments have been selected for export. Would you still like to export the file?"), true, true);
 		if(choice != cnfYes)
 		{
 			if(choice == cnfNo)
@@ -969,7 +970,7 @@ void CModToMidi::UpdateSubsongName()
 	const auto subsongText = GetDlgItem(IDC_SUBSONG);
 	if(subsongText == nullptr || m_selectedSong >= m_subSongs.size())
 		return;
-	subsongText->SetWindowText(m_modDoc.FormatSubsongName(m_subSongs, m_selectedSong).c_str());
+	mfcless::SetWindowText(subsongText, m_modDoc.FormatSubsongName(m_subSongs, m_selectedSong).c_str());
 }
 
 
@@ -981,11 +982,11 @@ void CModToMidi::DoConversion(const mpt::PathString &fileName)
 	const int controls[] = {IDC_COMBO1, IDC_COMBO2, IDC_COMBO3, IDC_RADIO4, IDC_RADIO5, IDC_EDIT1, IDC_CHECK1, IDC_SPIN1, IDC_SPIN2, IDOK};
 	for(int control : controls)
 		EnableItem(control, false);
-	GotoDlgCtrl(GetDlgItem(IDCANCEL));
+	mfcless::GotoDlgCtrl(GetDlgItem(IDCANCEL));
 
 	CSoundFile &sndFile = m_modDoc.GetSoundFile();
 	SetRange(0, mpt::saturate_round<uint64>(std::accumulate(m_subSongs.begin(), m_subSongs.end(), 0.0, [](double acc, const auto &song) { return acc + song.duration; }) * sndFile.GetSampleRate()));
-	ShowItem(IDC_PROGRESS1, true);
+	ShowItem(IDC_PROGRESS1, mfcless::show::Show);
 
 	BypassInputHandler bih;
 	CMainFrame::GetMainFrame()->PauseMod(&m_modDoc);

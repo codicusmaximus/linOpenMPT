@@ -10,6 +10,7 @@
 
 
 #include "PatternClipboard.h"
+#include "mfcless/Widgets.h"
 #include "PatternCursor.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -145,7 +146,7 @@ bool PatternClipboard::Copy(const CSoundFile &sndFile, ORDERINDEX first, ORDERIN
 	if(instance.m_activeClipboard < instance.m_clipboards.size())
 	{
 		// Copy to internal clipboard
-		mpt::ustring desc = MPT_UFORMAT("{} {} ({} to {})")(last - first + 1, onlyOrders ? mpt::ustring(U_("Orders")) : mpt::ustring(U_("Patterns")), first, last);
+		mpt::ustring desc = MPT_UFORMAT("{} {} ({} to {})")(last - first + 1, onlyOrders ? mpt::ustring(UL_("Orders")) : mpt::ustring(UL_("Patterns")), first, last);
 		instance.m_clipboards[instance.m_activeClipboard] = {data, desc};
 	}
 
@@ -167,7 +168,7 @@ bool PatternClipboard::Copy(const CSoundFile &sndFile, PATTERNINDEX pattern, Pat
 	{
 		// Copy to internal clipboard
 		mpt::ustring desc;
-		desc.Format(U_("%u rows, %u channels (pattern %u)"), selection.GetNumRows(), selection.GetNumChannels(), pattern);
+		desc = mfcless::PrintF(UL_("%u rows, %u channels (pattern %u)"), selection.GetNumRows(), selection.GetNumChannels(), pattern);
 		instance.m_clipboards[instance.m_activeClipboard] = {data, desc};
 	}
 
@@ -988,7 +989,7 @@ bool PatternClipboard::CycleBackward()
 // Set the maximum number of internal clipboards.
 void PatternClipboard::SetClipboardSize(clipindex_t maxEntries)
 {
-	instance.m_clipboards.resize(maxEntries, {"", U_("unused")});
+	instance.m_clipboards.resize(maxEntries, {"", UL_("unused")});
 	LimitMax(instance.m_activeClipboard, maxEntries - 1);
 }
 
@@ -1064,7 +1065,7 @@ void PatternClipboardDialog::Show()
 	instance.m_isCreated = true;
 	instance.UpdateList();
 	
-	instance.SetWindowPos(nullptr, instance.m_posX, instance.m_posY, 0, 0, SWP_SHOWWINDOW | SWP_NOOWNERZORDER | SWP_NOSIZE | SWP_NOZORDER | (instance.m_posX == -1 ? SWP_NOMOVE : 0));
+	instance.SetWindowPos(nullptr, instance.m_posX, instance.m_posY, 0, 0, mfcless::swp::ShowWindow | mfcless::swp::NoOwnerZOrder | mfcless::swp::NoSize | mfcless::swp::NoZOrder | (instance.m_posX == -1 ? mfcless::swp::NoMove : 0));
 }
 
 
@@ -1115,7 +1116,7 @@ void PatternClipboardDialog::OnSelectClipboard()
 
 void PatternClipboardDialog::OnOK()
 {
-	const QWidget *focus = GetFocus();
+	const QWidget *focus = mfcless::GetFocus();
 	if(focus == &m_editNameBox)
 	{
 		// User pressed enter in clipboard name edit box => cancel editing
@@ -1133,7 +1134,7 @@ void PatternClipboardDialog::OnOK()
 
 void PatternClipboardDialog::OnCancel()
 {
-	if(GetFocus() == &m_editNameBox)
+	if(mfcless::GetFocus() == &m_editNameBox)
 	{
 		// User pressed ESC in clipboard name edit box => just cancel editing
 		m_editNameBox->DestroyWindow();
@@ -1171,9 +1172,9 @@ void PatternClipboardDialog::OnEditName()
 	// Create the edit control
 	m_editNameBox->Create(WS_VISIBLE | WS_CHILD | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, rect, &m_clipList, 1);
 	m_editNameBox->SetFont(m_clipList->GetFont());
-	m_editNameBox->SetWindowText(PatternClipboard::instance.m_clipboards[sel].description);
-	GotoDlgCtrl(m_editNameBox);
-	SetWindowLongPtr(m_editNameBox->m_hWnd, GWLP_USERDATA, (LONG_PTR)m_clipList->GetItemDataPtr(sel));
+	mfcless::SetWindowText(m_editNameBox, PatternClipboard::instance.m_clipboards[sel].description);
+	mfcless::GotoDlgCtrl(m_editNameBox);
+	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, (LONG_PTR)m_clipList->GetItemDataPtr(sel));
 }
 
 
@@ -1186,7 +1187,7 @@ void PatternClipboardDialog::OnEndEdit(bool apply)
 
 	if(apply)
 	{
-		size_t sel = GetWindowLongPtr(m_editNameBox->m_hWnd, GWLP_USERDATA);
+		size_t sel = GetWindowLongPtr(m_editNameBox, GWLP_USERDATA);
 		if(sel >= PatternClipboard::instance.m_clipboards.size())
 		{
 			// What happened?
@@ -1194,12 +1195,12 @@ void PatternClipboardDialog::OnEndEdit(bool apply)
 		}
 
 		mpt::ustring newName;
-		m_editNameBox->GetWindowText(newName);
+		mfcless::GetWindowText(m_editNameBox, newName);
 
 		PatternClipboard::instance.m_clipboards[sel].description = newName;
 	}
 
-	SetWindowLongPtr(m_editNameBox->m_hWnd, GWLP_USERDATA, LONG_PTR(-1));
+	SetWindowLongPtr(m_editNameBox, GWLP_USERDATA, LONG_PTR(-1));
 	m_editNameBox->DestroyWindow();
 
 	UpdateList();

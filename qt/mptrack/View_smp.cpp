@@ -11,6 +11,7 @@
 
 
 #include "View_smp.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Clipboard.h"
 #include "Ctrl_smp.h"
@@ -48,11 +49,11 @@ OPENMPT_NAMESPACE_BEGIN
 
 
 // Non-client toolbar
-#define SMP_LEFTBAR_CY    HighDPISupport::ScalePixels(29, m_hWnd)
-#define SMP_LEFTBAR_CXSEP HighDPISupport::ScalePixels(14, m_hWnd)
-#define SMP_LEFTBAR_CXSPC HighDPISupport::ScalePixels(3, m_hWnd)
-#define SMP_LEFTBAR_CXBTN HighDPISupport::ScalePixels(24, m_hWnd)
-#define SMP_LEFTBAR_CYBTN HighDPISupport::ScalePixels(22, m_hWnd)
+#define SMP_LEFTBAR_CY    HighDPISupport::ScalePixels(29, this)
+#define SMP_LEFTBAR_CXSEP HighDPISupport::ScalePixels(14, this)
+#define SMP_LEFTBAR_CXSPC HighDPISupport::ScalePixels(3, this)
+#define SMP_LEFTBAR_CXBTN HighDPISupport::ScalePixels(24, this)
+#define SMP_LEFTBAR_CYBTN HighDPISupport::ScalePixels(22, this)
 static constexpr int TIMELINE_HEIGHT = 26;
 
 static int TimelineHeight(QWidget * hwnd)
@@ -179,8 +180,8 @@ void CViewSample::OnInitialUpdate()
 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
 	if (pMainFrm)
 	{
-		pMainFrm->SetInfoText(U_(""));
-		pMainFrm->SetXInfoText(U_(""));
+		pMainFrm->SetInfoText(UL_(""));
+		pMainFrm->SetXInfoText(UL_(""));
 	}
 	UpdateOPLEditor();
 	UpdateScrollSize();
@@ -223,7 +224,7 @@ void CViewSample::UpdateScrollSize(int newZoom, bool forceRefresh, SmpLength cen
 	if(m_oplEditor && IsOPLInstrument())
 	{
 		const auto size = m_oplEditor->GetMinimumSize();
-		m_oplEditor->SetWindowPos(nullptr, -m_nScrollPosX, -m_nScrollPosY, std::max(size.cx, m_rcClient.right), std::max(size.cy, m_rcClient.bottom), SWP_NOZORDER | SWP_NOACTIVATE);
+		m_oplEditor->SetWindowPos(nullptr, -m_nScrollPosX, -m_nScrollPosY, std::max(size.cx, m_rcClient.right), std::max(size.cy, m_rcClient.bottom), mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 		SetScrollSizes(size);
 		return;
 	}
@@ -278,7 +279,7 @@ void CViewSample::UpdateScrollSize(int newZoom, bool forceRefresh, SmpLength cen
 		return;
 
 	const TimelineFormat format = TrackerSettings::Instance().sampleEditorTimelineFormat;
-	double timelineInterval = MulDiv(150, m_dpi, 96);  // Timeline interval should be around 150 pixels
+	double timelineInterval = mfcless::MulDiv(150, m_dpi, 96);  // Timeline interval should be around 150 pixels
 	if(m_nZoom > 0)
 		timelineInterval *= 1 << (m_nZoom - 1);
 	else if(m_nZoom < 0)
@@ -385,13 +386,13 @@ void CViewSample::SetCurrentSample(SAMPLEINDEX nSmp)
 	if(nSmp < 1 || nSmp > pModDoc->GetNumSamples())
 		return;
 	pModDoc->SetNotifications(Notification::Sample, nSmp);
-	pModDoc->SetFollowWnd(m_hWnd);
+	pModDoc->SetFollowWnd(this);
 	if(nSmp == m_nSample)
 		return;
 	m_dwBeginSel = m_dwEndSel = 0;
 	m_dwStatus.reset(SMPSTATUS_DRAWING);
 	if(CMainFrame *pMainFrm = CMainFrame::GetMainFrame(); pMainFrm)
-		pMainFrm->SetInfoText(U_(""));
+		pMainFrm->SetInfoText(UL_(""));
 	const bool wasOPL = IsOPLInstrument();
 	m_nSample = nSmp;
 	m_dwNotifyPos.fill(Notification::PosInvalid);
@@ -417,7 +418,7 @@ void CViewSample::UpdateOPLEditor()
 		if(m_oplEditor && m_oplEditor->IsWindowVisible())
 		{
 			m_oplEditor->SetEnabled(false);
-			SetFocus();
+			setFocus();
 		}
 		return;
 	}
@@ -435,7 +436,7 @@ void CViewSample::UpdateOPLEditor()
 	}
 	m_oplEditor->SetPatch(sndFile.GetSample(m_nSample).adlib);
 	auto size = m_oplEditor->GetMinimumSize();
-	m_oplEditor->SetWindowPos(nullptr, -m_nScrollPosX, -m_nScrollPosY, std::max(size.cx, m_rcClient.right), std::max(size.cy, m_rcClient.bottom), SWP_NOZORDER | SWP_NOACTIVATE);
+	m_oplEditor->SetWindowPos(nullptr, -m_nScrollPosX, -m_nScrollPosY, std::max(size.cx, m_rcClient.right), std::max(size.cy, m_rcClient.bottom), mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 	m_oplEditor->SetEnabled(true);
 }
 
@@ -660,7 +661,7 @@ std::pair<CViewSample::HitTestItem, SmpLength> CViewSample::PointToItem(mfcless:
 	const bool inTimeline = point.y < m_timelineHeight;
 	if(m_dwEndSel > m_dwBeginSel && !inTimeline && !m_dwStatus[SMPSTATUS_DRAWING])
 	{
-		const int margin = HighDPISupport::ScalePixels(5, m_hWnd);
+		const int margin = HighDPISupport::ScalePixels(5, this);
 		if(HitTest(point.x, SampleToScreen(m_dwBeginSel), margin, margin, m_timelineHeight, m_rcClient.bottom, rect))
 			return {HitTestItem::SelectionStart, m_dwBeginSel};
 		if(HitTest(point.x, SampleToScreen(m_dwEndSel), margin, margin, m_timelineHeight, m_rcClient.bottom, rect))
@@ -1024,7 +1025,7 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 		NONCLIENTMETRICS metrics;
 		metrics.cbSize = sizeof(metrics);
 		metrics.cbSize = sizeof(metrics);
-		HighDPISupport::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, m_hWnd);
+		HighDPISupport::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0, this);
 		metrics.lfMessageFont.lfHeight = mpt::saturate_round<int>(metrics.lfMessageFont.lfHeight * 0.8);
 		metrics.lfMessageFont.lfWidth = mpt::saturate_round<int>(metrics.lfMessageFont.lfWidth * 0.8);
 		m_timelineFont.DeleteObject();
@@ -1043,7 +1044,7 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 	const auto oldFont = m_offScreenDC.SelectObject(m_timelineFont);
 
 	// Draw timeline
-	const int timelineHeight = TimelineHeight(m_hWnd);
+	const int timelineHeight = TimelineHeight(this);
 	if(timelineHeight != m_timelineHeight)
 	{
 		m_timelineHeight = timelineHeight;
@@ -1055,7 +1056,7 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 		mfcless::Rect timeline = rcClient;
 		timeline.bottom = timeline.top + timelineHeight + 1;
 		m_offScreenDC.DrawEdge(timeline, mfcless::edge::Etched, mfcless::edge::Middle | mfcless::edge::Bottom);
-		m_offScreenDC.SetTextColor(GetSysColor(COLOR_BTNTEXT));
+		m_offScreenDC.SetTextColor(mfcless::SystemColor(mfcless::SysColor::ButtonText));
 		m_offScreenDC.SetBkMode(mfcless::bk::Transparent);
 		if(!m_timelineUnit)
 			m_timelineUnit = 1;
@@ -1064,7 +1065,7 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 		{
 			rc = timeline;
 			const auto sampleRate = sample.GetSampleRate(sndFile.GetType());
-			const int textOffset = HighDPISupport::ScalePixels(4, m_hWnd);
+			const int textOffset = HighDPISupport::ScalePixels(4, this);
 			mpt::ustring text;
 			for(int x = -(SampleToScreen(ScrollPosToSamplePos(), true) % m_timelineInterval); x < m_rcClient.right + m_timelineInterval; x += m_timelineInterval)
 			{
@@ -1084,13 +1085,13 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 						const auto minSec = std::div(secMs.quot, int64(60));
 						const bool showMinutes = minSec.quot != 0 || (time == 0 && m_timelineUnit >= 60000);
 						if(showMinutes)
-							text += mpt::ufmt::dec(3, U_(","), minSec.quot) + U_("mn");
+							text += mpt::ufmt::dec(3, UL_(","), minSec.quot) + UL_("mn");
 						if(minSec.rem || !showMinutes)
-							text += mpt::ufmt::dec(3, U_(","), minSec.rem) + U_("s");
+							text += mpt::ufmt::dec(3, UL_(","), minSec.rem) + UL_("s");
 					}
 					if(secMs.rem || !showSeconds)
 					{
-						text += mpt::ufmt::val(secMs.rem) + U_("ms");
+						text += mpt::ufmt::val(secMs.rem) + UL_("ms");
 					}
 				} else
 				{
@@ -1100,7 +1101,7 @@ void CViewSample::OnDraw(mfcless::DC *pDC)
 					if(rc.left >= m_rcClient.right)
 						break;
 
-					text += mpt::ufmt::dec(3, U_(","), smp) + U_(" smp");
+					text += mpt::ufmt::dec(3, UL_(","), smp) + UL_(" smp");
 				}
 
 				rc.bottom = timelineHeight;
@@ -1378,7 +1379,7 @@ intptr_t CViewSample::OnPlayerNotify(Notification *pnotify)
 	{
 		if(m_dwNotifyPos != pnotify->pos)
 		{
-			mfcless::DC * hdc = ::GetDC(m_hWnd);
+			mfcless::DC * hdc = ::GetDC(this);
 			DrawPositionMarks();	// Erase old marks...
 			m_dwNotifyPos = pnotify->pos;
 
@@ -1405,7 +1406,7 @@ intptr_t CViewSample::OnPlayerNotify(Notification *pnotify)
 
 			DrawPositionMarks();	// ...and draw new ones
 			BitBlt(hdc, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_offScreenDC, 0, 0, mfcless::rop::SrcCopy);
-			::ReleaseDC(m_hWnd, hdc);
+			::ReleaseDC(this, hdc);
 		}
 	}
 	return 0;
@@ -1489,9 +1490,9 @@ uint32 CViewSample::GetNcButtonAtPoint(mfcless::Point point, mfcless::Rect *outR
 void CViewSample::DrawNcButton(mfcless::DC *pDC, uint32 nBtn)
 {
 	mfcless::Rect rect;
-	uint32 crHi = GetSysColor(COLOR_3DHILIGHT);
-	uint32 crDk = GetSysColor(COLOR_3DSHADOW);
-	uint32 crFc = GetSysColor(COLOR_3DFACE);
+	uint32 crHi = mfcless::SystemColor(mfcless::SysColor::ButtonHighlight);
+	uint32 crDk = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
+	uint32 crFc = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 	uint32 c1, c2;
 
 	const bool flat = (TrackerSettings::Instance().patternSetup & PatternSetup::FlatToolbarButtons);
@@ -1572,11 +1573,11 @@ void CViewSample::OnNcPaint()
 			// Shadow
 			auto shadowRect = rect;
 			shadowRect.top = shadowRect.bottom - 1;
-			pDC->FillSolidRect(&shadowRect, GetSysColor(COLOR_BTNSHADOW));
+			pDC->FillSolidRect(&shadowRect, mfcless::SystemColor(mfcless::SysColor::ButtonShadow));
 		}
 		rect.bottom--;
 		if(rect.top < rect.bottom)
-			pDC->FillSolidRect(&rect, GetSysColor(COLOR_BTNFACE));
+			pDC->FillSolidRect(&rect, mfcless::SystemColor(mfcless::SysColor::ButtonFace));
 		if(rect.top + 2 < rect.bottom)
 		{
 			for (uint32 i=0; i<SMP_LEFTBAR_BUTTONS; i++)
@@ -1735,7 +1736,7 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 		m_nBtnMouseOver = 0xFFFF;
 		UpdateNcButtonState();
 		CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-		if (pMainFrm) pMainFrm->SetHelpText(U_(""));
+		if (pMainFrm) pMainFrm->SetHelpText(UL_(""));
 	}
 	if(!pModDoc)
 		return;
@@ -1750,7 +1751,7 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 		mpt::ustring(*fmt)(unsigned int, mpt::ustring, const SmpLength &) = &mpt::ufmt::dec<SmpLength>;
 		if(TrackerSettings::Instance().cursorPositionInHex)
 			fmt = &mpt::ufmt::HEX<SmpLength>;
-		UpdateIndicator(MPT_UFORMAT("Cursor: {}")(fmt(3, U_(","), x)));
+		UpdateIndicator(MPT_UFORMAT("Cursor: {}")(fmt(3, UL_(","), x)));
 
 		CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
 		if(pMainFrm && m_dwEndSel <= m_dwBeginSel)
@@ -1767,11 +1768,11 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 
 				mpt::ustring s;
 				if(xHigh == 0)
-					s.Format(U_("Offset: %c%02X"), offsetChar, xLow);
+					s = mfcless::PrintF(UL_("Offset: %c%02X"), offsetChar, xLow);
 				else if(hasHighOffset && xHigh < 0x10)
-					s.Format(U_("Offset: %c%02X, %cA%X"), offsetChar, xLow, highOffsetChar, xHigh);
+					s = mfcless::PrintF(UL_("Offset: %c%02X, %cA%X"), offsetChar, xLow, highOffsetChar, xHigh);
 				else
-					s = U_("Beyond offset range");
+					s = UL_("Beyond offset range");
 				pMainFrm->SetInfoText(s);
 
 				double linear;
@@ -1783,8 +1784,8 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 				pMainFrm->SetXInfoText(MPT_UFORMAT("Value At Cursor: {}% / {}")(mpt::ufmt::fix(linear * 100.0, 3), CModDoc::LinearToDecibelsString(std::abs(linear), 1.0)).c_str());
 			} else
 			{
-				pMainFrm->SetInfoText(U_(""));
-				pMainFrm->SetXInfoText(U_(""));
+				pMainFrm->SetInfoText(UL_(""));
+				pMainFrm->SetXInfoText(UL_(""));
 			}
 		}
 	} else
@@ -1838,7 +1839,7 @@ void CViewSample::OnMouseMove(uint32 flags, mfcless::Point point)
 			x = ScreenToSample(point.x);
 		} else if(m_fineDrag && !zoomIn)
 		{
-			x = m_startDragValue + (point.x - m_startDragPoint.x) / HighDPISupport::ScalePixels(2, m_hWnd);
+			x = m_startDragValue + (point.x - m_startDragPoint.x) / HighDPISupport::ScalePixels(2, this);
 		} else if(dragItemIsInWaveform && zoomIn)
 		{
 			// Don't adjust selection to mouse down point when zooming into the sample
@@ -2023,7 +2024,7 @@ void CViewSample::OnLButtonDown(uint32 flags, mfcless::Point point)
 
 	m_dwStatus.set(SMPSTATUS_MOUSEDRAG);
 	m_dwStatus.reset(SMPSTATUS_MOUSEMOVED);
-	SetFocus();
+	setFocus();
 	SetCapture();
 	bool oldsel = (m_dwBeginSel != m_dwEndSel);
 
@@ -2123,28 +2124,28 @@ void CViewSample::OnLButtonDblClk(uint32, mfcless::Point pt)
 		{
 		case HitTestItem::LoopStart:
 			undoName = "Set Loop Start";
-			name = U_("Loop Start");
+			name = UL_("Loop Start");
 			target = &sample.nLoopStart;
 			if(sample.uFlags[CHN_LOOP])
 				maxVal = sample.nLoopEnd;
 			break;
 		case HitTestItem::LoopEnd:
 			undoName = "Set Loop End";
-			name = U_("Loop End");
+			name = UL_("Loop End");
 			if(sample.uFlags[CHN_LOOP])
 				minVal = sample.nLoopStart;
 			target = &sample.nLoopEnd;
 			break;
 		case HitTestItem::SustainStart:
 			undoName = "Set Sustain Loop Start";
-			name = U_("Sustain Loop Start");
+			name = UL_("Sustain Loop Start");
 			target = &sample.nSustainStart;
 			if(sample.uFlags[CHN_SUSTAINLOOP])
 				maxVal = sample.nSustainEnd;
 			break;
 		case HitTestItem::SustainEnd:
 			undoName = "Set Sustain Loop End";
-			name = U_("Sustain Loop End");
+			name = UL_("Sustain Loop End");
 			target = &sample.nSustainEnd;
 			if(sample.uFlags[CHN_SUSTAINLOOP])
 				minVal = sample.nSustainStart;
@@ -2153,7 +2154,7 @@ void CViewSample::OnLButtonDblClk(uint32, mfcless::Point pt)
 			if(IsCuePoint(item))
 			{
 				undoName = "Set Cue Point";
-				name.Format(U_("Cue Point %d"), CuePointFromItem(item) + 1);
+				name = mfcless::PrintF(UL_("Cue Point %d"), CuePointFromItem(item) + 1);
 				target = &sample.cues[CuePointFromItem(item)];
 				maxVal = sample.nLength - 1u;
 			}
@@ -2163,7 +2164,7 @@ void CViewSample::OnLButtonDblClk(uint32, mfcless::Point pt)
 		if(!target)
 			return;
 
-		CInputDlg dlg{this, U_("Enter new position of ") + name, static_cast<int32>(minVal), static_cast<int32>(maxVal), static_cast<int32>(*target)};
+		CInputDlg dlg{this, UL_("Enter new position of ") + name, static_cast<int32>(minVal), static_cast<int32>(maxVal), static_cast<int32>(*target)};
 		if(dlg.DoModal() == IDOK)
 		{
 			modDoc->GetSampleUndo().PrepareUndo(m_nSample, sundo_none, undoName);
@@ -2221,24 +2222,24 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 			if(IsCuePoint(item))
 			{
 				m_dwMenuParam = CuePointFromItem(item);
-				wsprintf(s, U_("&Delete Cue Point %d"), 1 + static_cast<int>(m_dwMenuParam));
+				wsprintf(s, UL_("&Delete Cue Point %d"), 1 + static_cast<int>(m_dwMenuParam));
 				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_DELETE_CUEPOINT, s);
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			} else
 			{
 				if(*std::max_element(sample.cues.begin(), sample.cues.end()) >= sample.nLength)
 				{
 					m_dwMenuParam = ScreenToSample(pt.x);
-					wsprintf(s, U_("&Insert Cue Point at %s"), mpt::ufmt::dec(3, U_(","), m_dwMenuParam).GetString());
+					wsprintf(s, UL_("&Insert Cue Point at %s"), mpt::ufmt::dec(3, UL_(","), m_dwMenuParam).c_str());
 					hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_INSERT_CUEPOINT, s);
-					hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+					hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 				}
 			}
 
 			auto fmt = TrackerSettings::Instance().sampleEditorTimelineFormat.Get();
-			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::Seconds ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SECONDS, U_("&Seconds"));
-			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::Samples ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SAMPLES, U_("S&amples"));
-			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::SamplesPow2 ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SAMPLES_POW2, U_("Samples (&Power of 2)"));
+			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::Seconds ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SECONDS, UL_("&Seconds"));
+			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::Samples ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SAMPLES, UL_("S&amples"));
+			hMenu.AppendMenu(mfcless::menu::String | (fmt == TimelineFormat::SamplesPow2 ? mfcless::menu::Checked : 0), ID_SAMPLE_TIMELINE_SAMPLES_POW2, UL_("Samples (&Power of 2)"));
 			ClientToScreen(&pt);
 			hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x, pt.y, this);
 			hMenu.DestroyMenu();
@@ -2249,95 +2250,95 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 		{
 			if (m_dwEndSel >= m_dwBeginSel + 4)
 			{
-				hMenu.AppendMenu(mfcless::menu::String | (CanZoomSelection() ? 0 : mfcless::menu::Grayed), ID_SAMPLE_ZOOMONSEL, ih->GetKeyTextFromCommand(kcSampleZoomSelection, U_("Zoom")));
-				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SETLOOP, U_("Set As Loop"));
+				hMenu.AppendMenu(mfcless::menu::String | (CanZoomSelection() ? 0 : mfcless::menu::Grayed), ID_SAMPLE_ZOOMONSEL, ih->GetKeyTextFromCommand(kcSampleZoomSelection, UL_("Zoom")));
+				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SETLOOP, UL_("Set As Loop"));
 				if (sndFile.GetType() & (MOD_TYPE_IT|MOD_TYPE_MPT))
-					hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SETSUSTAINLOOP, U_("Set As Sustain Loop"));
-				hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+					hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SETSUSTAINLOOP, UL_("Set As Sustain Loop"));
+				hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 			} else
 			{
 				SmpLength dwPos = ScreenToSample(pt.x);
-				mpt::ustring pos = mpt::ufmt::dec(3, U_(","), dwPos);
+				mpt::ustring pos = mpt::ufmt::dec(3, UL_(","), dwPos);
 				if (dwPos <= sample.nLength)
 				{
 					//Set loop points
 					SmpLength loopEnd = (sample.nLoopEnd > 0) ? sample.nLoopEnd : sample.nLength;
-					wsprintf(s, U_("Set &Loop Start to:\t%s"), pos.GetString());
+					wsprintf(s, UL_("Set &Loop Start to:\t%s"), pos.c_str());
 					hMenu.AppendMenu(mfcless::menu::String | (dwPos + 4 <= loopEnd ? 0 : mfcless::menu::Grayed),
 						ID_SAMPLE_SETLOOPSTART, s);
-					wsprintf(s, U_("Set &Loop End to:\t%s"), pos.GetString());
+					wsprintf(s, UL_("Set &Loop End to:\t%s"), pos.c_str());
 					hMenu.AppendMenu(mfcless::menu::String | (dwPos >= sample.nLoopStart + 4 ? 0 : mfcless::menu::Grayed),
 						ID_SAMPLE_SETLOOPEND, s);
 					if(sample.HasPingPongLoop())
-						hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_PINGPONG_LOOP, ih->GetKeyTextFromCommand(kcSampleConvertPingPongLoop, U_("Convert to Unidirectional Loop")));
+						hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_PINGPONG_LOOP, ih->GetKeyTextFromCommand(kcSampleConvertPingPongLoop, UL_("Convert to Unidirectional Loop")));
 					if(sample.HasLoop() && (sndFile.GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)))
-						hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_NORMAL_TO_SUSTAIN, ih->GetKeyTextFromCommand(kcSampleConvertNormalLoopToSustain, U_("Convert to Sustain Loop")));
+						hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_NORMAL_TO_SUSTAIN, ih->GetKeyTextFromCommand(kcSampleConvertNormalLoopToSustain, UL_("Convert to Sustain Loop")));
 
 					if (sndFile.GetType() & (MOD_TYPE_IT|MOD_TYPE_MPT))
 					{
 						//Set sustain loop points
 						SmpLength sustainEnd = (sample.nSustainEnd > 0) ? sample.nSustainEnd : sample.nLength;
-						hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
-						wsprintf(s, U_("Set &Sustain Start to:\t%s"), pos.GetString());
+						hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
+						wsprintf(s, UL_("Set &Sustain Start to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::String | (dwPos + 4 <= sustainEnd ? 0 : mfcless::menu::Grayed),
 							ID_SAMPLE_SETSUSTAINSTART, s);
-						wsprintf(s, U_("Set &Sustain End to:\t%s"), pos.GetString());
+						wsprintf(s, UL_("Set &Sustain End to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::String | (dwPos >= sample.nSustainStart + 4 ? 0 : mfcless::menu::Grayed),
 							ID_SAMPLE_SETSUSTAINEND, s);
 						if(sample.HasPingPongSustainLoop())
-							hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_PINGPONG_SUSTAIN, ih->GetKeyTextFromCommand(kcSampleConvertPingPongSustain, U_("Convert to Unidirectional Sustain Loop")));
+							hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_PINGPONG_SUSTAIN, ih->GetKeyTextFromCommand(kcSampleConvertPingPongSustain, UL_("Convert to Unidirectional Sustain Loop")));
 						if(sample.HasSustainLoop())
-							hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_SUSTAIN_TO_NORMAL, ih->GetKeyTextFromCommand(kcSampleConvertSustainLoopToNormal, U_("Convert to Normal Loop")));
+							hMenu.AppendMenu(mfcless::menu::String, ID_CONVERT_SUSTAIN_TO_NORMAL, ih->GetKeyTextFromCommand(kcSampleConvertSustainLoopToNormal, UL_("Convert to Normal Loop")));
 					}
 
 					//if(sndFile.GetModSpecifications().HasVolCommand(VOLCMD_OFFSET))
 					{
 						// Sample cues
-						hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+						hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 						mfcless::Menu hCueMenu = mfcless::Menu::CreatePopup();
 						bool hasValidCues = false;
 						for(std::size_t i = 0; i < std::size(sample.cues); i++)
 						{
 							const SmpLength cue = sample.cues[i];
-							wsprintf(s, U_("Cue &%d: %s"), 1 + static_cast<int>(i),
-								cue < sample.nLength ? mpt::ufmt::dec(3, U_(","), cue).GetString() : U_("unused"));
+							wsprintf(s, UL_("Cue &%d: %s"), 1 + static_cast<int>(i),
+								cue < sample.nLength ? mpt::ufmt::dec(3, UL_(","), cue).c_str() : UL_("unused"));
 							hCueMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_CUE_1 + i, s);
 							if(cue > 0 && cue < sample.nLength) hasValidCues = true;
 						}
-						wsprintf(s, U_("Set Sample Cu&e to:\t%s"), pos.GetString());
+						wsprintf(s, UL_("Set Sample Cu&e to:\t%s"), pos.c_str());
 						hMenu.AppendMenu(mfcless::menu::Popup, hCueMenu, s);
-						hMenu.AppendMenu(mfcless::menu::String | (hasValidCues ? 0 : mfcless::menu::Grayed), ID_SAMPLE_SLICE, ih->GetKeyTextFromCommand(kcSampleSliceCuePoints, U_("Slice at cue points")));
+						hMenu.AppendMenu(mfcless::menu::String | (hasValidCues ? 0 : mfcless::menu::Grayed), ID_SAMPLE_SLICE, ih->GetKeyTextFromCommand(kcSampleSliceCuePoints, UL_("Slice at cue points")));
 						if(m_nGridSegments > 1)
-							hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SLICE_GRID, ih->GetKeyTextFromCommand(kcSampleSliceGrid, U_("Slice at grid")));
+							hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_SLICE_GRID, ih->GetKeyTextFromCommand(kcSampleSliceGrid, UL_("Slice at grid")));
 					}
 
-					hMenu.AppendMenu(mfcless::menu::Separator, 0, U_(""));
+					hMenu.AppendMenu(mfcless::menu::Separator, 0, UL_(""));
 					m_dwMenuParam = dwPos;
 				}
 			}
 
-			if(sample.GetElementarySampleSize() > 1) hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_8BITCONVERT, ih->GetKeyTextFromCommand(kcSample8Bit, U_("Convert to &8-bit")));
-			else hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_16BITCONVERT, ih->GetKeyTextFromCommand(kcSample8Bit, U_("Convert to &16-bit")));
+			if(sample.GetElementarySampleSize() > 1) hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_8BITCONVERT, ih->GetKeyTextFromCommand(kcSample8Bit, UL_("Convert to &8-bit")));
+			else hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_16BITCONVERT, ih->GetKeyTextFromCommand(kcSample8Bit, UL_("Convert to &16-bit")));
 			if(sample.GetNumChannels() > 1)
 			{
 				mfcless::Menu hMonoMenu = mfcless::Menu::CreatePopup();
-				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT, ih->GetKeyTextFromCommand(kcSampleMonoMix, U_("&Mix Channels")));
-				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_LEFT, ih->GetKeyTextFromCommand(kcSampleMonoLeft, U_("&Left Channel")));
-				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_RIGHT, ih->GetKeyTextFromCommand(kcSampleMonoRight, U_("&Right Channel")));
-				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_SPLIT, ih->GetKeyTextFromCommand(kcSampleMonoSplit, U_("&Split Sample")));
-				hMenu.AppendMenu(mfcless::menu::Popup, hMonoMenu, U_("Convert to &Mono"));
+				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT, ih->GetKeyTextFromCommand(kcSampleMonoMix, UL_("&Mix Channels")));
+				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_LEFT, ih->GetKeyTextFromCommand(kcSampleMonoLeft, UL_("&Left Channel")));
+				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_RIGHT, ih->GetKeyTextFromCommand(kcSampleMonoRight, UL_("&Right Channel")));
+				hMonoMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_MONOCONVERT_SPLIT, ih->GetKeyTextFromCommand(kcSampleMonoSplit, UL_("&Split Sample")));
+				hMenu.AppendMenu(mfcless::menu::Popup, hMonoMenu, UL_("Convert to &Mono"));
 			}
 
 			// "Trim" menu item is responding differently if there's no selection,
 			// but a loop present: "trim around loop point"! (jojo in topic 2258)
-			mpt::ustring trimMenuText = U_("Tr&im");
+			mpt::ustring trimMenuText = UL_("Tr&im");
 			bool isGrayed = ((m_dwEndSel <= m_dwBeginSel) || (m_dwEndSel - m_dwBeginSel < MIN_TRIM_LENGTH)
 								|| (m_dwEndSel - m_dwBeginSel == sample.nLength));
 
 			if ((m_dwBeginSel == m_dwEndSel) && (sample.nLoopStart < sample.nLoopEnd))
 			{
 				// no selection => use loop points
-				trimMenuText += U_(" around loop points");
+				trimMenuText += UL_(" around loop points");
 				// Check whether trim menu item can be enabled (loop not too short or long for trimming).
 				if( (sample.nLoopEnd <= sample.nLength) &&
 					(sample.nLoopEnd - sample.nLoopStart >= MIN_TRIM_LENGTH) &&
@@ -2348,17 +2349,17 @@ void CViewSample::OnRButtonUp(uint32, mfcless::Point pt)
 			hMenu.AppendMenu(mfcless::menu::String | (isGrayed ? mfcless::menu::Grayed : 0), ID_SAMPLE_TRIM, ih->GetKeyTextFromCommand(kcSampleTrim, trimMenuText));
 			if((m_dwBeginSel == 0 && m_dwEndSel != 0) || (m_dwBeginSel < sample.nLength && m_dwEndSel == sample.nLength))
 			{
-				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_QUICKFADE, ih->GetKeyTextFromCommand(kcSampleQuickFade, U_("Quick &Fade")));
+				hMenu.AppendMenu(mfcless::menu::String, ID_SAMPLE_QUICKFADE, ih->GetKeyTextFromCommand(kcSampleQuickFade, UL_("Quick &Fade")));
 			}
-			hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, U_("Cu&t")));
-			hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, U_("&Copy")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_CUT, ih->GetKeyTextFromCommand(kcEditCut, UL_("Cu&t")));
+			hMenu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, UL_("&Copy")));
 		}
 		const uint32 clipboardFlag = (mfcless::clip::IsFormatAvailable(mfcless::clip::Wave) ? 0 : mfcless::menu::Grayed);
-		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, U_("&Paste (Replace)")));
-		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_PUSHFORWARDPASTE, ih->GetKeyTextFromCommand(kcEditPushForwardPaste, U_("Paste (&Insert)")));
-		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_MIXPASTE, ih->GetKeyTextFromCommand(kcEditMixPaste, U_("Mi&x Paste")));
-		hMenu.AppendMenu(mfcless::menu::String | (pModDoc->GetSampleUndo().CanUndo(m_nSample) ? 0 : mfcless::menu::Grayed), ID_EDIT_UNDO, ih->GetKeyTextFromCommand(kcEditUndo, U_("&Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetUndoName(m_nSample))));
-		hMenu.AppendMenu(mfcless::menu::String | (pModDoc->GetSampleUndo().CanRedo(m_nSample) ? 0 : mfcless::menu::Grayed), ID_EDIT_REDO, ih->GetKeyTextFromCommand(kcEditRedo, U_("&Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetRedoName(m_nSample))));
+		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("&Paste (Replace)")));
+		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_PUSHFORWARDPASTE, ih->GetKeyTextFromCommand(kcEditPushForwardPaste, UL_("Paste (&Insert)")));
+		hMenu.AppendMenu(mfcless::menu::String | clipboardFlag, ID_EDIT_MIXPASTE, ih->GetKeyTextFromCommand(kcEditMixPaste, UL_("Mi&x Paste")));
+		hMenu.AppendMenu(mfcless::menu::String | (pModDoc->GetSampleUndo().CanUndo(m_nSample) ? 0 : mfcless::menu::Grayed), ID_EDIT_UNDO, ih->GetKeyTextFromCommand(kcEditUndo, UL_("&Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetUndoName(m_nSample))));
+		hMenu.AppendMenu(mfcless::menu::String | (pModDoc->GetSampleUndo().CanRedo(m_nSample) ? 0 : mfcless::menu::Grayed), ID_EDIT_REDO, ih->GetKeyTextFromCommand(kcEditRedo, UL_("&Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetRedoName(m_nSample))));
 		ClientToScreen(&pt);
 		hMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, pt.x, pt.y, this);
 		hMenu.DestroyMenu();
@@ -2395,7 +2396,7 @@ void CViewSample::OnNcLButtonDown(uint32 uFlags, mfcless::Point point)
 		m_dwStatus.set(SMPSTATUS_NCLBTNDOWN);
 		if (cLeftBarButtons[m_nBtnMouseOver] != ID_SEPARATOR)
 		{
-			PostMessage(WM_COMMAND, cLeftBarButtons[m_nBtnMouseOver]);
+			mfcless::PostCommand(this, cLeftBarButtons[m_nBtnMouseOver]);
 			UpdateNcButtonState();
 		}
 	}
@@ -2590,7 +2591,7 @@ void CViewSample::OnEditCopy()
 
 	MPT_ASSERT((memSize % 2u) == 0);
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	Clipboard clipboard(mfcless::clip::Wave, memSize);
 	if(auto data = clipboard.Get(); data.data())
 	{
@@ -2626,7 +2627,7 @@ void CViewSample::OnEditCopy()
 
 		clipboard.Close();
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -2684,7 +2685,7 @@ static void MixSampleOnto(const ModSample &sample, SmpLength offset, int amplify
 void CViewSample::DoPaste(PasteMode pasteMode)
 {
 	CModDoc *pModDoc = GetDocument();
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	Clipboard clipboard(mfcless::clip::Wave);
 	if(auto data = clipboard.Get(); data.data())
 	{
@@ -2703,7 +2704,7 @@ void CViewSample::DoPaste(PasteMode pasteMode)
 			CMixSampleDlg dlg(this);
 			if(dlg.DoModal() != IDOK)
 			{
-				EndWaitCursor();
+				mfcless::EndWaitCursor();
 				return;
 			}
 		}
@@ -2854,7 +2855,7 @@ void CViewSample::DoPaste(PasteMode pasteMode)
 			sndFile.m_szNames[m_nSample] = oldSampleName;
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -2883,7 +2884,7 @@ void CViewSample::OnEditRedo()
 void CViewSample::On8BitConvert()
 {
 	CModDoc *pModDoc = GetDocument();
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	if ((pModDoc) && (m_nSample <= pModDoc->GetNumSamples()))
 	{
 		CSoundFile &sndFile = pModDoc->GetSoundFile();
@@ -2900,14 +2901,14 @@ void CViewSample::On8BitConvert()
 			SetModified(SampleHint().Info().Data(), true, true);
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
 void CViewSample::On16BitConvert()
 {
 	CModDoc *pModDoc = GetDocument();
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	if ((pModDoc) && (m_nSample <= pModDoc->GetNumSamples()))
 	{
 		CSoundFile &sndFile = pModDoc->GetSoundFile();
@@ -2925,7 +2926,7 @@ void CViewSample::On16BitConvert()
 			}
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -2940,7 +2941,7 @@ void CViewSample::OnMonoConvert(ctrlSmp::StereoToMonoMode convert)
 	if(sample.uFlags[CHN_ADLIB] || !sample.HasSampleData())
 		return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	bool success = false;
 	if(sample.GetNumChannels() > 1)
 	{
@@ -2951,7 +2952,7 @@ void CViewSample::OnMonoConvert(ctrlSmp::StereoToMonoMode convert)
 			rightSmp = pModDoc->InsertSample();
 			if(rightSmp == SAMPLEINDEX_INVALID)
 			{
-				EndWaitCursor();
+				mfcless::EndWaitCursor();
 				return;
 			}
 		}
@@ -3002,7 +3003,7 @@ void CViewSample::OnMonoConvert(ctrlSmp::StereoToMonoMode convert)
 	else
 		pModDoc->GetSampleUndo().RemoveLastUndoStep(m_nSample);
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3028,7 +3029,7 @@ void CViewSample::TrimSample(bool trimToLoopEnd)
 
 	if (m_dwBeginSel >= m_dwEndSel) return; // invalid selection
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	SmpLength nStart = m_dwBeginSel;
 	SmpLength nEnd = m_dwEndSel - m_dwBeginSel;
 
@@ -3055,7 +3056,7 @@ void CViewSample::TrimSample(bool trimToLoopEnd)
 		SetCurSel(0, 0);
 		SetModified(SampleHint().Info().Data(), true, true);
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -3125,10 +3126,10 @@ void CViewSample::OnDropFiles(HDROP hDropInfo)
 	for(uint32 f = 0; f < nFiles; f++)
 	{
 		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, _T('\0'));
+		std::vector<mpt::uchar> fileName(size, u8'\0');
 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
 			if(SendCtrlMessage(CTRLMSG_SMP_OPENFILE, (intptr_t)&file) && f < nFiles - 1)
 			{
 				// Insert more sample slots
@@ -3187,7 +3188,7 @@ bool CViewSample::OnDragonDrop(bool doDrop, const DRAGONDROP *dropInfo)
 		return canDrop;
 
 	// Do the drop
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	bool modified = false;
 	switch(dropInfo->dropType)
 	{
@@ -3284,14 +3285,14 @@ bool CViewSample::OnDragonDrop(bool doDrop, const DRAGONDROP *dropInfo)
 	{
 		SetModified(SampleHint().Info().Data().Names(), true, false);
 	}
-	CMDIChildWnd *pMDIFrame = (CMDIChildWnd *)GetParentFrame();
+	CChildFrame *pMDIFrame = (CChildFrame *)GetParentFrame();
 	if (pMDIFrame)
 	{
 		pMDIFrame->MDIActivate();
 		pMDIFrame->SetActiveView(this);
-		SetFocus();
+		setFocus();
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	return canDrop;
 }
 
@@ -3559,12 +3560,12 @@ void CViewSample::OnAddSilence()
 
 	if(MAX_SAMPLE_LENGTH - oldLength < dlg.m_numSamples && dlg.m_editOption != AddSilenceDlg::kResize)
 	{
-		mpt::ustring str; str.Format(U_("Cannot add silence because the new sample length would exceed maximum sample length %u."), MAX_SAMPLE_LENGTH);
+		mpt::ustring str; str = mfcless::PrintF(UL_("Cannot add silence because the new sample length would exceed maximum sample length %u."), MAX_SAMPLE_LENGTH);
 		Reporting::Information(str);
 		return;
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	if(sample.nLength == 0 && sample.nVolume == 0)
 	{
@@ -3602,7 +3603,7 @@ void CViewSample::OnAddSilence()
 		}
 	}
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	if(oldLength != sample.nLength)
 	{
@@ -3723,7 +3724,7 @@ intptr_t CViewSample::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 
 	switch(wParam)
 	{
-		case kcContextMenu: OnRButtonUp(0, mfcless::Point(0, TimelineHeight(m_hWnd))); return wParam;
+		case kcContextMenu: OnRButtonUp(0, mfcless::Point(0, TimelineHeight(this))); return wParam;
 
 		case kcSampleTrim:			TrimSample(false); return wParam;
 		case kcSampleTrimToLoopEnd:	TrimSample(true); return wParam;
@@ -3804,13 +3805,13 @@ intptr_t CViewSample::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			switch(TrackerSettings::Instance().m_followSamplePlayCursor.Get())
 			{
 			case FollowSamplePlayCursor::DoNotFollow:
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Follow Sample Play Cursor: Do not follow"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Follow Sample Play Cursor: Do not follow"));
 				break;
 			case FollowSamplePlayCursor::Follow:
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Follow Sample Play Cursor: Follow"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Follow Sample Play Cursor: Follow"));
 				break;
 			case FollowSamplePlayCursor::FollowCentered:
-				CMainFrame::GetMainFrame()->SetHelpText(U_("Follow Sample Play Cursor: Follow centered"));
+				CMainFrame::GetMainFrame()->SetHelpText(UL_("Follow Sample Play Cursor: Follow centered"));
 				break;
 			case FollowSamplePlayCursor::MaxOptions:
 				MPT_ASSERT_NOTREACHED();
@@ -4168,7 +4169,7 @@ void CViewSample::OnUpdateUndo(mfcless::CommandState &state)
 	if ((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetSampleUndo().CanUndo(m_nSample));
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, U_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetUndoName(m_nSample))));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetUndoName(m_nSample))));
 	}
 }
 
@@ -4179,7 +4180,7 @@ void CViewSample::OnUpdateRedo(mfcless::CommandState &state)
 	if ((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetSampleUndo().CanRedo(m_nSample));
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, U_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetRedoName(m_nSample))));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetSampleUndo().GetRedoName(m_nSample))));
 	}
 }
 
@@ -4221,16 +4222,16 @@ intptr_t CViewSample::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI
 		switch(item)
 		{
 		case HitTestItem::LoopStart:
-			text = U_("Loop Start");
+			text = UL_("Loop Start");
 			break;
 		case HitTestItem::LoopEnd:
-			text = U_("Loop End");
+			text = UL_("Loop End");
 			break;
 		case HitTestItem::SustainStart:
-			text = U_("Sustain Start");
+			text = UL_("Sustain Start");
 			break;
 		case HitTestItem::SustainEnd:
-			text = U_("Sustain End");
+			text = UL_("Sustain End");
 			break;
 		default:
 			if(!IsCuePoint(item))
@@ -4239,18 +4240,18 @@ intptr_t CViewSample::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI
 			text = MPT_UFORMAT("Cue Point {}")(cue + 1);
 		}
 		if(pos <= sample.nLength)
-			text += U_(": ") + mpt::ufmt::dec(3, U_(","), pos);
+			text += UL_(": ") + mpt::ufmt::dec(3, UL_(","), pos);
 		buttonID = static_cast<int>(item) + 1;
 	}
 
-	pTI->hwnd = m_hWnd;
+	pTI->hwnd = this;
 	pTI->uId = buttonID;
 	pTI->rect = ncRect;
 
 	// MFC will free() the text
 	auto size = text.GetLength() + 1;
 	mpt::uchar *textP = static_cast<mpt::uchar *>(calloc(size, sizeof(mpt::uchar)));
-	std::copy(text.GetString(), text.GetString() + size, textP);
+	std::copy(text.c_str(), text.c_str() + size, textP);
 	pTI->lpszText = textP;
 
 	return buttonID;

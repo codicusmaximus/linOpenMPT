@@ -10,6 +10,7 @@
 
 
 #include "ChannelManagerDlg.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -79,7 +80,7 @@ void CChannelManagerDlg::SetDocument(CModDoc *modDoc)
 		if(m_ModDoc)
 		{
 			ResizeWindow();
-			ShowWindow(true);  // In case the window was hidden because no module was loaded
+			ShowWindow(mfcless::show::ShowNoActivate);  // In case the window was hidden because no module was loaded
 			InvalidateRect(m_drawableArea, false);
 		} else
 		{
@@ -95,7 +96,7 @@ bool CChannelManagerDlg::IsDisplayed() const
 
 void CChannelManagerDlg::Update(UpdateHint hint, QObject *pHint)
 {
-	if(!m_hWnd || !m_show)
+	if(!this || !m_show)
 		return;
 	if(!hint.ToType<GeneralHint>().GetType()[HINT_MODCHANNELS | HINT_MODGENERAL | HINT_MODTYPE | HINT_MPTOPTIONS])
 		return;
@@ -109,13 +110,13 @@ void CChannelManagerDlg::Update(UpdateHint hint, QObject *pHint)
 
 	ResizeWindow();
 	InvalidateRect(nullptr, false);
-	if(hint.ToType<GeneralHint>().GetType()[HINT_MODCHANNELS] && m_quickChannelProperties->m_hWnd && pHint != m_quickChannelProperties.get())
+	if(hint.ToType<GeneralHint>().GetType()[HINT_MODCHANNELS] && m_quickChannelProperties && pHint != m_quickChannelProperties.get())
 		m_quickChannelProperties->UpdateDisplay();
 }
 
 void CChannelManagerDlg::Show()
 {
-	if(!m_hWnd)
+	if(!this)
 	{
 		Create(IDD_CHANNELMANAGER, nullptr);
 	}
@@ -126,7 +127,7 @@ void CChannelManagerDlg::Show()
 
 void CChannelManagerDlg::Hide()
 {
-	if(m_hWnd != nullptr && m_show)
+	if(this != nullptr && m_show)
 	{
 		ResetState(true, true, true);
 		ShowWindow(false);
@@ -154,23 +155,23 @@ bool CChannelManagerDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
 
-	QWidget * menu = ::GetDlgItem(m_hWnd, IDC_TAB1);
+	QWidget * menu = ::GetDlgItem(this, IDC_TAB1);
 
 	TCITEM tie;
 	tie.mask = TCIF_TEXT | TCIF_IMAGE;
 	tie.iImage = -1;
-	tie.pszText = const_cast<LPTSTR>(U_("Solo/Mute"));
+	tie.pszText = const_cast<LPTSTR>(UL_("Solo/Mute"));
 	TabCtrl_InsertItem(menu, kSoloMute, &tie);
-	tie.pszText = const_cast<LPTSTR>(U_("Record Select"));
+	tie.pszText = const_cast<LPTSTR>(UL_("Record Select"));
 	TabCtrl_InsertItem(menu, kRecordSelect, &tie);
-	tie.pszText = const_cast<LPTSTR>(U_("Plugins"));
+	tie.pszText = const_cast<LPTSTR>(UL_("Plugins"));
 	TabCtrl_InsertItem(menu, kPluginState, &tie);
-	tie.pszText = const_cast<LPTSTR>(U_("Reorder/Remove"));
+	tie.pszText = const_cast<LPTSTR>(UL_("Reorder/Remove"));
 	TabCtrl_InsertItem(menu, kReorderRemove, &tie);
 	m_currentTab = kSoloMute;
 
-	m_buttonHeight = HighDPISupport::ScalePixels(CM_BT_HEIGHT, m_hWnd);
-	::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1), false);
+	m_buttonHeight = HighDPISupport::ScalePixels(CM_BT_HEIGHT, this);
+	::ShowWindow(::GetDlgItem(this, IDC_BUTTON1), mfcless::show::Hide);
 
 	ResetState(true, true, true, true);
 
@@ -189,7 +190,7 @@ void CChannelManagerDlg::OnDPIChanged()
 intptr_t CChannelManagerDlg::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const
 {
 	mfcless::Rect rect;
-	pTI->hwnd = m_hWnd;
+	pTI->hwnd = this;
 	pTI->uId = ButtonHit(point, &rect);
 	pTI->rect = rect;
 	pTI->lpszText = LPSTR_TEXTCALLBACK;
@@ -215,22 +216,22 @@ mpt::ustring CChannelManagerDlg::GetToolTipText(uint32 id, QWidget * hwnd) const
 	switch(m_currentTab)
 	{
 	case kSoloMute:
-		text += chnSettings.dwFlags[CHN_MUTE] ? U_(" (Muted)") : U_(" (Unmuted)");
+		text += chnSettings.dwFlags[CHN_MUTE] ? UL_(" (Muted)") : UL_(" (Unmuted)");
 		break;
 	case kRecordSelect:
 		switch(m_ModDoc->GetChannelRecordGroup(chn))
 		{
-		case RecordGroup::NoGroup: text += U_(" (No Record Group)"); break;
-		case RecordGroup::Group1: text += U_(" (Record Group 1)"); break;
-		case RecordGroup::Group2: text += U_(" (Record Group 2)"); break;
+		case RecordGroup::NoGroup: text += UL_(" (No Record Group)"); break;
+		case RecordGroup::Group1: text += UL_(" (Record Group 1)"); break;
+		case RecordGroup::Group2: text += UL_(" (Record Group 2)"); break;
 		}
 		break;
 	case kPluginState:
-		text += chnSettings.dwFlags[CHN_NOFX] ? U_(" (Plugins Bypassed)") : U_(" (Plugins Enabled)");
+		text += chnSettings.dwFlags[CHN_NOFX] ? UL_(" (Plugins Bypassed)") : UL_(" (Plugins Enabled)");
 		break;
 	case kReorderRemove:
 		if(m_states[id].removed)
-			text += U_(" (Marked for Removal)");
+			text += UL_(" (Marked for Removal)");
 		break;
 	case kNumTabs:
 		MPT_ASSERT_NOTREACHED();
@@ -259,13 +260,13 @@ void CChannelManagerDlg::OnApply()
 		}
 	}
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	CriticalSection cs;
 	if(m_ModDoc->ReArrangeChannels(newChnOrder) != newChnOrder.size())
 	{
 		cs.Leave();
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 		return;
 	}
 
@@ -277,7 +278,7 @@ void CChannelManagerDlg::OnApply()
 	}
 
 	cs.Leave();
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	ResetState(true, true, true, true);
 
@@ -453,37 +454,37 @@ void CChannelManagerDlg::OnTabSelchange()
 {
 	if(!m_show) return;
 
-	m_currentTab = static_cast<Tab>(TabCtrl_GetCurFocus(::GetDlgItem(m_hWnd, IDC_TAB1)));
+	m_currentTab = static_cast<Tab>(TabCtrl_GetCurFocus(::GetDlgItem(this, IDC_TAB1)));
 
 	switch(m_currentTab)
 	{
 		case kSoloMute:
-			SetItemText(IDC_BUTTON5, U_("S&olo"));
-			SetItemText(IDC_BUTTON6, U_("M&ute"));
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON5),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON6),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1),false);
+			SetItemText(IDC_BUTTON5, UL_("S&olo"));
+			SetItemText(IDC_BUTTON6, UL_("M&ute"));
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON5),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON6),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON1),mfcless::show::Hide);
 			break;
 		case kRecordSelect:
-			SetItemText(IDC_BUTTON5, U_("Instrument &1"));
-			SetItemText(IDC_BUTTON6, U_("Instrument &2"));
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON5),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON6),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1),false);
+			SetItemText(IDC_BUTTON5, UL_("Instrument &1"));
+			SetItemText(IDC_BUTTON6, UL_("Instrument &2"));
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON5),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON6),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON1),mfcless::show::Hide);
 			break;
 		case kPluginState:
-			SetItemText(IDC_BUTTON5, U_("&Enable FX"));
-			SetItemText(IDC_BUTTON6, U_("&Disable FX"));
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON5),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON6),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1),false);
+			SetItemText(IDC_BUTTON5, UL_("&Enable FX"));
+			SetItemText(IDC_BUTTON6, UL_("&Disable FX"));
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON5),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON6),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON1),mfcless::show::Hide);
 			break;
 		case kReorderRemove:
-			SetItemText(IDC_BUTTON5, U_("R&emove"));
-			SetItemText(IDC_BUTTON6, U_("Ca&ncel All"));
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON5),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON6),true);
-			::ShowWindow(::GetDlgItem(m_hWnd, IDC_BUTTON1),true);
+			SetItemText(IDC_BUTTON5, UL_("R&emove"));
+			SetItemText(IDC_BUTTON6, UL_("Ca&ncel All"));
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON5),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON6),mfcless::show::Show);
+			::ShowWindow(::GetDlgItem(this, IDC_BUTTON1),mfcless::show::Show);
 			break;
 		default:
 			break;
@@ -495,13 +496,13 @@ void CChannelManagerDlg::OnTabSelchange()
 
 void CChannelManagerDlg::ResizeWindow()
 {
-	if(!m_hWnd || !m_ModDoc)
+	if(!this || !m_ModDoc)
 		return;
 
-	const int dpi = HighDPISupport::GetDpiForWindow(m_hWnd);
+	const int dpi = HighDPISupport::GetDpiForWindow(this);
 
 	const auto oldButtonHeight = m_buttonHeight;
-	m_buttonHeight = MulDiv(CM_BT_HEIGHT, dpi, 96);
+	m_buttonHeight = mfcless::MulDiv(CM_BT_HEIGHT, dpi, 96);
 
 	CHANNELINDEX channels = m_ModDoc->GetNumChannels();
 	int lines = channels / CM_NB_COLS + (channels % CM_NB_COLS ? 1 : 0);
@@ -512,13 +513,13 @@ void CChannelManagerDlg::ResizeWindow()
 	mfcless::Rect client;
 	GetClientRect(client);
 	m_drawableArea = client;
-	m_drawableArea.DeflateRect(MulDiv(10, dpi, 96), MulDiv(38, dpi, 96), MulDiv(8, dpi, 96), MulDiv(30, dpi, 96));
+	m_drawableArea.DeflateRect(mfcless::MulDiv(10, dpi, 96), mfcless::MulDiv(38, dpi, 96), mfcless::MulDiv(8, dpi, 96), mfcless::MulDiv(30, dpi, 96));
 
 	int chnSizeY = m_drawableArea.Height() / lines;
 
 	if(chnSizeY != m_buttonHeight || oldButtonHeight != m_buttonHeight)
 	{
-		SetWindowPos(nullptr, 0, 0, window.Width(), window.Height() + (m_buttonHeight - chnSizeY) * lines, SWP_NOMOVE | SWP_NOZORDER | SWP_NOREDRAW);
+		SetWindowPos(nullptr, 0, 0, window.Width(), window.Height() + (m_buttonHeight - chnSizeY) * lines, mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoRedraw);
 
 		GetClientRect(client);
 
@@ -532,7 +533,7 @@ void CChannelManagerDlg::ResizeWindow()
 				mfcless::Rect btn;
 				button->GetClientRect(btn);
 				button->MapWindowPoints(this, btn);
-				::DeferWindowPos(dwp, *button, nullptr, btn.left, client.Height() - btn.Height() - MulDiv(3, dpi, 96), 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+				::DeferWindowPos(dwp, *button, nullptr, btn.left, client.Height() - btn.Height() - mfcless::MulDiv(3, dpi, 96), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 			}
 		}
 
@@ -545,7 +546,7 @@ void CChannelManagerDlg::ResizeWindow()
 		}
 
 		m_drawableArea = client;
-		m_drawableArea.DeflateRect(MulDiv(10, dpi, 96), MulDiv(38, dpi, 96), MulDiv(8, dpi, 96), MulDiv(30, dpi, 96));
+		m_drawableArea.DeflateRect(mfcless::MulDiv(10, dpi, 96), mfcless::MulDiv(38, dpi, 96), mfcless::MulDiv(8, dpi, 96), mfcless::MulDiv(30, dpi, 96));
 		Invalidate(false);
 	}
 }
@@ -553,7 +554,7 @@ void CChannelManagerDlg::ResizeWindow()
 
 void CChannelManagerDlg::OnPaint()
 {
-	if(!m_hWnd || !m_show || m_ModDoc == nullptr)
+	if(!this || !m_show || m_ModDoc == nullptr)
 	{
 		DialogBase::OnPaint();
 		ShowWindow(false);
@@ -567,11 +568,11 @@ void CChannelManagerDlg::OnPaint()
 
 	if(!m_font.m_hObject)
 	{
-		HighDPISupport::CreateGUIFont(m_font, m_hWnd);
+		HighDPISupport::CreateGUIFont(m_font, this);
 	}
 
 	PAINTSTRUCT pDC;
-	::BeginPaint(m_hWnd, &pDC);
+	::BeginPaint(this, &pDC);
 	const mfcless::Rect &rcPaint = pDC.rcPaint;
 
 	const int chnSizeX = m_drawableArea.Width() / CM_NB_COLS;
@@ -604,7 +605,7 @@ void CChannelManagerDlg::OnPaint()
 		::SelectObject(bdc, nullptr);
 		::DeleteDC(bdc);
 
-		::EndPaint(m_hWnd, &pDC);
+		::EndPaint(this, &pDC);
 		return;
 	}
 
@@ -619,8 +620,8 @@ void CChannelManagerDlg::OnPaint()
 
 	const auto dcBrush = GetStockBrush(DC_BRUSH);
 
-	const int dpi = HighDPISupport::GetDpiForWindow(m_hWnd);
-	client.SetRect(client.left + MulDiv(2, dpi, 96), client.top + MulDiv(32, dpi, 96), client.right - MulDiv(2, dpi, 96), client.bottom - MulDiv(24, dpi, 96));
+	const int dpi = HighDPISupport::GetDpiForWindow(this);
+	client.SetRect(client.left + mfcless::MulDiv(2, dpi, 96), client.top + mfcless::MulDiv(32, dpi, 96), client.right - mfcless::MulDiv(2, dpi, 96), client.bottom - mfcless::MulDiv(24, dpi, 96));
 	// Draw background
 	{
 		const auto bgIntersected = client & pDC.rcPaint;  // In case of partial redraws, FillRect may still draw into areas that are not part of the redraw area and thus make some buttons disappear
@@ -632,10 +633,10 @@ void CChannelManagerDlg::OnPaint()
 
 	client.SetRect(client.left + 8,client.top + 6,client.right - 6,client.bottom - 6);
 
-	const uint32 highlight = GetSysColor(COLOR_HIGHLIGHT), red = mfcless::Rgb(192, 96, 96), green = mfcless::Rgb(96, 192, 96), redBright = mfcless::Rgb(218, 163, 163), greenBright = mfcless::Rgb(163, 218, 163);
+	const uint32 highlight = mfcless::SystemColor(mfcless::SysColor::Highlight), red = mfcless::Rgb(192, 96, 96), green = mfcless::Rgb(96, 192, 96), redBright = mfcless::Rgb(218, 163, 163), greenBright = mfcless::Rgb(163, 218, 163);
 	const uint32 brushColors[] = { highlight, green, red };
 	const uint32 brushColorsBright[] = { highlight, greenBright, redBright };
-	const auto buttonFaceColor = GetSysColor(COLOR_BTNFACE), windowColor = GetSysColor(COLOR_WINDOW);
+	const auto buttonFaceColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace), windowColor = mfcless::SystemColor(mfcless::SysColor::Window);
 
 	uint32 col = 0, row = 0;
 	const CSoundFile &sndFile = m_ModDoc->GetSoundFile();
@@ -650,7 +651,7 @@ void CChannelManagerDlg::OnPaint()
 		else
 			s = MPT_UFORMAT("Channel {}")(sourceChn + 1);
 
-		const int border = HighDPISupport::ScalePixels(3, m_hWnd);
+		const int border = HighDPISupport::ScalePixels(3, this);
 		mfcless::Rect btn;
 		btn.left = client.left + col * chnSizeX + border;
 		btn.right = btn.left + chnSizeX - border;
@@ -699,8 +700,8 @@ void CChannelManagerDlg::OnPaint()
 		// Text
 		{
 			auto rect = btnAdjusted;
-			rect.left += HighDPISupport::ScalePixels(9, m_hWnd);
-			rect.right -= HighDPISupport::ScalePixels(3, m_hWnd);
+			rect.left += HighDPISupport::ScalePixels(9, this);
+			rect.right -= HighDPISupport::ScalePixels(3, this);
 
 			::SetBkMode(dc, TRANSPARENT);
 			::SetTextColor(dc, GetSysColor(enable || activate ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
@@ -709,10 +710,10 @@ void CChannelManagerDlg::OnPaint()
 
 		// Draw red/green markers
 		{
-			const int margin = HighDPISupport::ScalePixels(1, m_hWnd);
+			const int margin = HighDPISupport::ScalePixels(1, this);
 			auto rect = btnAdjusted;
 			rect.DeflateRect(margin, margin);
-			rect.right = rect.left + HighDPISupport::ScalePixels(7, m_hWnd);
+			rect.right = rect.left + HighDPISupport::ScalePixels(7, this);
 			const auto &brushes = activate ? brushColorsBright : brushColors;
 			const auto redBrush = brushes[2], greenBrush = brushes[1];
 			uint32 color = 0;
@@ -747,7 +748,7 @@ void CChannelManagerDlg::OnPaint()
 	::SelectObject(dc, oldBmp);
 	::DeleteDC(dc);
 
-	::EndPaint(m_hWnd, &pDC);
+	::EndPaint(this, &pDC);
 }
 
 
@@ -810,7 +811,7 @@ void CChannelManagerDlg::ResetState(bool bSelection, bool bMove, bool bInternal,
 
 void CChannelManagerDlg::OnMouseMove(uint32 nFlags,mfcless::Point point)
 {
-	if(!m_hWnd || m_show == false) return;
+	if(!this || m_show == false) return;
 
 	if(!m_leftButton && !m_rightButton)
 	{
@@ -824,7 +825,7 @@ void CChannelManagerDlg::OnMouseMove(uint32 nFlags,mfcless::Point point)
 void CChannelManagerDlg::OnLButtonUp(uint32 /*nFlags*/,mfcless::Point point)
 {
 	ReleaseCapture();
-	if(!m_hWnd || !m_show)
+	if(!this || !m_show)
 		return;
 
 	if(m_moveRect && m_ModDoc)
@@ -871,7 +872,7 @@ void CChannelManagerDlg::OnLButtonUp(uint32 /*nFlags*/,mfcless::Point point)
 
 void CChannelManagerDlg::OnLButtonDown(uint32 nFlags,mfcless::Point point)
 {
-	if(!m_hWnd || m_show == false) return;
+	if(!this || m_show == false) return;
 	SetCapture();
 
 	if(ButtonHit(point) == CHANNELINDEX_INVALID)
@@ -892,7 +893,7 @@ void CChannelManagerDlg::OnRButtonUp(uint32 /*nFlags*/,mfcless::Point /*point*/)
 
 void CChannelManagerDlg::OnRButtonDown(uint32 nFlags,mfcless::Point point)
 {
-	if(!m_hWnd || m_show == false) return;
+	if(!this || m_show == false) return;
 	SetCapture();
 
 	m_rightButton = true;

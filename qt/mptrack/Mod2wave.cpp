@@ -10,6 +10,7 @@
 
 
 #include "mod2wave.h"
+#include "mfcless/Widgets.h"
 #include "Dlsbank.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -146,21 +147,21 @@ bool CWaveConvert::OnInitDialog()
 		SetItemInt(IDC_EDIT3, m_Settings.minOrder);
 		SetItemInt(IDC_EDIT4, m_Settings.maxOrder);
 	}
-	m_EditMinOrder->SetAccessibleName(U_("From position"));
+	m_EditMinOrder->SetAccessibleName(UL_("From position"));
 	m_SpinMinOrder->SetRange(0, m_nNumOrders);
 	m_SpinMaxOrder->SetRange(0, m_nNumOrders);
 
 	SetItemInt(IDC_EDIT5, m_Settings.repeatCount);
 	m_SpinLoopCount->SetRange(1, int16_max);
-	m_EditLoopCount->SetAccessibleName(U_("Repeat"));
-	m_EditLoopCount->SetAccessibleSuffix(U_("times"));
+	m_EditLoopCount->SetAccessibleName(UL_("Repeat"));
+	m_EditLoopCount->SetAccessibleSuffix(UL_("times"));
 
 	m_SpinSubsongIndex->SetRange(1, static_cast<int>(m_subSongs.size()));
-	m_EditSubSong->SetAccessibleName(U_("Sub Song"));
+	m_EditSubSong->SetAccessibleName(UL_("Sub Song"));
 	SetItemInt(IDC_EDIT12, static_cast<uint32>(m_selectedSong + 1));
 	if(m_subSongs.size() <= 1)
 	{
-		GetDlgItem(IDC_RADIO3)->SetWindowText(U_("&Entire Song"));
+		GetDlgItem(IDC_RADIO3)->SetWindowText(UL_("&Entire Song"));
 		EnableItem(IDC_RADIO1, false);
 		EnableItem(IDC_EDIT12, false);
 	}
@@ -177,12 +178,12 @@ bool CWaveConvert::OnInitDialog()
 
 	m_EditYear->setMaxLength(4);
 
-	m_EditTitle->SetWindowText(mpt::ToUnicode(m_Settings.Tags.title));
-	m_EditAuthor->SetWindowText(mpt::ToUnicode(m_Settings.Tags.artist));
-	m_EditURL->SetWindowText(mpt::ToUnicode(m_Settings.Tags.url));
-	m_EditAlbum->SetWindowText(mpt::ToUnicode(m_Settings.Tags.album));
-	m_EditYear->SetWindowText(mpt::ToUnicode(m_Settings.Tags.year));
-	m_EditGenre->SetWindowText(mpt::ToUnicode(m_Settings.Tags.genre));
+	mfcless::SetWindowText(m_EditTitle, mpt::ToUnicode(m_Settings.Tags.title));
+	mfcless::SetWindowText(m_EditAuthor, mpt::ToUnicode(m_Settings.Tags.artist));
+	mfcless::SetWindowText(m_EditURL, mpt::ToUnicode(m_Settings.Tags.url));
+	mfcless::SetWindowText(m_EditAlbum, mpt::ToUnicode(m_Settings.Tags.album));
+	mfcless::SetWindowText(m_EditYear, mpt::ToUnicode(m_Settings.Tags.year));
+	mfcless::SetWindowText(m_EditGenre, mpt::ToUnicode(m_Settings.Tags.genre));
 
 	FillTags();
 
@@ -205,12 +206,12 @@ bool CWaveConvert::OnInitDialog()
 	// Fill list of sample slots to render into
 	if(m_SndFile.GetNextFreeSample() != SAMPLEINDEX_INVALID)
 	{
-		mfcless::SetItemData(m_CbnSampleSlot, mfcless::AddItem(m_CbnSampleSlot, U_("<empty slot>")), 0);
+		mfcless::SetItemData(m_CbnSampleSlot, mfcless::AddItem(m_CbnSampleSlot, UL_("<empty slot>")), 0);
 	}
 	mpt::ustring s;
 	for(SAMPLEINDEX smp = 1; smp <= m_SndFile.GetNumSamples(); smp++)
 	{
-		s.Format(U_("%02u: %s%s"), smp, m_SndFile.GetSample(smp).HasSampleData() ? U_("*") : U_(""), mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.GetSampleName(smp)).GetString());
+		s = mfcless::PrintF(UL_("%02u: %s%s"), smp, m_SndFile.GetSample(smp).HasSampleData() ? UL_("*") : UL_(""), mpt::ToUnicode(m_SndFile.GetCharsetInternal(), m_SndFile.GetSampleName(smp)).c_str());
 		mfcless::SetItemData(m_CbnSampleSlot, mfcless::AddItem(m_CbnSampleSlot, s), smp);
 	}
 	if(m_Settings.sampleSlot > m_SndFile.GetNumSamples()) m_Settings.sampleSlot = 0;
@@ -257,17 +258,17 @@ void CWaveConvert::FillTags()
 	Encoder::Mode mode = (Encoder::Mode)((dwFormat >> 24) & 0xff);
 
 	SetChecked(IDC_CHECK3, (encTraits->canCues && encSettings.Cues) ? 1 : 0);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_CHECK3), encTraits->canCues ? true : false);
+	::EnableWindow(::GetDlgItem(this, IDC_CHECK3), encTraits->canCues ? true : false);
 
 	const bool canTags = encTraits->canTags ? true : false;
 	SetChecked(IDC_CHECK7, encSettings.Tags ? canTags : false);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_CHECK7), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_COMBO3), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT11), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT6), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT7), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT8), canTags);
-	::EnableWindow(::GetDlgItem(m_hWnd, IDC_EDIT9), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_CHECK7), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_COMBO3), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT11), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT6), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT7), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT8), canTags);
+	::EnableWindow(::GetDlgItem(this, IDC_EDIT9), canTags);
 	m_CbnGenre->setEnabled(canTags?true:false);
 	m_EditGenre->setEnabled(canTags?true:false);
 
@@ -277,7 +278,7 @@ void CWaveConvert::FillTags()
 		m_CbnGenre->setVisible(true);
 		m_EditGenre->Clear();
 		m_CbnGenre->clear();
-		mfcless::AddItem(m_CbnGenre, U_(""));
+		mfcless::AddItem(m_CbnGenre, UL_(""));
 		for(const auto &genre : encTraits->genres)
 		{
 			mfcless::AddItem(m_CbnGenre, mpt::ToUnicode(genre));
@@ -602,7 +603,7 @@ void CWaveConvert::UpdateSubsongName()
 	const auto subsongText = GetDlgItem(IDC_SUBSONG);
 	if(subsongText == nullptr || m_selectedSong >= m_subSongs.size())
 		return;
-	subsongText->SetWindowText(m_SndFile.GetpModDoc()->FormatSubsongName(m_subSongs, m_selectedSong).c_str());
+	mfcless::SetWindowText(subsongText, m_SndFile.GetpModDoc()->FormatSubsongName(m_subSongs, m_selectedSong).c_str());
 }
 
 
@@ -664,7 +665,7 @@ void CWaveConvert::OnSampleSlotChanged()
 
 void CWaveConvert::OnPlayerOptions()
 {
-	CPropertySheet dlg(U_("Mixer Settings"), this);
+	PropertySheet dlg(UL_("Mixer Settings"), this);
 	COptionsMixer mixerpage;
 	dlg.AddPage(&mixerpage);
 #if !defined(NO_REVERB) || !defined(NO_DSP) || !defined(NO_EQ) || !defined(NO_AGC)
@@ -683,7 +684,7 @@ void CWaveConvert::OnCheckTimeLimit()
 		if (!m_dwSongLimit)
 		{
 			m_dwSongLimit = 600;
-			SetItemText(IDC_EDIT2, U_("600"));
+			SetItemText(IDC_EDIT2, UL_("600"));
 		}
 	} else m_dwSongLimit = 0;
 	UpdateDialog();
@@ -774,29 +775,29 @@ void CWaveConvert::OnOK()
 	{
 		mpt::ustring tmp;
 
-		m_EditTitle->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditTitle, tmp);
 		m_Settings.Tags.title = mpt::ToUnicode(tmp);
 
-		m_EditAuthor->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditAuthor, tmp);
 		m_Settings.Tags.artist = mpt::ToUnicode(tmp);
 
-		m_EditAlbum->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditAlbum, tmp);
 		m_Settings.Tags.album = mpt::ToUnicode(tmp);
 
-		m_EditURL->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditURL, tmp);
 		m_Settings.Tags.url = mpt::ToUnicode(tmp);
 
 		if((encTraits->modesWithFixedGenres & encSettings.Mode) && !encTraits->genres.empty())
 		{
-			m_CbnGenre->GetWindowText(tmp);
+			mfcless::GetWindowText(m_CbnGenre, tmp);
 			m_Settings.Tags.genre = mpt::ToUnicode(tmp);
 		} else
 		{
-			m_EditGenre->GetWindowText(tmp);
+			mfcless::GetWindowText(m_EditGenre, tmp);
 			m_Settings.Tags.genre = mpt::ToUnicode(tmp);
 		}
 
-		m_EditYear->GetWindowText(tmp);
+		mfcless::GetWindowText(m_EditYear, tmp);
 		m_Settings.Tags.year = mpt::ToUnicode(tmp);
 		if(m_Settings.Tags.year == U_("0"))
 		{
@@ -972,7 +973,7 @@ void CDoWaveConvert::Run()
 #ifndef NO_PLUGINS
 	if(m_Settings.silencePlugBuffers)
 	{
-		SetText(U_("Clearing plugin buffers"));
+		SetText(UL_("Clearing plugin buffers"));
 		for(auto &plug : m_SndFile.m_MixPlugins)
 		{
 			if(plug.pMixPlugin != nullptr)
@@ -1182,7 +1183,7 @@ void CDoWaveConvert::Run()
 
 		if (m_bGivePlugsIdleTime)
 		{
-			Sleep(20);
+			mfcless::SleepMs(20);
 		}
 
 		if (!lRead)
@@ -1406,7 +1407,7 @@ void CDoWaveConvert::Run()
 			{
 				break;
 			}
-			Sleep(10);
+			mfcless::SleepMs(10);
 		}
 
 	}

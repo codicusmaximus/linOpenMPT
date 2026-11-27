@@ -10,6 +10,7 @@
 
 
 #include "QuickStartDialog.h"
+#include "mfcless/Widgets.h"
 #include "Image.h"
 #include "ImageLists.h"
 #include "Mainfrm.h"
@@ -48,21 +49,21 @@ void QuickStartDlg::DoDataExchange(DataExchange &dx)
 
 QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, const std::vector<mpt::PathString> &examples, QWidget *parent)
 {
-	m_newButton->SetAccessibleText(U_("New Module"));
-	m_openButton->SetAccessibleText(U_("Open Module"));
+	m_newButton->SetAccessibleText(UL_("New Module"));
+	m_openButton->SetAccessibleText(UL_("Open Module"));
 	Create(IDD_QUICKSTART, parent);
 
 	m_groupsEnabled = m_list->EnableGroupView();
 	m_list->setUpdatesEnabled(false);
 	m_list->SetExtendedStyle(m_list->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
-	m_list->InsertColumn(0, U_("File"), LVCFMT_LEFT);
-	m_list->InsertColumn(1, U_("Location"), LVCFMT_LEFT);
+	m_list->InsertColumn(0, UL_("File"), LVCFMT_LEFT);
+	m_list->InsertColumn(1, UL_("Location"), LVCFMT_LEFT);
 	
 	const std::pair<const std::vector<mpt::PathString> &, const mpt::uchar *> PathGroups[] =
 	{
-		{TrackerSettings::Instance().mruFiles, U_("Recent Files")},
-		{templates, U_("Templates")},
-		{examples, U_("Example Modules")},
+		{TrackerSettings::Instance().mruFiles, UL_("Recent Files")},
+		{templates, UL_("Templates")},
+		{examples, UL_("Example Modules")},
 	};
 	static_assert(mpt::array_size<decltype(PathGroups)>::size == mpt::array_size<decltype(m_paths)>::size);
 	for(size_t groupId = 0; groupId < std::size(PathGroups); groupId++)
@@ -89,11 +90,11 @@ QuickStartDlg::QuickStartDlg(const std::vector<mpt::PathString> &templates, cons
 			group.stateMask = 0;
 			group.state = 0;
 			group.uAlign = LVGA_HEADER_LEFT;
-			ListView_InsertGroup(m_list->m_hWnd, -1, &group);
-			ListView_SetGroupState(m_list->m_hWnd, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
+			ListView_InsertGroup(m_list, -1, &group);
+			ListView_SetGroupState(m_list, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
 			if((TrackerSettings::Instance().quickStartGroupsCollapsed & (1 << groupId)) != 0)
 			{
-				ListView_SetGroupState(m_list->m_hWnd, group.iGroupId, LVGS_COLLAPSED, LVGS_COLLAPSED);
+				ListView_SetGroupState(m_list, group.iGroupId, LVGS_COLLAPSED, LVGS_COLLAPSED);
 			}
 		}
 
@@ -130,7 +131,7 @@ void QuickStartDlg::OnDPIChanged()
 		windowRect.right = Util::muldiv(windowRect.right, GetDPI(), m_prevDPI);
 		windowRect.bottom = Util::muldiv(windowRect.bottom, GetDPI(), m_prevDPI);
 		HighDPISupport::AdjustWindowRectEx(windowRect, GetStyle(), false, GetExStyle(), GetDPI());
-		SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+		SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoMove);
 	}
 	m_prevDPI = GetDPI();
 
@@ -144,8 +145,8 @@ void QuickStartDlg::OnDPIChanged()
 	std::unique_ptr<RawGDIDIB> bitmapNew, bitmapOpen;
 	try
 	{
-		bitmapNew = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_NEW_BIG), U_("PNG")), scaling);
-		bitmapOpen = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_OPEN_BIG), U_("PNG")), scaling);
+		bitmapNew = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_NEW_BIG), UL_("PNG")), scaling);
+		bitmapOpen = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_OPEN_BIG), UL_("PNG")), scaling);
 	} catch(...)
 	{
 		return;
@@ -162,7 +163,7 @@ void QuickStartDlg::OnDPIChanged()
 bool QuickStartDlg::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	// Use up/down keys to navigate in list, even if search field is focussed. This also skips the group headers during navigation
-	if(pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && GetFocus() == &m_find)
+	if(pMsg->message == mfcless::msg::KeyDown && (pMsg->wParam == mfcless::vk::UP || pMsg->wParam == mfcless::vk::DOWN) && mfcless::GetFocus() == &m_find)
 	{
 		const int curSel = m_list->GetSelectionMark();
 		const int selItem = std::clamp(curSel + (pMsg->wParam == mfcless::vk::UP ? -1 : 1), 0, m_list->GetItemCount() - 1);
@@ -194,10 +195,10 @@ void QuickStartDlg::UpdateHeight()
 	viewRect.bottom += itemRect.Height() * 2;  // View height calculation seems to be a bit off and would still cause a vertical scrollbar to appear without this adjustment
 	if(viewRect.bottom > listRect.bottom)
 		windowRect.bottom += viewRect.bottom - listRect.bottom;
-	const int maxHeight = std::max(HighDPISupport::ScalePixels(154, m_hWnd), Util::muldiv(parentRect.bottom, 9, 10));
+	const int maxHeight = std::max(HighDPISupport::ScalePixels(154, this), Util::muldiv(parentRect.bottom, 9, 10));
 	LimitMax(windowRect.bottom, maxHeight);
 	HighDPISupport::AdjustWindowRectEx(windowRect, GetStyle(), false, GetExStyle(), GetDPI());
-	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoZOrder | mfcless::swp::NoActivate | mfcless::swp::NoMove);
 }
 
 
@@ -209,7 +210,7 @@ void QuickStartDlg::OnNew()
 
 void QuickStartDlg::OnOpen()
 {
-	CMainFrame::GetMainFrame()->SendMessage(WM_COMMAND, ID_FILE_OPEN);
+	CMainFrame::GetMainFrame()->mfcless::SendCommand(this, ID_FILE_OPEN);
 }
 
 
@@ -259,7 +260,7 @@ void QuickStartDlg::OnUpdateFilter()
 		highlight = m_list->GetItemData(sel);
 	m_list->DeleteAllItems();
 	mpt::ustring filter;
-	m_find->GetWindowText(filter);
+	mfcless::GetWindowText(m_find, filter);
 	UpdateFileList(highlight, filter);
 	m_list->setUpdatesEnabled(true);
 }
@@ -269,7 +270,7 @@ void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 {
 	const bool applyFilter = !filter.IsEmpty();
 	if(applyFilter)
-		filter = U_("*") + filter + U_("*");
+		filter = UL_("*") + filter + UL_("*");
 
 	LVITEM lvi;
 	lvi.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
@@ -289,14 +290,14 @@ void QuickStartDlg::UpdateFileList(intptr_t highlight, mpt::ustring filter)
 		lvi.iGroupId = static_cast<int>(groupId);
 		for(size_t i = 0; i < m_paths[groupId].size(); i++)
 		{
-			if(m_paths[groupId][i].empty() || (applyFilter && !PathMatchSpec(m_paths[groupId][i].ToCString(), filter)))
+			if(m_paths[groupId][i].empty() || (applyFilter && !PathMatchSpec(m_paths[groupId][i].ToUnicode(), filter)))
 				continue;
 			const auto filename = m_paths[groupId][i].GetFilename().ToWide();
 			lvi.iItem = ++itemId;
 			lvi.lParam = static_cast<intptr_t>(i | (groupId << 24));
 			lvi.pszText = const_cast<mpt::uchar *>(filename.c_str());
 			m_list->InsertItem(&lvi);
-			m_list->SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().ToCString());
+			m_list->SetItemText(itemId, 1, m_paths[groupId][i].GetDirectoryWithDrive().ToUnicode());
 			if(lvi.lParam == highlight)
 			{
 				m_list->SetItemState(itemId, LVIS_SELECTED, LVIS_SELECTED);
@@ -333,7 +334,7 @@ void QuickStartDlg::OnOpenFile()
 	for(const auto &item : files)
 	{
 		if(item.group != 1)
-			success |= (theApp.OpenDocumentFile(item.path.ToCString()) != nullptr);
+			success |= (theApp.OpenDocumentFile(item.path.ToUnicode()) != nullptr);
 		else
 			success |= (theApp.OpenTemplateFile(item.path) != nullptr);
 	}
@@ -361,8 +362,8 @@ void QuickStartDlg::OnRightClickFile()
 		return;
 	mfcless::Menu menu;
 	menu.CreatePopupMenu();
-	menu.AppendMenu(mfcless::menu::String, ID_REMOVE, U_("&Remove from Recent File List"));
-	menu.AppendMenu(mfcless::menu::String, ID_REMOVE_ALL, U_("&Clear Recent File List"));
+	menu.AppendMenu(mfcless::menu::String, ID_REMOVE, UL_("&Remove from Recent File List"));
+	menu.AppendMenu(mfcless::menu::String, ID_REMOVE_ALL, UL_("&Clear Recent File List"));
 	menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, point.x, point.y, this);
 	menu.DestroyMenu();
 }
@@ -381,7 +382,7 @@ void QuickStartDlg::OnDestroy()
 		uint8 state = 0;
 		for(size_t groupId = 0; groupId < m_paths.size(); groupId++)
 		{
-			if((ListView_GetGroupState(m_list->m_hWnd, groupId, LVGS_COLLAPSED) & LVGS_COLLAPSED) != 0)
+			if((ListView_GetGroupState(m_list, groupId, LVGS_COLLAPSED) & LVGS_COLLAPSED) != 0)
 				state |= static_cast<uint8>(1 << groupId);
 		}
 		TrackerSettings::Instance().quickStartGroupsCollapsed = state;

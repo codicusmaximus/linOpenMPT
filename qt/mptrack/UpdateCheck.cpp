@@ -10,6 +10,7 @@
 
 
 #include "UpdateCheck.h"
+#include "mfcless/Widgets.h"
 #include "DialogBase.h"
 #include "dlg_misc.h"
 #include "HTTP.h"
@@ -366,7 +367,7 @@ protected:
 	QFont m_boldFont;
 
 public:
-	UpdateDialog(const mpt::ustring &releaseVersion, const mpt::ustring &releaseDate, const mpt::ustring &releaseURL, const mpt::ustring &buttonText = U_("&Update"))
+	UpdateDialog(const mpt::ustring &releaseVersion, const mpt::ustring &releaseDate, const mpt::ustring &releaseURL, const mpt::ustring &buttonText = UL_("&Update"))
 		: DialogBase(IDD_UPDATE)
 		, m_releaseVersion(releaseVersion)
 		, m_releaseDate(releaseDate)
@@ -390,7 +391,7 @@ public:
 		SetItemText(IDC_VERSION1, mpt::ufmt::val(VersionWithRevision::Current()));
 		SetItemText(IDC_VERSION2, m_releaseVersion);
 		SetItemText(IDC_DATE, m_releaseDate);
-		SetItemText(IDC_SYSLINK1, U_("More information about this build:\n<a href=\"") + m_releaseURL + U_("\">") + m_releaseURL + U_("</a>"));
+		SetItemText(IDC_SYSLINK1, UL_("More information about this build:\n<a href=\"") + m_releaseURL + UL_("\">") + m_releaseURL + UL_("</a>"));
 		SetChecked(IDC_CHECK1, (TrackerSettings::Instance().UpdateIgnoreVersion == m_releaseVersion) ? 1 : 0);
 		return false;
 	}
@@ -483,7 +484,7 @@ void CUpdateCheck::WaitForUpdateCheckFinished()
 		}
 		if(GetNumCurrentRunningInstances() > 0)
 		{
-			Sleep(1);
+			mfcless::SleepMs(1);
 		}
 	}
 }
@@ -525,11 +526,11 @@ void CUpdateCheck::StartUpdateCheckAsync(bool isAutoUpdate)
 			const auto checkIntervalDays = TrackerSettings::Instance().UpdateIntervalDays.Get();
 			mpt::ustring msg = MPT_UFORMAT("OpenMPT would like to check for updates now, proceed?\n\nNote: In the future, OpenMPT will check for updates {}. If you do not want this, you can disable update checks in the setup.")
 				(
-					checkIntervalDays == 0 ? mpt::ustring(U_("on every program start")) :
-					checkIntervalDays == 1 ? mpt::ustring(U_("every day")) :
+					checkIntervalDays == 0 ? mpt::ustring(UL_("on every program start")) :
+					checkIntervalDays == 1 ? mpt::ustring(UL_("every day")) :
 					MPT_UFORMAT("every {} days")(checkIntervalDays)
 				);
-			if(Reporting::Confirm(msg, U_("OpenMPT Update")) == cnfNo)
+			if(Reporting::Confirm(msg, UL_("OpenMPT Update")) == cnfNo)
 			{
 				TrackerSettings::Instance().UpdateLastUpdateCheck = now;
 				return;
@@ -539,12 +540,12 @@ void CUpdateCheck::StartUpdateCheckAsync(bool isAutoUpdate)
 	{
 		if(!IsSuitableUpdateMoment())
 		{
-			Reporting::Notification(U_("Please save all modified modules before updating OpenMPT."), U_("OpenMPT Update"));
+			Reporting::Notification(UL_("Please save all modified modules before updating OpenMPT."), UL_("OpenMPT Update"));
 			return;
 		}
 		if(!TrackerSettings::Instance().UpdateEnabled)
 		{
-			if(Reporting::Confirm(U_("Update Check is disabled. Do you want to check anyway?"), U_("OpenMPT Update")) != cnfYes)
+			if(Reporting::Confirm(UL_("Update Check is disabled. Do you want to check anyway?"), UL_("OpenMPT Update")) != cnfYes)
 			{
 				return;
 			}
@@ -903,7 +904,7 @@ void CUpdateCheck::CheckForUpdate(const CUpdateCheck::Settings &settings, const 
 			throw CUpdateCheck::Error(MPT_UFORMAT("Error parsing update URL: {}")(mpt::get_exception_text<mpt::ustring>(e)));
 		} catch(const HTTP::exception &e)
 		{
-			throw CUpdateCheck::Error(mpt::ustring(U_("HTTP error: ")) + mpt::ToUnicode(e.GetMessage()));
+			throw CUpdateCheck::Error(mpt::ustring(UL_("HTTP error: ")) + mpt::ToUnicode(e.GetMessage()));
 		}
 	} catch(const CUpdateCheck::Cancel &)
 	{
@@ -1067,9 +1068,9 @@ public:
 	{
 		try
 		{
-			SetTitle(U_("OpenMPT Update"));
-			SetAbortText(U_("Cancel"));
-			SetText(U_("OpenMPT Update"));
+			SetTitle(UL_("OpenMPT Update"));
+			SetAbortText(UL_("Cancel"));
+			SetText(UL_("OpenMPT Update"));
 			SetRange(0, 10000);
 			ProcessMessages();
 
@@ -1078,10 +1079,10 @@ public:
 			mpt::PathString updateFilename;
 			{
 
-				UpdateProgress(U_("Connecting..."), 0.0);
+				UpdateProgress(UL_("Connecting..."), 0.0);
 				HTTP::InternetSession internet(Version::Current().GetOpenMPTVersionString());
 
-				UpdateProgress(U_("Downloading update information..."), 1.0);
+				UpdateProgress(UL_("Downloading update information..."), 1.0);
 				std::vector<std::byte> rawDownloadInfo;
 				{
 					HTTP::Request request;
@@ -1102,7 +1103,7 @@ public:
 				if(!TrackerSettings::Instance().UpdateSkipSignatureVerificationUNSECURE)
 				{
 					std::vector<std::byte> rawSignature;
-					UpdateProgress(U_("Retrieving update signature..."), 2.0);
+					UpdateProgress(UL_("Retrieving update signature..."), 2.0);
 					{
 						HTTP::Request request;
 						request.SetURI(ParseURI(download.url + U_(".jws.json")));
@@ -1118,7 +1119,7 @@ public:
 						}
 						rawSignature = std::move(resultHTTP.Data);
 					}
-					UpdateProgress(U_("Retrieving update signing public keys..."), 3.0);
+					UpdateProgress(UL_("Retrieving update signing public keys..."), 3.0);
 					std::vector<mpt::crypto::asymmetric::rsassa_pss<>::public_key> keys;
 					{
 						std::vector<mpt::ustring> keyAnchors = TrackerSettings::Instance().UpdateSigningKeysRootAnchors;
@@ -1157,7 +1158,7 @@ public:
 					{
 						throw Error(U_("Error retrieving update signing public keys."));
 					}
-					UpdateProgress(U_("Verifying signature..."), 4.0);
+					UpdateProgress(UL_("Verifying signature..."), 4.0);
 					std::vector<std::byte> expectedPayload = mpt::buffer_cast<std::vector<std::byte>>(rawDownloadInfo);
 					mpt::ustring signature = mpt::ToUnicode(mpt::Charset::UTF8, mpt::buffer_cast<std::string>(rawSignature));
 
@@ -1165,7 +1166,7 @@ public:
 			
 				}
 
-				UpdateProgress(U_("Parsing update information..."), 5.0);
+				UpdateProgress(UL_("Parsing update information..."), 5.0);
 				try
 				{
 					downloadinfo = nlohmann::json::parse(mpt::buffer_cast<std::string>(rawDownloadInfo)).get<Update::downloadinfo>();
@@ -1174,7 +1175,7 @@ public:
 					throw Error(MPT_UFORMAT("Error parsing update information: {}.")(mpt::get_exception_text<mpt::ustring>(e)));
 				}
 
-				UpdateProgress(U_("Preparing download..."), 6.0);
+				UpdateProgress(UL_("Preparing download..."), 6.0);
 				mpt::PathString dirTemp = CUpdateCheck::GetUpdateTempDirectory(theApp.IsPortableMode());
 				if(theApp.IsPortableMode())
 				{
@@ -1188,12 +1189,12 @@ public:
 
 				{
 			
-					UpdateProgress(U_("Creating file..."), 7.0);
+					UpdateProgress(UL_("Creating file..."), 7.0);
 					mpt::IO::SafeOutputFile file(updateFilename, std::ios::binary);
 					file.stream().imbue(std::locale::classic());
 					file.stream().exceptions(std::ios::failbit | std::ios::badbit);
 				
-					UpdateProgress(U_("Downloading update..."), 8.0);
+					UpdateProgress(UL_("Downloading update..."), 8.0);
 					HTTP::Request request;
 					request.SetURI(ParseURI(downloadinfo.url));
 					request.method = HTTP::Method::Get;
@@ -1249,10 +1250,10 @@ public:
 					}
 				}
 
-				UpdateProgress(U_("Disconnecting..."), 97.0);
+				UpdateProgress(UL_("Disconnecting..."), 97.0);
 			}
 
-			UpdateProgress(U_("Verifying download..."), 98.0);
+			UpdateProgress(UL_("Verifying download..."), 98.0);
 			bool verified = false;
 			for(const auto & [algorithm, value] : downloadinfo.checksums)
 			{
@@ -1287,7 +1288,7 @@ public:
 				throw Error(U_("Error verifying update: No suitable checksum found."));
 			}
 
-			UpdateProgress(U_("Installing update..."), 99.0);
+			UpdateProgress(UL_("Installing update..."), 99.0);
 			bool wantClose = false;
 			if(download.can_autoupdate && (Version::Current() >= Version::Parse(download.autoupdate_minversion)))
 			{
@@ -1351,7 +1352,7 @@ public:
 				CTrackApp::OpenDirectory(dirTempOpenMPTUpdates);
 				wantClose = true;
 			}
-			UpdateProgress(U_("Waiting for installer..."), 100.0);
+			UpdateProgress(UL_("Waiting for installer..."), 100.0);
 			if(wantClose)
 			{
 				CMainFrame::GetMainFrame()->PostMessage(WM_QUIT, 0, 0);
@@ -1436,15 +1437,15 @@ void CUpdateCheck::ShowSuccessGUI(const bool autoUpdate, const UpdateCheckResult
 		}
 	} else
 	{
-		const mpt::uchar *action = U_("&View Announcement");
+		const mpt::uchar *action = UL_("&View Announcement");
 		const bool canInstall = mpt::OS::Windows::IsOriginal() && !updateInfo.download.empty() && versionInfo.downloads[updateInfo.download].can_autoupdate && (Version::Current() >= Version::Parse(versionInfo.downloads[updateInfo.download].autoupdate_minversion));
 		const bool canDownload = !canInstall && !updateInfo.download.empty() && !versionInfo.downloads[updateInfo.download].download_url.empty();
 		if(canInstall)
 		{
-			action = U_("&Install Now");
+			action = UL_("&Install Now");
 		} else if(canDownload)
 		{
-			action = U_("&Download Now");
+			action = UL_("&Download Now");
 		}
 
 		// always show indicator, do not highlight it with a tooltip if we show a modal window later or when it is a cached result
@@ -1491,7 +1492,7 @@ void CUpdateCheck::ShowFailureGUI(const bool autoUpdate, const CUpdateCheck::Err
 {
 	if(!autoUpdate)
 	{
-		Reporting::Error(error.GetMessage(), U_("OpenMPT Update Error"));
+		Reporting::Error(error.GetMessage(), UL_("OpenMPT Update Error"));
 	}
 }
 
@@ -1591,35 +1592,35 @@ bool CUpdateSetupDlg::OnInitDialog()
 	int32 periodDays = TrackerSettings::Instance().UpdateIntervalDays;
 	int ndx;
 
-	ndx = mfcless::AddItem(m_CbnUpdateFrequency, U_("always"));
+	ndx = mfcless::AddItem(m_CbnUpdateFrequency, UL_("always"));
 	mfcless::SetItemData(m_CbnUpdateFrequency, ndx, 0);
 	if(periodDays >= 0)
 	{
 		m_CbnUpdateFrequency->setCurrentIndex(ndx);
 	}
 
-	ndx = mfcless::AddItem(m_CbnUpdateFrequency, U_("daily"));
+	ndx = mfcless::AddItem(m_CbnUpdateFrequency, UL_("daily"));
 	mfcless::SetItemData(m_CbnUpdateFrequency, ndx, 1);
 	if(periodDays >= 1)
 	{
 		m_CbnUpdateFrequency->setCurrentIndex(ndx);
 	}
 
-	ndx = mfcless::AddItem(m_CbnUpdateFrequency, U_("weekly"));
+	ndx = mfcless::AddItem(m_CbnUpdateFrequency, UL_("weekly"));
 	mfcless::SetItemData(m_CbnUpdateFrequency, ndx, 7);
 	if(periodDays >= 7)
 	{
 		m_CbnUpdateFrequency->setCurrentIndex(ndx);
 	}
 
-	ndx = mfcless::AddItem(m_CbnUpdateFrequency, U_("monthly"));
+	ndx = mfcless::AddItem(m_CbnUpdateFrequency, UL_("monthly"));
 	mfcless::SetItemData(m_CbnUpdateFrequency, ndx, 30);
 	if(periodDays >= 30)
 	{
 		m_CbnUpdateFrequency->setCurrentIndex(ndx);
 	}
 
-	ndx = mfcless::AddItem(m_CbnUpdateFrequency, U_("never"));
+	ndx = mfcless::AddItem(m_CbnUpdateFrequency, UL_("never"));
 	mfcless::SetItemData(m_CbnUpdateFrequency, ndx, ~(uintptr_t)0);
 	if(periodDays < 0)
 	{		
@@ -1692,7 +1693,7 @@ void CUpdateSetupDlg::OnShowStatisticsData()
 	}
 
 	InfoDialog dlg(this);
-	dlg.SetCaption(U_("Update Statistics Data"));
+	dlg.SetCaption(UL_("Update Statistics Data"));
 	dlg.SetContent(mpt::ToUnicode(mpt::replace(statistics, U_("\n"), U_("\r\n"))));
 	dlg.DoModal();
 }
@@ -1706,9 +1707,9 @@ void CUpdateSetupDlg::SettingChanged(const SettingPath &changedPath)
 		const mpt::Date::Unix t = TrackerSettings::Instance().UpdateLastUpdateCheck.Get();
 		if(t != mpt::Date::Unix{})
 		{
-			updateText += CTime(mpt::Date::UnixAsSeconds(t)).Format(U_("The last successful update check was run on %F, %R."));
+			updateText += CTime(mpt::Date::UnixAsSeconds(t)).Format(UL_("The last successful update check was run on %F, %R."));
 		}
-		updateText += U_("\r\n");
+		updateText += UL_("\r\n");
 		SetItemText(IDC_LASTUPDATE, updateText);
 	}
 }

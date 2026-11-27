@@ -10,6 +10,7 @@
 
 
 #include "UpdateToolTip.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mptrack.h"
 #include "Mainfrm.h"
@@ -31,7 +32,7 @@ void UpdateToolTip::RegisterMessageMap()
 
 bool UpdateToolTip::ShowUpdate(QWidget &parent, const mpt::ustring &newVersion, const mpt::ustring &infoURL, const mfcless::Rect rectClient, const mfcless::Point ptScreen, const int buttonID)
 {
-	if(m_hWnd)
+	if(this)
 		DestroyWindow();
 	Create(&parent, TTS_NOPREFIX | TTS_BALLOON | TTS_CLOSE | TTS_NOFADE);
 
@@ -48,8 +49,8 @@ bool UpdateToolTip::ShowUpdate(QWidget &parent, const mpt::ustring &newVersion, 
 	if(!SendMessage(TTM_ADDTOOL, 0, reinterpret_cast<intptr_t>(&ti)))
 		return false;
 
-	SetTitle(TTI_INFO, U_("Update Available"));
-	SetMaxTipWidth(HighDPISupport::ScalePixels(400, m_hWnd));  // When using automatic maximum width, only the first line of the text appears to be used for determining the width, causing subsequent lines to be cut off if they are longer.#
+	SetTitle(TTI_INFO, UL_("Update Available"));
+	SetMaxTipWidth(HighDPISupport::ScalePixels(400, this));  // When using automatic maximum width, only the first line of the text appears to be used for determining the width, causing subsequent lines to be cut off if they are longer.#
 	SendMessage(TTM_TRACKPOSITION, 0, static_cast<intptr_t>(MAKELONG(ptScreen.x, ptScreen.y)));
 	SendMessage(TTM_TRACKACTIVATE, true, reinterpret_cast<intptr_t>(&ti));
 	return true;

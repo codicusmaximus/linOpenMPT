@@ -10,6 +10,7 @@
 
 
 #include "GeneralConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "FolderScanner.h"
 #include "Mainfrm.h"
@@ -40,7 +41,7 @@ void COptionsGeneral::RegisterMessageMap()
 
 COptionsGeneral::COptionsGeneral() : CPropertyPage{IDD_OPTIONS_GENERAL}
 {
-	m_templateBrowseButton->SetAccessibleText(U_("Browse for template file..."));
+	m_templateBrowseButton->SetAccessibleText(UL_("Browse for template file..."));
 }
 
 
@@ -99,7 +100,7 @@ bool COptionsGeneral::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
 
-	m_defaultArtist->SetWindowText(mpt::ToUnicode(TrackerSettings::Instance().defaultArtist.Get()));
+	mfcless::SetWindowText(m_defaultArtist, mpt::ToUnicode(TrackerSettings::Instance().defaultArtist.Get()));
 
 	static constexpr struct
 	{
@@ -107,12 +108,12 @@ bool COptionsGeneral::OnInitDialog()
 		const mpt::uchar *str;
 	} formats[] =
 	{
-		{ MOD_TYPE_MOD, U_("MOD (Amiga)") },
-		{ MOD_TYPE_MOD_PC, U_("MOD (PC)")},
-		{ MOD_TYPE_XM, U_("XM") },
-		{ MOD_TYPE_S3M, U_("S3M") },
-		{ MOD_TYPE_IT, U_("IT") },
-		{ MOD_TYPE_MPT, U_("MPTM") },
+		{ MOD_TYPE_MOD, UL_("MOD (Amiga)") },
+		{ MOD_TYPE_MOD_PC, UL_("MOD (PC)")},
+		{ MOD_TYPE_XM, UL_("XM") },
+		{ MOD_TYPE_S3M, UL_("S3M") },
+		{ MOD_TYPE_IT, UL_("IT") },
+		{ MOD_TYPE_MPT, UL_("MPTM") },
 	};
 	m_defaultFormat->setCurrentIndex(0);
 	for(const auto &fmt : formats)
@@ -132,14 +133,14 @@ bool COptionsGeneral::OnInitDialog()
 	{
 		mpt::RawPathString fileW = file.AsNative();
 		fileW = fileW.substr(basePath.Length());
-		::SendMessage(m_defaultTemplate->m_hWnd, CB_ADDSTRING, 0, (intptr_t)fileW.c_str());
+		::SendMessage(m_defaultTemplate, CB_ADDSTRING, 0, (intptr_t)fileW.c_str());
 	}
 	file = TrackerSettings::Instance().defaultTemplateFile;
 	if(file.GetDirectoryWithDrive() == basePath)
 	{
 		file = file.GetFilename();
 	}
-	m_defaultTemplate->SetWindowText(file.ToCString());
+	mfcless::SetWindowText(m_defaultTemplate, file.ToUnicode());
 
 	CheckRadio(IDC_RADIO1, IDC_RADIO3, IDC_RADIO1 + TrackerSettings::Instance().defaultNewFileAction);
 
@@ -162,7 +163,7 @@ void COptionsGeneral::OnOK()
 {
 	TrackerSettings::Instance().defaultArtist = GetWindowTextUnicode(m_defaultArtist);
 	TrackerSettings::Instance().defaultModType = static_cast<MODTYPE>(mfcless::GetItemData(m_defaultFormat, m_defaultFormat->currentIndex()));
-	TrackerSettings::Instance().defaultTemplateFile = mpt::PathString::FromCString(GetWindowTextString(m_defaultTemplate));
+	TrackerSettings::Instance().defaultTemplateFile = mpt::PathString::FromUnicode(GetWindowTextString(m_defaultTemplate));
 
 	NewFileAction action = nfDefaultFormat;
 	int newActionRadio = GetCheckedRadio(IDC_RADIO1, IDC_RADIO3);
@@ -171,7 +172,7 @@ void COptionsGeneral::OnOK()
 	if(action == nfDefaultTemplate && TrackerSettings::Instance().defaultTemplateFile.Get().empty())
 	{
 		action = nfDefaultFormat;
-		::MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 	}
 	TrackerSettings::Instance().defaultNewFileAction = action;
 
@@ -212,7 +213,7 @@ void COptionsGeneral::OnOptionSelChanged()
 void COptionsGeneral::OnBrowseTemplate()
 {
 	mpt::PathString basePath = theApp.GetUserTemplatesPath();
-	mpt::PathString defaultFile = mpt::PathString::FromCString(GetWindowTextString(m_defaultTemplate));
+	mpt::PathString defaultFile = mpt::PathString::FromUnicode(GetWindowTextString(m_defaultTemplate));
 	if(defaultFile.empty()) defaultFile = TrackerSettings::Instance().defaultTemplateFile;
 
 	OpenFileDialog dlg;
@@ -221,7 +222,7 @@ void COptionsGeneral::OnBrowseTemplate()
 		dlg.WorkingDirectory(basePath);
 	} else
 	{
-		if(defaultFile.ToWide().find_first_of(U_("/\\")) == std::wstring::npos)
+		if(defaultFile.ToWide().find_first_of(UL_("/\\")) == std::wstring::npos)
 		{
 			// Relative path
 			defaultFile = basePath + defaultFile;
@@ -235,7 +236,7 @@ void COptionsGeneral::OnBrowseTemplate()
 		{
 			defaultFile = defaultFile.GetFilename();
 		}
-		m_defaultTemplate->SetWindowText(defaultFile.ToCString());
+		mfcless::SetWindowText(m_defaultTemplate, defaultFile.ToUnicode());
 		OnTemplateChanged();
 	}
 }

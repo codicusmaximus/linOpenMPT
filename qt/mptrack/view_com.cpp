@@ -11,6 +11,7 @@
 
 
 #include "view_com.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Clipboard.h"
 #include "Ctrl_com.h"
@@ -30,7 +31,7 @@
 OPENMPT_NAMESPACE_BEGIN
 
 
-#define DETAILS_TOOLBAR_CY HighDPISupport::ScalePixels(28, m_hWnd)
+#define DETAILS_TOOLBAR_CY HighDPISupport::ScalePixels(28, this)
 
 enum
 {
@@ -60,24 +61,24 @@ enum
 
 static constexpr CListCtrlEx::Header SampleHeaders[SMPLIST_COLUMNS] =
 {
-	{ U_("Sample Name"), 212, LVCFMT_LEFT },
-	{ U_("Num"),         45,  LVCFMT_RIGHT },
-	{ U_("Size"),        72,  LVCFMT_RIGHT },
-	{ U_("Type"),        80,  LVCFMT_RIGHT },
-	{ U_("C-5 Freq"),    80,  LVCFMT_RIGHT },
-	{ U_("Instr"),       64,  LVCFMT_RIGHT },
-	{ U_("File Name"),   160, LVCFMT_RIGHT },
-	{ U_("Path"),        256, LVCFMT_LEFT },
+	{ UL_("Sample Name"), 212, LVCFMT_LEFT },
+	{ UL_("Num"),         45,  LVCFMT_RIGHT },
+	{ UL_("Size"),        72,  LVCFMT_RIGHT },
+	{ UL_("Type"),        80,  LVCFMT_RIGHT },
+	{ UL_("C-5 Freq"),    80,  LVCFMT_RIGHT },
+	{ UL_("Instr"),       64,  LVCFMT_RIGHT },
+	{ UL_("File Name"),   160, LVCFMT_RIGHT },
+	{ UL_("Path"),        256, LVCFMT_LEFT },
 };
 
 static constexpr CListCtrlEx::Header InstrumentHeaders[INSLIST_COLUMNS] =
 {
-	{ U_("Instrument Name"), 212, LVCFMT_LEFT },
-	{ U_("Num"),             45,  LVCFMT_RIGHT },
-	{ U_("Samples"),         64,  LVCFMT_RIGHT },
-	{ U_("Envelopes"),       128, LVCFMT_RIGHT },
-	{ U_("File Name"),       160, LVCFMT_RIGHT },
-	{ U_("Plugin"),          128, LVCFMT_RIGHT },
+	{ UL_("Instrument Name"), 212, LVCFMT_LEFT },
+	{ UL_("Num"),             45,  LVCFMT_RIGHT },
+	{ UL_("Samples"),         64,  LVCFMT_RIGHT },
+	{ UL_("Envelopes"),       128, LVCFMT_RIGHT },
+	{ UL_("File Name"),       160, LVCFMT_RIGHT },
+	{ UL_("Plugin"),          128, LVCFMT_RIGHT },
 };
 
 
@@ -146,8 +147,8 @@ void CViewComments::OnInitialUpdate()
 void CViewComments::OnDPIChanged()
 {
 	UpdateView(GeneralHint().MPTOptions().ModType());
-	m_ToolBar->SetIndent(HighDPISupport::ScalePixels(4, m_hWnd));
-	const int imgSize = HighDPISupport::ScalePixels(16, m_hWnd), btnSizeX = HighDPISupport::ScalePixels(26, m_hWnd), btnSizeY = HighDPISupport::ScalePixels(24, m_hWnd);
+	m_ToolBar->SetIndent(HighDPISupport::ScalePixels(4, this));
+	const int imgSize = HighDPISupport::ScalePixels(16, this), btnSizeX = HighDPISupport::ScalePixels(26, this), btnSizeY = HighDPISupport::ScalePixels(24, this);
 	m_ToolBar->SetButtonSize(mfcless::Size(btnSizeX, btnSizeY));
 	m_ToolBar->SetBitmapSize(mfcless::Size(imgSize, imgSize));
 	RecalcLayout();
@@ -319,7 +320,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 {
 	const CModDoc *pModDoc = GetDocument();
 
-	if ((!pModDoc) || (!(m_ItemList->m_hWnd))) return;
+	if ((!pModDoc) || (!(m_ItemList))) return;
 	const FlagSet<HintType> hintType = hint.GetType();
 	if (hintType[HINT_MPTOPTIONS])
 	{
@@ -398,9 +399,9 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						break;
 					case SMPLIST_TYPE:
 						if(sample.uFlags[CHN_ADLIB])
-							s = U_("OPL");
+							s = UL_("OPL");
 						else if(sample.HasSampleData())
-							s = MPT_UFORMAT("{}-bit {}")(sample.GetElementarySampleSize() * 8, (sample.GetNumChannels() == 2) ? mpt::ustring(U_("stereo")) : mpt::ustring(U_("mono")));
+							s = MPT_UFORMAT("{}-bit {}")(sample.GetElementarySampleSize() * 8, (sample.GetNumChannels() == 2) ? mpt::ustring(UL_("stereo")) : mpt::ustring(UL_("mono")));
 						break;
 					case SMPLIST_INSTR:
 						if (sndFile.GetNumInstruments())
@@ -410,10 +411,10 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 							{
 								if (sndFile.IsSampleReferencedByInstrument(iSmp + 1, i))
 								{
-									if (!first) s.AppendChar(_T(','));
+									if (!first) s.push_back(u8',');
 									first = false;
 
-									s.AppendFormat(U_("%u"), i);
+									s += mfcless::PrintF(UL_("%u"), i);
 								}
 							}
 						}
@@ -421,14 +422,14 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 					case SMPLIST_MIDDLEC:
 						if (sample.nLength)
 						{
-							s.Format(U_("%u Hz"), sample.GetSampleRate(sndFile.GetType()));
+							s = mfcless::PrintF(UL_("%u Hz"), sample.GetSampleRate(sndFile.GetType()));
 						}
 						break;
 					case SMPLIST_FILENAME:
 						s = mpt::ToUnicode(sndFile.GetCharsetInternal(), sample.filename);
 						break;
 					case SMPLIST_PATH:
-						s = sndFile.GetSamplePath(iSmp + 1).ToCString();
+						s = sndFile.GetSamplePath(iSmp + 1).ToUnicode();
 						break;
 					}
 					if ((iCol) || (iSmp < nCount))
@@ -446,7 +447,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						lvi.mask = LVIF_TEXT;
 						lvi.iItem = iSmp;
 						lvi.iSubItem = nCol;
-						lvi.pszText = const_cast<mpt::uchar *>(s.GetString());
+						lvi.pszText = const_cast<mpt::uchar *>(s.c_str());
 						m_ItemList->InsertItem(&lvi);
 					}
 					nCol++;
@@ -485,18 +486,18 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 							bool first = true;
 							for(auto sample : pIns->GetSamples())
 							{
-								if(!first) s.AppendChar(_T(','));
+								if(!first) s.push_back(u8',');
 								first = false;
-								s.AppendFormat(U_("%u"), sample);
+								s += mfcless::PrintF(UL_("%u"), sample);
 							}
 						}
 						break;
 					case INSLIST_ENVELOPES:
 						if (pIns)
 						{
-							if (pIns->VolEnv.dwFlags[ENV_ENABLED]) s += U_("Vol");
-							if (pIns->PanEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += U_(", "); s += U_("Pan"); }
-							if (pIns->PitchEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += U_(", "); s += (pIns->PitchEnv.dwFlags[ENV_FILTER] ? U_("Filter") : U_("Pitch")); }
+							if (pIns->VolEnv.dwFlags[ENV_ENABLED]) s += UL_("Vol");
+							if (pIns->PanEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += UL_(", "); s += UL_("Pan"); }
+							if (pIns->PitchEnv.dwFlags[ENV_ENABLED]) { if (!s.IsEmpty()) s += UL_(", "); s += (pIns->PitchEnv.dwFlags[ENV_FILTER] ? UL_("Filter") : UL_("Pitch")); }
 						}
 						break;
 					case INSLIST_FILENAME:
@@ -508,7 +509,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 					case INSLIST_PLUGIN:
 						if (pIns != nullptr && pIns->nMixPlug > 0 && sndFile.m_MixPlugins[pIns->nMixPlug - 1].IsValidPlugin())
 						{
-							s.Format(U_("FX%02u: "), pIns->nMixPlug);
+							s = mfcless::PrintF(UL_("FX%02u: "), pIns->nMixPlug);
 							s += mpt::ToUnicode(sndFile.m_MixPlugins[pIns->nMixPlug - 1].GetLibraryName());
 						}
 						break;
@@ -528,7 +529,7 @@ void CViewComments::UpdateView(UpdateHint hint, QObject *)
 						lvi.mask = LVIF_TEXT;
 						lvi.iItem = iIns;
 						lvi.iSubItem = nCol;
-						lvi.pszText = const_cast<mpt::uchar *>(s.GetString());
+						lvi.pszText = const_cast<mpt::uchar *>(s.c_str());
 						m_ItemList->InsertItem(&lvi);
 					}
 					nCol++;
@@ -551,10 +552,10 @@ void CViewComments::RecalcLayout()
 {
 	mfcless::Rect rect;
 
-	if (!m_hWnd) return;
+	if (!this) return;
 	GetClientRect(&rect);
-	m_ToolBar->SetWindowPos(NULL, 0, 0, rect.Width(), DETAILS_TOOLBAR_CY, SWP_NOZORDER|SWP_NOACTIVATE);
-	m_ItemList->SetWindowPos(NULL, -1, DETAILS_TOOLBAR_CY, rect.Width()+2, rect.Height() - DETAILS_TOOLBAR_CY + 1, SWP_NOZORDER|SWP_NOACTIVATE);
+	m_ToolBar->SetWindowPos(NULL, 0, 0, rect.Width(), DETAILS_TOOLBAR_CY, mfcless::swp::NoZOrder|mfcless::swp::NoActivate);
+	m_ItemList->SetWindowPos(NULL, -1, DETAILS_TOOLBAR_CY, rect.Width()+2, rect.Height() - DETAILS_TOOLBAR_CY + 1, mfcless::swp::NoZOrder|mfcless::swp::NoActivate);
 }
 
 
@@ -637,7 +638,7 @@ void CViewComments::OnEndLabelEdit()
 void CViewComments::OnSize(uint32 nType, int cx, int cy)
 {
 	CModScrollView::OnSize(nType, cx, cy);
-	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0) && (m_hWnd))
+	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0) && (this))
 	{
 		RecalcLayout();
 	}
@@ -709,8 +710,8 @@ void CViewComments::OnRClickListItem()
 {
 	const auto ih = CMainFrame::GetMainFrame()->GetInputHandler();
 	mfcless::Menu menu = mfcless::Menu::CreatePopup();
-	menu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, U_("&Copy Names")));
-	menu.AppendMenu(mfcless::menu::String | (mfcless::clip::IsFormatAvailable(mfcless::clip::UnicodeText) ? 0 : mfcless::menu::Disabled), ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, U_("&Paste Names")));
+	menu.AppendMenu(mfcless::menu::String, ID_EDIT_COPY, ih->GetKeyTextFromCommand(kcEditCopy, UL_("&Copy Names")));
+	menu.AppendMenu(mfcless::menu::String | (mfcless::clip::IsFormatAvailable(mfcless::clip::UnicodeText) ? 0 : mfcless::menu::Disabled), ID_EDIT_PASTE, ih->GetKeyTextFromCommand(kcEditPaste, UL_("&Paste Names")));
 	mfcless::Point pt;
 	::GetCursorPos(&pt);
 	menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, pt.x, pt.y, this);

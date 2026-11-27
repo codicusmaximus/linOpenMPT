@@ -99,6 +99,8 @@ public:
 
 protected:
 	virtual void OnOK() { if(UpdateData(true)) accept(); }
+	// Closes a modal dialog with this result (IDOK accepts it).
+	void EndDialog(int result) { done(result == 1 /* IDOK */ ? QDialog::Accepted : result); }
 	virtual void OnCancel() { reject(); }
 	virtual void DoDataExchange(DataExchange & /*dx*/) {}
 	void RegisterMessageMap() override;

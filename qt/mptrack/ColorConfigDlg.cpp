@@ -10,6 +10,7 @@
 
 
 #include "ColorConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "ColorSchemes.h"
 #include "FileDialog.h"
 #include "HighDPISupport.h"
@@ -38,7 +39,7 @@ public:
 		mfcless::DC * dc = ::GetDC(nullptr);
 		uint32 dpi = ::GetDeviceCaps(dc, LOGPIXELSX);
 		::ReleaseDC(nullptr, dc);
-		m_cf.lpLogFont->lfHeight = -MulDiv(m_cf.lpLogFont->lfHeight, dpi, 720);
+		m_cf.lpLogFont->lfHeight = -mfcless::MulDiv(m_cf.lpLogFont->lfHeight, dpi, 720);
 		return CFontDialog::DoModal();
 	}
 };
@@ -52,20 +53,20 @@ static constexpr struct ColorDescriptions
 	std::array<const mpt::uchar *, 3> descText;
 } colorDefs[] =
 {
-	{ U_("Pattern Editor"),      0, { MODCOLOR_BACKNORMAL, MODCOLOR_TEXTNORMAL, MODCOLOR_BACKHILIGHT }, { U_("Background:"), U_("Foreground:"), U_("Highlighted:") } },
-	{ U_("Active Row"),          0, { MODCOLOR_BACKCURROW, MODCOLOR_TEXTCURROW, MODCOLOR_BACKRECORDROW }, { U_("Background:"), U_("Foreground:"), U_("Background (Record):")}},
-	{ U_("Pattern Selection"),   0, { MODCOLOR_BACKSELECTED, MODCOLOR_TEXTSELECTED, {} }, { U_("Background:"), U_("Foreground:"), nullptr } },
-	{ U_("Play Cursor"),         0, { MODCOLOR_BACKPLAYCURSOR, MODCOLOR_TEXTPLAYCURSOR, {} }, { U_("Background:"), U_("Foreground:"), nullptr } },
-	{ U_("Note Highlight"),      0, { MODCOLOR_NOTE, MODCOLOR_INSTRUMENT, MODCOLOR_VOLUME }, { U_("Note:"), U_("Instrument:"), U_("Volume:") } },
-	{ U_("Effect Highlight"),    0, { MODCOLOR_PANNING, MODCOLOR_PITCH, MODCOLOR_GLOBALS }, { U_("Panning Effects:"), U_("Pitch Effects:"), U_("Global Effects:") } },
-	{ U_("Invalid Commands"),    0, { MODCOLOR_DODGY_COMMANDS, {}, {} }, { U_("Invalid Note:"), nullptr, nullptr } },
-	{ U_("Channel Separator"),   0, { MODCOLOR_SEPHILITE, MODCOLOR_SEPFACE, MODCOLOR_SEPSHADOW }, { U_("Highlight:"), U_("Face:"), U_("Shadow:") } },
-	{ U_("Next/Prev Pattern"),   0, { MODCOLOR_BLENDCOLOR, {}, {} }, { U_("Blend Colour:"), nullptr, nullptr } },
-	{ U_("Sample Waveform"),     1, { MODCOLOR_SAMPLE, MODCOLOR_BACKSAMPLE, MODCOLOR_SAMPLESELECTED }, { U_("Sample Data:"), U_("Background:"), U_("Selection:") } },
-	{ U_("Sample Markers"),      1, { MODCOLOR_SAMPLE_LOOPMARKER, MODCOLOR_SAMPLE_SUSTAINMARKER, MODCOLOR_SAMPLE_CUEPOINT}, { U_("Loop Marker:"), U_("Sustain Marker:"), U_("Cue Point:") } },
-	{ U_("Instrument Editor"),   2, { MODCOLOR_ENVELOPES, MODCOLOR_ENVELOPE_RELEASE, MODCOLOR_BACKENV }, { U_("Envelopes:"), U_("Release Envelope:"), U_("Background:") } },
-	{ U_("VU-Meters"),           0, { MODCOLOR_VUMETER_HI, MODCOLOR_VUMETER_MED, MODCOLOR_VUMETER_LO }, { U_("Hi:"), U_("Med:"), U_("Lo:") } },
-	{ U_("VU-Meters (Plugins)"), 0, { MODCOLOR_VUMETER_HI_VST, MODCOLOR_VUMETER_MED_VST, MODCOLOR_VUMETER_LO_VST }, { U_("Hi:"), U_("Med:"), U_("Lo:") } }
+	{ UL_("Pattern Editor"),      0, { MODCOLOR_BACKNORMAL, MODCOLOR_TEXTNORMAL, MODCOLOR_BACKHILIGHT }, { UL_("Background:"), UL_("Foreground:"), UL_("Highlighted:") } },
+	{ UL_("Active Row"),          0, { MODCOLOR_BACKCURROW, MODCOLOR_TEXTCURROW, MODCOLOR_BACKRECORDROW }, { UL_("Background:"), UL_("Foreground:"), UL_("Background (Record):")}},
+	{ UL_("Pattern Selection"),   0, { MODCOLOR_BACKSELECTED, MODCOLOR_TEXTSELECTED, {} }, { UL_("Background:"), UL_("Foreground:"), nullptr } },
+	{ UL_("Play Cursor"),         0, { MODCOLOR_BACKPLAYCURSOR, MODCOLOR_TEXTPLAYCURSOR, {} }, { UL_("Background:"), UL_("Foreground:"), nullptr } },
+	{ UL_("Note Highlight"),      0, { MODCOLOR_NOTE, MODCOLOR_INSTRUMENT, MODCOLOR_VOLUME }, { UL_("Note:"), UL_("Instrument:"), UL_("Volume:") } },
+	{ UL_("Effect Highlight"),    0, { MODCOLOR_PANNING, MODCOLOR_PITCH, MODCOLOR_GLOBALS }, { UL_("Panning Effects:"), UL_("Pitch Effects:"), UL_("Global Effects:") } },
+	{ UL_("Invalid Commands"),    0, { MODCOLOR_DODGY_COMMANDS, {}, {} }, { UL_("Invalid Note:"), nullptr, nullptr } },
+	{ UL_("Channel Separator"),   0, { MODCOLOR_SEPHILITE, MODCOLOR_SEPFACE, MODCOLOR_SEPSHADOW }, { UL_("Highlight:"), UL_("Face:"), UL_("Shadow:") } },
+	{ UL_("Next/Prev Pattern"),   0, { MODCOLOR_BLENDCOLOR, {}, {} }, { UL_("Blend Colour:"), nullptr, nullptr } },
+	{ UL_("Sample Waveform"),     1, { MODCOLOR_SAMPLE, MODCOLOR_BACKSAMPLE, MODCOLOR_SAMPLESELECTED }, { UL_("Sample Data:"), UL_("Background:"), UL_("Selection:") } },
+	{ UL_("Sample Markers"),      1, { MODCOLOR_SAMPLE_LOOPMARKER, MODCOLOR_SAMPLE_SUSTAINMARKER, MODCOLOR_SAMPLE_CUEPOINT}, { UL_("Loop Marker:"), UL_("Sustain Marker:"), UL_("Cue Point:") } },
+	{ UL_("Instrument Editor"),   2, { MODCOLOR_ENVELOPES, MODCOLOR_ENVELOPE_RELEASE, MODCOLOR_BACKENV }, { UL_("Envelopes:"), UL_("Release Envelope:"), UL_("Background:") } },
+	{ UL_("VU-Meters"),           0, { MODCOLOR_VUMETER_HI, MODCOLOR_VUMETER_MED, MODCOLOR_VUMETER_LO }, { UL_("Hi:"), UL_("Med:"), UL_("Lo:") } },
+	{ UL_("VU-Meters (Plugins)"), 0, { MODCOLOR_VUMETER_HI_VST, MODCOLOR_VUMETER_MED_VST, MODCOLOR_VUMETER_LO_VST }, { UL_("Hi:"), UL_("Med:"), UL_("Lo:") } }
 };
 
 #define PREVIEWBMP_WIDTH	88
@@ -132,8 +133,8 @@ COptionsColors::COptionsColors()
     : CPropertyPage{IDD_OPTIONS_COLORS}
     , CustomColors{TrackerSettings::Instance().rgbCustomColors}
 {
-	m_rpbEdit->SetAccessibleSuffix(U_("rows per beat"));
-	m_rpmEdit->SetAccessibleSuffix(U_("rows per measure"));
+	m_rpbEdit->SetAccessibleSuffix(UL_("rows per beat"));
+	m_rpmEdit->SetAccessibleSuffix(UL_("rows per measure"));
 }
 
 
@@ -158,10 +159,10 @@ bool COptionsColors::OnInitDialog()
 	m_ComboDPIAwareness->setUpdatesEnabled(false);
 	static constexpr std::pair<const mpt::uchar *, DPIAwarenessMode> DPIModes[] =
 	{
-		{U_("Not DPI-Aware"),                DPIAwarenessMode::NoDPIAwareness           },
-		{U_("Not DPI-Aware; GDI upscaling"), DPIAwarenessMode::NoDPIAwarenessGDIUpscaled},
-		{U_("System DPI-Aware"),             DPIAwarenessMode::SystemDPIAware           },
-		{U_("Per-Monitor DPI-Aware"),        DPIAwarenessMode::PerMonitorDPIAware       },
+		{UL_("Not DPI-Aware"),                DPIAwarenessMode::NoDPIAwareness           },
+		{UL_("Not DPI-Aware; GDI upscaling"), DPIAwarenessMode::NoDPIAwarenessGDIUpscaled},
+		{UL_("System DPI-Aware"),             DPIAwarenessMode::SystemDPIAware           },
+		{UL_("Per-Monitor DPI-Aware"),        DPIAwarenessMode::PerMonitorDPIAware       },
 	};
 	const DPIAwarenessMode currentDPIMode = TrackerSettings::Instance().dpiAwareness;
 	for(const auto dpiMode : DPIModes)
@@ -183,8 +184,8 @@ bool COptionsColors::OnInitDialog()
 
 	m_BtnPreview->SetWindowPos(nullptr,
 		0, 0,
-		HighDPISupport::ScalePixels(PREVIEWBMP_WIDTH * 2, m_hWnd) + 2, HighDPISupport::ScalePixels(PREVIEWBMP_HEIGHT * 2, m_hWnd) + 2,
-		SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+		HighDPISupport::ScalePixels(PREVIEWBMP_WIDTH * 2, this) + 2, HighDPISupport::ScalePixels(PREVIEWBMP_HEIGHT * 2, this) + 2,
+		mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
 	const FlagSet<PatternSetup> patternSetup = TrackerSettings::Instance().patternSetup;
 	if(patternSetup[PatternSetup::HighlightMeasures]) SetChecked(IDC_CHECK1, 1);
 	if(patternSetup[PatternSetup::EffectHighlight]) SetChecked(IDC_CHECK2, 1);
@@ -202,12 +203,12 @@ bool COptionsColors::OnInitDialog()
 
 	patternFont = TrackerSettings::Instance().patternFont;
 	m_ComboFont->setUpdatesEnabled(false);
-	mfcless::AddItem(m_ComboFont, U_("Built-in (small)"));
-	mfcless::AddItem(m_ComboFont, U_("Built-in (large)"));
-	mfcless::AddItem(m_ComboFont, U_("Built-in (small, x2)"));
-	mfcless::AddItem(m_ComboFont, U_("Built-in (large, x2)"));
-	mfcless::AddItem(m_ComboFont, U_("Built-in (small, x3)"));
-	mfcless::AddItem(m_ComboFont, U_("Built-in (large, x3)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (small)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (large)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (small, x2)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (large, x2)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (small, x3)"));
+	mfcless::AddItem(m_ComboFont, UL_("Built-in (large, x3)"));
 	int sel = 0;
 	if(patternFont.name == PATTERNFONT_SMALL)
 	{
@@ -229,8 +230,8 @@ bool COptionsColors::OnInitDialog()
 	m_ComboPreset->setUpdatesEnabled(false);
 	const size_t numItems = 2 + std::size(ColorSchemes);
 	m_ComboPreset->InitStorage(static_cast<int>(numItems), static_cast<uint32>(numItems * 20 * sizeof(mpt::uchar)));
-	mfcless::AddItem(m_ComboPreset, U_("Choose a Colour Scheme..."));
-	mfcless::AddItem(m_ComboPreset, U_("OpenMPT (Default)"));
+	mfcless::AddItem(m_ComboPreset, UL_("Choose a Colour Scheme..."));
+	mfcless::AddItem(m_ComboPreset, UL_("OpenMPT (Default)"));
 	for(const auto &preset : ColorSchemes)
 	{
 		m_ComboPreset->SetItemDataPtr(mfcless::AddItem(m_ComboPreset, preset.name), const_cast<ColorScheme *>(&preset));
@@ -253,7 +254,7 @@ bool COptionsColors::OnKillActive()
 	if(highlightBeats > highlightMeasures)
 	{
 		Reporting::Warning("Error: Primary highlight must be greater than or equal secondary highlight.");
-		GotoDlgCtrl(GetDlgItem(IDC_PRIMARYHILITE));
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_PRIMARYHILITE));
 		return 0;
 	}
 
@@ -270,7 +271,7 @@ void COptionsColors::OnOK()
 		if(newDPIMode != currentDPIMode)
 		{
 			TrackerSettings::Instance().dpiAwareness = newDPIMode;
-			Reporting::Information(U_("You need to restart OpenMPT for the new DPI-awareness setting to take effect."));
+			Reporting::Information(UL_("You need to restart OpenMPT for the new DPI-awareness setting to take effect."));
 		}
 	}
 
@@ -344,7 +345,7 @@ void COptionsColors::OnChoosePatternFont()
 	lf.lfItalic = patternFont.flags[FontSetting::Italic] ? true : false;
 	mpt::String::WriteWinBuf(lf.lfFaceName) = mpt::ToUnicode(patternFont.name);
 	CFontDialogEx dlg(&lf);
-	dlg.m_cf.hwndOwner = m_hWnd;
+	dlg.m_cf.hwndOwner = this;
 	if(patternFont.name != PATTERNFONT_SMALL && patternFont.name != PATTERNFONT_LARGE)
 	{
 		dlg.m_cf.lpLogFont = &lf;
@@ -379,7 +380,7 @@ void COptionsColors::OnChooseCommentFont()
 	lf.lfItalic = commentFont.flags[FontSetting::Italic] ? true : false;
 	mpt::String::WriteWinBuf(lf.lfFaceName) = mpt::ToUnicode(commentFont.name);
 	CFontDialogEx dlg(&lf);
-	dlg.m_cf.hwndOwner = m_hWnd;
+	dlg.m_cf.hwndOwner = this;
 	dlg.m_cf.lpLogFont = &lf;
 	dlg.m_cf.Flags &= ~CF_EFFECTS;
 	dlg.m_cf.Flags |= CF_FORCEFONTEXIST | CF_NOSCRIPTSEL;
@@ -455,8 +456,8 @@ void COptionsColors::OnDrawItem(int nIdCtl, mfcless::DrawItemInfo * lpdis)
 	case 9:
 	case 10:
 		p[0] = rgb2quad(CustomColors[MODCOLOR_BACKSAMPLE]);
-		p[7] = rgb2quad(GetSysColor(COLOR_BTNFACE));
-		p[8] = rgb2quad(GetSysColor(COLOR_BTNSHADOW));
+		p[7] = rgb2quad(mfcless::SystemColor(mfcless::SysColor::ButtonFace));
+		p[8] = rgb2quad(mfcless::SystemColor(mfcless::SysColor::ButtonShadow));
 		p[10] = rgb2quad(CustomColors[MODCOLOR_SAMPLE_LOOPMARKER]);
 		p[11] = rgb2quad(CustomColors[MODCOLOR_SAMPLE_CUEPOINT]);
 		p[14] = rgb2quad(CustomColors[MODCOLOR_SAMPLE_SUSTAINMARKER]);
@@ -502,7 +503,7 @@ void COptionsColors::SelectColor(int colorIndex)
 	auto &color = CustomColors[colorDefs[m_nColorItem].colorIndex[colorIndex]];
 	CHOOSECOLOR cc;
 	cc.lStructSize = sizeof(CHOOSECOLOR);
-	cc.hwndOwner = m_hWnd;
+	cc.hwndOwner = this;
 	cc.hInstance = NULL;
 	cc.rgbResult = color;
 	cc.lpCustColors = rgbCustomColors;
@@ -562,11 +563,11 @@ void COptionsColors::OnUpdateDialog()
 	{
 		if(cd.descText[i])
 		{
-			m_TxtColor[i].SetWindowText(cd.descText[i]);
+			mfcless::SetWindowText(m_TxtColor[i], cd.descText[i]);
 			m_BtnColor[i].SetColor(CustomColors[cd.colorIndex[i]]);
 		}
-		m_TxtColor[i].ShowWindow(cd.descText[i] ? true : false);
-		m_BtnColor[i].ShowWindow(cd.descText[i] ? true : false);
+		m_TxtColor[i].ShowWindow(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
+		m_BtnColor[i].ShowWindow(cd.descText[i] ? mfcless::show::Show : mfcless::show::Hide);
 	}
 
 	m_BtnPreview->update(false);

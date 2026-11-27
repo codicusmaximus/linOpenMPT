@@ -13,11 +13,12 @@
 #if MPT_DISABLED_CODE
 
 #include "SampleGenerator.h"
+#include "mfcless/Widgets.h"
 #include "modsmp_ctrl.h"
 
 int CSampleGenerator::sample_frequency = 44100;
 int CSampleGenerator::sample_length = CSampleGenerator::sample_frequency;
-mu::string_type CSampleGenerator::expression = U_("sin(xp * _pi)");
+mu::string_type CSampleGenerator::expression = UL_("sin(xp * _pi)");
 smpgen_clip_methods CSampleGenerator::sample_clipping = smpgen_normalize;
 
 mu::value_type *CSampleGenerator::sample_buffer = nullptr;
@@ -28,14 +29,14 @@ CSampleGenerator::CSampleGenerator()
 {
 
 	// Setup function callbacks
-	muParser.DefineFun(U_("clip"), &ClipCallback, false);
-	muParser.DefineFun(U_("pwm"), &PWMCallback, false);
-	muParser.DefineFun(U_("rnd"), &RndCallback, false);
-	muParser.DefineFun(U_("smp"), &SampleDataCallback, false);
-	muParser.DefineFun(U_("tri"), &TriangleCallback, false);
+	muParser.DefineFun(UL_("clip"), &ClipCallback, false);
+	muParser.DefineFun(UL_("pwm"), &PWMCallback, false);
+	muParser.DefineFun(UL_("rnd"), &RndCallback, false);
+	muParser.DefineFun(UL_("smp"), &SampleDataCallback, false);
+	muParser.DefineFun(UL_("tri"), &TriangleCallback, false);
 
 	// Setup binary operator callbacks
-	muParser.DefineOprt(U_("mod"), &ModuloCallback, 0);
+	muParser.DefineOprt(UL_("mod"), &ModuloCallback, 0);
 
 	//muParser.DefineConst("pi", (mu::value_type)PARSER_CONST_PI);
 
@@ -80,11 +81,11 @@ bool CSampleGenerator::TestExpression()
 
 	muParser.SetExpr(expression);
 	mu::value_type x = 0;
-	muParser.DefineVar(U_("x"), &x);
-	muParser.DefineVar(U_("xp"), &x);
-	muParser.DefineVar(U_("len"), &x);
-	muParser.DefineVar(U_("lens"), &x);
-	muParser.DefineVar(U_("freq"), &x);
+	muParser.DefineVar(UL_("x"), &x);
+	muParser.DefineVar(UL_("xp"), &x);
+	muParser.DefineVar(UL_("len"), &x);
+	muParser.DefineVar(UL_("lens"), &x);
+	muParser.DefineVar(UL_("freq"), &x);
 
 	try
 	{
@@ -119,11 +120,11 @@ bool CSampleGenerator::RenderSample(CSoundFile *pSndFile, SAMPLEINDEX nSample)
 
 	mu::value_type x = 0, xp = 0;
 	mu::value_type v_len = sample_length, v_freq = sample_frequency, v_lens = v_len / v_freq;
-	muParser.DefineVar(U_("x"), &x);
-	muParser.DefineVar(U_("xp"), &xp);
-	muParser.DefineVar(U_("len"), &v_len);
-	muParser.DefineVar(U_("lens"), &v_lens);
-	muParser.DefineVar(U_("freq"), &v_freq);
+	muParser.DefineVar(UL_("x"), &x);
+	muParser.DefineVar(UL_("xp"), &xp);
+	muParser.DefineVar(UL_("len"), &v_len);
+	muParser.DefineVar(UL_("lens"), &v_lens);
+	muParser.DefineVar(UL_("freq"), &v_freq);
 
 	bool success = true;
 	mu::value_type minmax = 0;
@@ -221,7 +222,7 @@ void CSampleGenerator::ShowError(mu::Parser::exception_type *e)
 	if(!e->GetToken().empty())
 		errmsg += "in the token\n    " + e->GetToken() + "\n";
 	errmsg += "at position " + Stringify(e->GetPos()) + ".\nThe error message was: " + e->GetMsg();
-	::MessageBox(0, errmsg.c_str(), U_("muParser Sample Generator"), 0);
+	::MessageBox(0, errmsg.c_str(), UL_("muParser Sample Generator"), 0);
 }
 
 

@@ -10,6 +10,7 @@
 
 
 #include "WelcomeDialog.h"
+#include "mfcless/Widgets.h"
 #include "CommandSet.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
@@ -43,7 +44,7 @@ WelcomeDlg::WelcomeDlg(QWidget *parent)
 
 static mpt::PathString GetFullKeyPath(const char *keyFile)
 {
-	return theApp.GetInstallPkgPath() + P_("extraKeymaps\\") + mpt::PathString::FromUTF8(keyFile) + P_(".mkb");
+	return theApp.GetInstallPkgPath() + P_("extraKeymaps/") + mpt::PathString::FromUTF8(keyFile) + P_(".mkb");
 }
 
 
@@ -102,13 +103,13 @@ bool WelcomeDlg::OnInitDialog()
 	mpt::uchar str[MAX_PATH];
 	uint32 datasize = sizeof(str);
 	uint32 datatype = REG_SZ;
-	if(RegOpenKey(HKEY_LOCAL_MACHINE, U_("Software\\VST"), &hkEnum) == ERROR_SUCCESS
-		&& RegQueryValueEx(hkEnum, U_("VSTPluginsPath"), 0, &datatype, reinterpret_cast<LPBYTE>(str), &datasize) == ERROR_SUCCESS)
+	if(RegOpenKey(HKEY_LOCAL_MACHINE, UL_("Software\\VST"), &hkEnum) == ERROR_SUCCESS
+		&& RegQueryValueEx(hkEnum, UL_("VSTPluginsPath"), 0, &datatype, reinterpret_cast<LPBYTE>(str), &datasize) == ERROR_SUCCESS)
 	{
 		m_vstPath = mpt::PathString::FromNative(ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::ustring>(str, datasize));
 	} else if(SHGetSpecialFolderPath(0, str, CSIDL_PROGRAM_FILES, false))
 	{
-		m_vstPath = mpt::PathString::FromNative(ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::ustring>(str, datasize)) + P_("\\Steinberg\\VstPlugins\\");
+		m_vstPath = mpt::PathString::FromNative(ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::ustring>(str, datasize)) + P_("/Steinberg/VstPlugins/");
 		if(!mpt::native_fs{}.is_directory(m_vstPath))
 		{
 			m_vstPath = mpt::PathString();
@@ -119,7 +120,7 @@ bool WelcomeDlg::OnInitDialog()
 	SetItemText(IDC_EDIT2, mpt::ToUnicode(TrackerSettings::Instance().defaultArtist.Get()));
 	if(!m_vstPath.empty())
 	{
-		SetItemText(IDC_EDIT1, m_vstPath.ToCString());
+		SetItemText(IDC_EDIT1, m_vstPath.ToUnicode());
 		if(TrackerSettings::Instance().PathPlugins.GetDefaultDir().empty())
 		{
 			TrackerSettings::Instance().PathPlugins.SetDefaultDir(m_vstPath);
@@ -127,7 +128,7 @@ bool WelcomeDlg::OnInitDialog()
 	} else
 #endif // MPT_WITH_VST
 	{
-		SetItemText(IDC_EDIT1, U_("No plugin path found!"));
+		SetItemText(IDC_EDIT1, UL_("No plugin path found!"));
 		EnableItem(IDC_BUTTON2, false);
 	}
 
@@ -135,36 +136,36 @@ bool WelcomeDlg::OnInitDialog()
 	const mpt::uchar *keyFileName = nullptr;
 	const uint16 language = LOWORD(GetKeyboardLayout(0)), primaryLang = language & 0x3FF;
 	CComboBox *combo = (CComboBox *)GetDlgItem(IDC_COMBO1);
-	combo->AddString(U_("OpenMPT / Chromatic (Default)"));
+	combo->AddString(UL_("OpenMPT / Chromatic (Default)"));
 	combo->SetCurSel(0);
 	switch(primaryLang)
 	{
 		case LANG_GERMAN:
 			keyFile = "DE_jojo";
-			keyFileName = U_("German");
+			keyFileName = UL_("German");
 			break;
 		case LANG_SPANISH:
 			// Spanish latin-american keymap, so we ignore Spain.
 			if(language != SUBLANG_SPANISH_MODERN && language != SUBLANG_SPANISH)
 			{
 				keyFile = "es-LA_mpt_(jmkz)";
-				keyFileName = U_("Spanish");
+				keyFileName = UL_("Spanish");
 			}
 			break;
 		case LANG_FRENCH:
 			keyFile = "FR_mpt_(legovitch)";
-			keyFileName = U_("French");
+			keyFileName = UL_("French");
 			break;
 		case LANG_NORWEGIAN:
 			keyFile = "NO_mpt_classic_(rakib)";
-			keyFileName = U_("Norwegian");
+			keyFileName = UL_("Norwegian");
 			break;
 	}
 	if(keyFile != nullptr)
 	{
 		if(mpt::native_fs{}.is_file(GetFullKeyPath(keyFile)))
 		{
-			int i = combo->AddString(U_("OpenMPT / Chromatic (") + mpt::ustring(keyFileName) + U_(")"));
+			int i = combo->AddString(UL_("OpenMPT / Chromatic (") + mpt::ustring(keyFileName) + UL_(")"));
 			combo->SetItemDataPtr(i, (void *)keyFile);
 			combo->SetCurSel(i);
 
@@ -174,8 +175,8 @@ bool WelcomeDlg::OnInitDialog()
 			CMainFrame::GetInputHandler()->SetNewCommandSet(*cmdSet);
 		}
 	}
-	combo->SetItemDataPtr(combo->AddString(U_("Impulse Tracker")), (void*)("US_mpt-it2_classic"));
-	combo->SetItemDataPtr(combo->AddString(U_("FastTracker 2")), (void*)("US_mpt-ft2_classic"));
+	combo->SetItemDataPtr(combo->AddString(UL_("Impulse Tracker")), (void*)("US_mpt-it2_classic"));
+	combo->SetItemDataPtr(combo->AddString(UL_("FastTracker 2")), (void*)("US_mpt-ft2_classic"));
 
 	SetChecked(IDC_CHECK1, 1);
 	SetChecked(IDC_CHECK3, 1);
@@ -193,7 +194,7 @@ bool WelcomeDlg::OnInitDialog()
 void WelcomeDlg::OnOptions()
 {
 	OnOK();
-	CMainFrame::GetMainFrame()->PostMessage(WM_COMMAND, ID_VIEW_OPTIONS);
+	CMainFrame::GetMainFrame()->mfcless::PostCommand(this, ID_VIEW_OPTIONS);
 }
 
 

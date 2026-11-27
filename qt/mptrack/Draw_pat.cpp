@@ -11,6 +11,7 @@
 
 
 #include "View_pat.h"
+#include "mfcless/Widgets.h"
 #include "dlg_misc.h"
 #include "EffectVis.h"
 #include "Globals.h"
@@ -125,7 +126,7 @@ bool CViewPattern::UpdateSizes()
 	m_szHeader.cx = ROWHDR_WIDTH;
 	m_szHeader.cy = COLHDR_HEIGHT;
 	m_szPluginHeader.cx = 0;
-	m_szPluginHeader.cy = m_Status[psShowPluginNames] ? MulDiv(PLUGNAME_HEIGHT, m_dpi, 96) : 0;
+	m_szPluginHeader.cy = m_Status[psShowPluginNames] ? mfcless::MulDiv(PLUGNAME_HEIGHT, m_dpi, 96) : 0;
 	if(m_Status[psShowVUMeters]) m_szHeader.cy += VUMETERS_HEIGHT;
 	m_szCell.cx = SEPARATOR_WIDTH;
 	for(size_t i = 0; i <= PatternCursor::lastColumn; i++)
@@ -135,8 +136,8 @@ bool CViewPattern::UpdateSizes()
 	}
 	m_szCell.cy = pfnt->nHeight;
 
-	m_szHeader.cx = MulDiv(m_szHeader.cx, m_dpi, 96);
-	m_szHeader.cy = MulDiv(m_szHeader.cy, m_dpi, 96);
+	m_szHeader.cx = mfcless::MulDiv(m_szHeader.cx, m_dpi, 96);
+	m_szHeader.cy = mfcless::MulDiv(m_szHeader.cy, m_dpi, 96);
 	m_szHeader.cy += m_szPluginHeader.cy;
 
 	if(oldy != m_szCell.cy)
@@ -189,7 +190,7 @@ void CViewPattern::UpdateView(UpdateHint hint, QObject *pObj)
 	}
 	if(hint.GetType()[HINT_MPTOPTIONS])
 	{
-		PatternFont::UpdateFont(m_hWnd);
+		PatternFont::UpdateFont(this);
 		UpdateColors();
 		UpdateSizes();
 		UpdateScrollSize();
@@ -256,7 +257,7 @@ mfcless::Point CViewPattern::GetPointFromPosition(PatternCursor cursor) const
 
 	if(pt.x < 0)
 		pt.x = 0;
-	pt.x += HighDPISupport::ScalePixels(ROWHDR_WIDTH, m_hWnd);
+	pt.x += HighDPISupport::ScalePixels(ROWHDR_WIDTH, this);
 	pt.y = (cursor.GetRow() - yofs + m_nMidRow) * m_szCell.cy;
 
 	if (pt.y < 0) pt.y = 0;
@@ -540,11 +541,11 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	m_chnState.resize(pModDoc->GetNumChannels());
 
 	FlagSet<PatternSetup> patternSetup = TrackerSettings::Instance().patternSetup;
-	const int vuHeight = MulDiv(VUMETERS_HEIGHT, m_dpi, 96);
-	const int colHeight = MulDiv(COLHDR_HEIGHT, m_dpi, 96);
-	const int chanColorHeight = MulDiv(4, m_dpi, 96);
-	const int chanColorOffset = MulDiv(2, m_dpi, 96);
-	const int recordInsX = MulDiv(3, m_dpi, 96);
+	const int vuHeight = mfcless::MulDiv(VUMETERS_HEIGHT, m_dpi, 96);
+	const int colHeight = mfcless::MulDiv(COLHDR_HEIGHT, m_dpi, 96);
+	const int chanColorHeight = mfcless::MulDiv(4, m_dpi, 96);
+	const int chanColorOffset = mfcless::MulDiv(2, m_dpi, 96);
+	const int recordInsX = mfcless::MulDiv(3, m_dpi, 96);
 	const bool doSmoothScroll = patternSetup[PatternSetup::SmoothScrolling];
 	const int lineWidth = HighDPISupport::ScalePixels(1, *this);
 
@@ -581,9 +582,9 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	mfcless::Bitmap * oldBitmap = SelectBitmap(m_offScreenDC, m_offScreenBitmap);
 
 	const auto dcBrush = GetStockBrush(DC_BRUSH);
-	const auto faceColor = GetSysColor(COLOR_BTNFACE);
-	const auto shadowColor = GetSysColor(COLOR_BTNSHADOW);
-	const auto textColor = GetSysColor(COLOR_BTNTEXT);
+	const auto faceColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
+	const auto shadowColor = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
+	const auto textColor = mfcless::SystemColor(mfcless::SysColor::ButtonText);
 
 	CHANNELINDEX xofs = static_cast<CHANNELINDEX>(GetXScrollPos());
 	ROWINDEX yofs = static_cast<ROWINDEX>(GetYScrollPos());
@@ -688,10 +689,10 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	}
 	if (ypaint < rcClient.bottom)
 	{
-		int width = HighDPISupport::ScalePixels(1, m_hWnd);
+		int width = HighDPISupport::ScalePixels(1, this);
 		rc.SetRect(0, ypaint, rcClient.right + 1, rcClient.bottom + 1);
 		if(width == 1)
-			DrawButtonRect(hdc, lineWidth, rc, U_(""));
+			DrawButtonRect(hdc, lineWidth, rc, UL_(""));
 		else
 			DrawEdge(hdc, rc, mfcless::edge::Raised, BF_TOPLEFT | mfcless::edge::Middle);  // Prevent lower edge from being drawn
 	}
@@ -714,7 +715,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 		}
 
 		// Drawing Channel Headers
-		const int dropWidth = HighDPISupport::ScalePixels(2, m_hWnd);
+		const int dropWidth = HighDPISupport::ScalePixels(2, this);
 		uint32 chn = xofs;
 		ypaint = rcClient.top;
 		for(xpaint = m_szHeader.cx; xpaint < clipRect.right; xpaint += nColumnWidth, chn++)
@@ -824,7 +825,7 @@ void CViewPattern::OnDraw(mfcless::DC *pDC)
 	if (m_pEffectVis)
 	{
 		//HACK: Update visualizer on every pattern redraw. Cleary there's space for opt here.
-		if (m_pEffectVis->m_hWnd) m_pEffectVis->Update();
+		if (m_pEffectVis) m_pEffectVis->Update();
 	}
 }
 
@@ -933,9 +934,9 @@ void CViewPattern::DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTE
 		{
 			mpt::uchar s[32];
 			if(hexNumbers)
-				wsprintf(s, U_("%s%02X"), compRow < 0 ? U_("-") : U_(""), std::abs(compRow));
+				wsprintf(s, UL_("%s%02X"), compRow < 0 ? UL_("-") : UL_(""), std::abs(compRow));
 			else
-				wsprintf(s, U_("%d"), compRow);
+				wsprintf(s, UL_("%d"), compRow);
 
 			// We already draw to the off-screen buffer in case of smooth scrolling
 			const bool drawOffscreen = !patternSetupFlags[PatternSetup::SmoothScrolling];
@@ -1395,11 +1396,11 @@ void CViewPattern::DrawDragSel(mfcless::DC * hdc)
 
 void CViewPattern::OnDrawDragSel()
 {
-	mfcless::DC * hdc = ::GetDC(m_hWnd);
+	mfcless::DC * hdc = ::GetDC(this);
 	if (hdc != NULL)
 	{
 		DrawDragSel(hdc);
-		::ReleaseDC(m_hWnd, hdc);
+		::ReleaseDC(this, hdc);
 	}
 }
 
@@ -1698,11 +1699,11 @@ void CViewPattern::UpdateIndicator(bool updateAccessibility)
 		return;
 
 	mainFrm->SetUserText(MPT_UFORMAT("Row {}, Col {}")(GetCurrentRow(), GetCurrentChannel() + 1));
-	if(::GetFocus() == m_hWnd)
+	if(mfcless::GetFocus() == this)
 	{
 		const bool hasSelection = m_Selection.GetUpperLeft() != m_Selection.GetLowerRight();
 		if(hasSelection)
-			mainFrm->SetInfoText(MPT_UFORMAT("Selection: {} row{}, {} channel{}")(m_Selection.GetNumRows(), mpt::ustring(m_Selection.GetNumRows() != 1 ? U_("s") : U_("")), m_Selection.GetNumChannels(), mpt::ustring(m_Selection.GetNumChannels() != 1 ? U_("s") : U_(""))));
+			mainFrm->SetInfoText(MPT_UFORMAT("Selection: {} row{}, {} channel{}")(m_Selection.GetNumRows(), mpt::ustring(m_Selection.GetNumRows() != 1 ? UL_("s") : UL_("")), m_Selection.GetNumChannels(), mpt::ustring(m_Selection.GetNumChannels() != 1 ? UL_("s") : UL_(""))));
 		if(GetCurrentRow() < sndFile->Patterns[m_nPattern].GetNumRows() && m_Cursor.GetChannel() < sndFile->GetNumChannels())
 		{
 			if(!hasSelection)
@@ -1741,7 +1742,7 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 		// display instrument
 		if(m->instr)
 		{
-			s.Format(U_("%u: "), m->instr);
+			s = mfcless::PrintF(UL_("%u: "), m->instr);
 			if(m->IsPcNote())
 			{
 				// display plugin name.
@@ -1765,9 +1766,9 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 							{
 								if(sndFile.m_szNames[nsmp][0])
 								{
-									s.AppendFormat(U_(" (%d: "), nsmp);
+									s += mfcless::PrintF(UL_(" (%d: "), nsmp);
 									s += mpt::ToUnicode(sndFile.GetCharsetInternal(), sndFile.m_szNames[nsmp]);
-									s.AppendChar(_T(')'));
+									s.push_back(u8')');
 								}
 							}
 						}
@@ -1799,7 +1800,7 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 			// "normal" volume command
 			EffectInfo effectInfo(sndFile);
 			effectInfo.GetVolCmdInfo(effectInfo.GetIndexFromVolCmd(m->volcmd), &s);
-			s += U_(": ");
+			s += UL_(": ");
 			mpt::ustring tmp;
 			effectInfo.GetVolCmdParamInfo(*m, &tmp, TrackerSettings::Instance().patternVolColHex);
 			s += tmp;
@@ -1811,7 +1812,7 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 		// display effect command
 		if(m->IsPcNote())
 		{
-			s.Format(U_("Parameter value: %u"), m->GetValueEffectCol());
+			s = mfcless::PrintF(UL_("Parameter value: %u"), m->GetValueEffectCol());
 		} else if(m->command != CMD_NONE)
 		{
 			EffectInfo effectInfo(sndFile);
@@ -1826,7 +1827,7 @@ mpt::ustring CViewPattern::GetCursorDescription() const
 			//effectInfo.GetEffectName(sztmp, m->command, m->param, false, nChn);
 			if(!sztmp.IsEmpty())
 			{
-				s.Format(U_("%c%02X: "), sndFile.GetModSpecifications().GetEffectLetter(m->command), m->param);
+				s = mfcless::PrintF(UL_("%c%02X: "), sndFile.GetModSpecifications().GetEffectLetter(m->command), m->param);
 				s += sztmp;
 			}
 		}
@@ -1851,15 +1852,15 @@ void CViewPattern::UpdateXInfoText()
 	const auto &channel = sndFile->m_PlayState.Chn[chn];
 	mpt::ustring xtraInfo;
 
-	xtraInfo.Format(U_("Chn:%d; Vol:%X; Mac:%X; Cut:%X%s; Res:%X; Pan:%X%s"),
+	xtraInfo = mfcless::PrintF(UL_("Chn:%d; Vol:%X; Mac:%X; Cut:%X%s; Res:%X; Pan:%X%s"),
 	                chn + 1,
 	                channel.nGlobalVol,
 	                channel.nActiveMacro,
 	                channel.nCutOff,
-	                (channel.nFilterMode == FilterMode::HighPass) ? U_("-HP") : U_(""),
+	                (channel.nFilterMode == FilterMode::HighPass) ? UL_("-HP") : UL_(""),
 	                channel.nResonance,
 	                channel.nPan,
-	                channel.dwFlags[CHN_SURROUND] ? U_("-S") : U_(""));
+	                channel.dwFlags[CHN_SURROUND] ? UL_("-S") : UL_(""));
 
 	mainFrm->SetXInfoText(xtraInfo);
 }
@@ -1875,12 +1876,12 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 	mfcless::Rect rcClient;
 	GetClientRect(&rcClient);
 	int xofs = GetXScrollPos();
-	mfcless::DC * hdc = ::GetDC(m_hWnd);
-	const bool isPlaying = (pMainFrm->GetFollowSong(pModDoc) == m_hWnd);
+	mfcless::DC * hdc = ::GetDC(this);
+	const bool isPlaying = (pMainFrm->GetFollowSong(pModDoc) == this);
 	int x = m_szHeader.cx;
 	CHANNELINDEX nChn = static_cast<CHANNELINDEX>(xofs);
 	const CHANNELINDEX numChannels = std::min(pModDoc->GetNumChannels(), static_cast<CHANNELINDEX>(m_chnState.size()));
-	const int yPos = rcClient.top + MulDiv(COLHDR_HEIGHT, m_dpi, 96);
+	const int yPos = rcClient.top + mfcless::MulDiv(COLHDR_HEIGHT, m_dpi, 96);
 	while(nChn < numChannels && x < rcClient.right)
 	{
 		m_chnState[nChn].vuMeter = static_cast<uint16>(pnotify->pos[nChn]);
@@ -1890,7 +1891,7 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 		nChn++;
 		x += m_szCell.cx;
 	}
-	::ReleaseDC(m_hWnd, hdc);
+	::ReleaseDC(this, hdc);
 }
 
 
@@ -1907,7 +1908,7 @@ void CViewPattern::UpdateAllVUMeters(Notification *pnotify)
 // The left stack of LEDs uses the colors for sample-based instruments, the right stack is for synthesized / plugin instruments.
 void CViewPattern::CreateVUMeterBitmap()
 {
-	if(!m_hWnd)
+	if(!this)
 		return;
 	
 	const auto dc = GetDC();
@@ -1916,7 +1917,7 @@ void CViewPattern::CreateVUMeterBitmap()
 	m_vuMeterDC.DeleteDC();
 	m_vuMeterDC.CreateCompatibleDC(dc);
 
-	const int availableWidth = m_szCell.cx - HighDPISupport::ScalePixels(2, m_hWnd);
+	const int availableWidth = m_szCell.cx - HighDPISupport::ScalePixels(2, this);
 	m_ledWidth = static_cast<int>(availableWidth / (VUMETERS_LEDS_PER_SIDE * 2 + 0.5f));
 	if(m_ledWidth < 2)
 	{
@@ -1924,7 +1925,7 @@ void CViewPattern::CreateVUMeterBitmap()
 		m_ledWidth = std::max(availableWidth / (VUMETERS_LEDS_PER_SIDE * 2), 1);
 	}
 
-	m_ledHeight = HighDPISupport::ScalePixels(VUMETERS_HEIGHT_LED, m_hWnd);
+	m_ledHeight = HighDPISupport::ScalePixels(VUMETERS_HEIGHT_LED, this);
 	const int barWidth = m_ledWidth * VUMETERS_LEDS_PER_SIDE;
 	const int ledBlockHeight = m_ledHeight - 2;
 	
@@ -1933,10 +1934,10 @@ void CViewPattern::CreateVUMeterBitmap()
 
 	m_vuMeterBitmap.CreateCompatibleBitmap(dc, bmpWidth, bmpHeight);
 	const auto oldBitmap = m_vuMeterDC.SelectObject(m_vuMeterBitmap);
-	m_vuMeterDC.FillSolidRect(0, 0, bmpWidth, bmpHeight, GetSysColor(COLOR_BTNFACE));
+	m_vuMeterDC.FillSolidRect(0, 0, bmpWidth, bmpHeight, mfcless::SystemColor(mfcless::SysColor::ButtonFace));
 
 	const auto &Colors = TrackerSettings::Instance().rgbCustomColors;
-	const uint32 shadowColor = (m_ledWidth > 2) ? mfcless::Rgb(0, 0, 0) : GetSysColor(COLOR_BTNSHADOW);
+	const uint32 shadowColor = (m_ledWidth > 2) ? mfcless::Rgb(0, 0, 0) : mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
 
 	// 0: sample-based, 1: synthesized / plugin
 	for(int colorScheme = 0; colorScheme < 2; colorScheme++)

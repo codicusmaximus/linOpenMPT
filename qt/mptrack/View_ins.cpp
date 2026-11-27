@@ -11,6 +11,7 @@
 
 
 #include "View_ins.h"
+#include "mfcless/Widgets.h"
 #include "Childfrm.h"
 #include "Ctrl_ins.h"
 #include "Dlsbank.h"
@@ -43,11 +44,11 @@ namespace
 
 
 // Non-client toolbar
-#define ENV_LEFTBAR_CY    HighDPISupport::ScalePixels(29, m_hWnd)
-#define ENV_LEFTBAR_CXSEP HighDPISupport::ScalePixels(14, m_hWnd)
-#define ENV_LEFTBAR_CXSPC HighDPISupport::ScalePixels(3, m_hWnd)
-#define ENV_LEFTBAR_CXBTN HighDPISupport::ScalePixels(24, m_hWnd)
-#define ENV_LEFTBAR_CYBTN HighDPISupport::ScalePixels(22, m_hWnd)
+#define ENV_LEFTBAR_CY    HighDPISupport::ScalePixels(29, this)
+#define ENV_LEFTBAR_CXSEP HighDPISupport::ScalePixels(14, this)
+#define ENV_LEFTBAR_CXSPC HighDPISupport::ScalePixels(3, this)
+#define ENV_LEFTBAR_CXBTN HighDPISupport::ScalePixels(24, this)
+#define ENV_LEFTBAR_CYBTN HighDPISupport::ScalePixels(22, this)
 
 
 static constexpr uint32 cLeftBarButtons[ENV_LEFTBAR_BUTTONS] =
@@ -150,7 +151,7 @@ void CViewInstrument::OnInitialUpdate()
 	CModScrollView::OnInitialUpdate();
 	ModifyStyleEx(0, WS_EX_ACCEPTFILES);
 	m_zoom = (ENV_POINT_SIZE * m_dpi) / 96.0f;
-	m_envPointSize = HighDPISupport::ScalePixels(ENV_POINT_SIZE, m_hWnd);
+	m_envPointSize = HighDPISupport::ScalePixels(ENV_POINT_SIZE, this);
 	UpdateScrollSize();
 	UpdateNcButtonState();
 	EnableToolTips();
@@ -181,7 +182,7 @@ void CViewInstrument::UpdateScrollSize()
 
 void CViewInstrument::OnDPIChanged()
 {
-	m_envPointSize = HighDPISupport::ScalePixels(ENV_POINT_SIZE, m_hWnd);
+	m_envPointSize = HighDPISupport::ScalePixels(ENV_POINT_SIZE, this);
 	UpdateScrollSize();
 	CModScrollView::OnDPIChanged();
 }
@@ -220,7 +221,7 @@ bool CViewInstrument::SetCurrentInstrument(INSTRUMENTINDEX nIns, EnvelopeType nE
 	default:			m_nEnv = ENV_VOLUME; type = Notification::VolEnv; break;
 	}
 	pModDoc->SetNotifications(type, m_nInstrument);
-	pModDoc->SetFollowWnd(m_hWnd);
+	pModDoc->SetFollowWnd(this);
 	UpdateScrollSize();
 	UpdateNcButtonState();
 	InvalidateRect(NULL, false);
@@ -1226,7 +1227,7 @@ intptr_t CViewInstrument::OnPlayerNotify(Notification *pnotify)
 		}
 		if(update)
 		{
-			mfcless::DC * hdc = ::GetDC(m_hWnd);
+			mfcless::DC * hdc = ::GetDC(this);
 			DrawPositionMarks();
 			for(CHANNELINDEX j = 0; j < MAX_CHANNELS; j++)
 			{
@@ -1235,7 +1236,7 @@ intptr_t CViewInstrument::OnPlayerNotify(Notification *pnotify)
 			}
 			DrawPositionMarks();
 			BitBlt(hdc, m_rcClient.left, m_rcClient.top, m_rcClient.Width(), m_rcClient.Height(), m_dcMemMain.GetSafeHdc(), 0, 0, mfcless::rop::SrcCopy);
-			::ReleaseDC(m_hWnd, hdc);
+			::ReleaseDC(this, hdc);
 		}
 	}
 	return 0;
@@ -1245,9 +1246,9 @@ intptr_t CViewInstrument::OnPlayerNotify(Notification *pnotify)
 void CViewInstrument::DrawNcButton(mfcless::DC *pDC, uint32 nBtn)
 {
 	mfcless::Rect rect;
-	uint32 crHi = GetSysColor(COLOR_3DHILIGHT);
-	uint32 crDk = GetSysColor(COLOR_3DSHADOW);
-	uint32 crFc = GetSysColor(COLOR_3DFACE);
+	uint32 crHi = mfcless::SystemColor(mfcless::SysColor::ButtonHighlight);
+	uint32 crDk = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
+	uint32 crFc = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 	uint32 c1, c2;
 
 	const bool flat = (TrackerSettings::Instance().patternSetup & PatternSetup::FlatToolbarButtons);
@@ -1338,11 +1339,11 @@ void CViewInstrument::OnNcPaint()
 			// Shadow
 			auto shadowRect = rect;
 			shadowRect.top = shadowRect.bottom - 1;
-			pDC->FillSolidRect(&shadowRect, GetSysColor(COLOR_BTNSHADOW));
+			pDC->FillSolidRect(&shadowRect, mfcless::SystemColor(mfcless::SysColor::ButtonShadow));
 		}
 		rect.bottom--;
 		if(rect.top < rect.bottom)
-			pDC->FillSolidRect(&rect, GetSysColor(COLOR_BTNFACE));
+			pDC->FillSolidRect(&rect, mfcless::SystemColor(mfcless::SysColor::ButtonFace));
 		if(rect.top + 2 < rect.bottom)
 		{
 			for(uint32 i = 0; i < ENV_LEFTBAR_BUTTONS; i++)
@@ -1410,7 +1411,7 @@ void CViewInstrument::OnNcLButtonDown(uint32 uFlags, mfcless::Point point)
 		m_dwStatus |= INSSTATUS_NCLBTNDOWN;
 		if(cLeftBarButtons[m_nBtnMouseOver] != ID_SEPARATOR)
 		{
-			PostMessage(WM_COMMAND, cLeftBarButtons[m_nBtnMouseOver]);
+			mfcless::PostCommand(this, cLeftBarButtons[m_nBtnMouseOver]);
 			UpdateNcButtonState();
 		}
 	}
@@ -1463,7 +1464,7 @@ void CViewInstrument::OnMouseMove(uint32, mfcless::Point pt)
 		UpdateNcButtonState();
 		CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
 		if(pMainFrm)
-			pMainFrm->SetHelpText(U_(""));
+			pMainFrm->SetHelpText(UL_(""));
 	}
 	int nTick = ScreenToTick(pt.x);
 	int nVal = Clamp(ScreenToValue(pt.y), ENVELOPE_MIN, ENVELOPE_MAX);
@@ -1610,7 +1611,7 @@ void CViewInstrument::UpdateIndicator(int tick, int val)
 		return;
 
 	mpt::ustring s;
-	s.Format(TrackerSettings::Instance().cursorPositionInHex ? U_("Tick %X, [%s]") : U_("Tick %d, [%s]"), tick, EnvValueToString(tick, val).GetString());
+	s.Format(TrackerSettings::Instance().cursorPositionInHex ? UL_("Tick %X, [%s]") : UL_("Tick %d, [%s]"), tick, EnvValueToString(tick, val).c_str());
 	CModScrollView::UpdateIndicator(s);
 	CMainFrame::GetMainFrame()->NotifyAccessibilityUpdate(*this);
 }
@@ -1632,15 +1633,15 @@ mpt::ustring CViewInstrument::EnvValueToString(int tick, int val) const
 		// ticks before release node (or no release node)
 		const int displayVal = (m_nEnv != ENV_VOLUME && !(m_nEnv == ENV_PITCH && env->dwFlags[ENV_FILTER])) ? val - 32 : val;
 		if(m_nEnv != ENV_PANNING)
-			s.Format(U_("%d"), displayVal);
+			s = mfcless::PrintF(UL_("%d"), displayVal);
 		else  // panning envelope: display right/center/left chars
-			s.Format(U_("%d %c"), std::abs(displayVal), displayVal > 0 ? _T('R') : (displayVal < 0 ? _T('L') : _T('C')));
+			s = mfcless::PrintF(UL_("%d %c"), std::abs(displayVal), displayVal > 0 ? u8'R' : (displayVal < 0 ? u8'L' : u8'C'));
 	} else
 	{
 		// ticks after release node
 		int displayVal = (val - releaseNode.value) * 2;
 		displayVal = (m_nEnv != ENV_VOLUME) ? displayVal - 32 : displayVal;
-		s.Format(U_("Rel%c%d"), displayVal > 0 ? _T('+') : _T('-'), std::abs(displayVal));
+		s = mfcless::PrintF(UL_("Rel%c%d"), displayVal > 0 ? u8'+' : u8'-', std::abs(displayVal));
 	}
 	return s;
 }
@@ -2064,10 +2065,10 @@ void CViewInstrument::OnDropFiles(HDROP hDropInfo)
 	for(uint32 f = 0; f < nFiles; f++)
 	{
 		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, _T('\0'));
+		std::vector<mpt::uchar> fileName(size, u8'\0');
 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
 			PrepareUndo("Replace Envelope");
 			if(GetDocument()->LoadEnvelope(m_nInstrument, m_nEnv, file))
 			{
@@ -2142,7 +2143,7 @@ bool CViewInstrument::OnDragonDrop(bool doDrop, const DRAGONDROP *dropInfo)
 
 	// Do the drop
 	bool modified = false;
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	switch(dropInfo->dropType)
 	{
 	case DRAGONDROP_INSTRUMENT:
@@ -2225,14 +2226,14 @@ bool CViewInstrument::OnDragonDrop(bool doDrop, const DRAGONDROP *dropInfo)
 		SetModified(InstrumentHint().Info().Envelope().Names(), true);
 		GetDocument()->UpdateAllViews(nullptr, SampleHint().Info().Names().Data(), this);
 	}
-	CMDIChildWnd *pMDIFrame = (CMDIChildWnd *)GetParentFrame();
+	CChildFrame *pMDIFrame = (CChildFrame *)GetParentFrame();
 	if(pMDIFrame)
 	{
 		pMDIFrame->MDIActivate();
 		pMDIFrame->SetActiveView(this);
-		SetFocus();
+		setFocus();
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 	return canDrop;
 }
 
@@ -2784,7 +2785,7 @@ void CViewInstrument::OnEnvSave()
 	const InstrumentEnvelope *env = GetEnvelopePtr();
 	if(env == nullptr || env->empty())
 	{
-		MessageBeep(MB_ICONWARNING);
+		mfcless::MessageBeep(nfIconWarning);
 		return;
 	}
 
@@ -2797,7 +2798,7 @@ void CViewInstrument::OnEnvSave()
 
 	if(!GetDocument()->SaveEnvelope(m_nInstrument, m_nEnv, dlg.GetFirstFile()))
 	{
-		Reporting::Error(MPT_UFORMAT("Unable to save file {}")(dlg.GetFirstFile()), U_("OpenMPT"), this);
+		Reporting::Error(MPT_UFORMAT("Unable to save file {}")(dlg.GetFirstFile()), UL_("OpenMPT"), this);
 	}
 }
 
@@ -2808,7 +2809,7 @@ void CViewInstrument::OnUpdateUndo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetInstrumentUndo().CanUndo(m_nInstrument));
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, U_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetUndoName(m_nInstrument))));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetUndoName(m_nInstrument))));
 	}
 }
 
@@ -2819,7 +2820,7 @@ void CViewInstrument::OnUpdateRedo(mfcless::CommandState &state)
 	if((pCmdUI) && (pModDoc))
 	{
 		state.Enable(pModDoc->GetInstrumentUndo().CanRedo(m_nInstrument));
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, U_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetRedoName(m_nInstrument))));
+		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + mpt::ToUnicode(pModDoc->GetSoundFile().GetCharsetInternal(), pModDoc->GetInstrumentUndo().GetRedoName(m_nInstrument))));
 	}
 }
 
@@ -2859,7 +2860,7 @@ intptr_t CViewInstrument::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo 
 	auto buttonID = cLeftBarButtons[ncButton];
 	ScreenToClient(&ncRect);
 
-	pTI->hwnd = m_hWnd;
+	pTI->hwnd = this;
 	pTI->uId = buttonID;
 	pTI->rect = ncRect;
 	mpt::ustring text;
@@ -2897,7 +2898,7 @@ intptr_t CViewInstrument::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo 
 	// MFC will free() the text
 	auto size = text.GetLength() + 1;
 	mpt::uchar *textP = static_cast<mpt::uchar *>(calloc(size, sizeof(mpt::uchar)));
-	std::copy(text.GetString(), text.GetString() + size, textP);
+	std::copy(text.c_str(), text.c_str() + size, textP);
 	pTI->lpszText = textP;
 
 	return buttonID;
@@ -2911,13 +2912,13 @@ HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
 	if(env == nullptr)
 		return CModScrollView::get_accName(varChild, pszName);
 
-	const mpt::uchar *typeStr = U_("");
+	const mpt::uchar *typeStr = UL_("");
 	switch(m_nEnv)
 	{
 	case ENV_MAXTYPES:
-	case ENV_VOLUME: typeStr = U_("Volume"); break;
-	case ENV_PANNING: typeStr = U_("Panning"); break;
-	case ENV_PITCH: typeStr = env->dwFlags[ENV_FILTER] ? U_("Filter") : U_("Pitch"); break;
+	case ENV_VOLUME: typeStr = UL_("Volume"); break;
+	case ENV_PANNING: typeStr = UL_("Panning"); break;
+	case ENV_PITCH: typeStr = env->dwFlags[ENV_FILTER] ? UL_("Filter") : UL_("Pitch"); break;
 	}
 
 	mpt::ustring str;
@@ -2925,9 +2926,9 @@ HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
 	{
 		str = typeStr;
 		if(env->empty())
-			str += U_(" envelope has no points");
+			str += UL_(" envelope has no points");
 		else
-			str += MPT_UFORMAT(" envelope, {} point{}")(env->size(), env->size() == 1 ? mpt::ustring(U_("")) : mpt::ustring(U_("s")));
+			str += MPT_UFORMAT(" envelope, {} point{}")(env->size(), env->size() == 1 ? mpt::ustring(UL_("")) : mpt::ustring(UL_("s")));
 	} else
 	{
 		bool isEnvPoint = false;
@@ -2935,10 +2936,10 @@ HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
 		auto tick = EnvGetTick(point);
 		switch(m_nDragItem)
 		{
-		case ENV_DRAGLOOPSTART: str = U_("Loop start"); break;
-		case ENV_DRAGLOOPEND: str = U_("Loop end"); break;
-		case ENV_DRAGSUSTAINSTART: str = U_("Sustain loop start"); break;
-		case ENV_DRAGSUSTAINEND: str = U_("Sustain loop end"); break;
+		case ENV_DRAGLOOPSTART: str = UL_("Loop start"); break;
+		case ENV_DRAGLOOPEND: str = UL_("Loop end"); break;
+		case ENV_DRAGSUSTAINSTART: str = UL_("Sustain loop start"); break;
+		case ENV_DRAGSUSTAINEND: str = UL_("Sustain loop end"); break;
 		default: isEnvPoint = true;
 		}
 		if(!isEnvPoint)
@@ -2950,19 +2951,19 @@ HRESULT CViewInstrument::get_accName(VARIANT varChild, BSTR *pszName)
 			if(env->dwFlags[ENV_LOOP])
 			{
 				if(point == env->nLoopStart)
-					str += U_(", loop start");
+					str += UL_(", loop start");
 				if(point == env->nLoopEnd)
-					str += U_(", loop end");
+					str += UL_(", loop end");
 			}
 			if(env->dwFlags[ENV_SUSTAIN])
 			{
 				if(point == env->nLoopStart)
-					str += U_(", sustain loop start");
+					str += UL_(", sustain loop start");
 				if(point == env->nLoopEnd)
-					str += U_(", sustain loop end");
+					str += UL_(", sustain loop end");
 			}
 			if(env->nReleaseNode == point)
-				str += U_(", release node");
+				str += UL_(", release node");
 		}
 	}
 

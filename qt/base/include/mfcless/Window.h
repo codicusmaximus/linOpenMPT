@@ -76,6 +76,43 @@ namespace show
 		ShowNoActivate = 4, Show = 5, Minimize = 6, ShowMinNoActive = 7, ShowNA = 8, Restore = 9;
 }
 
+// SetWindowPos flags, as Windows numbers them.
+namespace swp
+{
+	inline constexpr uint32_t NoSize = 0x1, NoMove = 0x2, NoZOrder = 0x4, NoRedraw = 0x8, NoActivate = 0x10,
+		FrameChanged = 0x20, ShowWindow = 0x40, HideWindow = 0x80, NoCopyBits = 0x100, NoOwnerZOrder = 0x200;
+}
+
+// Moves and sizes a window (x, y relative to its parent, or the screen for a
+// top-level window), as SetWindowPos does; the z order is not changed.
+inline bool SetWindowPos(QWidget *w, QWidget * /*insertAfter*/, int x, int y, int cx, int cy, uint32_t flags)
+{
+	if(!w)
+		return false;
+	if(!(flags & swp::NoMove))
+		w->move(x, y);
+	if(!(flags & swp::NoSize))
+		w->resize(cx, cy);
+	if(flags & swp::ShowWindow)
+		w->show();
+	else if(flags & swp::HideWindow)
+		w->hide();
+	return true;
+}
+
+// The window's rectangle, frame included, in screen coordinates.
+inline void GetWindowRect(const QWidget *w, Rect *r)
+{
+	if(!w || !r)
+		return;
+	const QRect frame = w->isWindow() ? w->frameGeometry() : QRect(w->mapToGlobal(QPoint(0, 0)), w->size());
+	*r = Rect(frame);
+}
+
+// Moves the focus to a control, selecting an edit field's text as dialogs
+// do (GotoDlgCtrl).
+void GotoDlgCtrl(QWidget *w);
+
 // Where a window is and how it is shown, in the layout of Windows'
 // WINDOWPLACEMENT (so that settings files keep working).
 struct WindowPlacement
@@ -253,6 +290,9 @@ public:
 	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
 	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
 	void SetWindowText(const QString &text) { this->setWindowTitle(text); }
+	bool SetWindowPos(QWidget *insertAfter, int x, int y, int cx, int cy, uint32_t flags) { return mfcless::SetWindowPos(this, insertAfter, x, y, cx, cy, flags); }
+	void BeginWaitCursor() { QApplication::setOverrideCursor(Qt::WaitCursor); }
+	void EndWaitCursor() { QApplication::restoreOverrideCursor(); }
 	QString GetWindowText() const { return this->windowTitle(); }
 	// Centres the window over its parent (or another window, or the screen).
 	void CenterWindow(QWidget *alternate = nullptr)

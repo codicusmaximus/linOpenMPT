@@ -136,13 +136,42 @@ TYPES = [
 	(r'\bCComboBoxEx\b', 'QComboBox'),
 	(r'BOOL OnInitDialog\(\)', 'bool OnInitDialog()'),
 	(r'\bASSERT\(', 'MPT_ASSERT('),
-	(r'\b_T\(("(?:[^"\\]|\\.)*")\)', r'U_(\1)'),
+	(r'\b_T\(("(?:[^"\\]|\\.)*")\)', r'UL_(\1)'),
 	(r'\bMPT_CFORMAT\b', 'MPT_UFORMAT'),
 	(r'\bMPT_TFORMAT\b', 'MPT_UFORMAT'),
 	(r'\bmpt::cfmt\b', 'mpt::ufmt'),
 	(r'\bmpt::tfmt\b', 'mpt::ufmt'),
 	(r'\bmpt::ToCString\(', 'mpt::ToUnicode('),
 	(r'\bmpt::ToWin\(', 'mpt::ToUnicode('),
+]
+
+# Applied last to the .cpp twins, once control members are pointers.
+LATE = [
+	# A control's text (Windows' window text).
+	(r'(?<![\w>.:])((?:\w+(?:\[[^\]\[]*\])?(?:->|\.))*\w+(?:\[[^\]\[]*\])?)->GetWindowTextLength\(\)', r'mfcless::GetWindowTextLength(\1)'),
+	(r'(?<![\w>.:])((?:\w+(?:\[[^\]\[]*\])?(?:->|\.))*\w+(?:\[[^\]\[]*\])?)->(SetWindowText|GetWindowText)\(', r'mfcless::\2(\1, '),
+	(r'(?<![\w>.:])(\w+(?:\[[^\]\[]*\])?)\.(SetWindowText|GetWindowText)\(', r'mfcless::\2(\1, '),
+	(r'(?:\b\w+->)?\b(Begin|End)WaitCursor\(\)', r'mfcless::\1WaitCursor()'),
+	(r'(?<![\w:.>])(?:::)?\bMulDiv\(', 'mfcless::MulDiv('),
+	(r'(?<![\w:.>])(?:::)?\bMessageBeep\(', 'mfcless::MessageBeep('),
+	(r'(?<![\w.>])(?:::)?\bGetFocus\(\)', 'mfcless::GetFocus()'),
+	(r'(?<![\w.>])\bSetFocus\(\)', 'setFocus()'),
+	(r'(?<![\w.>])\bGotoDlgCtrl\(', 'mfcless::GotoDlgCtrl('),
+	(r'\b(\w+)->m_hWnd\b', r'\1'),
+	(r'(?<![\w.>])\bm_hWnd\b', 'this'),
+	(r'\bMB_ICON(WARNING|EXCLAMATION)\b', 'nfIconWarning'),
+	(r'\bMB_ICON(ERROR|STOP|HAND)\b', 'nfIconError'),
+	(r'\bMB_ICONQUESTION\b', 'nfIconQuestion'),
+	(r'\bMB_ICON(INFORMATION|ASTERISK)\b', 'nfIconInformation'),
+	(r'\bMB_OKCANCEL\b', 'nfOkCancel'), (r'\bMB_YESNOCANCEL\b', 'nfYesNoCancel'), (r'\bMB_YESNO\b', 'nfYesNo'),
+	(r'\bMB_RETRYCANCEL\b', 'nfRetryCancel'), (r'\bMB_DEFBUTTON2\b', 'nfDefaultButton2'), (r'\bMB_OK\b', 'nfOk'),
+	(r'\bID(YES|NO|OK|CANCEL|RETRY)\b(?!_)', lambda m: {'YES': 'naYes', 'NO': 'naNo', 'OK': 'IDOK', 'CANCEL': 'IDCANCEL', 'RETRY': 'naRetry'}[m.group(1)]),
+	(r'\bSWP_(NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|SHOWWINDOW|HIDEWINDOW|NOREDRAW|FRAMECHANGED|NOCOPYBITS|NOOWNERZORDER|DRAWFRAME)\b', lambda m: 'mfcless::swp::' + {'NOSIZE': 'NoSize', 'NOMOVE': 'NoMove', 'NOZORDER': 'NoZOrder', 'NOACTIVATE': 'NoActivate', 'SHOWWINDOW': 'ShowWindow', 'HIDEWINDOW': 'HideWindow', 'NOREDRAW': 'NoRedraw', 'FRAMECHANGED': 'FrameChanged', 'NOCOPYBITS': 'NoCopyBits', 'NOOWNERZORDER': 'NoOwnerZOrder', 'DRAWFRAME': 'FrameChanged'}[m.group(1)]),
+	(r'\bGetSysColor\(COLOR_(BTNFACE|3DFACE|BTNSHADOW|3DSHADOW|BTNHIGHLIGHT|3DHILIGHT|3DHIGHLIGHT|BTNTEXT|WINDOW|WINDOWTEXT|HIGHLIGHT|HIGHLIGHTTEXT|GRAYTEXT)\)', lambda m: 'mfcless::SystemColor(mfcless::SysColor::' + {'BTNFACE': 'ButtonFace', '3DFACE': 'ButtonFace', 'BTNSHADOW': 'ButtonShadow', '3DSHADOW': 'ButtonShadow', 'BTNHIGHLIGHT': 'ButtonHighlight', '3DHILIGHT': 'ButtonHighlight', '3DHIGHLIGHT': 'ButtonHighlight', 'BTNTEXT': 'ButtonText', 'WINDOW': 'Window', 'WINDOWTEXT': 'WindowText', 'HIGHLIGHT': 'Highlight', 'HIGHLIGHTTEXT': 'HighlightText', 'GRAYTEXT': 'GrayText'}[m.group(1)] + ')'),
+	(r'\bPostMessage\(WM_COMMAND,\s*', 'mfcless::PostCommand(this, '),
+	(r'\bSendMessage\(WM_COMMAND,\s*', 'mfcless::SendCommand(this, '),
+	(r'(\w+)->PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(\1, '),
+	(r'(\w+)->SendMessage\(WM_COMMAND,\s*', r'mfcless::SendCommand(\1, '),
 ]
 
 # Controls become pointers to Qt widgets that the dialog template creates.
@@ -536,6 +565,8 @@ def twin_cpp(text, header):
 	text = keys(text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
+	for a, b in LATE:
+		text = re.sub(a, b, text)
 	if not PATCH_MODE:
 		text = text.replace(' * Notes  : (currently none)', ' * Notes  : mfcless twin of upstream\'s mptrack/' + NAME + '.\n *          ' + DRAFT_MARK)
 		if DRAFT_MARK not in text:
@@ -564,6 +595,10 @@ if __name__ == '__main__':
 						hdr = os.path.join(root, f)
 		header = open(hdr, encoding='utf-8').read() if os.path.exists(hdr) else ''
 		out = twin_cpp(src, header)
+		# The widgets MFC's stdafx.h brought along.
+		m = re.search(r'^#include "[^"]*"\n', out, re.M)
+		if m and '"mfcless/Widgets.h"' not in out:
+			out = out[:m.end()] + '#include "mfcless/Widgets.h"\n' + out[m.end():]
 		if PATCH_MODE:
 			open(path, 'w', encoding='utf-8', errors='surrogateescape').write(out)
 		else:

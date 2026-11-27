@@ -11,6 +11,7 @@
 
 
 #include "DialogBase.h"
+#include "mfcless/StandardIds.h"
 #include "HighDPISupport.h"
 #include "InputHandler.h"
 #include "Mainfrm.h"
@@ -125,7 +126,9 @@ int DialogBase::DoModal()
 		if(OnInitDialog())
 			SetFocusToFirstControl();
 	}
-	return exec() == QDialog::Accepted ? 1 : 2;  // IDOK, IDCANCEL
+	// IDOK, IDCANCEL, or what EndDialog gave.
+	const int result = exec();
+	return result == QDialog::Accepted ? IDOK : (result == QDialog::Rejected ? IDCANCEL : result);
 }
 
 
@@ -820,7 +823,9 @@ void PropertySheet::UpdateApply()
 int PropertySheet::DoModal()
 {
 	Build();
-	return exec() == QDialog::Accepted ? 1 : 2;  // IDOK, IDCANCEL
+	// IDOK, IDCANCEL, or what EndDialog gave.
+	const int result = exec();
+	return result == QDialog::Accepted ? IDOK : (result == QDialog::Rejected ? IDCANCEL : result);
 }
 
 

@@ -10,6 +10,7 @@
  */
 
 #include "PatternFindReplace.h"
+#include "mfcless/Widgets.h"
 #include "Moddoc.h"
 #include "PatternEditorDialogs.h"
 #include "PatternFindReplaceDlg.h"
@@ -46,7 +47,7 @@ void CViewPattern::OnEditFind()
 
 		CFindReplaceTab pageFind(IDD_EDIT_FIND, false, sndFile, settings, m);
 		CFindReplaceTab pageReplace(IDD_EDIT_REPLACE, true, sndFile, settings, m);
-		CPropertySheet dlg(U_("Find/Replace"));
+		PropertySheet dlg(UL_("Find/Replace"));
 
 		dlg.AddPage(&pageFind);
 		dlg.AddPage(&pageReplace);
@@ -71,10 +72,10 @@ void CViewPattern::OnEditFindNext()
 
 	if(!FindReplace::instance.findFlags[~FindReplace::FullSearch])
 	{
-		PostMessage(WM_COMMAND, ID_EDIT_FIND);
+		mfcless::PostCommand(this, ID_EDIT_FIND);
 		return;
 	}
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 
 	EffectInfo effectInfo(sndFile);
 
@@ -467,14 +468,14 @@ EndSearch:
 
 	m_bContinueSearch = true;
 
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 
 	// Display search results
 	if(nFound == 0)
 	{
 		mpt::ustring result;
 		result.Preallocate(14 + 16);
-		result = U_("Cannot find \"");
+		result = UL_("Cannot find \"");
 
 		// Note
 		if(FindReplace::instance.findFlags[FindReplace::Note])
@@ -482,90 +483,90 @@ EndSearch:
 			result += mpt::ToUnicode(sndFile.GetNoteName(FindReplace::instance.findNoteMin));
 			if(FindReplace::instance.findNoteMax > FindReplace::instance.findNoteMin)
 			{
-				result.AppendChar(_T('-'));
+				result.push_back(u8'-');
 				result += mpt::ToUnicode(sndFile.GetNoteName(FindReplace::instance.findNoteMax));
 			}
 		} else
 		{
-			result += U_("???");
+			result += UL_("???");
 		}
-		result.AppendChar(_T(' '));
+		result.push_back(u8' ');
 
 		// Instrument
 		if(FindReplace::instance.findFlags[FindReplace::Instr])
 		{
 			if(FindReplace::instance.findInstrMin)
-				result.AppendFormat(U_("%03d"), FindReplace::instance.findInstrMin);
+				result += mfcless::PrintF(UL_("%03d"), FindReplace::instance.findInstrMin);
 			else
-				result.Append(U_(" .."));
+				result.Append(UL_(" .."));
 			if(FindReplace::instance.findInstrMax > FindReplace::instance.findInstrMin)
-				result.AppendFormat(U_("-%03d"), FindReplace::instance.findInstrMax);
+				result += mfcless::PrintF(UL_("-%03d"), FindReplace::instance.findInstrMax);
 		} else
 		{
-			result.Append(U_(" ??"));
+			result.Append(UL_(" ??"));
 		}
-		result.AppendChar(_T(' '));
+		result.push_back(u8' ');
 
 		// Volume Command
 		if(FindReplace::instance.findFlags[FindReplace::VolCmd])
 		{
 			if(FindReplace::instance.findVolCmd != VOLCMD_NONE)
-				result.AppendChar(specs.GetVolEffectLetter(FindReplace::instance.findVolCmd));
+				result.push_back(specs.GetVolEffectLetter(FindReplace::instance.findVolCmd));
 			else
-				result.AppendChar(_T('.'));
+				result.push_back(u8'.');
 		} else if(FindReplace::instance.findFlags[FindReplace::PCParam])
 		{
-			result.AppendFormat(U_("%03d"), FindReplace::instance.findParamMin);
+			result += mfcless::PrintF(UL_("%03d"), FindReplace::instance.findParamMin);
 			if(FindReplace::instance.findParamMax > FindReplace::instance.findParamMin)
-				result.AppendFormat(U_("-%03d"), FindReplace::instance.findParamMax);
+				result += mfcless::PrintF(UL_("-%03d"), FindReplace::instance.findParamMax);
 		} else
 		{
-			result.AppendChar(_T('?'));
+			result.push_back(u8'?');
 		}
 
 		// Volume Parameter
 		if(FindReplace::instance.findFlags[FindReplace::Volume])
 		{
-			result.AppendFormat(U_("%02d"), FindReplace::instance.findVolumeMin);
+			result += mfcless::PrintF(UL_("%02d"), FindReplace::instance.findVolumeMin);
 			if(FindReplace::instance.findVolumeMax > FindReplace::instance.findVolumeMin)
-				result.AppendFormat(U_("-%02d"), FindReplace::instance.findVolumeMax);
+				result += mfcless::PrintF(UL_("-%02d"), FindReplace::instance.findVolumeMax);
 		} else if(!FindReplace::instance.findFlags[FindReplace::PCParam])
 		{
-			result.Append(U_("??"));
+			result.Append(UL_("??"));
 		}
-		result.AppendChar(_T(' '));
+		result.push_back(u8' ');
 
 		// Effect Command
 		if(FindReplace::instance.findFlags[FindReplace::Command])
 		{
 			if(FindReplace::instance.findCommand != CMD_NONE)
-				result.AppendChar(specs.GetEffectLetter(FindReplace::instance.findCommand));
+				result.push_back(specs.GetEffectLetter(FindReplace::instance.findCommand));
 			else
-				result.AppendChar(_T('.'));
+				result.push_back(u8'.');
 		} else if(FindReplace::instance.findFlags[FindReplace::PCValue])
 		{
-			result.AppendFormat(U_("%03d"), FindReplace::instance.findVolumeMin);
+			result += mfcless::PrintF(UL_("%03d"), FindReplace::instance.findVolumeMin);
 			if(FindReplace::instance.findVolumeMax > FindReplace::instance.findVolumeMin)
-				result.AppendFormat(U_("-%03d"), FindReplace::instance.findVolumeMax);
+				result += mfcless::PrintF(UL_("-%03d"), FindReplace::instance.findVolumeMax);
 		} else
 		{
-			result.AppendChar(_T('?'));
+			result.push_back(u8'?');
 		}
 
 		// Effect Parameter
 		if(FindReplace::instance.findFlags[FindReplace::Param])
 		{
-			result.AppendFormat(U_("%02X"), FindReplace::instance.findParamMin);
+			result += mfcless::PrintF(UL_("%02X"), FindReplace::instance.findParamMin);
 			if(FindReplace::instance.findParamMax > FindReplace::instance.findParamMin)
-				result.AppendFormat(U_("-%02X"), FindReplace::instance.findParamMax);
+				result += mfcless::PrintF(UL_("-%02X"), FindReplace::instance.findParamMax);
 		} else if(!FindReplace::instance.findFlags[FindReplace::PCValue])
 		{
-			result.Append(U_("??"));
+			result.Append(UL_("??"));
 		}
 
-		result.AppendChar(_T('"'));
+		result.push_back(u8'"');
 
-		Reporting::Information(result, U_("Find/Replace"));
+		Reporting::Information(result, UL_("Find/Replace"));
 	}
 }
 

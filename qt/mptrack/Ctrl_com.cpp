@@ -11,6 +11,7 @@
 
 
 #include "Ctrl_com.h"
+#include "mfcless/Widgets.h"
 #include "Globals.h"
 #include "HighDPISupport.h"
 #include "InputHandler.h"
@@ -67,7 +68,7 @@ void CCtrlComments::OnActivatePage(intptr_t)
 {
 	// Don't stop generating VU meter messages
 	m_modDoc.SetNotifications(Notification::Default);
-	m_modDoc.SetFollowWnd(m_hWnd);
+	m_modDoc.SetFollowWnd(this);
 	m_EditComments->setFocus();
 }
 
@@ -82,7 +83,7 @@ bool CCtrlComments::OnInitDialog()
 {
 	CModControlDlg::OnInitDialog();
 	// Initialize comments
-	uint32 margin = HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN, m_EditComments->m_hWnd);
+	uint32 margin = HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN, m_EditComments);
 	m_EditComments->SetMargins(margin, margin);
 	UpdateView(CommentHint().ModType());
 	m_EditComments->setFocus();
@@ -100,7 +101,7 @@ void CCtrlComments::RecalcLayout()
 	mfcless::Rect rcClient, rect;
 	int cx0, cy0;
 	
-	if ((!m_hWnd) || (!m_EditComments->m_hWnd)) return;
+	if ((!this) || (!m_EditComments)) return;
 	GetClientRect(&rcClient);
 	m_EditComments->GetWindowRect(&rect);
 	ScreenToClient(&rect);
@@ -115,16 +116,16 @@ void CCtrlComments::RecalcLayout()
 		{
 			const int cxBorder = HighDPISupport::GetSystemMetrics(SM_CXBORDER, GetDPI());
 			const int cxVScroll = HighDPISupport::GetSystemMetrics(SM_CXVSCROLL, GetDPI());
-			int cxmax = cxBorder + m_sndFile.GetModSpecifications().commentLineLengthMax * charWidth + cxVScroll + cxBorder + HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN + MPT_COMMENTS_MARGIN - 1, m_EditComments->m_hWnd);
+			int cxmax = cxBorder + m_sndFile.GetModSpecifications().commentLineLengthMax * charWidth + cxVScroll + cxBorder + HighDPISupport::ScalePixels(MPT_COMMENTS_MARGIN + MPT_COMMENTS_MARGIN - 1, m_EditComments);
 			if(cx != cxmax && cxmax != 0)
 				cx = cxmax;
-			//SetWindowLong(m_EditComments->m_hWnd, GWL_STYLE, GetWindowLong(m_EditComments->m_hWnd, GWL_STYLE) & ~WS_HSCROLL);
+			//SetWindowLong(m_EditComments, GWL_STYLE, GetWindowLong(m_EditComments, GWL_STYLE) & ~WS_HSCROLL);
 		} else
 		{
-			//SetWindowLong(m_EditComments->m_hWnd, GWL_STYLE, GetWindowLong(m_EditComments->m_hWnd, GWL_STYLE) | WS_HSCROLL);
+			//SetWindowLong(m_EditComments, GWL_STYLE, GetWindowLong(m_EditComments, GWL_STYLE) | WS_HSCROLL);
 		}
 		if(cx != cx0 || cy != cy0)
-			m_EditComments->SetWindowPos(NULL, 0,0, cx, cy, SWP_NOMOVE|SWP_NOZORDER|SWP_DRAWFRAME);
+			m_EditComments->SetWindowPos(NULL, 0,0, cx, cy, mfcless::swp::NoMove|mfcless::swp::NoZOrder|mfcless::swp::FrameChanged);
 	}
 }
 
@@ -150,7 +151,7 @@ void CCtrlComments::UpdateView(UpdateHint hint, QObject *pHint)
 	static int previousFontSize = 0;
 	FontSetting font = TrackerSettings::Instance().commentsFont;
 	// Point size to pixels
-	int32 fontSize = -MulDiv(font.size, GetDPI(), 720);
+	int32 fontSize = -mfcless::MulDiv(font.size, GetDPI(), 720);
 	if(previousFont != font || previousFontSize != fontSize)
 	{
 		previousFont = font;
@@ -187,10 +188,10 @@ void CCtrlComments::UpdateView(UpdateHint hint, QObject *pHint)
 	}
 	mpt::ustring new_text = mpt::ToUnicode(m_sndFile.GetCharsetInternal(), text);
 	mpt::ustring old_text;
-	m_EditComments->GetWindowText(old_text);
+	mfcless::GetWindowText(m_EditComments, old_text);
 	if(new_text != old_text)
 	{
-		m_EditComments->SetWindowText(new_text);
+		mfcless::SetWindowText(m_EditComments, new_text);
 	}
 
 	if(commentHint.GetType() & HINT_MODTYPE)
@@ -228,7 +229,7 @@ void CCtrlComments::OnCommentsUpdated()
 	int end = 0;
 	m_EditComments->GetSel(beg, end);
 	mpt::ustring text;
-	m_EditComments->GetWindowText(text);
+	mfcless::GetWindowText(m_EditComments, text);
 	std::string lines_new;
 	lines_new.reserve(text.GetLength());
 	bool modified = false;
@@ -236,7 +237,7 @@ void CCtrlComments::OnCommentsUpdated()
 
 #if defined(MPT_COMMENTS_LONG_LINES_WRAP)
 
-	std::string lines = text.GetString();
+	std::string lines = text.c_str();
 	std::size_t line_length = 0;
 	for(std::size_t i = 0; i < lines.length(); ++i)
 	{
@@ -278,7 +279,7 @@ void CCtrlComments::OnCommentsUpdated()
 
 #elif defined(MPT_COMMENTS_LONG_LINES_TRUNCATE)
 
-	std::vector<std::string> lines = mpt::split(std::string(text.GetString()), std::string("\r\n"));
+	std::vector<std::string> lines = mpt::split(std::string(text.c_str()), std::string("\r\n"));
 	for(std::size_t i = 0; i < lines.size(); ++i)
 	{
 		if(i > 0)
@@ -319,7 +320,7 @@ void CCtrlComments::OnCommentsUpdated()
 	if(modified)
 	{
 		text = lines_new.c_str();
-		m_EditComments->SetWindowText(text);
+		mfcless::SetWindowText(m_EditComments, text);
 		m_EditComments->SetSel(beg, end);
 	}
 	m_Reformatting = false;
@@ -333,10 +334,10 @@ void CCtrlComments::OnCommentsChanged()
 {
 	if(m_nLockCount)
 		return;
-	if(!m_initialized || !m_EditComments->m_hWnd || !m_EditComments->GetModify())
+	if(!m_initialized || !m_EditComments || !m_EditComments->GetModify())
 		return;
 	mpt::ustring text;
-	m_EditComments->GetWindowText(text);
+	mfcless::GetWindowText(m_EditComments, text);
 	m_EditComments->SetModify(false);
 	if(m_sndFile.m_songMessage.SetFormatted(mpt::ToCharset(m_sndFile.GetCharsetInternal(), text), SongMessage::leCRLF))
 	{
@@ -351,14 +352,14 @@ bool CCtrlComments::PreTranslateMessage(mfcless::Message *pMsg)
 	if(pMsg->message == mfcless::msg::KeyDown && pMsg->wParam == 'A' && GetKeyState(mfcless::vk::CONTROL) < 0)
 	{
 		// Ctrl-A is not handled by multiline edit boxes
-		if(::GetFocus() == m_EditComments->m_hWnd)
+		if(mfcless::GetFocus() == m_EditComments)
 			m_EditComments->SetSel(0, -1);
 	} else if(pMsg->message == mfcless::msg::KeyDown && pMsg->wParam == mfcless::vk::TAB && CInputHandler::GetModifierMask() == ModNone)
 	{
 		int selStart, selEnd;
 		m_EditComments->GetSel(selStart, selEnd);
 		int posInLine = (selStart - m_EditComments->LineIndex(m_EditComments->LineFromChar(selStart)));
-		mpt::ustring tabs(_T(' '), 4 - (posInLine % 4));
+		mpt::ustring tabs(u8' ', 4 - (posInLine % 4));
 		m_EditComments->ReplaceSel(tabs, true);
 		m_EditComments->SetSel(-1, -1, true);
 		return true;

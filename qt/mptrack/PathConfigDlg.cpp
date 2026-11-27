@@ -10,6 +10,7 @@
 
 
 #include "PathConfigDlg.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "Mainfrm.h"
 #include "Mptrack.h"
@@ -33,15 +34,15 @@ static constexpr std::pair<ConfigurableDirectory TrackerSettings::*, int> PathSe
 PathConfigDlg::PathConfigDlg()
 	: CPropertyPage{IDD_OPTIONS_AUTOSAVE}
 {
-	m_accessibleEdits[0].SetAccessibleSuffix(U_("minutes"));
-	m_accessibleEdits[1].SetAccessibleSuffix(U_("backups"));
-	m_accessibleEdits[2].SetAccessibleSuffix(U_("days"));
-	m_browseButtons[0].SetAccessibleText(U_("Browse for song folder..."));
-	m_browseButtons[1].SetAccessibleText(U_("Browse for sample folder..."));
-	m_browseButtons[2].SetAccessibleText(U_("Browse for instrument folder..."));
-	m_browseButtons[3].SetAccessibleText(U_("Browse for VST plugin folder..."));
-	m_browseButtons[4].SetAccessibleText(U_("Browse for VST preset folder..."));
-	m_browseButtons[5].SetAccessibleText(U_("Browse for auto save folder..."));
+	m_accessibleEdits[0].SetAccessibleSuffix(UL_("minutes"));
+	m_accessibleEdits[1].SetAccessibleSuffix(UL_("backups"));
+	m_accessibleEdits[2].SetAccessibleSuffix(UL_("days"));
+	m_browseButtons[0].SetAccessibleText(UL_("Browse for song folder..."));
+	m_browseButtons[1].SetAccessibleText(UL_("Browse for sample folder..."));
+	m_browseButtons[2].SetAccessibleText(UL_("Browse for instrument folder..."));
+	m_browseButtons[3].SetAccessibleText(UL_("Browse for VST plugin folder..."));
+	m_browseButtons[4].SetAccessibleText(UL_("Browse for VST preset folder..."));
+	m_browseButtons[5].SetAccessibleText(UL_("Browse for auto save folder..."));
 }
 
 
@@ -95,7 +96,7 @@ bool PathConfigDlg::OnInitDialog()
 	// Default paths
 	for(const auto & [path, id] : PathSettings)
 	{
-		SetItemText(id, (settings.*path).GetDefaultDir().ToCString());
+		SetItemText(id, (settings.*path).GetDefaultDir().ToUnicode());
 	}
 
 	// Autosave
@@ -123,7 +124,7 @@ bool PathConfigDlg::OnInitDialog()
 
 mpt::PathString PathConfigDlg::GetPath(int id)
 {
-	return mpt::PathString::FromCString(GetWindowTextString(*GetDlgItem(id))).WithTrailingSlash();
+	return mpt::PathString::FromUnicode(GetWindowTextString(*GetDlgItem(id))).WithTrailingSlash();
 }
 
 
@@ -156,12 +157,12 @@ void PathConfigDlg::OnOK()
 void PathConfigDlg::BrowseFolder(uint32 nID)
 {
 	const mpt::uchar *prompt = (nID == IDC_AUTOSAVE_PATH)
-		? U_("Select a folder to store autosaved files in...")
-		: U_("Select a default folder...");
+		? UL_("Select a folder to store autosaved files in...")
+		: UL_("Select a default folder...");
 	BrowseForFolder dlg(GetPath(nID), prompt);
 	if(dlg.Show(this))
 	{
-		SetItemText(nID, dlg.GetDirectory().ToCString());
+		SetItemText(nID, dlg.GetDirectory().ToUnicode());
 		OnSettingsChanged();
 	}
 }

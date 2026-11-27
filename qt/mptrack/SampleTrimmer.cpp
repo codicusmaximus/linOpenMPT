@@ -11,6 +11,7 @@
 
 #include <numeric>
 #include "InputHandler.h"
+#include "mfcless/Widgets.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
 #include "ProgressDialog.h"
@@ -146,7 +147,7 @@ void CModDoc::OnShowSampleTrimmer()
 	}
 	if(numTrimmed == 0)
 	{
-		Reporting::Information(U_("No samples can be trimmed, because all samples are played in their full length."));
+		Reporting::Information(UL_("No samples can be trimmed, because all samples are played in their full length."));
 		return;
 	}
 

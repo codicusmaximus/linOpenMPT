@@ -10,6 +10,7 @@
 
 
 #include "ExternalSamples.h"
+#include "mfcless/Widgets.h"
 #include "FileDialog.h"
 #include "FolderScanner.h"
 #include "Moddoc.h"
@@ -52,14 +53,14 @@ bool MissingExternalSamplesDlg::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{ U_("Sample"),            128, LVCFMT_LEFT },
-		{ U_("External Filename"), 308, LVCFMT_LEFT },
+		{ UL_("Sample"),            128, LVCFMT_LEFT },
+		{ UL_("External Filename"), 308, LVCFMT_LEFT },
 	};
 	m_List->SetHeaders(headers);
 	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT);
 
 	GenerateList();
-	SetWindowText((U_("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+	SetWindowText((UL_("Missing External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
 
 	return true;
 }
@@ -74,12 +75,12 @@ void MissingExternalSamplesDlg::GenerateList()
 	{
 		if(m_sndFile.IsExternalSampleMissing(smp))
 		{
-			s.Format(U_("%02u: "), smp);
+			s = mfcless::PrintF(UL_("%02u: "), smp);
 			s += mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetSampleName(smp));
 			int insertAt = m_List->InsertItem(m_List->GetItemCount(), s);
 			if(insertAt == -1)
 				continue;
-			m_List->SetItemText(insertAt, 1, m_sndFile.GetSamplePath(smp).ToCString());
+			m_List->SetItemText(insertAt, 1, m_sndFile.GetSamplePath(smp).ToUnicode());
 			m_List->SetItemData(insertAt, smp);
 		}
 	}
@@ -123,7 +124,7 @@ void MissingExternalSamplesDlg::OnScanFolder()
 		return;
 	}
 
-	BrowseForFolder dlg(TrackerSettings::Instance().PathSamples.GetWorkingDir(), U_("Select a folder to search for missing samples..."));
+	BrowseForFolder dlg(TrackerSettings::Instance().PathSamples.GetWorkingDir(), UL_("Select a folder to search for missing samples..."));
 	dlg.AddPlace(m_modDoc.GetPathNameMpt().GetDirectoryWithDrive());
 	if(dlg.Show())
 	{
@@ -133,9 +134,9 @@ void MissingExternalSamplesDlg::OnScanFolder()
 		mpt::PathString fileName;
 
 		m_isScanning = true;
-		SetItemText(IDC_BUTTON1, U_("&Cancel"));
+		SetItemText(IDC_BUTTON1, UL_("&Cancel"));
 		EnableItem(IDOK, false);
-		BeginWaitCursor();
+		mfcless::BeginWaitCursor();
 
 		DWORD64 lastTick = Util::GetTickCount64();
 		int foundFiles = 0;
@@ -165,7 +166,7 @@ void MissingExternalSamplesDlg::OnScanFolder()
 			if(tick < lastTick || tick > lastTick + 100)
 			{
 				lastTick = tick;
-				SetItemText(IDC_STATIC1, fileName.ToCString());
+				SetItemText(IDC_STATIC1, fileName.ToUnicode());
 				MSG msg;
 				while(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 				{
@@ -174,9 +175,9 @@ void MissingExternalSamplesDlg::OnScanFolder()
 				}
 			}
 		}
-		EndWaitCursor();
+		mfcless::EndWaitCursor();
 		EnableItem(IDOK, true);
-		SetItemText(IDC_BUTTON1, U_("&Scan Folder..."));
+		SetItemText(IDC_BUTTON1, UL_("&Scan Folder..."));
 
 		m_modDoc.UpdateAllViews(nullptr, SampleHint().Info().Data().Names());
 
@@ -185,7 +186,7 @@ void MissingExternalSamplesDlg::OnScanFolder()
 			SetItemText(IDC_STATIC1, MPT_UFORMAT("{} sample paths were relocated.")(foundFiles));
 		} else
 		{
-			SetItemText(IDC_STATIC1, U_("No matching sample names found."));
+			SetItemText(IDC_STATIC1, UL_("No matching sample names found."));
 		}
 		m_isScanning = false;
 		GenerateList();
@@ -200,7 +201,7 @@ bool MissingExternalSamplesDlg::SetSample(SAMPLEINDEX smp, const mpt::PathString
 	const mpt::PathString oldPath = m_sndFile.GetSamplePath(smp);
 	if(!m_sndFile.LoadExternalSample(smp, fileName))
 	{
-		Reporting::Information(U_("Unable to load sample:\n") + fileName.ToWide());
+		Reporting::Information(UL_("Unable to load sample:\n") + fileName.ToWide());
 		m_modDoc.GetSampleUndo().RemoveLastUndoStep(smp);
 		return false;
 	} else
@@ -246,15 +247,15 @@ bool ModifiedExternalSamplesDlg::OnInitDialog()
 	// Initialize table
 	const CListCtrlEx::Header headers[] =
 	{
-		{U_("Sample"),            120, LVCFMT_LEFT},
-		{U_("Status"),            54,  LVCFMT_LEFT},
-		{U_("External Filename"), 262, LVCFMT_LEFT},
+		{UL_("Sample"),            120, LVCFMT_LEFT},
+		{UL_("Status"),            54,  LVCFMT_LEFT},
+		{UL_("External Filename"), 262, LVCFMT_LEFT},
 	};
 	m_List->SetHeaders(headers);
 	m_List->SetExtendedStyle(m_List->GetExtendedStyle() | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 
 	GenerateList();
-	SetWindowText((U_("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
+	SetWindowText((UL_("Modified External Samples - ") + m_modDoc.GetPathNameMpt().GetFilename().ToWide()).c_str());
 
 	return true;
 }
@@ -272,21 +273,21 @@ void ModifiedExternalSamplesDlg::GenerateList()
 			continue;
 
 		if(m_sndFile.GetSample(smp).uFlags[SMP_MODIFIED])
-			status = U_("modified");
+			status = UL_("modified");
 		else if(!m_sndFile.GetSample(smp).HasSampleData())
 			continue;  // Sample was already missing when the file was loaded, nothing we can do here
 		else if(!mpt::native_fs{}.is_file(m_sndFile.GetSamplePath(smp)))
-			status = U_("missing");
+			status = UL_("missing");
 		else
 			continue;
 
-		s.Format(U_("%02u: "), smp);
+		s = mfcless::PrintF(UL_("%02u: "), smp);
 		s += mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetSampleName(smp));
 		int insertAt = m_List->InsertItem(m_List->GetItemCount(), s);
 		if(insertAt == -1)
 			continue;
 		m_List->SetItemText(insertAt, 1, status.c_str());
-		m_List->SetItemText(insertAt, 2, m_sndFile.GetSamplePath(smp).ToCString());
+		m_List->SetItemText(insertAt, 2, m_sndFile.GetSamplePath(smp).ToUnicode());
 		m_List->SetCheck(insertAt, true);
 		m_List->SetItemData(insertAt, smp);
 	}
@@ -324,16 +325,16 @@ void ModifiedExternalSamplesDlg::OnSelectionChanged()
 	const mpt::uchar *embedText, *saveText;
 	if(numChecked == count)
 	{
-		embedText = U_("&Embed All");
-		saveText = U_("&Save All");
+		embedText = UL_("&Embed All");
+		saveText = UL_("&Save All");
 	} else if(!numChecked)
 	{
-		embedText = U_("&Embed None");
-		saveText = U_("&Save None");
+		embedText = UL_("&Embed None");
+		saveText = UL_("&Save None");
 	} else
 	{
-		embedText = U_("&Embed Selected");
-		saveText = U_("&Save Selected");
+		embedText = UL_("&Embed Selected");
+		saveText = UL_("&Save Selected");
 	}
 
 	GetDlgItem(IDOK)->SetWindowText(embedText);
@@ -343,7 +344,7 @@ void ModifiedExternalSamplesDlg::OnSelectionChanged()
 
 void ModifiedExternalSamplesDlg::Execute(bool doSave)
 {
-	ScopedLogCapturer log(m_modDoc, U_("Modified Samples"), this);
+	ScopedLogCapturer log(m_modDoc, UL_("Modified Samples"), this);
 
 	bool ok = true;
 	const int count = m_List->GetItemCount();

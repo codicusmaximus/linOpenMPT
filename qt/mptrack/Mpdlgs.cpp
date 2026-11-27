@@ -10,6 +10,7 @@
 
 
 #include "Mpdlgs.h"
+#include "mfcless/Widgets.h"
 #include "DialogBase.h"
 #include "dlg_misc.h"
 #include "ImageLists.h"
@@ -32,9 +33,9 @@ OPENMPT_NAMESPACE_BEGIN
 
 const mpt::uchar *gszChnCfgNames[3] =
 {
-	U_("Mono"),
-	U_("Stereo"),
-	U_("Quad")
+	UL_("Mono"),
+	UL_("Stereo"),
+	UL_("Quad")
 };
 
 
@@ -234,7 +235,7 @@ void COptionsSoundcard::UpdateLatency()
 			0.250
 		};
 		m_CbnLatencyMS->clear();
-		m_CbnLatencyMS->SetWindowText(PrintTime(m_Settings.Latency));
+		mfcless::SetWindowText(m_CbnLatencyMS, PrintTime(m_Settings.Latency));
 		for(auto lat : latencies)
 		{
 			if(m_CurrentDeviceCaps.LatencyMin <= lat && lat <= m_CurrentDeviceCaps.LatencyMax)
@@ -269,7 +270,7 @@ void COptionsSoundcard::UpdateUpdateInterval()
 			0.050
 		};
 		m_CbnUpdateIntervalMS->clear();
-		m_CbnUpdateIntervalMS->SetWindowText(PrintTime(m_Settings.UpdateInterval));
+		mfcless::SetWindowText(m_CbnUpdateIntervalMS, PrintTime(m_Settings.UpdateInterval));
 		for(auto upd : updateIntervals)
 		{
 			if(m_CurrentDeviceCaps.UpdateIntervalMin <= upd && upd <= m_CurrentDeviceCaps.UpdateIntervalMax)
@@ -292,23 +293,23 @@ void COptionsSoundcard::UpdateGeneral()
 		if(m_CurrentDeviceCaps.CanKeepDeviceRunning)
 		{
 			m_CbnStoppedMode->clear();
-			mfcless::AddItem(m_CbnStoppedMode, U_("Close driver"));
-			mfcless::AddItem(m_CbnStoppedMode, U_("Pause driver"));
-			mfcless::AddItem(m_CbnStoppedMode, U_("Play silence"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Close driver"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Pause driver"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Play silence"));
 			m_CbnStoppedMode->setCurrentIndex(TrackerSettings::Instance().m_SoundSettingsStopMode);
 		} else
 		{
 			m_CbnStoppedMode->clear();
-			mfcless::AddItem(m_CbnStoppedMode, U_("Close driver"));
-			mfcless::AddItem(m_CbnStoppedMode, U_("Close driver"));
-			mfcless::AddItem(m_CbnStoppedMode, U_("Close driver"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Close driver"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Close driver"));
+			mfcless::AddItem(m_CbnStoppedMode, UL_("Close driver"));
 			m_CbnStoppedMode->setCurrentIndex(TrackerSettings::Instance().m_SoundSettingsStopMode);
 		}
 		SetChecked(IDC_CHECK7, TrackerSettings::Instance().m_SoundSettingsOpenDeviceAtStartup ? 1 : 0);
 	}
 	bool isUnavailble = theApp.GetSoundDevicesManager()->IsDeviceUnavailable(m_CurrentDeviceInfo.GetIdentifier());
 	m_CbnStoppedMode->setEnabled(isUnavailble ? false : (m_CurrentDeviceCaps.CanKeepDeviceRunning ? true : false));
-	CPropertySheet *sheet = dynamic_cast<CPropertySheet *>(GetParent());
+	PropertySheet *sheet = GetSheet();
 	if(sheet) sheet->EnableItem(IDOK, isUnavailble ? false : true);
 }
 
@@ -384,7 +385,7 @@ void COptionsSoundcard::UpdateEverything()
 				cbi.iSelectedImage = cbi.iImage;
 				cbi.iOverlay = cbi.iImage;
 				mpt::ustring tmp = mpt::ToUnicode(it.GetDisplayName());
-				cbi.pszText = const_cast<mpt::uchar *>(tmp.GetString());
+				cbi.pszText = const_cast<mpt::uchar *>(tmp.c_str());
 				cbi.iIndent = 0;
 				int pos = m_CbnDevice->InsertItem(&cbi);
 				if(static_cast<SoundDevice::Manager::GlobalID>(cbi.lParam) == theApp.GetSoundDevicesManager()->GetGlobalID(m_CurrentDeviceInfo.GetIdentifier()))
@@ -451,9 +452,9 @@ void COptionsSoundcard::UpdateChannels()
 
 void COptionsSoundcard::UpdateRecording()
 {
-	ShowItem(IDC_STATIC_RECORDING, TrackerSettings::Instance().m_SoundShowRecordingSettings ? true : false);
-	m_CbnRecordingChannels->setVisible(TrackerSettings::Instance().m_SoundShowRecordingSettings ? true : false);
-	m_CbnRecordingSource->setVisible(TrackerSettings::Instance().m_SoundShowRecordingSettings ? true : false);
+	ShowItem(IDC_STATIC_RECORDING, TrackerSettings::Instance().m_SoundShowRecordingSettings ? mfcless::show::Show : mfcless::show::Hide);
+	m_CbnRecordingChannels->setVisible(TrackerSettings::Instance().m_SoundShowRecordingSettings ? mfcless::show::Show : mfcless::show::Hide);
+	m_CbnRecordingSource->setVisible(TrackerSettings::Instance().m_SoundShowRecordingSettings ? mfcless::show::Show : mfcless::show::Hide);
 	m_CbnRecordingChannels->clear();
 	m_CbnRecordingSource->clear();
 	if(m_CurrentDeviceCaps.CanInput && ((m_CurrentDeviceCaps.HasNamedInputSources && m_CurrentDeviceDynamicCaps.inputSourceNames.size() > 0) || !m_CurrentDeviceCaps.HasNamedInputSources))
@@ -462,7 +463,7 @@ void COptionsSoundcard::UpdateRecording()
 		m_CbnRecordingChannels->setEnabled(true);
 		int sel = 0;
 		{
-			int ndx = mfcless::AddItem(m_CbnRecordingChannels, U_("off"));
+			int ndx = mfcless::AddItem(m_CbnRecordingChannels, UL_("off"));
 			mfcless::SetItemData(m_CbnRecordingChannels, ndx, 0);
 			if(0 == m_Settings.InputChannels)
 			{
@@ -485,7 +486,7 @@ void COptionsSoundcard::UpdateRecording()
 			sel = -1;
 			for(size_t ch = 0; ch < m_CurrentDeviceDynamicCaps.inputSourceNames.size(); ch++)
 			{
-				const int pos = (int)::SendMessageW(m_CbnRecordingSource->m_hWnd, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.inputSourceNames[ch].second.c_str());
+				const int pos = (int)::SendMessageW(m_CbnRecordingSource, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.inputSourceNames[ch].second.c_str());
 				mfcless::SetItemData(m_CbnRecordingSource, pos, (uintptr_t)m_CurrentDeviceDynamicCaps.inputSourceNames[ch].first);
 				if(m_CurrentDeviceDynamicCaps.inputSourceNames[ch].first == m_Settings.InputSourceID)
 				{
@@ -502,7 +503,7 @@ void COptionsSoundcard::UpdateRecording()
 	{
 		EnableItem(IDC_STATIC_RECORDING, false);
 		m_CbnRecordingChannels->setEnabled(false);
-		int ndx = mfcless::AddItem(m_CbnRecordingChannels, U_("off"));
+		int ndx = mfcless::AddItem(m_CbnRecordingChannels, UL_("off"));
 		mfcless::SetItemData(m_CbnRecordingChannels, ndx, 0);
 		m_CbnRecordingChannels->setCurrentIndex(ndx);
 		m_CbnRecordingSource->setEnabled(false);
@@ -635,13 +636,13 @@ void COptionsSoundcard::UpdateChannelMapping()
 		combo->ResetContent();
 		if(m_CurrentDeviceCaps.CanChannelMapping)
 		{
-			combo->SetItemData(combo->AddString(U_("Unassigned")), (uintptr_t)-1);
+			combo->SetItemData(combo->AddString(UL_("Unassigned")), (uintptr_t)-1);
 			combo->SetCurSel(0);
 			if(mch < usedChannels)
 			{
 				for(size_t dch = 0; dch < m_CurrentDeviceDynamicCaps.channelNames.size(); dch++)	// Device channels
 				{
-					const int pos = (int)::SendMessageW(combo->m_hWnd, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.channelNames[dch].c_str());
+					const int pos = (int)::SendMessageW(combo, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.channelNames[dch].c_str());
 					combo->SetItemData(pos, (uintptr_t)dch);
 					if(static_cast<int32>(dch) == m_Settings.Channels.ToDevice(mch))
 					{
@@ -879,22 +880,22 @@ void COptionsSoundcard::OnOK()
 	// Latency
 	{
 		mpt::ustring s;
-		m_CbnLatencyMS->GetWindowText(s);
+		mfcless::GetWindowText(m_CbnLatencyMS, s);
 		m_Settings.Latency = ParseTime(s);
 		//Check given value.
 		if(m_Settings.Latency == 0.0) m_Settings.Latency = m_CurrentDeviceCaps.DefaultSettings.Latency;
 		m_Settings.Latency = Clamp(m_Settings.Latency, m_CurrentDeviceCaps.LatencyMin, m_CurrentDeviceCaps.LatencyMax);
-		m_CbnLatencyMS->SetWindowText(PrintTime(m_Settings.Latency));
+		mfcless::SetWindowText(m_CbnLatencyMS, PrintTime(m_Settings.Latency));
 	}
 	// Update Interval
 	{
 		mpt::ustring s;
-		m_CbnUpdateIntervalMS->GetWindowText(s);
+		mfcless::GetWindowText(m_CbnUpdateIntervalMS, s);
 		m_Settings.UpdateInterval = ParseTime(s);
 		//Check given value.
 		if(m_Settings.UpdateInterval == 0.0) m_Settings.UpdateInterval = m_CurrentDeviceCaps.DefaultSettings.UpdateInterval;
 		m_Settings.UpdateInterval = Clamp(m_Settings.UpdateInterval, m_CurrentDeviceCaps.UpdateIntervalMin, m_CurrentDeviceCaps.UpdateIntervalMax);
-		m_CbnUpdateIntervalMS->SetWindowText(PrintTime(m_Settings.UpdateInterval));
+		mfcless::SetWindowText(m_CbnUpdateIntervalMS, PrintTime(m_Settings.UpdateInterval));
 	}
 	// Channel Mapping
 	{
@@ -980,15 +981,15 @@ void COptionsSoundcard::UpdateStatistics()
 			mpt::ufmt::fix((timeInfo.RenderStreamPositionBefore.Seconds - streamPosition.Seconds) * 1000.0, 1));
 #endif
 		s += stats.text;
-		m_EditStatistics->SetWindowText(mpt::ToUnicode(s));
+		mfcless::SetWindowText(m_EditStatistics, mpt::ToUnicode(s));
 	}	else
 	{
 		if(theApp.GetSoundDevicesManager()->IsDeviceUnavailable(m_CurrentDeviceInfo.GetIdentifier()))
 		{
-			m_EditStatistics->SetWindowText(U_("Device currently unavailable."));
+			mfcless::SetWindowText(m_EditStatistics, UL_("Device currently unavailable."));
 		} else
 		{
-			m_EditStatistics->SetWindowText(U_(""));
+			mfcless::SetWindowText(m_EditStatistics, UL_(""));
 		}
 	}
 }
@@ -1031,8 +1032,8 @@ void COptionsMixer::DoDataExchange(DataExchange &dx)
 COptionsMixer::COptionsMixer()
 	: CPropertyPage{IDD_OPTIONS_MIXER}
 {
-	m_CEditRampUp->SetAccessibleSuffix(U_("microseconds up"));
-	m_CEditRampDown->SetAccessibleSuffix(U_("microseconds down"));
+	m_CEditRampUp->SetAccessibleSuffix(UL_("microseconds up"));
+	m_CEditRampDown->SetAccessibleSuffix(UL_("microseconds down"));
 }
 
 
@@ -1061,9 +1062,9 @@ bool COptionsMixer::OnInitDialog()
 	m_CbnAmigaType->setEnabled(enableAmigaResampler ? true : false);
 	static constexpr std::pair<const mpt::uchar *, Resampling::AmigaFilter> Filters[] =
 	{
-		{U_("A500 Filter"),  Resampling::AmigaFilter::A500},
-		{U_("A1200 Filter"), Resampling::AmigaFilter::A1200},
-		{U_("Unfiltered"),   Resampling::AmigaFilter::Unfiltered},
+		{UL_("A500 Filter"),  Resampling::AmigaFilter::A500},
+		{UL_("A1200 Filter"), Resampling::AmigaFilter::A1200},
+		{UL_("Unfiltered"),   Resampling::AmigaFilter::Unfiltered},
 	};
 	int sel = 0;
 	for(const auto & [name, filter] : Filters)
@@ -1077,8 +1078,8 @@ bool COptionsMixer::OnInitDialog()
 
 	// volume ramping
 	{
-		m_CEditRampUp->SetWindowText(mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampUpMicroseconds())));
-		m_CEditRampDown->SetWindowText(mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampDownMicroseconds())));
+		mfcless::SetWindowText(m_CEditRampUp, mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampUpMicroseconds())));
+		mfcless::SetWindowText(m_CEditRampDown, mpt::ToUnicode(mpt::ufmt::val(TrackerSettings::Instance().GetMixerSettings().GetVolumeRampDownMicroseconds())));
 		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN2))->SetRange32(0, int32_max);
 		static_cast<CSpinButtonCtrl *>(GetDlgItem(IDC_SPIN3))->SetRange32(0, int32_max);
 		UpdateRamping();
@@ -1145,8 +1146,8 @@ void COptionsMixer::OnRampingChanged()
 
 void COptionsMixer::OnDefaultRampSettings()
 {
-	m_CEditRampUp->SetWindowText(mpt::ToUnicode(mpt::ufmt::val(MixerSettings().GetVolumeRampUpMicroseconds())));
-	m_CEditRampDown->SetWindowText(mpt::ToUnicode(mpt::ufmt::val(MixerSettings().GetVolumeRampDownMicroseconds())));
+	mfcless::SetWindowText(m_CEditRampUp, mpt::ToUnicode(mpt::ufmt::val(MixerSettings().GetVolumeRampUpMicroseconds())));
+	mfcless::SetWindowText(m_CEditRampDown, mpt::ToUnicode(mpt::ufmt::val(MixerSettings().GetVolumeRampDownMicroseconds())));
 	OnRampingChanged();
 }
 
@@ -1166,21 +1167,21 @@ void COptionsMixer::UpdateRamping()
 {
 	MixerSettings settings = TrackerSettings::Instance().GetMixerSettings();
 	mpt::ustring s;
-	m_CEditRampUp->GetWindowText(s);
+	mfcless::GetWindowText(m_CEditRampUp, s);
 	settings.SetVolumeRampUpMicroseconds(mpt::parse<int32>(s));
-	m_CEditRampDown->GetWindowText(s);
+	mfcless::GetWindowText(m_CEditRampDown, s);
 	settings.SetVolumeRampDownMicroseconds(mpt::parse<int32>(s));
-	s.Format(U_("%i samples at %i Hz"), (int)settings.GetVolumeRampUpSamples(), (int)settings.gdwMixingFreq);
-	m_CInfoRampUp->SetWindowText(s);
-	s.Format(U_("%i samples at %i Hz"), (int)settings.GetVolumeRampDownSamples(), (int)settings.gdwMixingFreq);
-	m_CInfoRampDown->SetWindowText(s);
+	s = mfcless::PrintF(UL_("%i samples at %i Hz"), (int)settings.GetVolumeRampUpSamples(), (int)settings.gdwMixingFreq);
+	mfcless::SetWindowText(m_CInfoRampUp, s);
+	s = mfcless::PrintF(UL_("%i samples at %i Hz"), (int)settings.GetVolumeRampDownSamples(), (int)settings.gdwMixingFreq);
+	mfcless::SetWindowText(m_CInfoRampDown, s);
 }
 
 
 void COptionsMixer::UpdateStereoSep()
 {
 	mpt::ustring s;
-	s.Format(U_("%d%%"), ((8 * m_SliderStereoSep->value()) * 100) / 128);
+	s = mfcless::PrintF(UL_("%d%%"), ((8 * m_SliderStereoSep->value()) * 100) / 128);
 	SetItemText(IDC_TEXT_STEREOSEP, s);
 }
 
@@ -1202,9 +1203,9 @@ void COptionsMixer::OnOK()
 	{
 		MixerSettings settings = TrackerSettings::Instance().GetMixerSettings();
 		mpt::ustring s;
-		m_CEditRampUp->GetWindowText(s);
+		mfcless::GetWindowText(m_CEditRampUp, s);
 		settings.SetVolumeRampUpMicroseconds(mpt::parse<int>(s));
-		m_CEditRampDown->GetWindowText(s);
+		mfcless::GetWindowText(m_CEditRampDown, s);
 		settings.SetVolumeRampDownMicroseconds(mpt::parse<int>(s));
 		TrackerSettings::Instance().SetMixerSettings(settings);
 	}
@@ -1309,7 +1310,7 @@ bool CEQSlider::PreTranslateMessage(mfcless::Message *pMsg)
 	{
 		m_x = LOWORD(pMsg->lParam);
 		m_y = HIWORD(pMsg->lParam);
-		m_pParent->PostMessage(WM_COMMAND, ID_EQSLIDER_BASE+m_nSliderNo, 0);
+		m_pParent->mfcless::PostCommand(this, ID_EQSLIDER_BASE+m_nSliderNo, 0);
 	}
 	return WindowBase::PreTranslateMessage(pMsg);
 }
@@ -1494,11 +1495,11 @@ bool COptionsPlayer::OnSetActive()
 	CMainFrame::m_nLastOptionsPage = OPTIONS_PAGE_PLAYER;
 
 	SetItemText(IDC_EQ_WARNING,
-		U_("Note: This EQ is applied to any and all of the modules ")
-		U_("that you load in OpenMPT; its settings are stored globally, ")
-		U_("rather than in each file. This means that you should avoid ")
-		U_("using it as part of your production process, and instead only ")
-		U_("use it to correct deficiencies in your audio hardware."));
+		UL_("Note: This EQ is applied to any and all of the modules ")
+		UL_("that you load in OpenMPT; its settings are stored globally, ")
+		UL_("rather than in each file. This means that you should avoid ")
+		UL_("using it as part of your production process, and instead only ")
+		UL_("use it to correct deficiencies in your audio hardware."));
 
 	return PropertyPage::OnSetActive();
 }
@@ -1507,7 +1508,7 @@ bool COptionsPlayer::OnSetActive()
 void COptionsPlayer::OnHScroll(mfcless::ScrollCode code, int pos, QWidget *psb)
 {
 	if (nSBCode == SB_ENDSCROLL) return;
-	if ((psb) && (psb->m_hWnd == m_SbReverbDepth->m_hWnd))
+	if ((psb) && (psb == m_SbReverbDepth))
 	{
 #ifndef NO_REVERB
 		uint32 n = m_SbReverbDepth->value();
@@ -1758,7 +1759,7 @@ CMidiSetupDlg::CMidiSetupDlg(FlagSet<MidiSetup> flags, uint32 device)
 	, m_midiSetup{flags}
 	, m_nMidiDevice{device}
 {
-	m_editAmp->SetAccessibleSuffix(U_("%"));
+	m_editAmp->SetAccessibleSuffix(UL_("%"));
 }
 
 
@@ -1780,17 +1781,17 @@ bool CMidiSetupDlg::OnInitDialog()
 	RefreshDeviceList(m_nMidiDevice);
 
 	// Continue behaviour
-	mfcless::AddItem(m_ContinueMode, U_("From Cursor Position"));
-	mfcless::AddItem(m_ContinueMode, U_("From Start of Pattern"));
+	mfcless::AddItem(m_ContinueMode, UL_("From Cursor Position"));
+	mfcless::AddItem(m_ContinueMode, UL_("From Start of Pattern"));
 	m_ContinueMode->setCurrentIndex(m_midiSetup[MidiSetup::PlayPatternFromStart] ? 1 : 0);
 
 	// Aftertouch behaviour
 	m_ATBehaviour->clear();
 	static constexpr std::pair<const mpt::uchar *, RecordAftertouch> aftertouchOptions[] =
 	{
-		{ U_("Do not record Aftertouch"), RecordAftertouch::DoNotRecord },
-		{ U_("Record as Volume Commands"), RecordAftertouch::RecordAsVolume },
-		{ U_("Record as MIDI Macros"), RecordAftertouch::RecordAsMacro },
+		{ UL_("Do not record Aftertouch"), RecordAftertouch::DoNotRecord },
+		{ UL_("Record as Volume Commands"), RecordAftertouch::RecordAsVolume },
+		{ UL_("Record as MIDI Macros"), RecordAftertouch::RecordAsMacro },
 	};
 
 	for(const auto & [str, value] : aftertouchOptions)
@@ -1807,10 +1808,10 @@ bool CMidiSetupDlg::OnInitDialog()
 	m_RecordPitchBend->clear();
 	static constexpr std::pair<const mpt::uchar *, RecordPitchBend> pitchBendOptions[] =
 	{
-		{ U_("Do not record Pitch Bends"), RecordPitchBend::DoNotRecord },
-		{ U_("Record only as MIDI Macros"), RecordPitchBend::RecordAsMacro },
-		{ U_("Record as Finetune or MIDI Macros"), RecordPitchBend::RecordAsFinetuneOrMacro },
-		{ U_("Record only as Finetune"), RecordPitchBend::RecordAsFinetune },
+		{ UL_("Do not record Pitch Bends"), RecordPitchBend::DoNotRecord },
+		{ UL_("Record only as MIDI Macros"), RecordPitchBend::RecordAsMacro },
+		{ UL_("Record as Finetune or MIDI Macros"), RecordPitchBend::RecordAsFinetuneOrMacro },
+		{ UL_("Record only as Finetune"), RecordPitchBend::RecordAsFinetune },
 	};
 
 	for (const auto & [str, value] : pitchBendOptions)
@@ -1837,11 +1838,11 @@ bool CMidiSetupDlg::OnInitDialog()
 	m_Quantize->clear();
 	static constexpr std::pair<const mpt::uchar *, uint32> quantizeOptions[] =
 	{
-		{ U_("1/4th Notes"),  4 },  { U_("1/6th Notes"),  6 },
-		{ U_("1/8th Notes"),  8 },  { U_("1/12th Notes"), 12 },
-		{ U_("1/16th Notes"), 16 }, { U_("1/24th Notes"), 24 },
-		{ U_("1/32nd Notes"), 32 }, { U_("1/48th Notes"), 48 },
-		{ U_("1/64th Notes"), 64 }, { U_("1/96th Notes"), 96 },
+		{ UL_("1/4th Notes"),  4 },  { UL_("1/6th Notes"),  6 },
+		{ UL_("1/8th Notes"),  8 },  { UL_("1/12th Notes"), 12 },
+		{ UL_("1/16th Notes"), 16 }, { UL_("1/24th Notes"), 24 },
+		{ UL_("1/32nd Notes"), 32 }, { UL_("1/48th Notes"), 48 },
+		{ UL_("1/64th Notes"), 64 }, { UL_("1/96th Notes"), 96 },
 	};
 
 	for(const auto & [str, value]: quantizeOptions)
@@ -1894,7 +1895,7 @@ void CMidiSetupDlg::OnRenameDevice()
 		midiInGetDevCaps(device, &mic, sizeof(mic));
 		mpt::ustring name = mic.szPname;
 		mpt::ustring friendlyName = theApp.GetSettings().Read(U_("MIDI Input Ports"), mpt::ToUnicode(name), name);
-		CInputDlg dlg(this, U_("New name for ") + name + U_(":"), friendlyName);
+		CInputDlg dlg(this, UL_("New name for ") + name + UL_(":"), friendlyName);
 		if(dlg.DoModal() == IDOK)
 		{
 			if(dlg.resultAsString.IsEmpty() || dlg.resultAsString == name)
@@ -1998,7 +1999,7 @@ bool COptionsWine::OnInitDialog()
 	int index;
 	index = mfcless::AddItem(m_CbnPulseAudio, _T("Auto"    )); mfcless::SetItemData(m_CbnPulseAudio, index, 1);
 	index = mfcless::AddItem(m_CbnPulseAudio, _T("Enabled" )); mfcless::SetItemData(m_CbnPulseAudio, index, 2);
-	index = mfcless::AddItem(m_CbnPulseAudio, U_("Disabled")); mfcless::SetItemData(m_CbnPulseAudio, index, 0);
+	index = mfcless::AddItem(m_CbnPulseAudio, UL_("Disabled")); mfcless::SetItemData(m_CbnPulseAudio, index, 0);
 	m_CbnPulseAudio->setCurrentIndex(0);
 	for(index = 0; index < 3; ++index)
 	{
@@ -2009,7 +2010,7 @@ bool COptionsWine::OnInitDialog()
 	}
 	index = mfcless::AddItem(m_CbnPortAudio, _T("Auto"    )); mfcless::SetItemData(m_CbnPortAudio, index, 1);
 	index = mfcless::AddItem(m_CbnPortAudio, _T("Enabled" )); mfcless::SetItemData(m_CbnPortAudio, index, 2);
-	index = mfcless::AddItem(m_CbnPortAudio, U_("Disabled")); mfcless::SetItemData(m_CbnPortAudio, index, 0);
+	index = mfcless::AddItem(m_CbnPortAudio, UL_("Disabled")); mfcless::SetItemData(m_CbnPortAudio, index, 0);
 	for(index = 0; index < 3; ++index)
 	{
 		if(mfcless::GetItemData(m_CbnPortAudio, index) == static_cast<uint32>(TrackerSettings::Instance().WineSupportEnablePortAudio))
@@ -2019,7 +2020,7 @@ bool COptionsWine::OnInitDialog()
 	}
 	index = mfcless::AddItem(m_CbnRtAudio, _T("Auto"    )); mfcless::SetItemData(m_CbnRtAudio, index, 1);
 	index = mfcless::AddItem(m_CbnRtAudio, _T("Enabled" )); mfcless::SetItemData(m_CbnRtAudio, index, 2);
-	index = mfcless::AddItem(m_CbnRtAudio, U_("Disabled")); mfcless::SetItemData(m_CbnRtAudio, index, 0);
+	index = mfcless::AddItem(m_CbnRtAudio, UL_("Disabled")); mfcless::SetItemData(m_CbnRtAudio, index, 0);
 	for(index = 0; index < 3; ++index)
 	{
 		if(mfcless::GetItemData(m_CbnRtAudio, index) == static_cast<uint32>(TrackerSettings::Instance().WineSupportEnableRtAudio))

@@ -11,6 +11,7 @@
 
 
 #include "Ctrl_gen.h"
+#include "mfcless/Widgets.h"
 #include "dlg_misc.h"
 #include "Globals.h"
 #include "InputHandler.h"
@@ -145,7 +146,7 @@ void CCtrlGeneral::RecalcLayout()
 void CCtrlGeneral::OnActivatePage(intptr_t)
 {
 	m_modDoc.SetNotifications(Notification::Default);
-	m_modDoc.SetFollowWnd(m_hWnd);
+	m_modDoc.SetFollowWnd(this);
 	PostViewMessage(VIEWMSG_SETACTIVE, NULL);
 
 	// Combo boxes randomly disappear without this... why?
@@ -265,12 +266,12 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 	{
 		mpt::ustring defaultResampler;
 		if(m_sndFile.m_SongFlags[SONG_ISAMIGA] && TrackerSettings::Instance().ResamplerEmulateAmiga != Resampling::AmigaFilter::Off)
-			defaultResampler = U_("Amiga Resampler");
+			defaultResampler = UL_("Amiga Resampler");
 		else
 			defaultResampler = CTrackApp::GetResamplingModeName(TrackerSettings::Instance().ResamplerMode, 1, false);
 
 		m_CbnResampling->clear();
-		mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, U_("Default (") + defaultResampler + U_(")")), SRCMODE_DEFAULT);
+		mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, UL_("Default (") + defaultResampler + UL_(")")), SRCMODE_DEFAULT);
 		for(auto mode : resamplingModes)
 		{
 			mfcless::SetItemData(m_CbnResampling, mfcless::AddItem(m_CbnResampling, CTrackApp::GetResamplingModeName(mode, 2, true)), mode);
@@ -340,8 +341,8 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 		default:			modType = MPT_UFORMAT("{} ({})")(mpt::ToUpperCase(m_sndFile.m_modFormat.type), m_sndFile.m_modFormat.formatName); break;
 		}
 		mpt::ustring s;
-		s.Format(U_("%s, %u channel%s"), mpt::ToUnicode(modType).GetString(), m_sndFile.GetNumChannels(), (m_sndFile.GetNumChannels() != 1) ? U_("s") : U_(""));
-		m_BtnModType->SetWindowText(s);
+		s = mfcless::PrintF(UL_("%s, %u channel%s"), mpt::ToUnicode(modType).c_str(), m_sndFile.GetNumChannels(), (m_sndFile.GetNumChannels() != 1) ? UL_("s") : UL_(""));
+		mfcless::SetWindowText(m_BtnModType, s);
 	}
 
 	if (updateAll || (hint.GetCategory() == HINTCAT_SEQUENCE && hintType[HINT_MODSEQUENCE | HINT_RESTARTPOS]))
@@ -365,8 +366,8 @@ void CCtrlGeneral::UpdateView(UpdateHint hint, QObject *pHint)
 	{
 		if (!m_editsLocked)
 		{
-			m_EditTitle->SetWindowText(mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetTitle()));
-			m_EditArtist->SetWindowText(mpt::ToUnicode(m_sndFile.m_songArtist));
+			mfcless::SetWindowText(m_EditTitle, mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetTitle()));
+			mfcless::SetWindowText(m_EditArtist, mpt::ToUnicode(m_sndFile.m_songArtist));
 			SetItemInt(IDC_EDIT_GLOBALVOL, m_sndFile.m_nDefaultGlobalVolume / GetGlobalVolumeFactor());
 			SetItemInt(IDC_EDIT_VSTIVOL, m_sndFile.m_nVSTiVolume);
 			SetItemInt(IDC_EDIT_SAMPLEPA, m_sndFile.m_nSamplePreAmp);
@@ -491,10 +492,10 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 
 void CCtrlGeneral::OnTitleChanged()
 {
-	if (!m_EditTitle->m_hWnd || !m_EditTitle->GetModify()) return;
+	if (!m_EditTitle || !m_EditTitle->GetModify()) return;
 
 	mpt::ustring title;
-	m_EditTitle->GetWindowText(title);
+	mfcless::GetWindowText(m_EditTitle, title);
 	if(m_sndFile.SetTitle(mpt::ToCharset(m_sndFile.GetCharsetInternal(), title)))
 	{
 		m_EditTitle->SetModify(false);
@@ -506,7 +507,7 @@ void CCtrlGeneral::OnTitleChanged()
 
 void CCtrlGeneral::OnArtistChanged()
 {
-	if (!m_EditArtist->m_hWnd || !m_EditArtist->GetModify()) return;
+	if (!m_EditArtist || !m_EditArtist->GetModify()) return;
 
 	mpt::ustring artist = GetWindowTextUnicode(m_EditArtist);
 	if(artist != m_sndFile.m_songArtist)
@@ -521,7 +522,7 @@ void CCtrlGeneral::OnArtistChanged()
 
 void CCtrlGeneral::OnTempoChanged()
 {
-	if (m_initialized && m_EditTempo->GetWindowTextLength() > 0 && !IsLocked())
+	if (m_initialized && mfcless::GetWindowTextLength(m_EditTempo) > 0 && !IsLocked())
 	{
 		TEMPO tempo = m_EditTempo->GetTempoValue();
 		Limit(tempo, m_tempoMin, m_tempoMax);
@@ -545,7 +546,7 @@ void CCtrlGeneral::OnSpeedChanged()
 	mpt::uchar s[16];
 	if(m_initialized)
 	{
-		m_EditSpeed->GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+		mfcless::GetWindowText(m_EditSpeed, s, mpt::saturate_cast<int>(std::size(s)));
 		if (s[0])
 		{
 			uint32 n = mpt::parse<uint32>(s);
@@ -572,7 +573,7 @@ void CCtrlGeneral::OnVSTiVolChanged()
 	mpt::uchar s[16];
 	if (m_initialized)
 	{
-		m_EditVSTiVol->GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+		mfcless::GetWindowText(m_EditVSTiVol, s, mpt::saturate_cast<int>(std::size(s)));
 		if (s[0])
 		{
 			uint32 n = mpt::parse<uint32>(s);
@@ -596,7 +597,7 @@ void CCtrlGeneral::OnSamplePAChanged()
 	mpt::uchar s[16];
 	if(m_initialized)
 	{
-		m_EditSamplePA->GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+		mfcless::GetWindowText(m_EditSamplePA, s, mpt::saturate_cast<int>(std::size(s)));
 		if (s[0])
 		{
 			uint32 n = mpt::parse<uint32>(s);
@@ -619,7 +620,7 @@ void CCtrlGeneral::OnGlobalVolChanged()
 	mpt::uchar s[16];
 	if(m_initialized)
 	{
-		m_EditGlobalVol->GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+		mfcless::GetWindowText(m_EditGlobalVol, s, mpt::saturate_cast<int>(std::size(s)));
 		if (s[0])
 		{
 			uint32 n = mpt::parse<ORDERINDEX>(s) * GetGlobalVolumeFactor();
@@ -645,7 +646,7 @@ void CCtrlGeneral::OnRestartPosChanged()
 	if(!m_initialized)
 		return;
 	mpt::uchar s[32];
-	m_EditRestartPos->GetWindowText(s, mpt::saturate_cast<int>(std::size(s)));
+	mfcless::GetWindowText(m_EditRestartPos, s, mpt::saturate_cast<int>(std::size(s)));
 	if(!s[0])
 		return;
 
@@ -700,7 +701,7 @@ mpt::ustring CCtrlGeneral::GetToolTipText(uint32 uId, QWidget *) const
 	mpt::ustring s;
 	if(uId)
 	{
-		const mpt::uchar moreRecentMixModeNote[] = U_("Use a more recent mixmode to see dB offsets.");
+		const mpt::uchar moreRecentMixModeNote[] = UL_("Use a more recent mixmode to see dB offsets.");
 		const bool displayDBValues = m_sndFile.GetPlayConfig().getDisplayDBValues();
 		const QWidget *wnd = GetDlgItem(uId);
 		const bool isEnabled = wnd ? (wnd->IsWindowEnabled() != false) : true;  // nullptr check is for a Wine bug workaround (https://bugs.openmpt.org/view.php?id=1553)
@@ -711,7 +712,7 @@ mpt::ustring CCtrlGeneral::GetToolTipText(uint32 uId, QWidget *) const
 		switch(uId)
 		{
 		case IDC_BUTTON_MODTYPE:
-			s = U_("Song Properties");
+			s = UL_("Song Properties");
 			{
 				const auto keyText = CMainFrame::GetInputHandler()->m_activeCommandSet->GetKeyTextFromCommand(kcViewSongProperties, 0);
 				if (!keyText.IsEmpty())
@@ -720,22 +721,22 @@ mpt::ustring CCtrlGeneral::GetToolTipText(uint32 uId, QWidget *) const
 			break;
 		case IDC_BUTTON1:
 			if(isEnabled)
-				s = U_("Click button multiple times to tap in the desired tempo.");
+				s = UL_("Click button multiple times to tap in the desired tempo.");
 			else
 				s = notAvailable;
 			break;
 		case IDC_SLIDER_SAMPLEPREAMP:
-			s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_nSamplePreAmp, m_sndFile.GetPlayConfig().getNormalSamplePreAmp()).GetString() : moreRecentMixModeNote;
+			s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_nSamplePreAmp, m_sndFile.GetPlayConfig().getNormalSamplePreAmp()).c_str() : moreRecentMixModeNote;
 			break;
 		case IDC_SLIDER_VSTIVOL:
 			if(isEnabled)
-				s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_nVSTiVolume, m_sndFile.GetPlayConfig().getNormalVSTiVol()).GetString() : moreRecentMixModeNote;
+				s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_nVSTiVolume, m_sndFile.GetPlayConfig().getNormalVSTiVol()).c_str() : moreRecentMixModeNote;
 			else
 				s = notAvailable;
 			break;
 		case IDC_SLIDER_GLOBALVOL:
 			if(isEnabled)
-				s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_PlayState.m_nGlobalVolume, m_sndFile.GetPlayConfig().getNormalGlobalVol()).GetString() : moreRecentMixModeNote;
+				s = displayDBValues ? CModDoc::LinearToDecibelsString(m_sndFile.m_PlayState.m_nGlobalVolume, m_sndFile.GetPlayConfig().getNormalGlobalVol()).c_str() : moreRecentMixModeNote;
 			else
 				s = notAvailable;
 			break;

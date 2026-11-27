@@ -10,6 +10,7 @@
 
 
 #include "PatternGotoDialog.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "Sndfile.h"
 
@@ -80,15 +81,15 @@ void CPatternGotoDialog::OnOK()
 	// Valid order item?
 	if(m_nOrder >= Order.size())
 	{
-		MessageBeep(MB_ICONWARNING);
-		GotoDlgCtrl(GetDlgItem(IDC_GOTO_ORD));
+		mfcless::MessageBeep(nfIconWarning);
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_GOTO_ORD));
 		return;
 	}
 	// Does order match pattern? Does pattern exist?
 	if(Order[m_nOrder] != m_nPattern || !Order.IsValidPat(m_nOrder))
 	{
-		MessageBeep(MB_ICONWARNING);
-		GotoDlgCtrl(GetDlgItem(IDC_GOTO_PAT));
+		mfcless::MessageBeep(nfIconWarning);
+		mfcless::GotoDlgCtrl(GetDlgItem(IDC_GOTO_PAT));
 		return;
 	}
 

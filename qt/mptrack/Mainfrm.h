@@ -301,6 +301,9 @@ public:
 	void SetUserText(const mpt::uchar *text);
 	void SetInfoText(const mpt::uchar *text);
 	void SetXInfoText(const mpt::uchar *text);
+	void SetUserText(const mpt::ustring &text) { SetUserText(text.c_str()); }
+	void SetInfoText(const mpt::ustring &text) { SetInfoText(text.c_str()); }
+	void SetXInfoText(const mpt::ustring &text) { SetXInfoText(text.c_str()); }
 	void SetHelpText(const mpt::uchar *text);
 	void SetHelpText(const mpt::ustring &text) { SetHelpText(text.c_str()); }
 	mpt::ustring GetHelpText() const;

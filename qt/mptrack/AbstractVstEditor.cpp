@@ -10,6 +10,7 @@
 
 
 #include "AbstractVstEditor.h"
+#include "mfcless/Widgets.h"
 #include "Clipboard.h"
 #include "dlg_misc.h"
 #include "Globals.h"
@@ -58,7 +59,7 @@ CAbstractVstEditor::WindowSizeAdjuster::~WindowSizeAdjuster()
 		windowRect.bottom += (mbi.rcBar.bottom - mbi.rcBar.top) - m_menuHeight;
 		m_wnd.SetWindowPos(nullptr, 0, 0,
 			windowRect.Width(), windowRect.Height(),
-			SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+			mfcless::swp::NoZOrder | mfcless::swp::NoMove | mfcless::swp::NoActivate);
 	}
 }
 
@@ -144,7 +145,7 @@ void CAbstractVstEditor::OnNcLButtonDblClk(uint32 nHitTest, mfcless::Point point
 		EnableAutoLayout(!m_isMinimized);
 		SetWindowPos(nullptr, 0, 0,
 			rcWnd.Width(), rcHeight,
-			SWP_NOZORDER | SWP_NOMOVE);
+			mfcless::swp::NoZOrder | mfcless::swp::NoMove);
 	}
 }
 
@@ -182,10 +183,10 @@ void CAbstractVstEditor::OnDropFiles(HDROP hDropInfo)
 	for(uint32 f = 0; f < nFiles; f++)
 	{
 		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, _T('\0'));
+		std::vector<mpt::uchar> fileName(size, u8'\0');
 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			m_VstPlugin.LoadProgram(mpt::PathString::FromCString(fileName.data()));
+			m_VstPlugin.LoadProgram(mpt::PathString::FromUnicode(fileName.data()));
 		}
 	}
 	::DragFinish(hDropInfo);
@@ -212,7 +213,7 @@ void CAbstractVstEditor::OnCopyParameters()
 {
 	if(CMainFrame::GetMainFrame() == nullptr) return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	std::ostringstream f(std::ios::out | std::ios::binary);
 	if(VSTPresets::SaveFile(f, m_VstPlugin, false))
 	{
@@ -223,7 +224,7 @@ void CAbstractVstEditor::OnCopyParameters()
 			memcpy(dst, data.data(), data.length());
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
@@ -231,7 +232,7 @@ void CAbstractVstEditor::OnPasteParameters()
 {
 	if(CMainFrame::GetMainFrame() == nullptr) return;
 
-	BeginWaitCursor();
+	mfcless::BeginWaitCursor();
 	Clipboard clipboard(m_clipboardFormat);
 	if(auto data = clipboard.Get(); data.data())
 	{
@@ -254,14 +255,14 @@ void CAbstractVstEditor::OnPasteParameters()
 			Reporting::Error(VSTPresets::GetErrorMessage(error));
 		}
 	}
-	EndWaitCursor();
+	mfcless::EndWaitCursor();
 }
 
 
 void CAbstractVstEditor::OnRandomizePreset()
 {
 	static double randomFactor = 10.0;
-	CInputDlg dlg(this, U_("Input parameter randomization amount (0 = no change, 100 = completely random)"), 0.0, 100.0, randomFactor);
+	CInputDlg dlg(this, UL_("Input parameter randomization amount (0 = no change, 100 = completely random)"), 0.0, 100.0, randomFactor);
 	if(dlg.DoModal() == IDOK)
 	{
 		randomFactor = dlg.resultAsDouble;
@@ -284,7 +285,7 @@ void CAbstractVstEditor::OnRenamePlugin()
 	auto &sndFile = m_VstPlugin.GetSoundFile();
 	auto &plugin = sndFile.m_MixPlugins[m_VstPlugin.m_nSlot];
 
-	CInputDlg dlg(this, U_("New name for this plugin instance:"), mpt::ToUnicode(plugin.GetName()), static_cast<int32>(std::size(plugin.Info.szName.buf)));
+	CInputDlg dlg(this, UL_("New name for this plugin instance:"), mpt::ToUnicode(plugin.GetName()), static_cast<int32>(std::size(plugin.Info.szName.buf)));
 	if(dlg.DoModal() == IDOK)
 	{
 		if(dlg.resultAsString != mpt::ToUnicode(plugin.GetName()))
@@ -340,15 +341,15 @@ void CAbstractVstEditor::UpdatePresetField()
 	{
 		if(m_Menu->GetMenuItemCount() < 5)
 		{
-			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_VSTPRESETBACKWARDJUMP, U_("<<"));
-			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_PREVIOUSVSTPRESET, U_("<"));
-			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_NEXTVSTPRESET, U_(">"));
-			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_VSTPRESETFORWARDJUMP, U_(">>"));
-			m_Menu->AppendMenu(mfcless::menu::ByPosition|mfcless::menu::Disabled, ID_VSTPRESETNAME, U_(""));
+			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_VSTPRESETBACKWARDJUMP, UL_("<<"));
+			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_PREVIOUSVSTPRESET, UL_("<"));
+			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_NEXTVSTPRESET, UL_(">"));
+			m_Menu->AppendMenu(mfcless::menu::ByPosition, ID_VSTPRESETFORWARDJUMP, UL_(">>"));
+			m_Menu->AppendMenu(mfcless::menu::ByPosition|mfcless::menu::Disabled, ID_VSTPRESETNAME, UL_(""));
 		}
 
 		mpt::ustring programName = m_VstPlugin.GetFormattedProgramName(m_VstPlugin.GetCurrentProgram());
-		programName.Replace(U_("&"), U_("&&"));
+		programName.Replace(UL_("&"), UL_("&&"));
 		m_Menu->ModifyMenu(8, mfcless::menu::ByPosition, ID_VSTPRESETNAME, programName);
 	}
 
@@ -405,7 +406,7 @@ void CAbstractVstEditor::SetPreset(int32 preset)
 void CAbstractVstEditor::OnVSTPresetRename()
 {
 	auto currentName = m_VstPlugin.GetCurrentProgramName();
-	CInputDlg dlg(this, U_("New program name:"), currentName);
+	CInputDlg dlg(this, UL_("New program name:"), currentName);
 	if(dlg.DoModal() == IDOK)
 	{
 		m_VstPlugin.SetCurrentProgramName(dlg.resultAsString);
@@ -466,7 +467,7 @@ bool CAbstractVstEditor::HandleKeyMessage(MSG &msg, bool handleGlobal)
 		return false;
 
 	CInputHandler *ih = CMainFrame::GetInputHandler();
-	if(ih->IsKeyPressHandledByTextBox(static_cast<uint32>(msg.wParam), ::GetFocus()))
+	if(ih->IsKeyPressHandledByTextBox(static_cast<uint32>(msg.wParam), mfcless::GetFocus()))
 		return false;
 
 	const auto event = ih->Translate(msg);
@@ -508,10 +509,10 @@ void CAbstractVstEditor::SetTitle()
 
 		bool hasCustomName = (m_VstPlugin.m_pMixStruct->GetName() != U_("")) && (m_VstPlugin.m_pMixStruct->GetName() != m_VstPlugin.m_pMixStruct->GetLibraryName());
 		if(hasCustomName)
-			title += mpt::ToUnicode(m_VstPlugin.m_pMixStruct->GetName()) + U_(" (");
+			title += mpt::ToUnicode(m_VstPlugin.m_pMixStruct->GetName()) + UL_(" (");
 		title += mpt::ToUnicode(m_VstPlugin.m_pMixStruct->GetLibraryName());
 		if(hasCustomName)
-			title += U_(")");
+			title += UL_(")");
 
 #ifdef MPT_WITH_VST
 		const CVstPlugin *vstPlugin = dynamic_cast<CVstPlugin *>(&m_VstPlugin);
@@ -520,7 +521,7 @@ void CAbstractVstEditor::SetTitle()
 #endif // MPT_WITH_VST
 
 		if(m_VstPlugin.IsBypassed())
-			title += U_(" - Bypass");
+			title += UL_(" - Bypass");
 
 		SetWindowText(title);
 	}
@@ -587,7 +588,7 @@ bool CAbstractVstEditor::ValidateCurrentInstrument()
 			// as the plugin bridge will call AllowSetForegroundWindow on key messages.
 			SetForegroundWindow();
 			if(!m_VstPlugin.IsInstrument() || m_VstPlugin.GetSoundFile().GetModSpecifications().instrumentsMax == 0 ||
-				Reporting::Confirm(U_("You need to assign an instrument to this plugin before you can play notes from here.\nCreate a new instrument and assign this plugin to the instrument?"), false, false, this) == cnfNo)
+				Reporting::Confirm(UL_("You need to assign an instrument to this plugin before you can play notes from here.\nCreate a new instrument and assign this plugin to the instrument?"), false, false, this) == cnfNo)
 			{
 				return false;
 			} else
@@ -665,7 +666,7 @@ void CAbstractVstEditor::UpdatePresetMenu(bool force)
 	{
 		// Create Factory preset menu
 		m_PresetMenu.CreatePopupMenu();
-		m_Menu->InsertMenu(1, mfcless::menu::ByPosition | mfcless::menu::Popup, m_PresetMenu, U_("&Presets"));
+		m_Menu->InsertMenu(1, mfcless::menu::ByPosition | mfcless::menu::Popup, m_PresetMenu, UL_("&Presets"));
 	}
 
 	m_Menu->EnableMenuItem(1, mfcless::menu::ByPosition | (numProgs ? 0 : mfcless::menu::Grayed));
@@ -683,7 +684,7 @@ void CAbstractVstEditor::UpdatePresetMenu(bool force)
 			m_presetMenuGroup[bank]->CreatePopupMenu();
 
 			mpt::ustring label;
-			label.Format(U_("Bank %d (%d-%d)"), bank + 1, prog + 1, std::min(prog + PRESETS_PER_GROUP, numProgs));
+			label = mfcless::PrintF(UL_("Bank %d (%d-%d)"), bank + 1, prog + 1, std::min(prog + PRESETS_PER_GROUP, numProgs));
 			m_PresetMenu.AppendMenu(mfcless::menu::Popup
 				| (bank % 32 == 0 ? mfcless::menu::MenuBreak : 0)
 				| (curProg >= prog && curProg < prog + PRESETS_PER_GROUP ? mfcless::menu::Checked : mfcless::menu::Unchecked),
@@ -712,7 +713,7 @@ void CAbstractVstEditor::GeneratePresetMenu(int32 offset, mfcless::Menu &parent)
 	for(int32 p = offset, row = 0, id = 0; p < endProg; p++, row++, id++)
 	{
 		mpt::ustring programName = m_VstPlugin.GetFormattedProgramName(p);
-		programName.Replace(U_("&"), U_("&&"));
+		programName.Replace(UL_("&"), UL_("&&"));
 		uint32 splitMenuFlag = 0;
 
 		if(row == PRESETS_PER_COLUMN)
@@ -781,10 +782,10 @@ void CAbstractVstEditor::UpdateInputMenu()
 
 	if(inputPlugs.empty() && inputChannels.empty() && inputInstruments.empty())
 	{
-		m_InputMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, NULL, U_("None"));
+		m_InputMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, NULL, UL_("None"));
 	}
 
-	pInfoMenu->InsertMenu(0, mfcless::menu::ByPosition | mfcless::menu::Popup, m_InputMenu, U_("I&nputs"));
+	pInfoMenu->InsertMenu(0, mfcless::menu::ByPosition | mfcless::menu::Popup, m_InputMenu, UL_("I&nputs"));
 }
 
 
@@ -810,16 +811,16 @@ void CAbstractVstEditor::UpdateOutputMenu()
 	{
 		if(plug != nullptr)
 		{
-			name.Format(U_("FX%02d: "), plug->m_nSlot + 1);
+			name = mfcless::PrintF(UL_("FX%02d: "), plug->m_nSlot + 1);
 			name += mpt::ToUnicode(plug->m_pMixStruct->GetName());
 			m_OutputMenu.AppendMenu(mfcless::menu::String, ID_PLUGSELECT + plug->m_nSlot, name);
 		} else
 		{
-			name = U_("Master Output");
+			name = UL_("Master Output");
 			m_OutputMenu.AppendMenu(mfcless::menu::String | mfcless::menu::Grayed, NULL, name);
 		}
 	}
-	pInfoMenu->InsertMenu(1, mfcless::menu::ByPosition | mfcless::menu::Popup, m_OutputMenu, U_("Ou&tputs"));
+	pInfoMenu->InsertMenu(1, mfcless::menu::ByPosition | mfcless::menu::Popup, m_OutputMenu, UL_("Ou&tputs"));
 }
 
 
@@ -849,24 +850,24 @@ void CAbstractVstEditor::UpdateMacroMenu()
 
 		if(macroType == kSFxUnused)
 		{
-			macroName = U_("Unused. Learn Param...");
+			macroName = UL_("Unused. Learn Param...");
 			action= ID_LEARN_MACRO_FROM_PLUGGUI + nMacro;
 			greyed = 0;
 		} else
 		{
 			macroName = midiCfg.GetParameteredMacroName(nMacro, &m_VstPlugin);
-			if(macroType != kSFxPlugParam || macroName.Left(3) != U_("N/A"))
+			if(macroType != kSFxPlugParam || macroName.Left(3) != UL_("N/A"))
 			{
 				greyed = 0;
 			}
 		}
 
-		label.Format(U_("SF%X: "), nMacro);
+		label = mfcless::PrintF(UL_("SF%X: "), nMacro);
 		label += macroName;
 		m_MacroMenu.AppendMenu(mfcless::menu::String | greyed, action, label);
 	}
 
-	pInfoMenu->InsertMenu(2, mfcless::menu::ByPosition | mfcless::menu::Popup, m_MacroMenu, U_("&Macros"));
+	pInfoMenu->InsertMenu(2, mfcless::menu::ByPosition | mfcless::menu::Popup, m_MacroMenu, UL_("&Macros"));
 }
 
 void CAbstractVstEditor::UpdateOptionsMenu()
@@ -881,20 +882,20 @@ void CAbstractVstEditor::UpdateOptionsMenu()
 
 	//Bypass
 	m_OptionsMenu.AppendMenu(mfcless::menu::String | (m_VstPlugin.IsBypassed() ? mfcless::menu::Checked : 0),
-							   ID_PLUG_BYPASS, ih->GetKeyTextFromCommand(kcVSTGUIBypassPlug, U_("&Bypass Plugin")));
+							   ID_PLUG_BYPASS, ih->GetKeyTextFromCommand(kcVSTGUIBypassPlug, UL_("&Bypass Plugin")));
 	//Record Params
 	m_OptionsMenu.AppendMenu(mfcless::menu::String | (m_VstPlugin.m_recordAutomation ? mfcless::menu::Checked : 0),
-							   ID_PLUG_RECORDAUTOMATION, ih->GetKeyTextFromCommand(kcVSTGUIToggleRecordParams, U_("Record &Parameter Changes")));
+							   ID_PLUG_RECORDAUTOMATION, ih->GetKeyTextFromCommand(kcVSTGUIToggleRecordParams, UL_("Record &Parameter Changes")));
 	//Record MIDI Out
 	m_OptionsMenu.AppendMenu(mfcless::menu::String | (m_VstPlugin.m_recordMIDIOut ? mfcless::menu::Checked : 0),
-							   ID_PLUG_RECORD_MIDIOUT, ih->GetKeyTextFromCommand(kcVSTGUIToggleRecordMIDIOut, U_("Record &MIDI Out to Pattern Editor")));
+							   ID_PLUG_RECORD_MIDIOUT, ih->GetKeyTextFromCommand(kcVSTGUIToggleRecordMIDIOut, UL_("Record &MIDI Out to Pattern Editor")));
 	//Pass on keypresses
 	m_OptionsMenu.AppendMenu(mfcless::menu::String | (m_VstPlugin.m_passKeypressesToPlug ? mfcless::menu::Checked : 0),
-							   ID_PLUG_PASSKEYS, ih->GetKeyTextFromCommand(kcVSTGUIToggleSendKeysToPlug, U_("Pass &Keys to Plugin")));
+							   ID_PLUG_PASSKEYS, ih->GetKeyTextFromCommand(kcVSTGUIToggleSendKeysToPlug, UL_("Pass &Keys to Plugin")));
 
 
 	m_Menu->DeleteMenu(3, mfcless::menu::ByPosition);
-	m_Menu->InsertMenu(3, mfcless::menu::ByPosition | mfcless::menu::Popup, m_OptionsMenu, U_("&Options"));
+	m_Menu->InsertMenu(3, mfcless::menu::ByPosition | mfcless::menu::Popup, m_OptionsMenu, UL_("&Options"));
 
 }
 
@@ -933,7 +934,7 @@ INSTRUMENTINDEX CAbstractVstEditor::GetBestInstrumentCandidate() const
 	// First try current instrument:
 	const CModDoc *modDoc = m_VstPlugin.GetModDoc();
 	POSITION pos = modDoc->GetFirstViewPosition();
-	while(pos != NULL)
+	while(pos)
 	{
 		CModControlView *pView = dynamic_cast<CModControlView *>(modDoc->GetNextView(pos));
 		if(pView != nullptr && pView->GetDocument() == modDoc)
@@ -997,10 +998,10 @@ void CAbstractVstEditor::OnMove(int, int)
 
 void CAbstractVstEditor::StoreWindowPos()
 {
-	if(m_hWnd)
+	if(this)
 	{
-		WINDOWPLACEMENT wnd;
-		wnd.length = sizeof(WINDOWPLACEMENT);
+		mfcless::WindowPlacement wnd;
+		wnd.length = sizeof(mfcless::WindowPlacement);
 		GetWindowPlacement(&wnd);
 		m_VstPlugin.SetEditorPos(wnd.rcNormalPosition.left, wnd.rcNormalPosition.top);
 	}
@@ -1015,10 +1016,10 @@ void CAbstractVstEditor::RestoreWindowPos()
 
 	if(editorX != int32_min && editorY != int32_min)
 	{
-		WINDOWPLACEMENT wnd;
+		mfcless::WindowPlacement wnd;
 		wnd.length = sizeof(wnd);
 		GetWindowPlacement(&wnd);
-		wnd.showCmd = true;
+		wnd.showCmd = mfcless::show::ShowNoActivate;
 		mfcless::Rect rect = wnd.rcNormalPosition;
 		rect.MoveToXY(editorX, editorY);
 		wnd.rcNormalPosition = rect;

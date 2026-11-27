@@ -11,6 +11,7 @@
 
 
 #include "PatternFindReplaceDlg.h"
+#include "mfcless/Widgets.h"
 #include "DialogBase.h"
 #include "Mptrack.h"
 #include "PatternFindReplace.h"
@@ -74,11 +75,11 @@ protected:
 			m_cbnMax.InitStorage(numItems, strSize);
 			const mpt::uchar *formatString;
 			if(m_displayMode == kHex && m_maxVal <= 0x0F)
-				formatString = U_("%01X");
+				formatString = UL_("%01X");
 			else if(m_displayMode == kHex)
-				formatString = U_("%02X");
+				formatString = UL_("%02X");
 			else
-				formatString = U_("%d");
+				formatString = UL_("%d");
 			for(int i = m_minVal; i <= m_maxVal; i++)
 			{
 				mpt::uchar s[16];
@@ -225,14 +226,14 @@ bool CFindReplaceTab::OnInitDialog()
 		int sel = -1;
 		m_cbnNote->setUpdatesEnabled(false);
 		m_cbnNote->InitStorage(150, 150 * 6 * sizeof(mpt::uchar));
-		mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("...")), NOTE_NONE);
+		mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("...")), NOTE_NONE);
 		if (m_isReplaceTab)
 		{
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("note -1")), kReplaceNoteMinusOne);
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("note +1")), kReplaceNotePlusOne);
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("-1 oct")), kReplaceNoteMinusOctave);
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("+1 oct")), kReplaceNotePlusOctave);
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("Transpose...")), kReplaceRelative);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("note -1")), kReplaceNoteMinusOne);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("note +1")), kReplaceNotePlusOne);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("-1 oct")), kReplaceNoteMinusOctave);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("+1 oct")), kReplaceNotePlusOctave);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("Transpose...")), kReplaceRelative);
 			if(m_settings.replaceNoteAction == FindReplace::ReplaceRelative)
 			{
 				switch(m_settings.replaceNote)
@@ -246,8 +247,8 @@ bool CFindReplaceTab::OnInitDialog()
 			}
 		} else
 		{
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("any")), kFindAny);
-			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, U_("Range...")), kFindRange);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("any")), kFindAny);
+			mfcless::SetItemData(m_cbnNote, mfcless::AddItem(m_cbnNote, UL_("Range...")), kFindRange);
 			if(m_settings.findNoteMin == NOTE_MIN && m_settings.findNoteMax == NOTE_MAX)
 				sel = 1;
 			else if(m_settings.findNoteMin < m_settings.findNoteMax)
@@ -273,7 +274,7 @@ bool CFindReplaceTab::OnInitDialog()
 	m_cbnVolCmd->setUpdatesEnabled(false);
 	uint32 count = m_effectInfo.GetNumVolCmds();
 	m_cbnVolCmd->InitStorage(count, static_cast<uint32>(count * 15 * sizeof(mpt::uchar)));
-	mfcless::SetItemData(m_cbnVolCmd, mfcless::AddItem(m_cbnVolCmd, U_(" None")), (uintptr_t)-1);
+	mfcless::SetItemData(m_cbnVolCmd, mfcless::AddItem(m_cbnVolCmd, UL_(" None")), (uintptr_t)-1);
 	for (uint32 n = 0; n < count; n++)
 	{
 		if(m_effectInfo.GetVolCmdInfo(n, &s) && !s.IsEmpty())
@@ -297,7 +298,7 @@ bool CFindReplaceTab::OnInitDialog()
 		m_cbnCommand->setUpdatesEnabled(false);
 		count = m_effectInfo.GetNumEffects();
 		m_cbnCommand->InitStorage(count, static_cast<uint32>(count * 20 * sizeof(mpt::uchar)));
-		mfcless::SetItemData(m_cbnCommand, mfcless::AddItem(m_cbnCommand, U_(" None")), (uintptr_t)-1);
+		mfcless::SetItemData(m_cbnCommand, mfcless::AddItem(m_cbnCommand, UL_(" None")), (uintptr_t)-1);
 		for (uint32 n = 0; n < count; n++)
 		{
 			if(m_effectInfo.GetEffectInfo(n, &s, true) && !s.IsEmpty())
@@ -336,9 +337,9 @@ bool CFindReplaceTab::IsPCEvent() const
 void CFindReplaceTab::UpdateInstrumentList()
 {
 	const bool isPCEvent = IsPCEvent();
-	if(m_cbnInstr->GetCount() != 0 && !!GetWindowLongPtr(m_cbnInstr->m_hWnd, GWLP_USERDATA) == isPCEvent)
+	if(m_cbnInstr->GetCount() != 0 && !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA) == isPCEvent)
 		return;
-	SetWindowLongPtr(m_cbnInstr->m_hWnd, GWLP_USERDATA, isPCEvent);
+	SetWindowLongPtr(m_cbnInstr, GWLP_USERDATA, isPCEvent);
 
 	int oldSelection = (m_isReplaceTab ? m_settings.replaceInstr : m_settings.findInstrMin);
 	int sel = (oldSelection == 0) ? 0 : -1;
@@ -346,12 +347,12 @@ void CFindReplaceTab::UpdateInstrumentList()
 	m_cbnInstr->ResetContent();
 	const int numItems = (isPCEvent ? MAX_MIXPLUGINS : MAX_INSTRUMENTS) + 3;
 	m_cbnInstr->InitStorage(numItems, static_cast<uint32>(numItems * 32 * sizeof(mpt::uchar)));
-	m_cbnInstr->SetItemData(m_cbnInstr->AddString(U_("..")), 0);
+	m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("..")), 0);
 	if (m_isReplaceTab)
 	{
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? U_("Plugin -1") : U_("Instrument -1")), kReplaceInstrumentMinusOne);
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? U_("Plugin +1") : U_("Instrument +1")), kReplaceInstrumentPlusOne);
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(U_("Other...")), kReplaceRelative);
+		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? UL_("Plugin -1") : UL_("Instrument -1")), kReplaceInstrumentMinusOne);
+		m_cbnInstr->SetItemData(m_cbnInstr->AddString(isPCEvent ? UL_("Plugin +1") : UL_("Instrument +1")), kReplaceInstrumentPlusOne);
+		m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("Other...")), kReplaceRelative);
 		if(m_settings.replaceInstrAction == FindReplace::ReplaceRelative)
 		{
 			switch(m_settings.replaceInstr)
@@ -363,7 +364,7 @@ void CFindReplaceTab::UpdateInstrumentList()
 		}
 	} else
 	{
-		m_cbnInstr->SetItemData(m_cbnInstr->AddString(U_("Range...")), kFindRange);
+		m_cbnInstr->SetItemData(m_cbnInstr->AddString(UL_("Range...")), kFindRange);
 		if(m_settings.findInstrMin < m_settings.findInstrMax)
 			sel = 1;
 	}
@@ -380,7 +381,7 @@ void CFindReplaceTab::UpdateInstrumentList()
 		mpt::ustring s;
 		for(INSTRUMENTINDEX n = 1; n < MAX_INSTRUMENTS; n++)
 		{
-			s.Format(U_("%03d:"), n);
+			s = mfcless::PrintF(UL_("%03d:"), n);
 			if(m_sndFile.GetNumInstruments())
 				s += mpt::ToUnicode(m_sndFile.GetCharsetInternal(), m_sndFile.GetInstrumentName(n));
 			else
@@ -399,9 +400,9 @@ void CFindReplaceTab::UpdateInstrumentList()
 void CFindReplaceTab::UpdateParamList()
 {
 	const bool isPCEvent = IsPCEvent();
-	if(m_cbnInstr->GetCount() == 0 || !!GetWindowLongPtr(m_cbnInstr->m_hWnd, GWLP_USERDATA) != isPCEvent)
+	if(m_cbnInstr->GetCount() == 0 || !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA) != isPCEvent)
 	{
-		SetWindowLongPtr(m_cbnInstr->m_hWnd, GWLP_USERDATA, isPCEvent);
+		SetWindowLongPtr(m_cbnInstr, GWLP_USERDATA, isPCEvent);
 	}
 
 	int effectIndex = static_cast<int>(mfcless::GetItemData(m_cbnCommand, m_cbnCommand->currentIndex()));
@@ -450,9 +451,9 @@ void CFindReplaceTab::UpdateParamList()
 
 		if(m_isReplaceTab)
 		{
-			wsprintf(s, U_("+ %d"), m_settings.replaceParam);
+			wsprintf(s, UL_("+ %d"), m_settings.replaceParam);
 			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, s), kReplaceRelative);
-			wsprintf(s, U_("* %d%%"), m_settings.replaceParam);
+			wsprintf(s, UL_("* %d%%"), m_settings.replaceParam);
 			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, s), kReplaceMultiply);
 			if(m_settings.replaceParamAction == FindReplace::ReplaceRelative)
 				sel = 0;
@@ -466,7 +467,7 @@ void CFindReplaceTab::UpdateParamList()
 			}
 		} else
 		{
-			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, U_("Range")), kFindRange);
+			mfcless::SetItemData(m_cbnParam, mfcless::AddItem(m_cbnParam, UL_("Range")), kFindRange);
 			if(m_settings.findParamMin < m_settings.findParamMax)
 				sel = 0;
 		}
@@ -475,7 +476,7 @@ void CFindReplaceTab::UpdateParamList()
 			sel = m_cbnParam->count() + newpos;
 		for(int param = 0; param < newcount; param++)
 		{
-			wsprintf(s, (newcount == 256) ? U_("%02X") : U_("%X"), param);
+			wsprintf(s, (newcount == 256) ? UL_("%02X") : UL_("%X"), param);
 			int i = mfcless::AddItem(m_cbnParam, s);
 			mfcless::SetItemData(m_cbnParam, i, param);
 		}
@@ -505,9 +506,9 @@ void CFindReplaceTab::UpdateVolumeList()
 		plug = m_cbnInstr->GetSelection().value_or(PLUGINDEX_INVALID);
 		plugData = (plug != PLUGINDEX_INVALID) ? plug + 1 : 0;
 	}
-	if(isPCEvent && (m_cbnPCParam->count() == 0 || GetWindowLongPtr(m_cbnPCParam->m_hWnd, GWLP_USERDATA) != plugData))
+	if(isPCEvent && (m_cbnPCParam->count() == 0 || GetWindowLongPtr(m_cbnPCParam, GWLP_USERDATA) != plugData))
 	{
-		SetWindowLongPtr(m_cbnPCParam->m_hWnd, GWLP_USERDATA, plugData);
+		SetWindowLongPtr(m_cbnPCParam, GWLP_USERDATA, plugData);
 
 		SetChecked(IDC_CHECK5, 0);
 		SetChecked(IDC_CHECK6, 0);
@@ -524,7 +525,7 @@ void CFindReplaceTab::UpdateVolumeList()
 			m_cbnPCParam->InitStorage(numItems, static_cast<uint32>(numItems * 20 * sizeof(mpt::uchar)));
 			for(int i = 0; i < numItems; i++)
 			{
-				wsprintf(s, U_("%02u: Parameter %02u"), static_cast<unsigned int>(i), static_cast<unsigned int>(i));
+				wsprintf(s, UL_("%02u: Parameter %02u"), static_cast<unsigned int>(i), static_cast<unsigned int>(i));
 				mfcless::SetItemData(m_cbnPCParam, mfcless::AddItem(m_cbnPCParam, s), i);
 			}
 		}
@@ -533,8 +534,8 @@ void CFindReplaceTab::UpdateVolumeList()
 		m_cbnPCParam->update(false);
 	}
 
-	m_cbnVolCmd->setVisible(isPCEvent ? false : true);
-	m_cbnPCParam->setVisible(isPCEvent ? true : false);
+	m_cbnVolCmd->setVisible(isPCEvent ? mfcless::show::Hide : mfcless::show::Show);
+	m_cbnPCParam->setVisible(isPCEvent ? mfcless::show::Show : mfcless::show::Hide);
 
 	int rangeMin, rangeMax, curVal;
 
@@ -580,9 +581,9 @@ void CFindReplaceTab::UpdateVolumeList()
 		m_cbnVolume->InitStorage(newcount + 2, static_cast<uint32>((newcount + 2) * 4 * sizeof(mpt::uchar)));
 		if(m_isReplaceTab)
 		{
-			wsprintf(s, U_("+ %d"), m_settings.replaceVolume);
+			wsprintf(s, UL_("+ %d"), m_settings.replaceVolume);
 			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, s), kReplaceRelative);
-			wsprintf(s, U_("* %d%%"), m_settings.replaceVolume);
+			wsprintf(s, UL_("* %d%%"), m_settings.replaceVolume);
 			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, s), kReplaceMultiply);
 			if(m_settings.replaceVolumeAction == FindReplace::ReplaceRelative)
 				sel = 0;
@@ -590,7 +591,7 @@ void CFindReplaceTab::UpdateVolumeList()
 				sel = 1;
 		} else
 		{
-			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, U_("Range...")), kFindRange);
+			mfcless::SetItemData(m_cbnVolume, mfcless::AddItem(m_cbnVolume, UL_("Range...")), kFindRange);
 			if(m_settings.findVolumeMin < m_settings.findVolumeMax)
 				sel = 0;
 		}
@@ -599,7 +600,7 @@ void CFindReplaceTab::UpdateVolumeList()
 			sel = m_cbnVolume->count() + newpos - rangeMin;
 		for (int vol = rangeMin; vol <= rangeMax; vol++)
 		{
-			wsprintf(s, (rangeMax < 10 || rangeMax > 99) ? U_("%d") : U_("%02d"), vol);
+			wsprintf(s, (rangeMax < 10 || rangeMax > 99) ? UL_("%d") : UL_("%02d"), vol);
 			int i = mfcless::AddItem(m_cbnVolume, s);
 			mfcless::SetItemData(m_cbnVolume, i, vol);
 		}
@@ -626,7 +627,7 @@ void CFindReplaceTab::OnNoteChanged()
 
 		case kReplaceRelative:
 			{
-				CInputDlg dlg(this, U_("Custom Transpose Amount:"), -120, 120, m_settings.replaceNote);
+				CInputDlg dlg(this, UL_("Custom Transpose Amount:"), -120, 120, m_settings.replaceNote);
 				if(dlg.DoModal() == IDOK)
 				{
 					m_settings.replaceNote = dlg.resultAsInt;
@@ -687,7 +688,7 @@ void CFindReplaceTab::OnInstrChanged()
 
 		case kReplaceRelative:
 			{
-				CInputDlg dlg(this, U_("Custom Replacement Amount:"), -255, 255, m_settings.replaceInstr);
+				CInputDlg dlg(this, UL_("Custom Replacement Amount:"), -255, 255, m_settings.replaceInstr);
 				if(dlg.DoModal() == IDOK)
 				{
 					m_settings.replaceInstrAction = FindReplace::ReplaceRelative;
@@ -740,16 +741,16 @@ void CFindReplaceTab::RelativeOrMultiplyPrompt(CComboBox &comboBox, FindReplace:
 	{
 		item = 0;
 		mpt::ustring s;
-		comboBox.GetWindowText(s);
+		mfcless::GetWindowText(comboBox, s);
 		s.TrimLeft();
 		if(s.GetLength() >= 1)
 		{
 			mpt::uchar first = s[0];
-			if(first == _T('+'))
+			if(first == u8'+')
 			{
 				item = kReplaceRelative;
 				sel = 0;
-			} else if(first == _T('*'))
+			} else if(first == u8'*')
 			{
 				item = kReplaceMultiply;
 				sel = 1;
@@ -777,13 +778,13 @@ void CFindReplaceTab::RelativeOrMultiplyPrompt(CComboBox &comboBox, FindReplace:
 		if(item == kReplaceRelative)
 		{
 			act = FindReplace::ReplaceRelative;
-			prompt = U_("Amount to add or subtract:");
-			format = U_("+ %d");
+			prompt = UL_("Amount to add or subtract:");
+			format = UL_("+ %d");
 		} else
 		{
 			act = FindReplace::ReplaceMultiply;
-			prompt = U_("Multiply by percentage:");
-			format = U_("* %d%%");
+			prompt = UL_("Multiply by percentage:");
+			format = UL_("* %d%%");
 		}
 
 		range *= 100;
@@ -931,7 +932,7 @@ void CFindReplaceTab::OnPCParamChanged()
 void CFindReplaceTab::OnCheckNote()
 {
 	CheckReplace(IDC_CHECK1);
-	if(m_isReplaceTab && IsPCEvent() != !!GetWindowLongPtr(m_cbnInstr->m_hWnd, GWLP_USERDATA))
+	if(m_isReplaceTab && IsPCEvent() != !!GetWindowLongPtr(m_cbnInstr, GWLP_USERDATA))
 	{
 		UpdateInstrumentList();
 		UpdateVolumeList();

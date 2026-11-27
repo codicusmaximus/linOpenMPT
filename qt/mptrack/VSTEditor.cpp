@@ -10,6 +10,7 @@
 
 
 #include "VSTEditor.h"
+#include "mfcless/Widgets.h"
 #include "resource.h"
 #include "Vstplug.h"
 
@@ -86,9 +87,9 @@ bool COwnerVstEditor::OpenEditor(QWidget *parent)
 	vstPlug.Dispatch(Vst::effEditGetRect, 0, 0, &pRect, 0);
 	if(pRect) rect = *pRect;
 #if MPT_OS_WINDOWS
-	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, m_plugWindow->m_hWnd, 0);
+	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, m_plugWindow, 0);
 #else
-	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, reinterpret_cast<void *>(MfcQtNativeWindowId(m_plugWindow->m_hWnd)), 0);
+	vstPlug.Dispatch(Vst::effEditOpen, 0, 0, reinterpret_cast<void *>(MfcQtNativeWindowId(m_plugWindow)), 0);
 #endif
 	vstPlug.Dispatch(Vst::effEditGetRect, 0, 0, &pRect, 0);
 	if(pRect) rect = *pRect;
@@ -120,7 +121,7 @@ void COwnerVstEditor::DoClose()
 
 bool COwnerVstEditor::SetSize(int contentWidth, int contentHeight)
 {
-	if(contentWidth < 0 || contentHeight < 0 || !m_hWnd)
+	if(contentWidth < 0 || contentHeight < 0 || !this)
 	{
 		return false;
 	}
@@ -140,10 +141,10 @@ bool COwnerVstEditor::SetSize(int contentWidth, int contentHeight)
 	const int windowHeight = rcWnd.Height() - rcClient.Height() + contentHeight;
 	SetWindowPos(NULL, 0, 0,
 		windowWidth, windowHeight,
-		SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+		mfcless::swp::NoZOrder | mfcless::swp::NoMove | mfcless::swp::NoActivate);
 	m_plugWindow->SetWindowPos(NULL, 0, 0,
 		contentWidth, contentHeight,
-		SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+		mfcless::swp::NoZOrder | mfcless::swp::NoMove | mfcless::swp::NoActivate);
 
 	return true;
 }

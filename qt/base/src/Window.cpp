@@ -9,6 +9,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
+#include <QtWidgets/QLineEdit>
 
 namespace mfcless
 {
@@ -119,6 +120,21 @@ void InstallMessageFilter()
 		return;
 	filter = new MessageFilter(QCoreApplication::instance());
 	QCoreApplication::instance()->installEventFilter(filter);
+}
+
+} // namespace mfcless
+
+
+namespace mfcless
+{
+
+void GotoDlgCtrl(QWidget *w)
+{
+	if(!w)
+		return;
+	w->setFocus(Qt::TabFocusReason);
+	if(auto *edit = qobject_cast<QLineEdit *>(w))
+		edit->selectAll();
 }
 
 } // namespace mfcless

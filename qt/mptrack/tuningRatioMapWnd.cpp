@@ -10,6 +10,7 @@
 
 
 #include "tuningRatioMapWnd.h"
+#include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "Mainfrm.h"
 #include "Mptrack.h"
@@ -47,19 +48,19 @@ void CTuningRatioMapWnd::OnPaint()
 	mfcless::Rect rcClient;
 	GetClientRect(&rcClient);
 	
-	const auto colorText = GetSysColor(COLOR_WINDOWTEXT);
-	const auto colorTextSel = GetSysColor(COLOR_HIGHLIGHTTEXT);
+	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText);
+	const auto colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
 	const auto highlightBrush = GetSysColorBrush(COLOR_HIGHLIGHT), windowBrush = GetSysColorBrush(COLOR_WINDOW);
 	const int lineWidth = HighDPISupport::ScalePixels(1, *this);
 
-	if(int dpi = HighDPISupport::GetDpiForWindow(m_hWnd); m_dpi != dpi)
+	if(int dpi = HighDPISupport::GetDpiForWindow(this); m_dpi != dpi)
 	{
 		m_font.DeleteObject();
 		m_dpi = dpi;
 	}
 	if(!m_font.m_hObject)
 	{
-		HighDPISupport::CreateGUIFont(m_font, m_hWnd);
+		HighDPISupport::CreateGUIFont(m_font, this);
 		m_cxFont = m_cyFont = 0;
 	}
 
@@ -68,14 +69,14 @@ void CTuningRatioMapWnd::OnPaint()
 	if ((m_cxFont <= 0) || (m_cyFont <= 0))
 	{
 		mfcless::Size sz;
-		sz = dc.GetTextExtent(U_("123456789"));
+		sz = dc.GetTextExtent(UL_("123456789"));
 		m_cyFont = sz.cy + 2;
 		m_cxFont = rcClient.right / 4;
 	}
 	dc.IntersectClipRect(&rcClient);
 	if ((m_cxFont > 0) && (m_cyFont > 0))
 	{
-		const bool focus = (::GetFocus() == m_hWnd);
+		const bool focus = (mfcless::GetFocus() == this);
 		mfcless::Rect rect;
 
 		NOTEINDEXTYPE nNotes = static_cast<NOTEINDEXTYPE>((rcClient.bottom + m_cyFont - 1) / m_cyFont);
@@ -90,7 +91,7 @@ void CTuningRatioMapWnd::OnPaint()
 			const bool isValidNote = m_pTuning->IsValidNote(noteToDraw);
 
 			rect.SetRect(0, ypaint, m_cxFont, ypaint + m_cyFont);
-			const auto noteStr = isValidNote ? mpt::ufmt::val(noteToDraw) : mpt::ustring(U_("..."));
+			const auto noteStr = isValidNote ? mpt::ufmt::val(noteToDraw) : mpt::ustring(UL_("..."));
 			DrawButtonRect(dc, lineWidth, m_font, rect, noteStr.c_str(), false, false);
 
 			// Mapped Note
@@ -117,7 +118,7 @@ void CTuningRatioMapWnd::OnPaint()
 
 		}
 		rect.SetRect(rcClient.left + m_cxFont * 4 - 1, rcClient.top, rcClient.left + m_cxFont * 4 + 3, ypaint);
-		DrawButtonRect(dc, lineWidth, m_font, rect, U_(""));
+		DrawButtonRect(dc, lineWidth, m_font, rect, UL_(""));
 		if (ypaint < rcClient.bottom)
 		{
 			rect.SetRect(rcClient.left, ypaint, rcClient.right, rcClient.bottom);
@@ -182,7 +183,7 @@ void CTuningRatioMapWnd::OnLButtonDown(uint32, mfcless::Point pt)
 		}
 
 	}
-	SetFocus();
+	setFocus();
 }
 
 
