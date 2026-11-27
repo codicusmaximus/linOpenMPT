@@ -23,7 +23,7 @@ add_custom_command(
 add_custom_command(
   OUTPUT ${res}
   COMMAND ${Python3_EXECUTABLE} ${tools}/rc.py --cpp ${CMAKE_CXX_COMPILER}
-    -I ${CMAKE_SOURCE_DIR}/mfc-qt/rc -I ${MPT_UPSTREAM_DIR}/mptrack
+    -I ${CMAKE_SOURCE_DIR}/mfc-qt/rc -I ${MPT_UPSTREAM_DIR}/mptrack -I ${CMAKE_SOURCE_DIR}/qt/base/include
     --depfile ${res}.d ${rc} ${res}
   DEPENDS ${tools}/rc.py ${rc}
   DEPFILE ${res}.d

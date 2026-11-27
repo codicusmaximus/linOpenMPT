@@ -85,7 +85,7 @@ static CChildFrame *GetParentFrame(const QWidget *w)
 void CModControlDlg::RegisterMessageMap()
 {
 	DialogBase::RegisterMessageMap();
-	// ON_WM_SIZE: resizeEvent
+	// ON_WM_SIZE() (mfcless::Window)
 	AddMessage(WM_MOD_UNLOCKCONTROLS, &CModControlDlg::OnUnlockControls);
 }
 
@@ -100,10 +100,10 @@ CModControlDlg::~CModControlDlg()
 }
 
 
-void CModControlDlg::resizeEvent(QResizeEvent *e)
+void CModControlDlg::OnSize(uint32 nType, int cx, int cy)
 {
-	DialogBase::resizeEvent(e);
-	if(width() > 0 && height() > 0)
+	DialogBase::OnSize(nType, cx, cy);
+	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0))
 	{
 		RecalcLayout();
 	}
@@ -243,7 +243,9 @@ void CModTabCtrl::OnDPIChanged()
 
 void CModControlView::RegisterMessageMap()
 {
-	// ON_WM_SIZE, ON_WM_DESTROY, ON_WM_SETFOCUS: Qt events
+	// ON_WM_SIZE() (mfcless::Window)
+	// ON_WM_DESTROY(): in the destructor
+	// ON_WM_SETFOCUS() (mfcless::Window)
 	AddMessage(WM_MOD_ACTIVATEVIEW,        &CModControlView::OnActivateModView);
 	AddMessage(WM_MOD_CTRLMSG,             &CModControlView::OnModCtrlMsg);
 	AddCommand(ID_EDIT_CUT,                &CModControlView::OnEditCut);
@@ -257,7 +259,7 @@ void CModControlView::RegisterMessageMap()
 
 
 CModControlView::CModControlView(QWidget *parent)
-	: QWidget(parent)
+	: Window(parent)
 {
 	setFocusPolicy(Qt::StrongFocus);
 	RegisterMessageMap();
@@ -268,14 +270,6 @@ CModControlView::~CModControlView()
 {
 	OnDestroy();
 	SetDocument(nullptr);
-}
-
-
-bool CModControlView::event(QEvent *e)
-{
-	if(HandleModMessage(e))
-		return true;
-	return QWidget::event(e);
 }
 
 
@@ -291,18 +285,18 @@ void CModControlView::OnInitialUpdate() // called first time after construct
 }
 
 
-void CModControlView::focusInEvent(QFocusEvent *e)
+void CModControlView::OnSetFocus(QWidget *pOldWnd)
 {
 	if(CModControlDlg *activeDlg = GetCurrentControlDlg())
 		activeDlg->RestoreLastFocusItem();
-	QWidget::focusInEvent(e);
+	Window::OnSetFocus(pOldWnd);
 }
 
 
-void CModControlView::resizeEvent(QResizeEvent *e)
+void CModControlView::OnSize(uint32 nType, int cx, int cy)
 {
-	QWidget::resizeEvent(e);
-	if(width() > 0 && height() > 0)
+	Window::OnSize(nType, cx, cy);
+	if (((nType == mfcless::size::Restored) || (nType == mfcless::size::Maximized)) && (cx > 0) && (cy > 0))
 	{
 		RecalcLayout();
 	}
@@ -602,12 +596,12 @@ void CModControlView::SampleChanged(SAMPLEINDEX smp)
 //////////////////////////////////////////////////////////////////
 // CModScrollView
 
-// Windows' mouse wheel step
-static constexpr int WHEEL_DELTA = 120;
-
 void CModScrollView::RegisterMessageMap()
 {
-	// ON_WM_DESTROY, ON_WM_MOUSEWHEEL, ON_WM_MOUSEHWHEEL, ON_WM_SETFOCUS: Qt events
+	// ON_WM_DESTROY(): in the destructor
+	// ON_WM_MOUSEWHEEL() (mfcless::Window)
+	// ON_WM_MOUSEHWHEEL() (mfcless::Window)
+	// ON_WM_SETFOCUS() (mfcless::Window)
 	AddMessage(WM_MOD_VIEWMSG,            &CModScrollView::OnReceiveModViewMsg);
 	AddMessage(WM_MOD_DRAGONDROPPING,     &CModScrollView::OnDragonDropping);
 	AddMessage(WM_MOD_UPDATEPOSITION,     &CModScrollView::OnUpdatePosition);
@@ -615,13 +609,12 @@ void CModScrollView::RegisterMessageMap()
 
 
 CModScrollView::CModScrollView(QWidget *parent)
-	: QAbstractScrollArea(parent)
+	: Window(parent)
 {
 	setFocusPolicy(Qt::StrongFocus);
 	viewport()->setFocusProxy(this);
 	setFrameShape(QFrame::NoFrame);
 	RegisterMessageMap();
-	installEventFilter(this);
 }
 
 
@@ -629,14 +622,6 @@ CModScrollView::~CModScrollView()
 {
 	OnDestroy();
 	SetDocument(nullptr);
-}
-
-
-bool CModScrollView::event(QEvent *e)
-{
-	if(HandleModMessage(e))
-		return true;
-	return QAbstractScrollArea::event(e);
 }
 
 
@@ -678,11 +663,11 @@ void CModScrollView::SaveLastFocusItem(QWidget *hwnd)
 }
 
 
-void CModScrollView::focusInEvent(QFocusEvent *e)
+void CModScrollView::OnSetFocus(QWidget *pOldWnd)
 {
 	if(m_lastFocusItem && m_lastFocusItem != this)
 		RestoreLastFocusItem(this, m_lastFocusItem);
-	QAbstractScrollArea::focusInEvent(e);
+	Window::OnSetFocus(pOldWnd);
 }
 
 
@@ -720,20 +705,18 @@ void CModScrollView::OnInitialUpdate()
 }
 
 
-bool CModScrollView::eventFilter(QObject *watched, QEvent *e)
+bool CModScrollView::PreTranslateMessage(mfcless::Message *pMsg)
 {
-	// We handle keypresses before Qt has a chance to handle them (for alt etc..)
-	if(watched == this && (e->type() == QEvent::KeyPress || e->type() == QEvent::KeyRelease))
+	// We handle keypresses before Windows has a chance to handle them (for alt etc..)
+	if(pMsg->message == mfcless::msg::KeyDown || pMsg->message == mfcless::msg::KeyUp || pMsg->message == mfcless::msg::SysKeyUp || pMsg->message == mfcless::msg::SysKeyDown)
 	{
 		CInputHandler *ih = CMainFrame::GetInputHandler();
-		if(ih)
-		{
-			const auto event = ih->Translate(*static_cast<QKeyEvent *>(e));
-			if(ih->KeyEvent(kCtxAllContexts, event) != kcNull)
-				return true;  // Mapped to a command, no need to pass message on.
-		}
+		const auto event = ih->Translate(*pMsg);
+		if(ih->KeyEvent(kCtxAllContexts, event) != kcNull)
+			return true;  // Mapped to a command, no need to pass message on.
 	}
-	return QAbstractScrollArea::eventFilter(watched, e);
+
+	return Window::PreTranslateMessage(pMsg);
 }
 
 
@@ -748,64 +731,45 @@ void CModScrollView::UpdateIndicator(const mpt::ustring &text)
 static short RoundMouseWheelToWholeStep(int value, int &accum)
 {
 	accum += value;
-	value = mpt::align_down(accum, WHEEL_DELTA);
+	value = mpt::align_down(accum, mfcless::WheelDelta);
 	accum -= value;
 	return mpt::saturate_cast<short>(value);
 }
 
 
-void CModScrollView::wheelEvent(QWheelEvent *e)
-{
-	const QPoint pos = e->position().toPoint();
-	if(e->angleDelta().y() != 0)
-	{
-		if(OnMouseWheel(e->modifiers(), e->angleDelta().y(), pos))
-		{
-			e->accept();
-			return;
-		}
-	}
-	if(e->angleDelta().x() != 0)
-	{
-		OnMouseHWheel(e->modifiers(), -e->angleDelta().x(), pos);
-		e->accept();
-		return;
-	}
-	e->ignore();
-}
-
-
-bool CModScrollView::OnMouseWheel(Qt::KeyboardModifiers modifiers, int zDelta, QPoint)
+bool CModScrollView::OnMouseWheel(uint32 fFlags, short zDelta, mfcless::Point point)
 {
 	// we don't handle anything but scrolling just now
-	if(modifiers & (Qt::ShiftModifier | Qt::ControlModifier))
+	if(fFlags & (mfcless::MouseKey::Shift | mfcless::MouseKey::Control))
 		return false;
 
 	// we can't get out of it--perform the scroll ourselves
-	// (CScrollView::DoMouseWheel: a wheel step scrolls by the system's
-	// number of lines, 3 by default, or by a page)
+	// (mfcless: CScrollView::DoMouseWheel: a wheel step scrolls by the
+	// system's number of lines, 3 by default, at most a page)
 	const short steps = RoundMouseWheelToWholeStep(zDelta, m_nScrollPosYfine);
 	if(!steps)
 		return true;
+	MPT_UNUSED(point);
 	const int lines = 3;
-	int scroll = -steps * lines * std::max(1, m_lineDev.height()) / WHEEL_DELTA;
+	int scroll = -steps * lines * std::max(1, m_lineDev.height()) / mfcless::WheelDelta;
 	if(m_pageDev.height() > 0)
 		scroll = std::clamp(scroll, -m_pageDev.height(), m_pageDev.height());
 	return OnScrollBy(QSize(0, scroll), true);
 }
 
 
-void CModScrollView::OnMouseHWheel(Qt::KeyboardModifiers modifiers, int zDelta, QPoint)
+void CModScrollView::OnMouseHWheel(uint32 fFlags, short zDelta, mfcless::Point point)
 {
 	zDelta = RoundMouseWheelToWholeStep(zDelta, m_nScrollPosXfine);
 
 	// we don't handle anything but scrolling just now
-	if(modifiers & (Qt::ShiftModifier | Qt::ControlModifier))
+	if(fFlags & (mfcless::MouseKey::Shift | mfcless::MouseKey::Control))
 	{
+		Window::OnMouseHWheel(fFlags, zDelta, point);
 		return;
 	}
 
-	if(OnScrollBy(QSize(zDelta * std::max(1, m_lineDev.width()) / WHEEL_DELTA, 0), true))
+	if(OnScrollBy(QSize(zDelta * m_lineDev.width() / mfcless::WheelDelta, 0), true))
 		viewport()->update();
 }
 
@@ -961,9 +925,9 @@ void CModScrollView::UpdateBars()
 }
 
 
-void CModScrollView::resizeEvent(QResizeEvent *e)
+void CModScrollView::OnSize(uint32 nType, int cx, int cy)
 {
-	QAbstractScrollArea::resizeEvent(e);
+	Window::OnSize(nType, cx, cy);
 	UpdateBars();
 }
 

@@ -14,6 +14,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
 #include "mfcless/Controls.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QSlider>
 
 #include "AccessibleControls.h"
@@ -23,9 +24,7 @@
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
 class QLineEdit;
-class QObject;
 class QScrollBar;
 class QWidget;
 
@@ -151,7 +150,7 @@ protected:
 
 #ifndef NO_EQ
 
-class CEQSlider: public QSlider
+class CEQSlider: public mfcless::Window<QSlider>
 {
 	Q_OBJECT
 public:
@@ -161,7 +160,7 @@ public:
 public:
 	CEQSlider() = default;
 	void Init(uint32 nID, uint32 n, QWidget *parent);
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg);
 };
 
 #endif // !NO_EQ

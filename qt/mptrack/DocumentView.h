@@ -35,10 +35,10 @@ struct ViewClass
 	DocumentView *(*create)(QWidget *parent);
 };
 
-class DocumentView : public MessageMap
+class DocumentView
 {
 public:
-	~DocumentView() override;
+	virtual ~DocumentView();
 
 	CModDoc *GetDocument() const { return m_document; }
 	// Joins the document's view list (and leaves the previous one's).
@@ -50,6 +50,11 @@ public:
 
 	// The widget of the view.
 	virtual QWidget *ViewWidget() = 0;
+	// The view's message map (its window's).
+	MessageMap *GetMessageMap() { return dynamic_cast<MessageMap *>(this); }
+
+	// Called once the view has its document and frame.
+	virtual void OnInitialUpdate() {}
 
 protected:
 	CModDoc *m_document = nullptr;

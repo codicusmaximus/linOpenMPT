@@ -12,7 +12,7 @@ file(GLOB_RECURSE MFCLESS_TWIN_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/mptr
 list(TRANSFORM MFCLESS_TWIN_SOURCES PREPEND ${MPT_UPSTREAM_DIR}/mptrack/)
 # Upstream mptrack/ files compiled from the worktree, unchanged or patched
 # by patches/mfcless/ (mostly logic, with only a little UI code in them).
-set(MFCLESS_UPSTREAM_UI_FILES Moddoc.cpp)
+set(MFCLESS_UPSTREAM_UI_FILES Moddoc.cpp CommandSet.cpp)
 list(TRANSFORM MFCLESS_UPSTREAM_UI_FILES PREPEND ${MPT_UPSTREAM_DIR}/mptrack/)
 list(APPEND MFCLESS_TWIN_SOURCES ${MFCLESS_UPSTREAM_UI_FILES})
 # The crash handler is linOpenMPT's own Linux one (platform/), shared with

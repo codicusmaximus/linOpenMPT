@@ -13,7 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QToolBar>
@@ -24,7 +24,6 @@
 #include "UpdateToolTip.h"
 #include "../soundlib/Snd_defs.h"
 
-class QEvent;
 class QFont;
 class QObject;
 class QPoint;
@@ -37,7 +36,7 @@ OPENMPT_NAMESPACE_BEGIN
 enum class MainToolBarItem : uint32;
 class CMainToolBar;
 
-class CStereoVU: public QLabel, public mfcless::MessageMap
+class CStereoVU: public mfcless::Window<QLabel>
 {
 	Q_OBJECT
 protected:
@@ -64,7 +63,7 @@ protected:
 	void RegisterMessageMap() override;;
 };
 
-class COctaveEdit : public QLineEdit, public mfcless::MessageMap
+class COctaveEdit : public mfcless::Window<QLineEdit>
 {
 	Q_OBJECT
 public:
@@ -87,7 +86,7 @@ class CModTree;
 class CMainFrame;
 struct Notification;
 
-class CToolBarEx: public QToolBar
+class CToolBarEx: public mfcless::Window<QToolBar>
 {
 	Q_OBJECT
 protected:
@@ -174,7 +173,7 @@ protected:
 };
 
 
-class CModTreeBar: public QWidget, public mfcless::MessageMap
+class CModTreeBar: public mfcless::Window<QWidget>
 {
 	Q_OBJECT
 public:
@@ -229,7 +228,7 @@ public:
 
 protected:
 	QSize CalcFixedLayout(bool bStretch, bool bHorz) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void CloseTreeFilter();
 	void CancelTimer();
 

@@ -12,13 +12,14 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Window.h"
 #include <QtWidgets/QTreeWidget>
 
 #include "HighDPISupport.h"
 
 OPENMPT_NAMESPACE_BEGIN
 
-class CListCtrlEx : public QTreeWidget
+class CListCtrlEx : public mfcless::Window<QTreeWidget>
 {
 	Q_OBJECT
 public:
@@ -103,7 +104,7 @@ public:
 
 #ifndef _AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
-class CMFCListCtrlEx : public QTreeWidget
+class CMFCListCtrlEx : public mfcless::Window<QTreeWidget>
 {
 	Q_OBJECT
 public:

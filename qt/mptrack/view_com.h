@@ -13,13 +13,13 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 
 #include "CListCtrl.h"
 #include "Globals.h"
 #include "../soundlib/modcommand.h"
 
-class QEvent;
 class QFont;
 class QObject;
 
@@ -50,7 +50,7 @@ public:
 public:
 	void OnInitialUpdate() override;
 	void OnDPIChanged() override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	intptr_t OnModViewMsg(uintptr_t wParam, intptr_t lParam) override;
 	void UpdateView(UpdateHint hint, QObject *pObject = nullptr) override;
 protected:

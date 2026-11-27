@@ -13,17 +13,15 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLineEdit>
 #include "CListCtrl.h"
 #include "CommandSet.h"
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
 class QLabel;
 class QListWidget;
-class QObject;
 class QPoint;
 class QWidget;
 
@@ -49,7 +47,7 @@ public:
 };
 
 
-class CCustEdit: public QLineEdit, public mfcless::MessageMap
+class CCustEdit: public mfcless::Window<QLineEdit>
 {
 	Q_OBJECT
 protected:
@@ -69,7 +67,7 @@ public:
 	bool IsBypassed() const { return m_bypassed; }
 	
 protected:
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnKillFocus(QWidget *pNewWnd);

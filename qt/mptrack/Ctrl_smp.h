@@ -14,6 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Keyboard.h"
 
 #include "AccessibleControls.h"
 #include "CDecimalSupport.h"
@@ -25,7 +26,6 @@
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
 class QLineEdit;
 class QObject;
 class QPoint;
@@ -109,7 +109,7 @@ public:
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	intptr_t OnModCtrlMsg(uintptr_t wParam, intptr_t lParam) override;
 	mpt::ustring GetToolTipText(uint32 uId, QWidget * hwnd) const override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void OnDPIChanged() override;
 protected:
 	void OnEditFocus();

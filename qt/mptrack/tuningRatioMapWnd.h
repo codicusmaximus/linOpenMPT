@@ -12,7 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 
 #include "../soundlib/tuning.h"
@@ -29,7 +29,7 @@ class CTuningDialog;
 using NOTEINDEXTYPE = Tuning::NOTEINDEXTYPE;
 
 //Copied from CNoteMapWnd.
-class CTuningRatioMapWnd: public QLabel, public mfcless::MessageMap
+class CTuningRatioMapWnd: public mfcless::Window<QLabel>
 {
 	Q_OBJECT
 	friend class CTuningDialog;

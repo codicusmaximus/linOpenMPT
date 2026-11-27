@@ -13,13 +13,12 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "ResizableDialog.h"
 #include "../common/ComponentManager.h"
 #include "../soundlib/Snd_defs.h"
 
 class QAbstractButton;
-class QEvent;
-class QObject;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QWidget;
@@ -87,7 +86,7 @@ protected:
 	void OnDPIChanged() override;
 	void OnOK() override;
 	void OnCancel() override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 
 	void RegisterMessageMap() override;
 	void OnAddPlugin();

@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QTreeWidget>
 
 #include "CListCtrl.h"
@@ -22,16 +23,13 @@
 #include <map>
 #endif
 
-class QEvent;
-class QObject;
-
 OPENMPT_NAMESPACE_BEGIN
 
 class SettingPath;
 
 #ifndef _AFX_NO_MFC_CONTROLS_IN_DIALOGS
 
-class CAdvancedSettingsList : public QTreeWidget
+class CAdvancedSettingsList : public mfcless::Window<QTreeWidget>
 {
 	Q_OBJECT
 private:
@@ -74,7 +72,7 @@ protected:
 	void OnOK() override;
 	bool OnSetActive() override;
 	void DoDataExchange(DataExchange &dx) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *msg) override;
 
 	void OnOptionDblClick();
 	void OnSettingsChanged() { SetModified(true); }

@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 #include "Globals.h"
 #include "Moddoc.h"
@@ -20,12 +21,12 @@
 #include "../soundlib/modsmp_ctrl.h"
 
 
-class QEvent;
 class QFont;
 class QObject;
 class QPoint;
 class QRect;
 class QSize;
+class QStringList;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -180,7 +181,7 @@ public:
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	bool OnDragonDrop(bool, const DRAGONDROP *) override;
 	intptr_t OnPlayerNotify(Notification *) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	bool OnScrollBy(QSize sizeScroll, bool bDoScroll = true) override;
 	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
 protected:
@@ -223,7 +224,7 @@ protected:
 	void OnPrevInstrument();
 	void OnNextInstrument();
 	void OnZoomOnSel();
-	void OnDropFiles(HDROP hDropInfo);
+	void OnDropFiles(const QStringList &files);
 	void OnSetLoopStart();
 	void OnSetLoopEnd();
 	void OnConvertPingPongLoop();

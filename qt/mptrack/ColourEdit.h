@@ -12,12 +12,12 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLineEdit>
 
 OPENMPT_NAMESPACE_BEGIN
 
-class CColourEdit : public QLineEdit, public mfcless::MessageMap
+class CColourEdit : public mfcless::Window<QLineEdit>
 {
 	Q_OBJECT
 public:

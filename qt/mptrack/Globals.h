@@ -16,11 +16,13 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
+#include "mfcless/Window.h"
 #include "DocumentView.h"
 #include "Settings.h"
 #include "UpdateHints.h"
 
 #include <QtWidgets/QAbstractScrollArea>
+#include <QtWidgets/QTabBar>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QWidget>
 
@@ -125,7 +127,7 @@ public:
 	virtual void OnActivatePage(intptr_t) {}
 	virtual void OnDeactivatePage() {}
 
-	void resizeEvent(QResizeEvent *e) override;
+	void OnSize(uint32 nType, int cx, int cy) override;
 	intptr_t OnUnlockControls(uintptr_t, intptr_t) { if (m_nLockCount > 0) m_nLockCount--; return 0; }
 	void RegisterMessageMap() override;
 };
@@ -142,7 +144,7 @@ public:
 };
 
 
-class CModControlView: public QWidget, public mfcless::DocumentView
+class CModControlView: public mfcless::Window<QWidget>, public mfcless::DocumentView
 {
 	Q_OBJECT
 public:
@@ -187,15 +189,14 @@ public:
 	Page GetActivePage() const { return m_nActiveDlg; }
 
 public:
-	virtual void OnInitialUpdate();
+	void OnInitialUpdate() override;
 	void OnUpdate(mfcless::DocumentView *pSender, intptr_t lHint, QObject *pHint) override;
 	QWidget *ViewWidget() override { return this; }
 
 protected:
-	bool event(QEvent *e) override;
-	void focusInEvent(QFocusEvent *e) override;
-	void resizeEvent(QResizeEvent *e) override;
+	void OnSize(uint32 nType, int cx, int cy) override;
 	void OnDestroy();
+	void OnSetFocus(QWidget *pOldWnd) override;
 	void OnTabSelchange();
 	void OnEditCut();
 	void OnEditCopy();
@@ -217,7 +218,7 @@ protected:
 #define NCBTNS_PUSHED			0x08
 
 
-class CModScrollView: public QAbstractScrollArea, public mfcless::DocumentView
+class CModScrollView: public mfcless::Window<QAbstractScrollArea>, public mfcless::DocumentView
 {
 	Q_OBJECT
 protected:
@@ -242,7 +243,7 @@ public:
 	void UpdateIndicator(const mpt::ustring &text = {});
 
 public:
-	virtual void OnInitialUpdate();
+	void OnInitialUpdate() override;
 	void OnUpdate(mfcless::DocumentView *pSender, intptr_t lHint, QObject *pHint) override;
 	QWidget *ViewWidget() override { return this; }
 	virtual void OnDPIChanged() { viewport()->update(); }
@@ -262,17 +263,17 @@ public:
 	QSize GetTotalSize() const { return m_totalDev; }
 	int GetScrollPos(Qt::Orientation bar) const;
 
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
+
 protected:
-	bool event(QEvent *e) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
-	void focusInEvent(QFocusEvent *e) override;
-	void wheelEvent(QWheelEvent *e) override;
 	void scrollContentsBy(int dx, int dy) override;
-	void resizeEvent(QResizeEvent *e) override;
+	// mfcless: CScrollView's (the scroll bars follow the size).
+	void OnSize(uint32 nType, int cx, int cy) override;
 	void OnDestroy();
 	intptr_t OnReceiveModViewMsg(uintptr_t wParam, intptr_t lParam);
-	bool OnMouseWheel(Qt::KeyboardModifiers modifiers, int zDelta, QPoint point);
-	void OnMouseHWheel(Qt::KeyboardModifiers modifiers, int zDelta, QPoint point);
+	bool OnMouseWheel(uint32 fFlags, short zDelta, mfcless::Point point) override;
+	void OnMouseHWheel(uint32 fFlags, short zDelta, mfcless::Point point) override;
+	void OnSetFocus(QWidget *pOldWnd) override;
 	intptr_t OnDragonDropping(uintptr_t bDoDrop, intptr_t lParam) { return OnDragonDrop(bDoDrop != 0, reinterpret_cast<const DRAGONDROP *>(lParam)); }
 	intptr_t OnUpdatePosition(uintptr_t, intptr_t);
 

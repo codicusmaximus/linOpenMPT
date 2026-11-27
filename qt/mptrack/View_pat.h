@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 
 #include "Globals.h"
@@ -23,7 +24,6 @@
 #include "PatternClipboard.h"
 #include "UpdateHints.h"
 
-class QEvent;
 class QObject;
 class QPoint;
 class QRect;
@@ -363,7 +363,7 @@ public:
 	void OnInitialUpdate() override;
 	void OnDPIChanged() override;
 	bool OnScrollBy(QSize sizeScroll, bool bDoScroll = true) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	intptr_t OnPlayerNotify(Notification *) override;

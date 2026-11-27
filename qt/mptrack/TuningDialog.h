@@ -12,7 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QTreeWidget>
 
 #include "CDecimalSupport.h"
@@ -118,7 +118,7 @@ private:
 
 class CTuningDialog;
 
-class CTuningTreeCtrl : public QTreeWidget, public mfcless::MessageMap
+class CTuningTreeCtrl : public mfcless::Window<QTreeWidget>
 {
 	Q_OBJECT
 private:

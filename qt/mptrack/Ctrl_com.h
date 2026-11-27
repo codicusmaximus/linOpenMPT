@@ -13,9 +13,9 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "Globals.h"
 
-class QEvent;
 class QLineEdit;
 class QObject;
 
@@ -39,7 +39,7 @@ public:
 	CRuntimeClass *GetAssociatedViewClass() override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 protected:
 	void OnCommentsUpdated();
 	void OnCommentsChanged();

@@ -14,7 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 
 #include "CDecimalSupport.h"
@@ -24,7 +24,6 @@
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
 class QLineEdit;
 class QObject;
 class QPoint;
@@ -38,7 +37,7 @@ class CModDoc;
 class CNoteMapWnd;
 class CCtrlInstruments;
 
-class CNoteMapWnd: public QLabel, public mfcless::MessageMap
+class CNoteMapWnd: public mfcless::Window<QLabel>
 {
 	Q_OBJECT
 protected:
@@ -75,7 +74,7 @@ public:
 	void UpdateAccessibleTitle();
 
 public:
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
 protected:
 	void OnLButtonDown(uint32, QPoint);
@@ -158,7 +157,7 @@ public:
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	intptr_t OnModCtrlMsg(uintptr_t wParam, intptr_t lParam) override;
 	mpt::ustring GetToolTipText(uint32 uId, QWidget * hwnd) const override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 protected:
 	void PrepareUndo(const char *description);
 	void OnEditFocus();

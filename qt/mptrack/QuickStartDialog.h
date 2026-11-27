@@ -12,15 +12,14 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 
 #include "AccessibleControls.h"
 #include "CListCtrl.h"
 #include "ResizableDialog.h"
 #include "../common/mptPathString.h"
 
-class QEvent;
 class QLineEdit;
-class QObject;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -38,7 +37,7 @@ protected:
 	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void OnOK() override;
 	void OnCancel() override { DestroyWindow(); }
 

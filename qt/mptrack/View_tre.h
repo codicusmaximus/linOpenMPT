@@ -13,7 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtCore/QObject>
 #include <QtWidgets/QTreeWidget>
 
@@ -27,8 +27,8 @@
 #include <vector>
 #include <bitset>
 
-class QEvent;
 class QPoint;
+class QStringList;
 class QTreeWidgetItem;
 class QWidget;
 
@@ -75,7 +75,7 @@ public:
 };
 
 
-class CModTree: public QTreeWidget, public mfcless::MessageMap
+class CModTree: public mfcless::Window<QTreeWidget>
 {
 	Q_OBJECT
 public:
@@ -276,7 +276,7 @@ public:
 // Overrides
 	// ClassWizard generated virtual function overrides
 public:
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 // Drag & Drop operations
 public:
 	DROPEFFECT OnDragEnter(COleDataObject* pDataObject, uint32 dwKeyState, QPoint point);
@@ -349,7 +349,7 @@ protected:
 	void OnRenameItem();
 	void OnBeginLabelEdit();
 	void OnEndLabelEdit();
-	void OnDropFiles(HDROP hDropInfo);
+	void OnDropFiles(const QStringList &files);
 	void OnKillFocus(QWidget *pNewWnd);
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnDestroy();

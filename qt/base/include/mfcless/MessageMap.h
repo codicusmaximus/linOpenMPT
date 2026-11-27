@@ -204,12 +204,12 @@ private:
 	std::vector<Update> m_updates;
 	std::vector<NotifyEntry> m_notifies;
 	std::vector<Scroll> m_scrolls;
-	struct Message
+	struct MessageEntry
 	{
 		uint32_t message;
 		std::function<intptr_t(uintptr_t, intptr_t)> fn;
 	};
-	std::vector<Message> m_messages;
+	std::vector<MessageEntry> m_messages;
 	NotifyInfo m_none;
 	NotifyInfo *m_current = &m_none;
 };

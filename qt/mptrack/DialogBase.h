@@ -17,7 +17,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "Snd_defs.h"
 
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 
 #include <QtWidgets/QDialog>
 
@@ -34,7 +34,7 @@ struct DataExchange
 	bool failed = false;
 };
 
-class DialogBase : public QDialog, public mfcless::MessageMap
+class DialogBase : public mfcless::Window<QDialog>
 {
 	Q_OBJECT
 public:
@@ -54,7 +54,9 @@ public:
 
 	virtual bool OnInitDialog();
 
-	static bool HandleGlobalKeyMessage(const QKeyEvent &msg);
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
+
+	static bool HandleGlobalKeyMessage(const mfcless::Message &msg);
 
 	int GetDPI() const { return m_dpi; }
 
@@ -113,7 +115,6 @@ protected:
 	virtual mpt::ustring GetToolTipText(uint32 /*id*/, QWidget * /*hwnd*/) const { return {}; }
 
 	void reject() override;
-	bool event(QEvent *e) override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
 	void showEvent(QShowEvent *e) override;
 

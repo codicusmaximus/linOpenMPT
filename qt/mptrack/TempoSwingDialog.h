@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 
 #include "DialogBase.h"
@@ -31,7 +32,7 @@ class CTempoSwingDlg : public DialogBase
 	Q_OBJECT
 protected:
 	// Scrollable container for the sliders
-	class SliderContainer : public QLabel
+	class SliderContainer : public mfcless::Window<QLabel>
 	{
 	public:
 		CTempoSwingDlg &m_parent;

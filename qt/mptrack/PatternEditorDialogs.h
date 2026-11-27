@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Keyboard.h"
 
 #include "DialogBase.h"
 #include "dlg_misc.h"  // for keyboard control
@@ -25,9 +26,7 @@
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
 class QLineEdit;
-class QObject;
 class QPoint;
 class QScrollBar;
 class QSlider;
@@ -126,7 +125,7 @@ protected:
 	void DoDataExchange(DataExchange &dx) override;
 	void OnOK() override { ShowWindow(SW_HIDE); }
 	void OnCancel() override { ShowWindow(SW_HIDE); }
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized);
 	void OnClose()	{ ShowWindow(SW_HIDE); }
 
@@ -250,7 +249,7 @@ protected:
 	void OnPickNextColor();
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 
 	void RegisterMessageMap() override;;

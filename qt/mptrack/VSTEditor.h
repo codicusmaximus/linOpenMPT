@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 
 #include "AbstractVstEditor.h"
 
@@ -48,10 +49,10 @@ protected:
 	bool OnEraseBkgnd(CDC *) { return true; }
 	void OnPaint();
 
-	intptr_t OnPreTranslateKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(WM_KEYDOWN, wParam, lParam); }
-	intptr_t OnPreTranslateKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(WM_KEYUP, wParam, lParam); }
-	intptr_t OnPreTranslateSysKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(WM_SYSKEYDOWN, wParam, lParam); }
-	intptr_t OnPreTranslateSysKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(WM_SYSKEYUP, wParam, lParam); }
+	intptr_t OnPreTranslateKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::KeyDown, wParam, lParam); }
+	intptr_t OnPreTranslateKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::KeyUp, wParam, lParam); }
+	intptr_t OnPreTranslateSysKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::SysKeyDown, wParam, lParam); }
+	intptr_t OnPreTranslateSysKeyUp(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::SysKeyUp, wParam, lParam); }
 	intptr_t HandlePreTranslateMessage(uint32 message, uintptr_t wParam, intptr_t lParam)
 	{
 		MSG msg = {m_plugWindow, message, wParam, lParam, 0, {}};

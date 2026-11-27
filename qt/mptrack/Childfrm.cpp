@@ -77,14 +77,6 @@ CChildFrame::~CChildFrame()
 }
 
 
-bool CChildFrame::event(QEvent *e)
-{
-	if(HandleModMessage(e))
-		return true;
-	return QMdiSubWindow::event(e);
-}
-
-
 CModControlView *CChildFrame::GetModControlView() const
 {
 	return m_wndSplitter ? qobject_cast<CModControlView *>(m_wndSplitter->widget(0)) : nullptr;

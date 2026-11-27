@@ -4946,10 +4946,35 @@ index 42a1132..cfc7f9c 100644
  },
  };
 diff --git a/mptrack/CommandSet.cpp b/mptrack/CommandSet.cpp
-index 9d64bca..c32fe40 100644
+index 9d64bca..5b6a792 100644
 --- a/mptrack/CommandSet.cpp
 +++ b/mptrack/CommandSet.cpp
-@@ -93,7 +93,7 @@ CCommandSet::CCommandSet()
+@@ -16,6 +16,8 @@
+ #include "../soundlib/mod_specifications.h"
+ #include "../soundlib/Tables.h"
+ #include "../mptrack/Reporting.h"
++#include "mfcless/Keyboard.h"
++#include "mfcless/QtString.h"
+ #include "mpt/io_file/fstream.hpp"
+ #include "mpt/io_file/outputfile.hpp"
+ #include "../common/mptFileIO.h"
+@@ -46,15 +48,6 @@ constexpr std::pair<CommandID, CommandID> NoteRanges[] =
+ 	{kcCommentsStartNotes, kcCommentsStartNoteStops},
+ };
+ 
+-std::vector<HKL> GetKeyboardLayouts()
+-{
+-	std::vector<HKL> layouts(GetKeyboardLayoutList(0, nullptr));
+-	GetKeyboardLayoutList(static_cast<int>(layouts.size()), layouts.data());
+-	// GetKeyboardLayoutList appears to return the layouts in no particular order. Always force the active layout to be evaluated first.
+-	layouts.insert(layouts.begin(), GetKeyboardLayout(0));
+-	return layouts;
+-}
+-
+ };  // namespace
+ 
+ #ifdef MPT_ALL_LOGGING
+@@ -93,7 +86,7 @@ CCommandSet::CCommandSet()
  
  // Setup
  
@@ -4958,7 +4983,7 @@ index 9d64bca..c32fe40 100644
      : kcList{std::move(keys)}
      , name{commandName}
      , UID{uid}
-@@ -104,861 +104,861 @@ static constexpr struct
+@@ -104,861 +97,861 @@ static constexpr struct
  {
  	uint32 uid = 0;  // ID | Hidden | Dummy
  	CommandID cmd = kcNull;
@@ -6667,16 +6692,32 @@ index 9d64bca..c32fe40 100644
  };
  // clang-format on
  
-@@ -973,7 +973,7 @@ void CCommandSet::SetupCommands()
+@@ -973,8 +966,8 @@ void CCommandSet::SetupCommands()
  
  	for(int j = kcStartSampleCues; j <= kcEndSampleCues; j++)
  	{
 -		CString s = MPT_CFORMAT("Preview / Set Sample Cue {}")(j - kcStartSampleCues + 1);
+-		m_commands[j] = {static_cast<uint32>(1924 + j - kcStartSampleCues), s};
 +		mpt::ustring s = MPT_UFORMAT("Preview / Set Sample Cue {}")(j - kcStartSampleCues + 1);
- 		m_commands[j] = {static_cast<uint32>(1924 + j - kcStartSampleCues), s};
++		m_commands[j] = {static_cast<uint32>(1924 + j - kcStartSampleCues), s.c_str()};
  	}
  	static_assert(1924 + kcEndSampleCues - kcStartSampleCues < 1950);
-@@ -1018,22 +1018,22 @@ void CCommandSet::SetupCommands()
+ 
+@@ -986,11 +979,11 @@ void CCommandSet::SetupCommands()
+ 
+ 		for(int i = kcVPStartNotes; i <= kcVPEndNotes; i++)
+ 		{
+-			m_commands[i - kcVPStartNotes + contextStartNotes] = {KeyCommand::Hidden, m_commands[i].name};
++			m_commands[i - kcVPStartNotes + contextStartNotes] = {KeyCommand::Hidden, m_commands[i].name.c_str()};
+ 		}
+ 		for(int i = kcVPStartNoteStops; i <= kcVPEndNoteStops; i++)
+ 		{
+-			m_commands[i - kcVPStartNoteStops + contextStopNotes] = {KeyCommand::Hidden, m_commands[i].name};
++			m_commands[i - kcVPStartNoteStops + contextStopNotes] = {KeyCommand::Hidden, m_commands[i].name.c_str()};
+ 		}
+ 	}
+ 
+@@ -1018,22 +1011,22 @@ void CCommandSet::SetupCommands()
  // Command Manipulation
  
  
@@ -6703,7 +6744,7 @@ index 9d64bca..c32fe40 100644
  		} else
  		{
  			report = FormatConflict(kc, conflictCmd.first, conflictCmd.second);
-@@ -1049,12 +1049,12 @@ CString CCommandSet::Add(KeyCombination kc, CommandID cmd, bool overwrite, int p
+@@ -1049,12 +1042,12 @@ CString CCommandSet::Add(KeyCombination kc, CommandID cmd, bool overwrite, int p
  }
  
  
@@ -6719,7 +6760,7 @@ index 9d64bca..c32fe40 100644
  }
  
  std::pair<CommandID, KeyCombination> CCommandSet::IsConflicting(KeyCombination kc, CommandID cmd, bool checkEventConflict, bool checkSameCommand) const
-@@ -1317,8 +1317,8 @@ void CCommandSet::EnforceAll(KeyCombination inKc, CommandID inCmd, bool adding)
+@@ -1317,11 +1310,11 @@ void CCommandSet::EnforceAll(KeyCombination inKc, CommandID inCmd, bool adding)
  			// Register key-up when releasing any of the modifiers.
  			// Otherwise, select key combos might get stuck. Example:
  			// [Ctrl Down] [Alt Down] [Ctrl Up] [Alt Up] After this action, copy select (Ctrl+Drag) would still be activated without this code.
@@ -6729,8 +6770,51 @@ index 9d64bca..c32fe40 100644
 +			for(uint32 i = 0; i <= maxMod; i++)
  			{
  				// Avoid Windows key, so that it won't detected as being actively used
- 				if(i & HOTKEYF_EXT)
-@@ -1621,7 +1621,7 @@ void CCommandSet::GenKeyMap(KeyMap &km)
+-				if(i & HOTKEYF_EXT)
++				if(i & ModWin)
+ 					continue;
+ 				newKcDeSel.Modifier(static_cast<Modifiers>(i));
+ 				//newKcDeSel.mod&=~CodeToModifier(inKc.code);		//<-- Need to get rid of right modifier!!
+@@ -1466,10 +1459,10 @@ void CCommandSet::EnforceAll(KeyCombination inKc, CommandID inCmd, bool adding)
+ 	{
+ 		if ( (inKc.Modifier() == ModNone) &&	//no modifier
+ 			 ( (inKc.Context() == kCtxViewPatternsNote) || (inKc.Context() == kCtxViewPatterns) ) && //note scope or pattern scope
+-			 ( ('0'<=inKc.KeyCode() && inKc.KeyCode()<='9') || (VK_NUMPAD0<=inKc.KeyCode() && inKc.KeyCode()<=VK_NUMPAD9) ) )  //is number key
++			 ( ('0'<=inKc.KeyCode() && inKc.KeyCode()<='9') || (mfcless::vk::NUMPAD0<=inKc.KeyCode() && inKc.KeyCode()<=mfcless::vk::NUMPAD9) ) )  //is number key
+ 		{
+ 				newKc = KeyCombination(kCtxViewPatternsNote, ModNone, inKc.KeyCode(), kKeyEventDown);
+-				int offset = ('0'<=inKc.KeyCode() && inKc.KeyCode()<='9') ? newKc.KeyCode()-'0' : newKc.KeyCode()-VK_NUMPAD0;
++				int offset = ('0'<=inKc.KeyCode() && inKc.KeyCode()<='9') ? newKc.KeyCode()-'0' : newKc.KeyCode()-mfcless::vk::NUMPAD0;
+ 				Add(newKc, (CommandID)(kcSetOctave0 + (newKc.KeyCode()-offset)), false);
+ 		}
+ 	}
+@@ -1483,21 +1476,21 @@ void CCommandSet::EnforceAll(KeyCombination inKc, CommandID inCmd, bool adding)
+ 			{
+ 				newKc.KeyCode('0' + i);
+ 				Add(newKc, (CommandID)(kcSetSpacing0 + i), false);
+-				newKc.KeyCode(VK_NUMPAD0 + i);
++				newKc.KeyCode(mfcless::vk::NUMPAD0 + i);
+ 				Add(newKc, (CommandID)(kcSetSpacing0 + i), false);
+ 			}
+ 		} else if (!adding && (inCmd < kcSetSpacing || inCmd > kcSetSpacing9))
+ 		{
+ 			// Re-add combinations that might have been overwritten by another command
+-			if(('0' <= inKc.KeyCode() && inKc.KeyCode() <= '9') || (VK_NUMPAD0 <= inKc.KeyCode() && inKc.KeyCode() <= VK_NUMPAD9))
++			if(('0' <= inKc.KeyCode() && inKc.KeyCode() <= '9') || (mfcless::vk::NUMPAD0 <= inKc.KeyCode() && inKc.KeyCode() <= mfcless::vk::NUMPAD9))
+ 			{
+ 				for(const auto &spacing : m_commands[kcSetSpacing].kcList)
+ 				{
+ 					newKc = KeyCombination(kCtxViewPatterns, spacing.Modifier(), inKc.KeyCode(), spacing.EventType());
+ 					if('0' <= inKc.KeyCode() && inKc.KeyCode() <= '9')
+ 						Add(newKc, static_cast<CommandID>(kcSetSpacing0 + inKc.KeyCode() - '0'), false);
+-					else if(VK_NUMPAD0 <= inKc.KeyCode() && inKc.KeyCode() <= VK_NUMPAD9)
+-						Add(newKc, static_cast<CommandID>(kcSetSpacing0 + inKc.KeyCode() - VK_NUMPAD0), false);
++					else if(mfcless::vk::NUMPAD0 <= inKc.KeyCode() && inKc.KeyCode() <= mfcless::vk::NUMPAD9)
++						Add(newKc, static_cast<CommandID>(kcSetSpacing0 + inKc.KeyCode() - mfcless::vk::NUMPAD0), false);
+ 				}
+ 			}
+ 
+@@ -1621,7 +1614,7 @@ void CCommandSet::GenKeyMap(KeyMap &km)
  	const bool allowDupes = TrackerSettings::Instance().MiscAllowMultipleCommandsPerKey;
  
  	// Copy commandlist content into map:
@@ -6739,7 +6823,7 @@ index 9d64bca..c32fe40 100644
  	{
  		if(m_commands[cmd].IsDummy())
  			continue;
-@@ -1638,7 +1638,7 @@ void CCommandSet::GenKeyMap(KeyMap &km)
+@@ -1638,7 +1631,7 @@ void CCommandSet::GenKeyMap(KeyMap &km)
  				eventTypes.push_back(kKeyEventUp);
  			if(curKc.EventType() & kKeyEventRepeat)
  				eventTypes.push_back(kKeyEventRepeat);
@@ -6748,16 +6832,29 @@ index 9d64bca..c32fe40 100644
  
  			// Handle super-contexts (contexts that represent a set of sub contexts)
  			if(curKc.Context() == kCtxViewPatterns)
-@@ -1722,7 +1722,7 @@ ctx:UID:Description:Modifier:Key:EventMask
+@@ -1700,7 +1693,6 @@ ctx:UID:Description:Modifier:Key:EventMask
+ 	     "//----------------------------------------------------------------------\n"
+ 	     "version:" << mpt::ToCharset(mpt::Charset::ASCII, Version::Current().ToUString()) << "\n";
+ 
+-	const std::vector<HKL> layouts = GetKeyboardLayouts();
+ 
+ 	for(int ctx = 0; ctx < kCtxMaxInputContexts; ctx++)
+ 	{
+@@ -1722,11 +1714,8 @@ ctx:UID:Description:Modifier:Key:EventMask
  					<< kc.KeyCode();
  				if(cmd >= kcVPStartNotes && cmd <= kcVPEndNotes)
  				{
 -					UINT sc = 0, vk = kc.KeyCode();
+-					for(auto i = layouts.begin(); i != layouts.end() && sc == 0; i++)
+-					{
+-						sc = MapVirtualKeyEx(vk, MAPVK_VK_TO_VSC, *i);
+-					}
 +					uint32 sc = 0, vk = kc.KeyCode();
- 					for(auto i = layouts.begin(); i != layouts.end() && sc == 0; i++)
- 					{
- 						sc = MapVirtualKeyEx(vk, MAPVK_VK_TO_VSC, *i);
-@@ -1754,7 +1754,7 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
++					sc = mfcless::VkToScan(vk);
+ 					f << "/" << sc;
+ 				}
+ 				f << ":"
+@@ -1754,10 +1743,9 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
  	for(auto &cmd : m_commands)
  		cmd.kcList.clear();
  
@@ -6765,8 +6862,11 @@ index 9d64bca..c32fe40 100644
 +	mpt::ustring errText;
  	int errorCount = 0;
  
- 	const std::vector<HKL> layouts = GetKeyboardLayouts();
-@@ -1787,7 +1787,7 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
+-	const std::vector<HKL> layouts = GetKeyboardLayouts();
+ 
+ 	const std::string whitespace(" \n\r\t");
+ 	while(iStrm.getline(s, std::size(s)))
+@@ -1787,7 +1775,7 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
  			keymapVersion = Version::Parse(mpt::ToUnicode(mpt::Charset::ASCII, tokens[1]));
  			if(keymapVersion > Version::Current())
  			{
@@ -6775,7 +6875,7 @@ index 9d64bca..c32fe40 100644
  			}
  			continue;
  		}
-@@ -1802,12 +1802,12 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
+@@ -1802,20 +1790,17 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
  			kc.Modifier(static_cast<Modifiers>(mpt::parse<int>(tokens[2])));
  
  			// Virtual Key code / Scan code
@@ -6786,11 +6886,12 @@ index 9d64bca..c32fe40 100644
  			{
  				// Scan code present
 -				UINT sc = mpt::parse<UINT>(tokens[3].substr(scPos + 1));
+-				for(auto i = layouts.begin(); i != layouts.end() && vk == 0; i++)
+-				{
+-					vk = MapVirtualKeyEx(sc, MAPVK_VSC_TO_VK, *i);
+-				}
 +				uint32 sc = mpt::parse<uint32>(tokens[3].substr(scPos + 1));
- 				for(auto i = layouts.begin(); i != layouts.end() && vk == 0; i++)
- 				{
- 					vk = MapVirtualKeyEx(sc, MAPVK_VSC_TO_VK, *i);
-@@ -1815,7 +1815,7 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
++				vk = mfcless::ScanToVk(sc);
  			}
  			if(vk == 0)
  			{
@@ -6799,15 +6900,15 @@ index 9d64bca..c32fe40 100644
  			}
  			kc.KeyCode(vk);
  
-@@ -1830,12 +1830,12 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
+@@ -1830,12 +1815,12 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
  			if (errorCount < 10)
  			{
  				if(tokens.size() < 4)
 -					errText.AppendFormat(_T("Line %d was not understood.\n"), l);
-+					errText.AppendFormat(UL_("Line %d was not understood.\n"), l);
++					errText += MPT_UFORMAT("Line {} was not understood.\n")(l);
  				else
 -					errText.AppendFormat(_T("Line %d contained an unknown command.\n"), l);
-+					errText.AppendFormat(UL_("Line %d contained an unknown command.\n"), l);
++					errText += MPT_UFORMAT("Line {} contained an unknown command.\n")(l);
  			} else if (errorCount == 10)
  			{
 -				errText += _T("Too many errors detected, not reporting any more.\n");
@@ -6815,9 +6916,12 @@ index 9d64bca..c32fe40 100644
  			}
  		} else
  		{
-@@ -1861,8 +1861,8 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
+@@ -1859,10 +1844,10 @@ bool CCommandSet::LoadFile(std::istream &iStrm, const mpt::ustring &filenameDesc
+ 		m_commands[from].kcList.clear();
+ 	}
  
- 	if(!errText.IsEmpty())
+-	if(!errText.IsEmpty())
++	if(!errText.empty())
  	{
 -		Reporting::Warning(MPT_CFORMAT("The following problems have been encountered while trying to load the key binding file {}:\n{}")
 -			(mpt::ToCString(filenameDescription), errText));
@@ -6826,7 +6930,7 @@ index 9d64bca..c32fe40 100644
  	}
  
  	return true;
-@@ -1874,7 +1874,7 @@ bool CCommandSet::LoadFile(const mpt::PathString &filename)
+@@ -1874,7 +1859,7 @@ bool CCommandSet::LoadFile(const mpt::PathString &filename)
  	mpt::IO::ifstream fin(filename);
  	if(fin.fail())
  	{
@@ -6835,16 +6939,29 @@ index 9d64bca..c32fe40 100644
  		return false;
  	} else
  	{
-@@ -1958,7 +1958,7 @@ void CCommandSet::ApplyDefaultKeybindings(KeyboardPreset preset, const Version o
+@@ -1924,7 +1909,6 @@ void CCommandSet::ApplyDefaultKeybindings(KeyboardPreset preset, const Version o
+ 		QuickChange_SetEffects(*specs);
+ 	}
+ 
+-	const std::vector<HKL> layouts = GetKeyboardLayouts();
+ 
+ 	mpt::span<const DefaultKeybinding> defaults;
+ 	switch(preset)
+@@ -1958,11 +1942,8 @@ void CCommandSet::ApplyDefaultKeybindings(KeyboardPreset preset, const Version o
  		if(kb.key & 0x8000)
  		{
  			// Virtual Key code / Scan code
 -			UINT vk = 0;
+-			for(auto i = layouts.begin(); i != layouts.end() && vk == 0; i++)
+-			{
+-				vk = MapVirtualKeyEx(kb.key & 0x7FFF, MAPVK_VSC_TO_VK, *i);
+-			}
 +			uint32 vk = 0;
- 			for(auto i = layouts.begin(); i != layouts.end() && vk == 0; i++)
- 			{
- 				vk = MapVirtualKeyEx(kb.key & 0x7FFF, MAPVK_VSC_TO_VK, *i);
-@@ -2003,98 +2003,98 @@ CommandID CCommandSet::FindCmd(uint32 uid) const
++			vk = mfcless::ScanToVk(kb.key & 0x7FFF);
+ 			if(vk)
+ 				kc.KeyCode(vk);
+ 			else
+@@ -2003,98 +1984,98 @@ CommandID CCommandSet::FindCmd(uint32 uid) const
  }
  
  
@@ -6913,22 +7030,22 @@ index 9d64bca..c32fe40 100644
  	{
  		first=false;
 -		text.Append(_T("KeyDown"));
-+		text.Append(UL_("KeyDown"));
++		text += UL_("KeyDown");
  	}
  	if (event & kKeyEventRepeat)
  	{
 -		if (!first) text.Append(_T("|"));
 -		text.Append(_T("KeyHold"));
-+		if (!first) text.Append(UL_("|"));
-+		text.Append(UL_("KeyHold"));
++		if (!first) text += UL_("|");
++		text += UL_("KeyHold");
  		first=false;
  	}
  	if (event & kKeyEventUp)
  	{
 -		if (!first) text.Append(_T("|"));
 -		text.Append(_T("KeyUp"));
-+		if (!first) text.Append(UL_("|"));
-+		text.Append(UL_("KeyUp"));
++		if (!first) text += UL_("|");
++		text += UL_("KeyUp");
  	}
  
  	return text;
@@ -6948,14 +7065,14 @@ index 9d64bca..c32fe40 100644
 -	if (mod[ModWin]) text.Append(_T("Win+")); // Feature: use Windows keys as modifier keys
 -	if (mod[ModMidi]) text.Append(_T("MIDI"));
 +	mpt::ustring text;
-+	if (mod[ModShift]) text.Append(UL_("Shift+"));
-+	if (mod[ModCtrl]) text.Append(UL_("Ctrl+"));
-+	if (mod[ModAlt]) text.Append(UL_("Alt+"));
-+	if (mod[ModRShift]) text.Append(UL_("RShift+"));
-+	if (mod[ModRCtrl]) text.Append(UL_("RCtrl+"));
-+	if (mod[ModRAlt]) text.Append(UL_("RAlt+"));
-+	if (mod[ModWin]) text.Append(UL_("Win+")); // Feature: use Windows keys as modifier keys
-+	if (mod[ModMidi]) text.Append(UL_("MIDI"));
++	if (mod[ModShift]) text += UL_("Shift+");
++	if (mod[ModCtrl]) text += UL_("Ctrl+");
++	if (mod[ModAlt]) text += UL_("Alt+");
++	if (mod[ModRShift]) text += UL_("RShift+");
++	if (mod[ModRCtrl]) text += UL_("RCtrl+");
++	if (mod[ModRAlt]) text += UL_("RAlt+");
++	if (mod[ModWin]) text += UL_("Win+"); // Feature: use Windows keys as modifier keys
++	if (mod[ModMidi]) text += UL_("MIDI");
  	return text;
  }
  
@@ -6969,13 +7086,14 @@ index 9d64bca..c32fe40 100644
  	{
  		if(code < 0x80)
 -			keyText.AppendFormat(_T(" CC %u"), code);
-+			keyText.AppendFormat(UL_(" CC %u"), code);
++			keyText += MPT_UFORMAT(" CC {}")(code);
  		else
 -			keyText += MPT_CFORMAT(" {}{}")(mpt::ustring(NoteNamesSharp[(code & 0x7F) % 12]), (code & 0x7F) / 12);
 +			keyText += MPT_UFORMAT(" {}{}")(mpt::ustring(NoteNamesSharp[(code & 0x7F) % 12]), (code & 0x7F) / 12);
  	} else
  	{
- 		keyText.Append(CHotKeyCtrl::GetKeyName(code, IsExtended(code)));
+-		keyText.Append(CHotKeyCtrl::GetKeyName(code, IsExtended(code)));
++		keyText += mfcless::FromQString(mfcless::KeyName(code, IsExtended(code)));
  	}
  	//HACK:
 -	if (keyText == _T("Ctrl+CTRL"))			keyText = _T("Ctrl");
@@ -6993,7 +7111,15 @@ index 9d64bca..c32fe40 100644
  
  	return keyText;
  }
-@@ -2109,18 +2109,18 @@ bool KeyCombination::IsModifierCombination() const
+@@ -2103,24 +2084,24 @@ CString KeyCombination::GetKeyText(FlagSet<Modifiers> mod, UINT code)
+ bool KeyCombination::IsModifierCombination() const
+ {
+ 	return Modifier() &&
+-		(KeyCode() == VK_SHIFT || KeyCode() == VK_CONTROL || KeyCode() == VK_MENU || KeyCode() == 0
+-		|| KeyCode() == VK_LWIN || KeyCode() == VK_RWIN);  // Feature: use Windows keys as modifier keys
++		(KeyCode() == mfcless::vk::SHIFT || KeyCode() == mfcless::vk::CONTROL || KeyCode() == mfcless::vk::MENU || KeyCode() == 0
++		|| KeyCode() == mfcless::vk::LWIN || KeyCode() == mfcless::vk::RWIN);  // Feature: use Windows keys as modifier keys
+ 
  }
  
  
@@ -7016,39 +7142,81 @@ index 9d64bca..c32fe40 100644
  		else
  			addSeparator = true;
  		keys += item.GetKeyText();
-@@ -2213,7 +2213,7 @@ bool CCommandSet::QuickChange_SetEffects(const CModSpecifications &modSpecs)
+@@ -2185,15 +2166,10 @@ bool CCommandSet::QuickChange_SetEffects(const CModSpecifications &modSpecs)
+ 		{
+ 			// Hack for situations where a non-latin keyboard layout without A...Z key code mapping may the current layout (e.g. Russian),
+ 			// but a latin layout (e.g. EN-US) is installed as well.
+-			const std::vector<HKL> layouts = GetKeyboardLayouts();
+-			SHORT codeNmod = -1;
+-			for(auto i = layouts.begin(); i != layouts.end() && codeNmod == -1; i++)
+-			{
+-				codeNmod = VkKeyScanEx(effect, *i);
+-			}
++			const int codeNmod = mfcless::VkFromChar(effect);
+ 			if(codeNmod != -1)
+ 			{
+-				kc.KeyCode(LOBYTE(codeNmod));
++				kc.KeyCode(static_cast<uint8>(codeNmod & 0xFF));
+ 				// Don't add modifier keys, since on French keyboards, numbers are input using Shift.
+ 				// We don't really want that behaviour here, and I'm sure we don't want that in other cases on other layouts as well.
+ 				kc.Modifier(ModNone);
+@@ -2202,7 +2178,7 @@ bool CCommandSet::QuickChange_SetEffects(const CModSpecifications &modSpecs)
+ 
+ 			if (effect >= '0' && effect <= '9')		// For numbers, ensure numpad works too
+ 			{
+-				kc.KeyCode(VK_NUMPAD0 + (effect - '0'));
++				kc.KeyCode(mfcless::vk::NUMPAD0 + (effect - '0'));
+ 				Add(kc, cmd, true);
+ 			}
+ 		}
+@@ -2213,19 +2189,19 @@ bool CCommandSet::QuickChange_SetEffects(const CModSpecifications &modSpecs)
  
  // Stupid MFC crap: for some reason VK code isn't enough to get correct string with GetKeyName.
  // We also need to figure out the correct "extended" bit.
 -bool KeyCombination::IsExtended(UINT code)
 +bool KeyCombination::IsExtended(uint32 code)
  {
- 	if (code==VK_SNAPSHOT)	//print screen
+-	if (code==VK_SNAPSHOT)	//print screen
++	if (code==mfcless::vk::SNAPSHOT)	//print screen
+ 		return true;
+-	if (code>=VK_PRIOR && code<=VK_DOWN) //pgup, pg down, home, end,  cursor keys,
++	if (code>=mfcless::vk::PRIOR && code<=mfcless::vk::DOWN) //pgup, pg down, home, end,  cursor keys,
+ 		return true;
+-	if (code>=VK_INSERT && code<=VK_DELETE) // ins, del
++	if (code>=mfcless::vk::INSERT && code<=mfcless::vk::DELETE) // ins, del
+ 		return true;
+-	if (code>=VK_LWIN && code<=VK_APPS) //winkeys & application key
++	if (code>=mfcless::vk::LWIN && code<=mfcless::vk::APPS) //winkeys & application key
+ 		return true;
+-	if (code==VK_DIVIDE)	//Numpad '/'
++	if (code==mfcless::vk::DIVIDE)	//Numpad '/'
+ 		return true;
+-	if (code==VK_NUMLOCK)	//print screen
++	if (code==mfcless::vk::NUMLOCK)	//print screen
+ 		return true;
+ 	if (code>=0xA0 && code<=0xA5) //attempt for RL mods
  		return true;
 diff --git a/mptrack/CommandSet.h b/mptrack/CommandSet.h
-index 4100c01..c71d6a8 100644
+index 4100c01..0440125 100644
 --- a/mptrack/CommandSet.h
 +++ b/mptrack/CommandSet.h
-@@ -1111,10 +1111,18 @@ enum CommandID : int
+@@ -1111,10 +1111,11 @@ enum CommandID : int
  enum Modifiers : uint8
  {
  	ModNone = 0,
-+#if defined(MPT_MFCLESS)
+-	ModShift = HOTKEYF_SHIFT,
+-	ModCtrl = HOTKEYF_CONTROL,
+-	ModAlt = HOTKEYF_ALT,
+-	ModWin = HOTKEYF_EXT,
 +	// Win32's HOTKEYF_* values, which keymap files store.
 +	ModShift = 0x01,
 +	ModCtrl = 0x02,
 +	ModAlt = 0x04,
 +	ModWin = 0x08,
-+#else
- 	ModShift = HOTKEYF_SHIFT,
- 	ModCtrl = HOTKEYF_CONTROL,
- 	ModAlt = HOTKEYF_ALT,
- 	ModWin = HOTKEYF_EXT,
-+#endif
  	ModMidi = HOTKEYF_MIDI,
  	ModRShift = HOTKEYF_RSHIFT,
  	ModRCtrl = HOTKEYF_RCONTROL,
-@@ -1142,7 +1150,7 @@ protected:
+@@ -1142,7 +1143,7 @@ protected:
  	}
  
  public:
@@ -7057,7 +7225,7 @@ index 4100c01..c71d6a8 100644
  	    : ctx(context)
  	    , mod(modifier)
  	    , code(static_cast<uint8>(key))
-@@ -1170,39 +1178,39 @@ public:
+@@ -1170,39 +1171,39 @@ public:
  	void AddModifier(FlagSet<Modifiers> modifier) { mod |= modifier; }
  	void AddModifier(const KeyCombination &other) { mod |= other.mod; }
  
@@ -7111,7 +7279,7 @@ index 4100c01..c71d6a8 100644
  };
  
  using KeyMap = std::multimap<KeyCombination, CommandID>;
-@@ -1215,14 +1223,14 @@ struct KeyCommand
+@@ -1215,14 +1216,14 @@ struct KeyCommand
  	static constexpr uint32 UIDMask = Hidden - 1u;
  
  	std::vector<KeyCombination> kcList;
@@ -7128,7 +7296,7 @@ index 4100c01..c71d6a8 100644
  
  	// Unique ID for on-disk keymap format.
  	// Note that hidden commands do not have a unique ID, because they are never written to keymap files.
-@@ -1251,7 +1259,7 @@ public:
+@@ -1251,7 +1252,7 @@ public:
  	CCommandSet();
  
  	// Population
@@ -7137,7 +7305,7 @@ index 4100c01..c71d6a8 100644
  	void Remove(KeyCombination kc, CommandID cmd);
  	void Remove(int pos, CommandID cmd);
  
-@@ -1265,17 +1273,17 @@ public:
+@@ -1265,17 +1266,17 @@ public:
  	bool QuickChange_NotesRepeat(bool repeat);
  
  	// Communication
@@ -7160,6 +7328,757 @@ index 4100c01..c71d6a8 100644
  
  	// Pululation ;)
  	void Copy(const CCommandSet &source);  // Copy the contents of a commandset into this command set
+diff --git a/mptrack/DefaultKeyBindings.h b/mptrack/DefaultKeyBindings.h
+index 5b93775..1379adf 100644
+--- a/mptrack/DefaultKeyBindings.h
++++ b/mptrack/DefaultKeyBindings.h
+@@ -13,6 +13,7 @@
+ #pragma once
+ 
+ #include "CommandSet.h"
++#include "mfcless/Keyboard.h"
+ 
+ 
+ OPENMPT_NAMESPACE_BEGIN
+@@ -38,104 +39,104 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcFileCloseAll,                           'W',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcFileSave,                               'S',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcFileSaveAs,                             'S',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPrevDocument,                           VK_BROWSER_BACK,    ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcNextDocument,                           VK_BROWSER_FORWARD, ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPlayPauseSong,                          VK_F5,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPauseSong,                              VK_F8,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcStopSong,                               VK_ESCAPE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPlaySongFromStart,                      VK_F6,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPlaySongFromCursor,                     VK_F6,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPlayPatternFromStart,                   VK_F7,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcPlayPatternFromCursor,                  VK_F7,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcMidiRecord,                             VK_F9,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPrevDocument,                           mfcless::vk::BROWSER_BACK,    ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcNextDocument,                           mfcless::vk::BROWSER_FORWARD, ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPlayPauseSong,                          mfcless::vk::F5,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPauseSong,                              mfcless::vk::F8,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcStopSong,                               mfcless::vk::ESCAPE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPlaySongFromStart,                      mfcless::vk::F6,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPlaySongFromCursor,                     mfcless::vk::F6,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPlayPatternFromStart,                   mfcless::vk::F7,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPlayPatternFromCursor,                  mfcless::vk::F7,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcMidiRecord,                             mfcless::vk::F9,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditUndo,                               'Z',                ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcEditRedo,                               'Y',                ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcEditRedo,                               'Z',                ModShift | ModCtrl, kKeyEventDown | kKeyEventRepeat, MPT_V("1.32.00.25")},
+ 	{kcEditCut,                                'X',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditCopy,                               'C',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditPaste,                              'V',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcEditPaste,                              VK_INSERT,          ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcEditPaste,                              mfcless::vk::INSERT,          ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditMixPaste,                           'V',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditPasteFlood,                         'V',                ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcEditPushForwardPaste,                   'V',                ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcEditSelectAll,                          '5',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcEditFind,                               'F',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcEditFindNext,                           VK_F3,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcEditFindNext,                           mfcless::vk::F3,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcViewGeneral,                            'G',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcViewPattern,                            'P',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcViewSamples,                            'S',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcViewInstruments,                        'N',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+-	{kcViewComments,                           VK_F9,              ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcViewComments,                           mfcless::vk::F9,              ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcViewComments,                           'C',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+-	{kcViewTree,                               VK_F2,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcViewOptions,                            VK_F1,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcViewMIDImapping,                        VK_F3,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcViewTree,                               mfcless::vk::F2,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcViewOptions,                            mfcless::vk::F1,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcViewMIDImapping,                        mfcless::vk::F3,              ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSwitchToInstrLibrary,                   'I',                ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcViewToggle,                             VK_TAB,             ModCtrl | ModShift, kKeyEventDown,                   MPT_V("1.32.01.06")},
+-	{kcHelp,                                   VK_F1,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcContextMenu,                            VK_APPS,            ModNone,            kKeyEventDown,                   MPT_V("1.32.00.25")},
+-	{kcContextMenu,                            VK_F10,             ModShift,           kKeyEventDown,                   MPT_V("1.32.00.25")},
+-	{kcPrevInstrument,                         VK_DIVIDE,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevInstrument,                         VK_UP,              ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextInstrument,                         VK_MULTIPLY,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextInstrument,                         VK_DOWN,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevOctave,                             VK_DIVIDE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextOctave,                             VK_MULTIPLY,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevOrder,                              VK_LEFT,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextOrder,                              VK_RIGHT,           ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternJumpDownh1,                      VK_NEXT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternJumpUph1,                        VK_PRIOR,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternJumpDownh2,                      VK_NEXT,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternJumpUph2,                        VK_PRIOR,           ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternSnapDownh2,                      VK_NEXT,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternSnapUph2,                        VK_PRIOR,           ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevEntryInColumn,                      VK_UP,              ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextEntryInColumn,                      VK_DOWN,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateDown,                           VK_DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateUp,                             VK_UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateDownBySpacing,                  VK_DOWN,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateUpBySpacing,                    VK_UP,              ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateLeft,                           VK_LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateRight,                          VK_RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigateNextChan,                       VK_TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNavigatePrevChan,                       VK_TAB,             ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcHomeHorizontal,                         VK_HOME,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcHomeVertical,                           VK_HOME,            ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcHomeAbsolute,                           VK_HOME,            ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
+-	{kcEndHorizontal,                          VK_END,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcEndVertical,                            VK_END,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcEndAbsolute,                            VK_END,             ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSelect,                                 VK_SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcCopySelect,                             VK_CONTROL,         ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcViewToggle,                             mfcless::vk::TAB,             ModCtrl | ModShift, kKeyEventDown,                   MPT_V("1.32.01.06")},
++	{kcHelp,                                   mfcless::vk::F1,              ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcContextMenu,                            mfcless::vk::APPS,            ModNone,            kKeyEventDown,                   MPT_V("1.32.00.25")},
++	{kcContextMenu,                            mfcless::vk::F10,             ModShift,           kKeyEventDown,                   MPT_V("1.32.00.25")},
++	{kcPrevInstrument,                         mfcless::vk::DIVIDE,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevInstrument,                         mfcless::vk::UP,              ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextInstrument,                         mfcless::vk::MULTIPLY,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextInstrument,                         mfcless::vk::DOWN,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevOctave,                             mfcless::vk::DIVIDE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextOctave,                             mfcless::vk::MULTIPLY,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevOrder,                              mfcless::vk::LEFT,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextOrder,                              mfcless::vk::RIGHT,           ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternJumpDownh1,                      mfcless::vk::NEXT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternJumpUph1,                        mfcless::vk::PRIOR,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternJumpDownh2,                      mfcless::vk::NEXT,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternJumpUph2,                        mfcless::vk::PRIOR,           ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternSnapDownh2,                      mfcless::vk::NEXT,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternSnapUph2,                        mfcless::vk::PRIOR,           ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevEntryInColumn,                      mfcless::vk::UP,              ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextEntryInColumn,                      mfcless::vk::DOWN,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateDown,                           mfcless::vk::DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateUp,                             mfcless::vk::UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateDownBySpacing,                  mfcless::vk::DOWN,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateUpBySpacing,                    mfcless::vk::UP,              ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateLeft,                           mfcless::vk::LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateRight,                          mfcless::vk::RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigateNextChan,                       mfcless::vk::TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNavigatePrevChan,                       mfcless::vk::TAB,             ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcHomeHorizontal,                         mfcless::vk::HOME,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcHomeVertical,                           mfcless::vk::HOME,            ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcHomeAbsolute,                           mfcless::vk::HOME,            ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
++	{kcEndHorizontal,                          mfcless::vk::END,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcEndVertical,                            mfcless::vk::END,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcEndAbsolute,                            mfcless::vk::END,             ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
++	{kcSelect,                                 mfcless::vk::SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcCopySelect,                             mfcless::vk::CONTROL,         ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSelectChannel,                          'L',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSelectColumn,                           'L',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSelectBeat,                             'B',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSelectMeasure,                          'B',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcToggleFollowSong,                       VK_CANCEL,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcToggleFollowSong,                       VK_SCROLL,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcToggleFollowSong,                       VK_F11,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcCursorCopy,                             VK_RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcCursorPaste,                            VK_SPACE,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternRecord,                          VK_SPACE,           ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcToggleFollowSong,                       mfcless::vk::CANCEL,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcToggleFollowSong,                       mfcless::vk::SCROLL,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcToggleFollowSong,                       mfcless::vk::F11,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcCursorCopy,                             mfcless::vk::RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcCursorPaste,                            mfcless::vk::SPACE,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPatternRecord,                          mfcless::vk::SPACE,           ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcToggleMetronome,                        'M',                ModAlt,             kKeyEventDown,                   MPT_V("1.32.00.39")},
+-	{kcPatternPlayRow,                         VK_RETURN,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcSetSpacing,                             VK_MENU,            ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSwitchToOrderList,                      VK_TAB,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPatternPlayRow,                         mfcless::vk::RETURN,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcSetSpacing,                             mfcless::vk::MENU,            ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
++	{kcSwitchToOrderList,                      mfcless::vk::TAB,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcDuplicatePattern,                       'D',                ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPatternEditPCNotePlugin,                VK_OEM_2,           ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcPatternEditPCNotePlugin,                mfcless::vk::OEM_2,           ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcTogglePluginEditor,                     'P',                ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
+-	{kcShowNoteProperties,                     VK_APPS,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcShowNoteProperties,                     mfcless::vk::APPS,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcShowPatternProperties,                  'P',                ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcShowSplitKeyboardSettings,              'E',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChangeLoopStatus,                       VK_F11,             ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcChangeLoopStatus,                       mfcless::vk::F11,             ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcTimeAtRow,                              'P',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcQuantizeSettings,                       'Q',                ModAlt,             kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcToggleClipboardManager,                 'M',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcClipboardPrev,                          VK_LEFT,            ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcClipboardNext,                          VK_RIGHT,           ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChannelMute,                            VK_F10,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChannelSolo,                            VK_F10,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChannelUnmuteAll,                       VK_F10,             ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
++	{kcClipboardPrev,                          mfcless::vk::LEFT,            ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcClipboardNext,                          mfcless::vk::RIGHT,           ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcChannelMute,                            mfcless::vk::F10,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcChannelSolo,                            mfcless::vk::F10,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcChannelUnmuteAll,                       mfcless::vk::F10,             ModCtrl | ModAlt,   kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcChannelRecordSelect,                    '1',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcChannelSplitRecordSelect,               '2',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcChannelReset,                           'R',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -144,14 +145,14 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcTransposeOctUp,                         'Q',                ModShift | ModCtrl, kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcTransposeOctDown,                       'A',                ModShift | ModCtrl, kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcTransposeCustom,                        'T',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcDataEntryUp,                            VK_ADD,             ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDataEntryUp,                            VK_OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDataEntryDown,                          VK_SUBTRACT,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDataEntryDown,                          VK_OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDataEntryUpCoarse,                      VK_ADD,             ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcDataEntryUpCoarse,                      VK_OEM_PLUS,        ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcDataEntryDownCoarse,                    VK_SUBTRACT,        ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcDataEntryDownCoarse,                    VK_OEM_MINUS,       ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcDataEntryUp,                            mfcless::vk::ADD,             ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDataEntryUp,                            mfcless::vk::OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDataEntryDown,                          mfcless::vk::SUBTRACT,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDataEntryDown,                          mfcless::vk::OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDataEntryUpCoarse,                      mfcless::vk::ADD,             ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcDataEntryUpCoarse,                      mfcless::vk::OEM_PLUS,        ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcDataEntryDownCoarse,                    mfcless::vk::SUBTRACT,        ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcDataEntryDownCoarse,                    mfcless::vk::OEM_MINUS,       ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcPatternAmplify,                         'M',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcPatternInterpolateVol,                  'J',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcPatternInterpolateEffect,               'K',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -162,24 +163,24 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcPatternShrinkSelection,                 'D',                ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcPatternExpand,                          'E',                ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.32.01.06")},
+ 	{kcPatternShrink,                          'D',                ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.32.01.06")},
+-	{kcClearField,                             VK_DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcClearFieldITStyle,                      VK_OEM_PERIOD,      ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcClearRowStep,                           VK_DELETE,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcClearFieldStepITStyle,                  VK_DELETE,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDeleteRow,                              VK_BACK,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDeleteWholeRow,                         VK_BACK,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDeleteRowGlobal,                        VK_BACK,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcDeleteWholeRowGlobal,                   VK_BACK,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInsertRow,                              VK_INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInsertWholeRow,                         VK_INSERT,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInsertRowGlobal,                        VK_INSERT,          ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInsertWholeRowGlobal,                   VK_INSERT,          ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevPattern,                            VK_SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextPattern,                            VK_ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevSequence,                           VK_OEM_MINUS,       ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcPrevSequence,                           VK_SUBTRACT,        ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextSequence,                           VK_OEM_PLUS,        ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcNextSequence,                           VK_ADD,             ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcClearField,                             mfcless::vk::DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcClearFieldITStyle,                      mfcless::vk::OEM_PERIOD,      ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcClearRowStep,                           mfcless::vk::DELETE,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcClearFieldStepITStyle,                  mfcless::vk::DELETE,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDeleteRow,                              mfcless::vk::BACK,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDeleteWholeRow,                         mfcless::vk::BACK,            ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDeleteRowGlobal,                        mfcless::vk::BACK,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcDeleteWholeRowGlobal,                   mfcless::vk::BACK,            ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInsertRow,                              mfcless::vk::INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInsertWholeRow,                         mfcless::vk::INSERT,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInsertRowGlobal,                        mfcless::vk::INSERT,          ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInsertWholeRowGlobal,                   mfcless::vk::INSERT,          ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevPattern,                            mfcless::vk::SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextPattern,                            mfcless::vk::ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevSequence,                           mfcless::vk::OEM_MINUS,       ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcPrevSequence,                           mfcless::vk::SUBTRACT,        ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextSequence,                           mfcless::vk::OEM_PLUS,        ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcNextSequence,                           mfcless::vk::ADD,             ModCtrl | ModAlt,   kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcVPNoteC_0,                              16 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcVPNoteCS0,                              17 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcVPNoteD_0,                              18 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -215,76 +216,76 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcVPNoteGS2,                              52 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcVPNoteA_3,                              53 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave0,                             '0',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave0,                             VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave0,                             mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave1,                             '1',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave1,                             VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave1,                             mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave2,                             '2',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave2,                             VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave2,                             mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave3,                             '3',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave3,                             VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave3,                             mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave4,                             '4',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave4,                             VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave4,                             mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave5,                             '5',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave5,                             VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave5,                             mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave6,                             '6',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave6,                             VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave6,                             mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave7,                             '7',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave7,                             VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave7,                             mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave8,                             '8',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave8,                             VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave8,                             mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetOctave9,                             '9',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetOctave9,                             VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChordModifier,                          VK_SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcNoteCut,                                VK_OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetOctave9,                             mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcChordModifier,                          mfcless::vk::SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcNoteCut,                                mfcless::vk::OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcNoteCut,                                41 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31.12.02")},
+-	{kcNoteOff,                                VK_OEM_PLUS,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcNoteOff,                                mfcless::vk::OEM_PLUS,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcNoteOff,                                13 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31.12.02")},
+-	{kcNoteFade,                               VK_OEM_PLUS,        ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcNoteFade,                               mfcless::vk::OEM_PLUS,        ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcNoteFade,                               13 | 0x8000,        ModShift,           kKeyEventDown,                   MPT_V("1.31.12.02")},
+-	{kcNotePC,                                 VK_OEM_MINUS,       ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcNotePC,                                 mfcless::vk::OEM_MINUS,       ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcNotePC,                                 12 | 0x8000,        ModShift,           kKeyEventDown,                   MPT_V("1.31.12.02")},
+-	{kcNotePCS,                                VK_OEM_MINUS,       ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcNotePCS,                                mfcless::vk::OEM_MINUS,       ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcNotePCS,                                12 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.31.12.02")},
+-	{kcSetIns0,                                VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns0,                                mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns0,                                '0',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns1,                                VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns1,                                mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns1,                                '1',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns2,                                VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns2,                                mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns2,                                '2',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns3,                                VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns3,                                mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns3,                                '3',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns4,                                VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns4,                                mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns4,                                '4',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns5,                                VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns5,                                mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns5,                                '5',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns6,                                VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns6,                                mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns6,                                '6',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns7,                                VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns7,                                mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns7,                                '7',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns8,                                VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns8,                                mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns8,                                '8',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetIns9,                                VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetIns9,                                mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetIns9,                                '9',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume0,                             '0',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume0,                             VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume0,                             mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume1,                             '1',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume1,                             VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume1,                             mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume2,                             '2',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume2,                             VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume2,                             mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume3,                             '3',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume3,                             VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume3,                             mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume4,                             '4',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume4,                             VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume4,                             mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume5,                             '5',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume5,                             VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume5,                             mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume6,                             '6',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume6,                             VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume6,                             mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume7,                             '7',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume7,                             VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume7,                             mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume8,                             '8',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume8,                             VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume8,                             mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolume9,                             '9',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetVolume9,                             VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetVolume9,                             mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolumeVol,                           'V',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolumePan,                           'P',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolumeVolSlideUp,                    'C',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -299,59 +300,59 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcSetVolumeITPortaUp,                     'F',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolumeITPortaDown,                   'E',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetVolumeITOffset,                      'O',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXmacroSlide,                        VK_OEM_5,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXdelaycut,                          VK_OEM_1,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXdelaycut,                          VK_OEM_1,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXextension,                         VK_OEM_2,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXFinetune,                          VK_OEM_PLUS,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXFinetuneSmooth,                    VK_OEM_PLUS,        ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXmacroSlide,                        mfcless::vk::OEM_5,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXdelaycut,                          mfcless::vk::OEM_1,           ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXdelaycut,                          mfcless::vk::OEM_1,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXextension,                         mfcless::vk::OEM_2,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXFinetune,                          mfcless::vk::OEM_PLUS,        ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXFinetuneSmooth,                    mfcless::vk::OEM_PLUS,        ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam0,                            '0',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam0,                            VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam0,                            mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam1,                            '1',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam1,                            VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam1,                            mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam2,                            '2',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam2,                            VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam2,                            mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam3,                            '3',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam3,                            VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam3,                            mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam4,                            '4',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam4,                            VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam4,                            mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam5,                            '5',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam5,                            VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam5,                            mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam6,                            '6',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam6,                            VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam6,                            mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam7,                            '7',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam7,                            VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam7,                            mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam8,                            '8',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam8,                            VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam8,                            mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParam9,                            '9',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSetFXParam9,                            VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSetFXParam9,                            mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamA,                            'A',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamB,                            'B',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamC,                            'C',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamD,                            'D',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamE,                            'E',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSetFXParamF,                            'F',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleLoad,                             VK_RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleLoadRaw,                          VK_RETURN,          ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcSampleLoad,                             mfcless::vk::RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSampleLoadRaw,                          mfcless::vk::RETURN,          ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleTransposeUp,                      'Q',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleTransposeDown,                    'A',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleTransposeOctUp,                   'Q',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleTransposeOctDown,                 'A',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleFinetuneUp,                       VK_UP,              ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.26")},
+-	{kcSampleFinetuneDown,                     VK_DOWN,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.26")},
++	{kcSampleFinetuneUp,                       mfcless::vk::UP,              ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.26")},
++	{kcSampleFinetuneDown,                     mfcless::vk::DOWN,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.26")},
+ 	{kcSampleToggleFollowPlayCursor,           'F',                ModShift,           kKeyEventDown,                   MPT_V("1.31.00.19")},
+ 	{kcSampleTrim,                             'T',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleTrimToLoopEnd,                    'T',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleSilence,                          VK_BACK,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSampleSilence,                          mfcless::vk::BACK,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleNormalize,                        'N',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleAmplify,                          'M',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleReverse,                          'R',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleDelete,                           VK_DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcSampleZoomUp,                           VK_ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcSampleZoomUp,                           VK_OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcSampleZoomDown,                         VK_SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcSampleZoomDown,                         VK_OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcSampleZoomSelection,                    VK_SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSampleDelete,                           mfcless::vk::DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcSampleZoomUp,                           mfcless::vk::ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcSampleZoomUp,                           mfcless::vk::OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcSampleZoomDown,                         mfcless::vk::SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcSampleZoomDown,                         mfcless::vk::OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcSampleZoomSelection,                    mfcless::vk::SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleCenterSampleStart,                '1',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleCenterSampleEnd,                  '2',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcSampleCenterLoopStart,                  '1',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -381,10 +382,10 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{CommandID(kcStartSampleCues + 6),         '7',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{CommandID(kcStartSampleCues + 7),         '8',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{CommandID(kcStartSampleCues + 8),         '9',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeZoomIn,               VK_ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopeZoomIn,               VK_OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopeZoomOut,              VK_SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopeZoomOut,              VK_OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopeZoomIn,               mfcless::vk::ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopeZoomIn,               mfcless::vk::OEM_PLUS,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopeZoomOut,              mfcless::vk::SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopeZoomOut,              mfcless::vk::OEM_MINUS,       ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeScale,                'E',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeSwitchToVolume,       'M',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeSwitchToPanning,      'P',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+@@ -394,48 +395,48 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcInstrumentEnvelopeTogglePitch,          'I',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeToggleFilter,         'F',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeToggleLoop,           'L',                ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSelectLoopStart,      VK_HOME,            ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSelectLoopEnd,        VK_END,             ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSelectLoopStart,      mfcless::vk::HOME,            ModShift,           kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSelectLoopEnd,        mfcless::vk::END,             ModShift,           kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeToggleSustain,        'L',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSelectSustainStart,   VK_HOME,            ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSelectSustainEnd,     VK_END,             ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSelectSustainStart,   mfcless::vk::HOME,            ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSelectSustainEnd,     mfcless::vk::END,             ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeToggleCarry,          'C',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointPrev,            VK_TAB,             ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointNext,            VK_TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveLeft,        VK_LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveRight,       VK_RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveLeftCoarse,  VK_LEFT,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveRightCoarse, VK_RIGHT,           ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveUp,          VK_UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveUp8,         VK_PRIOR,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveDown,        VK_DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointMoveDown8,       VK_NEXT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointInsert,          VK_INSERT,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointRemove,          VK_DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopePointRemove,          VK_BACK,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSetLoopStart,         VK_HOME,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSetLoopEnd,           VK_END,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSetSustainLoopStart,  VK_HOME,            ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcInstrumentEnvelopeSetSustainLoopEnd,    VK_END,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopePointPrev,            mfcless::vk::TAB,             ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointNext,            mfcless::vk::TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveLeft,        mfcless::vk::LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveRight,       mfcless::vk::RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveLeftCoarse,  mfcless::vk::LEFT,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveRightCoarse, mfcless::vk::RIGHT,           ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveUp,          mfcless::vk::UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveUp8,         mfcless::vk::PRIOR,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveDown,        mfcless::vk::DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointMoveDown8,       mfcless::vk::NEXT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcInstrumentEnvelopePointInsert,          mfcless::vk::INSERT,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopePointRemove,          mfcless::vk::DELETE,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopePointRemove,          mfcless::vk::BACK,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSetLoopStart,         mfcless::vk::HOME,            ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSetLoopEnd,           mfcless::vk::END,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSetSustainLoopStart,  mfcless::vk::HOME,            ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcInstrumentEnvelopeSetSustainLoopEnd,    mfcless::vk::END,             ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInstrumentEnvelopeToggleReleaseNode,    'R',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcToggleSmpInsList,                       VK_TAB,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcExecuteSmpInsListItem,                  VK_RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcRenameSmpInsListItem,                   VK_RETURN,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcTreeViewSwitchViews,                    VK_TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.27")},
+-	{kcTreeViewOpen,                           VK_RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31.00.14")},
+-	{kcTreeViewPlay,                           VK_SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31.00.14")},
+-	{kcTreeViewInsert,                         VK_INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
+-	{kcTreeViewDuplicate,                      VK_INSERT,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
+-	{kcTreeViewDelete,                         VK_DELETE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
+-	{kcTreeViewDeletePermanently,              VK_DELETE,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.16")},
+-	{kcTreeViewRename,                         VK_RETURN,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31.00.14")},
+-	{kcTreeViewSendToEditorInsertNew,          VK_RETURN,          ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31.00.15")},
+-	{kcTreeViewFolderUp,                       VK_BACK,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.27")},
++	{kcToggleSmpInsList,                       mfcless::vk::TAB,             ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcExecuteSmpInsListItem,                  mfcless::vk::RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcRenameSmpInsListItem,                   mfcless::vk::RETURN,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcTreeViewSwitchViews,                    mfcless::vk::TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.27")},
++	{kcTreeViewOpen,                           mfcless::vk::RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31.00.14")},
++	{kcTreeViewPlay,                           mfcless::vk::SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31.00.14")},
++	{kcTreeViewInsert,                         mfcless::vk::INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
++	{kcTreeViewDuplicate,                      mfcless::vk::INSERT,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
++	{kcTreeViewDelete,                         mfcless::vk::DELETE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.14")},
++	{kcTreeViewDeletePermanently,              mfcless::vk::DELETE,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.16")},
++	{kcTreeViewRename,                         mfcless::vk::RETURN,          ModCtrl,            kKeyEventDown,                   MPT_V("1.31.00.14")},
++	{kcTreeViewSendToEditorInsertNew,          mfcless::vk::RETURN,          ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31.00.15")},
++	{kcTreeViewFolderUp,                       mfcless::vk::BACK,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31.00.27")},
+ 	{kcTreeViewFind,                           'F',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31.00.14")},
+-	{kcVSTGUIPrevPreset,                       VK_SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcVSTGUINextPreset,                       VK_ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcVSTGUIPrevPresetJump,                   VK_SUBTRACT,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcVSTGUINextPresetJump,                   VK_ADD,             ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcVSTGUIPrevPreset,                       mfcless::vk::SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcVSTGUINextPreset,                       mfcless::vk::ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcVSTGUIPrevPresetJump,                   mfcless::vk::SUBTRACT,        ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcVSTGUINextPresetJump,                   mfcless::vk::ADD,             ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcVSTGUIRandParams,                       'D',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcVSTGUIToggleRecordParams,               'R',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcVSTGUIToggleSendKeysToPlug,             'K',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+@@ -450,57 +451,57 @@ constexpr DefaultKeybinding DefaultKeybindings[] =
+ 	{kcInsNoteMapTransposeDown,                'A',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInsNoteMapTransposeOctUp,               'Q',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcInsNoteMapTransposeOctDown,             'A',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcOrderlistEditDelete,                    VK_DELETE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistEditInsert,                    VK_INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistEditInsertSeparator,           VK_INSERT,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistEditDelete,                    mfcless::vk::DELETE,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistEditInsert,                    mfcless::vk::INSERT,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistEditInsertSeparator,           mfcless::vk::INSERT,          ModCtrl,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistEditCopyOrders,                'C',                ModShift | ModCtrl, kKeyEventDown,                   MPT_V("1.31")},
+-	{kcOrderlistEditPattern,                   VK_RETURN,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistSwitchToPatternView,           VK_TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateLeft,                  VK_LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateLeft,                  VK_UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateRight,                 VK_RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateRight,                 VK_DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateFirst,                 VK_HOME,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistNavigateLast,                  VK_END,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistEditPattern,                   mfcless::vk::RETURN,          ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistSwitchToPatternView,           mfcless::vk::TAB,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateLeft,                  mfcless::vk::LEFT,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateLeft,                  mfcless::vk::UP,              ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateRight,                 mfcless::vk::RIGHT,           ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateRight,                 mfcless::vk::DOWN,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateFirst,                 mfcless::vk::HOME,            ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistNavigateLast,                  mfcless::vk::END,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat0,                          '0',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat0,                          VK_NUMPAD0,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat0,                          mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat1,                          '1',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat1,                          VK_NUMPAD1,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat1,                          mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat2,                          '2',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat2,                          VK_NUMPAD2,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat2,                          mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat3,                          '3',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat3,                          VK_NUMPAD3,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat3,                          mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat4,                          '4',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat4,                          VK_NUMPAD4,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat4,                          mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat5,                          '5',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat5,                          VK_NUMPAD5,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat5,                          mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat6,                          '6',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat6,                          VK_NUMPAD6,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat6,                          mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat7,                          '7',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat7,                          VK_NUMPAD7,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat7,                          mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat8,                          '8',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat8,                          VK_NUMPAD8,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat8,                          mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPat9,                          '9',                ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPat9,                          VK_NUMPAD9,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPatPlus,                       VK_ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPatPlus,                       VK_OEM_PLUS,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPatMinus,                      VK_SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcOrderlistPatMinus,                      VK_OEM_MINUS,       ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPat9,                          mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPatPlus,                       mfcless::vk::ADD,             ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPatPlus,                       mfcless::vk::OEM_PLUS,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPatMinus,                      mfcless::vk::SUBTRACT,        ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcOrderlistPatMinus,                      mfcless::vk::OEM_MINUS,       ModNone,            kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+ 	{kcOrderlistPatIgnore,                     'I',                ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+-	{kcOrderlistPatInvalid,                    VK_SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcOrderlistPatInvalid,                    mfcless::vk::SPACE,           ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcOrderlistLockPlayback,                  'L',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcOrderlistUnlockPlayback,                'U',                ModCtrl,            kKeyEventDown,                   MPT_V("1.31")},
+ 	{kcOrderlistQueueAtPatternEnd,             'Q',                ModNone,            kKeyEventDown,                   MPT_V("1.32.00.05")},
+ 	{kcOrderlistQueueAtMeasureEnd,             'Q',                ModShift,           kKeyEventDown,                   MPT_V("1.32.00.05")},
+ 	{kcOrderlistQueueAtBeatEnd,                'Q',                ModAlt,             kKeyEventDown,                   MPT_V("1.32.00.05")},
+ 	{kcOrderlistQueueAtRowEnd,                 'Q',                ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.32.00.05")},
+-	{kcChnSettingsPrev,                        VK_LEFT,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcChnSettingsPrev,                        VK_BACK,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcChnSettingsNext,                        VK_RIGHT,           ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcChnSettingsNext,                        VK_RETURN,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
+-	{kcChnColorFromPrev,                       VK_LEFT,            ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChnColorFromNext,                       VK_RIGHT,           ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.31")},
+-	{kcChnSettingsClose,                       VK_RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
++	{kcChnSettingsPrev,                        mfcless::vk::LEFT,            ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcChnSettingsPrev,                        mfcless::vk::BACK,            ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcChnSettingsNext,                        mfcless::vk::RIGHT,           ModAlt,             kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcChnSettingsNext,                        mfcless::vk::RETURN,          ModShift,           kKeyEventDown | kKeyEventRepeat, MPT_V("1.31")},
++	{kcChnColorFromPrev,                       mfcless::vk::LEFT,            ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.31")},
++	{kcChnColorFromNext,                       mfcless::vk::RIGHT,           ModShift | ModAlt,  kKeyEventDown,                   MPT_V("1.31")},
++	{kcChnSettingsClose,                       mfcless::vk::RETURN,          ModNone,            kKeyEventDown,                   MPT_V("1.31")},
+ };
+ // clang-format on
+ 
+@@ -543,36 +544,36 @@ constexpr DefaultKeybinding DefaultKeybindingsIT[] =
+ 	{kcVPNoteG_2,                              27 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	
+ 	{kcSetOctave0,                             '0',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave0,                             VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave0,                             mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave1,                             '1',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave1,                             VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave1,                             mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave2,                             '2',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave2,                             VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave2,                             mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave3,                             '3',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave3,                             VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave3,                             mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave4,                             '4',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave4,                             VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave4,                             mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave5,                             '5',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave5,                             VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave5,                             mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave6,                             '6',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave6,                             VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave6,                             mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave7,                             '7',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave7,                             VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave7,                             mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave8,                             '8',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave8,                             VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave8,                             mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave9,                             '9',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave9,                             VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcChordModifier,                          VK_SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave9,                             mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcChordModifier,                          mfcless::vk::SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteCut,                                '1',                ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteOff,                                VK_OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteOff,                                mfcless::vk::OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteOff,                                41 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteFade,                               VK_OEM_3,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteFade,                               mfcless::vk::OEM_3,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteFade,                               41 | 0x8000,        ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteFade,                               VK_OEM_5,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteFade,                               mfcless::vk::OEM_5,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteFade,                               43 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNotePC,                                 VK_OEM_7,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNotePC,                                 mfcless::vk::OEM_7,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNotePC,                                 40 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNotePCS,                                VK_OEM_7,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
++	{kcNotePCS,                                mfcless::vk::OEM_7,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNotePCS,                                40 | 0x8000,        ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ };
+ // clang-format on
+@@ -621,36 +622,36 @@ constexpr DefaultKeybinding DefaultKeybindingsFT2[] =
+ 	{kcVPNoteG_3,                              27 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	
+ 	{kcSetOctave0,                             '0',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave0,                             VK_NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave0,                             mfcless::vk::NUMPAD0,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave1,                             '1',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave1,                             VK_NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave1,                             mfcless::vk::NUMPAD1,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave2,                             '2',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave2,                             VK_NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave2,                             mfcless::vk::NUMPAD2,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave3,                             '3',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave3,                             VK_NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave3,                             mfcless::vk::NUMPAD3,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave4,                             '4',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave4,                             VK_NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave4,                             mfcless::vk::NUMPAD4,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave5,                             '5',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave5,                             VK_NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave5,                             mfcless::vk::NUMPAD5,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave6,                             '6',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave6,                             VK_NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave6,                             mfcless::vk::NUMPAD6,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave7,                             '7',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave7,                             VK_NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave7,                             mfcless::vk::NUMPAD7,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave8,                             '8',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave8,                             VK_NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave8,                             mfcless::vk::NUMPAD8,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcSetOctave9,                             '9',                ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcSetOctave9,                             VK_NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcChordModifier,                          VK_SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteCut,                                VK_OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcSetOctave9,                             mfcless::vk::NUMPAD9,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcChordModifier,                          mfcless::vk::SHIFT,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteCut,                                mfcless::vk::OEM_3,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteCut,                                41 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteOff,                                VK_CAPITAL,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteOff,                                mfcless::vk::CAPITAL,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteOff,                                58 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNoteOff,                                VK_OEM_102,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNoteOff,                                mfcless::vk::OEM_102,         ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteOff,                                86 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNoteFade,                               '1',                ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNotePC,                                 VK_OEM_7,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
++	{kcNotePC,                                 mfcless::vk::OEM_7,           ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNotePC,                                 40 | 0x8000,        ModNone,            kKeyEventDown,                   MPT_V("1.32")},
+-	{kcNotePCS,                                VK_OEM_7,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
++	{kcNotePCS,                                mfcless::vk::OEM_7,           ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ 	{kcNotePCS,                                40 | 0x8000,        ModShift,           kKeyEventDown,                   MPT_V("1.32")},
+ };
+ // clang-format on
 diff --git a/mptrack/MIDIMapping.cpp b/mptrack/MIDIMapping.cpp
 index d649d6f..e74e6d6 100644
 --- a/mptrack/MIDIMapping.cpp
@@ -8167,3 +9086,15 @@ index 9e332ea..292ad98 100644
  
  	bool HasEditor() const final { return true; }
  protected:
+diff --git a/mptrack/resource.h b/mptrack/resource.h
+index 564a526..1aec67d 100644
+--- a/mptrack/resource.h
++++ b/mptrack/resource.h
+@@ -1,6 +1,7 @@
+ //{{NO_DEPENDENCIES}}
+ // Microsoft Visual C++ generated include file.
+ // Used by mptrack.rc
++#include "mfcless/StandardIds.h"
+ //
+ #define IDD_ABOUTBOX                    100
+ #define IDD_FILE_NEW                    101

@@ -13,15 +13,16 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 #include "Globals.h"
 #include "Moddoc.h"
 #include "../soundlib/Snd_defs.h"
 
-class QEvent;
 class QObject;
 class QPoint;
 class QRect;
+class QStringList;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -193,7 +194,7 @@ public:
 	void OnInitialUpdate() override;
 	void OnDPIChanged() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	bool OnDragonDrop(bool, const DRAGONDROP *) override;
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	intptr_t OnPlayerNotify(Notification *) override;
@@ -240,7 +241,7 @@ protected:
 	void OnEditPaste();
 	void OnEditSampleMap();
 	void OnEnvelopeScalePoints();
-	void OnDropFiles(HDROP hDropInfo);
+	void OnDropFiles(const QStringList &files);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
 	// cppcheck-suppress duplInheritedMember

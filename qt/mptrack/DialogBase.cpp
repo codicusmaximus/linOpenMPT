@@ -39,13 +39,13 @@ OPENMPT_NAMESPACE_BEGIN
 
 
 DialogBase::DialogBase(QWidget *parent)
-	: QDialog(parent)
+	: Window(parent)
 {
 }
 
 
 DialogBase::DialogBase(uint32 nIDTemplate, QWidget *parent)
-	: QDialog(parent)
+	: Window(parent)
 	, m_templateID(nIDTemplate)
 {
 }
@@ -152,17 +152,6 @@ bool DialogBase::eventFilter(QObject *watched, QEvent *e)
 {
 	switch(e->type())
 	{
-	case QEvent::KeyPress:
-	case QEvent::KeyRelease:
-		m_lastInputDevice = InputDevice::Keyboard;
-		if(HandleGlobalKeyMessage(*static_cast<QKeyEvent *>(e)))
-			return true;
-		break;
-	case QEvent::MouseButtonPress:
-	case QEvent::MouseButtonRelease:
-	case QEvent::MouseMove:
-		m_lastInputDevice = InputDevice::Mouse;
-		break;
 	case QEvent::ToolTip:
 		if(auto *w = qobject_cast<QWidget *>(watched))
 		{
@@ -182,17 +171,20 @@ bool DialogBase::eventFilter(QObject *watched, QEvent *e)
 }
 
 
-bool DialogBase::event(QEvent *e)
+bool DialogBase::PreTranslateMessage(mfcless::Message *pMsg)
 {
-	if(HandleModMessage(e))
-		return true;
-	if(e->type() == QEvent::KeyPress || e->type() == QEvent::KeyRelease)
+	if(pMsg)
 	{
-		m_lastInputDevice = InputDevice::Keyboard;
-		if(HandleGlobalKeyMessage(*static_cast<QKeyEvent *>(e)))
+		if(pMsg->message >= mfcless::msg::KeyFirst && pMsg->message <= mfcless::msg::KeyLast)
+			m_lastInputDevice = InputDevice::Keyboard;
+		else if(pMsg->message >= mfcless::msg::MouseFirst && pMsg->message <= mfcless::msg::MouseLast)
+			m_lastInputDevice = InputDevice::Mouse;
+
+		if(HandleGlobalKeyMessage(*pMsg))
 			return true;
 	}
-	return QDialog::event(e);
+
+	return WindowBase::PreTranslateMessage(pMsg);
 }
 
 
@@ -205,14 +197,14 @@ void DialogBase::showEvent(QShowEvent *e)
 		if(OnInitDialog())
 			SetFocusToFirstControl();
 	}
-	QDialog::showEvent(e);
+	Window::showEvent(e);
 }
 
 
-bool DialogBase::HandleGlobalKeyMessage(const QKeyEvent &msg)
+bool DialogBase::HandleGlobalKeyMessage(const mfcless::Message &msg)
 {
-	// We handle keypresses before Qt has a chance to handle them (for alt etc..)
-	if(msg.type() == QEvent::KeyPress || msg.type() == QEvent::KeyRelease)
+	// We handle keypresses before Windows has a chance to handle them (for alt etc..)
+	if(msg.message == mfcless::msg::KeyDown || msg.message == mfcless::msg::KeyUp || msg.message == mfcless::msg::SysKeyUp || msg.message == mfcless::msg::SysKeyDown)
 	{
 		if(CInputHandler *ih = CMainFrame::GetInputHandler())
 		{
@@ -220,7 +212,7 @@ bool DialogBase::HandleGlobalKeyMessage(const QKeyEvent &msg)
 			if(ih->KeyEvent(kCtxAllContexts, event) != kcNull)
 			{
 				// Special case: ESC is typically bound to stopping playback, but we also want to allow ESC to close dialogs
-				if(msg.type() != QEvent::KeyPress || msg.key() != Qt::Key_Escape)
+				if(msg.message != mfcless::msg::KeyDown || msg.wParam != mfcless::vk::ESCAPE)
 					return true;  // Mapped to a command, no need to pass message on.
 			}
 		}

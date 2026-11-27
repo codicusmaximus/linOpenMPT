@@ -14,6 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 
 #include "CDecimalSupport.h"
@@ -31,7 +32,7 @@ OPENMPT_NAMESPACE_BEGIN
 
 namespace Util { class MultimediaClock; }
 
-class CVuMeter final : public QWidget
+class CVuMeter final : public mfcless::Window<QWidget>
 {
 protected:
 	int m_lastDisplayedLevel = -1, m_lastLevel = 0;

@@ -16,7 +16,7 @@ TYPES = [
 	(r'(\w+)\(NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1()'),
 	(r'(\w+)\(UINT\s*(\w*),\s*NMHDR\s*\*\s*\w*,\s*LRESULT\s*\*\s*\w*\)', r'\1(uint32 \2)'),
 	(r'\bRGB\(', 'mfcless::Rgb('),
-	(r'(?:BOOL|bool) PreTranslateMessage\(MSG\s*\*\s*\w*\)( override)?;', 'bool eventFilter(QObject *watched, QEvent *e) override;'),
+	(r'(?:BOOL|bool) PreTranslateMessage\(MSG\s*\*\s*(\w*)\)( override)?;', r'bool PreTranslateMessage(mfcless::Message *\1) override;'),
 	(r'\bCString[AW]?\b', 'mpt::ustring'),
 	(r'\bmpt::tstring\b', 'mpt::ustring'),
 	(r'\bmpt::winstring\b', 'mpt::ustring'),
@@ -47,7 +47,6 @@ TYPES = [
 	(r'\bCObject\b', 'QObject'),
 	(r'\bHTREEITEM\b', 'QTreeWidgetItem *'),
 	(r'\bCComboBoxEx\b', 'QComboBox'),
-	(r'BOOL PreTranslateMessage\(MSG\s*\*\s*\w*\)\s*override;', 'bool eventFilter(QObject *watched, QEvent *e) override;'),
 	(r'BOOL OnInitDialog\(\)', 'bool OnInitDialog()'),
 	(r'\bASSERT\(', 'MPT_ASSERT('),
 	(r'\b_T\(("(?:[^"\\]|\\.)*")\)', r'U_(\1)'),
@@ -78,26 +77,58 @@ CUSTOM_CONTROLS = [
 ]
 
 # Base classes: MFC windows become the Qt widget that plays the same role.
+# Windows become mfcless::Window<the Qt class>, which calls upstream's
+# handlers (OnLButtonDown, OnPaint, ...) for the Qt events.
 BASES = {
 	'CDialog': 'DialogBase', 'CDialogEx': 'DialogBase', 'CPropertyPage': 'PropertyPage',
-	'CFormView': 'DialogBase, public mfcless::DocumentView', 'CPropertySheet': 'QDialog',
-	'CWnd': 'QWidget', 'CView': 'QWidget, public mfcless::DocumentView', 'CScrollView': 'QAbstractScrollArea, public mfcless::DocumentView',
-	'CMDIChildWnd': 'QMdiSubWindow', 'CMDIFrameWnd': 'QMainWindow', 'CFrameWnd': 'QMainWindow',
-	'CEdit': 'QLineEdit', 'CStatic': 'QLabel', 'CButton': 'QPushButton', 'CComboBox': 'QComboBox',
-	'CListBox': 'QListWidget', 'CTreeCtrl': 'QTreeWidget', 'CListCtrl': 'QTreeWidget',
-	'CMFCListCtrl': 'QTreeWidget', 'CMFCListCtrlEx': 'QTreeWidget', 'CTabCtrl': 'QTabBar',
-	'CSliderCtrl': 'QSlider', 'CSpinButtonCtrl': 'mfcless::UpDown', 'CToolBar': 'QToolBar',
-	'CToolBarCtrl': 'QToolBar', 'CDialogBar': 'QWidget', 'CReBar': 'QWidget',
+	'CFormView': 'DialogBase, public mfcless::DocumentView', 'CPropertySheet': 'mfcless::Window<QDialog>',
+	'CWnd': 'mfcless::Window<QWidget>', 'CView': 'mfcless::Window<QWidget>, public mfcless::DocumentView',
+	'CScrollView': 'mfcless::Window<QAbstractScrollArea>, public mfcless::DocumentView',
+	'CMDIChildWnd': 'mfcless::Window<QMdiSubWindow>', 'CMDIFrameWnd': 'mfcless::Window<QMainWindow>', 'CFrameWnd': 'mfcless::Window<QMainWindow>',
+	'CEdit': 'mfcless::Window<QLineEdit>', 'CStatic': 'mfcless::Window<QLabel>', 'CButton': 'mfcless::Window<QPushButton>',
+	'CComboBox': 'mfcless::Window<QComboBox>', 'CListBox': 'mfcless::Window<QListWidget>', 'CTreeCtrl': 'mfcless::Window<QTreeWidget>',
+	'CListCtrl': 'mfcless::Window<QTreeWidget>', 'CMFCListCtrl': 'mfcless::Window<QTreeWidget>', 'CMFCListCtrlEx': 'mfcless::Window<QTreeWidget>',
+	'CTabCtrl': 'mfcless::Window<QTabBar>', 'CSliderCtrl': 'mfcless::Window<QSlider>', 'CSpinButtonCtrl': 'mfcless::UpDown',
+	'CToolBar': 'mfcless::Window<QToolBar>', 'CToolBarCtrl': 'mfcless::Window<QToolBar>', 'CDialogBar': 'mfcless::Window<QWidget>',
+	'CReBar': 'mfcless::Window<QWidget>',
 	'CToolTipCtrl': 'QObject', 'COleDropTarget': 'QObject', 'CMultiDocTemplate': 'QObject',
 	'CDocManager': 'QObject', 'CDocument': 'QObject', 'CImageList': 'QObject',
 	'CSplitterWnd': 'QSplitter', 'CMFCDynamicLayout': 'QObject',
 }
 
+# The handlers mfcless::Window calls; a call of an MFC class's one is the
+# Window base's (Window::OnPaint()).
+WINDOW_HANDLERS = r'On(?:[LRMX]Button(?:Down|Up|DblClk)|MouseMove|MouseLeave|MouseWheel|MouseHWheel|ContextMenu|KeyDown|KeyUp|SysKeyDown|SysKeyUp|Char|SysChar|SetFocus|KillFocus|Paint|Size|Move|ShowWindow|Timer|DropFiles|Close)'
+WINDOW_MESSAGES = ['LBUTTONDOWN', 'LBUTTONUP', 'LBUTTONDBLCLK', 'RBUTTONDOWN', 'RBUTTONUP', 'RBUTTONDBLCLK',
+	'MBUTTONDOWN', 'MBUTTONUP', 'MBUTTONDBLCLK', 'XBUTTONDOWN', 'XBUTTONUP', 'XBUTTONDBLCLK', 'MOUSEMOVE', 'MOUSELEAVE',
+	'MOUSEWHEEL', 'MOUSEHWHEEL', 'CONTEXTMENU', 'KEYDOWN', 'KEYUP', 'SYSKEYDOWN', 'SYSKEYUP', 'CHAR', 'SYSCHAR',
+	'SETFOCUS', 'KILLFOCUS', 'PAINT', 'SIZE', 'MOVE', 'SHOWWINDOW', 'TIMER', 'DROPFILES', 'CLOSE']
+
+INPUT_MESSAGES = {'KEYDOWN': 'KeyDown', 'KEYUP': 'KeyUp', 'SYSKEYDOWN': 'SysKeyDown', 'SYSKEYUP': 'SysKeyUp',
+	'CHAR': 'Char', 'SYSCHAR': 'SysChar', 'MOUSEMOVE': 'MouseMove', 'LBUTTONDOWN': 'LButtonDown', 'LBUTTONUP': 'LButtonUp',
+	'LBUTTONDBLCLK': 'LButtonDblClk', 'RBUTTONDOWN': 'RButtonDown', 'RBUTTONUP': 'RButtonUp', 'RBUTTONDBLCLK': 'RButtonDblClk',
+	'MBUTTONDOWN': 'MButtonDown', 'MBUTTONUP': 'MButtonUp', 'MOUSEWHEEL': 'MouseWheel', 'XBUTTONDOWN': 'XButtonDown',
+	'XBUTTONUP': 'XButtonUp', 'MOUSEHWHEEL': 'MouseHWheel', 'KEYFIRST': 'KeyFirst', 'KEYLAST': 'KeyLast',
+	'MOUSEFIRST': 'MouseFirst', 'MOUSELAST': 'MouseLast'}
+
+MOUSE_KEYS = {'MK_LBUTTON': 'Left', 'MK_RBUTTON': 'Right', 'MK_MBUTTON': 'Middle', 'MK_SHIFT': 'Shift',
+	'MK_CONTROL': 'Control', 'MK_XBUTTON1': 'X1', 'MK_XBUTTON2': 'X2'}
+
+def keys(text):
+	text = re.sub(r'\bVK_([A-Z0-9_]+)\b', r'mfcless::vk::\1', text)
+	text = re.sub(r'\b(MK_[A-Z0-9]+)\b', lambda m: 'mfcless::MouseKey::' + MOUSE_KEYS[m.group(1)] if m.group(1) in MOUSE_KEYS else m.group(0), text)
+	text = re.sub(r'\bWHEEL_DELTA\b', 'mfcless::WheelDelta', text)
+	text = re.sub(r'\bWM_(' + '|'.join(INPUT_MESSAGES) + r')\b', lambda m: 'mfcless::msg::' + INPUT_MESSAGES[m.group(1)], text)
+	text = re.sub(r'\bMSG\s*\*\s*(\w+)', r'mfcless::Message *\1', text)
+	text = re.sub(r'\bconst MSG\s*&', 'const mfcless::Message &', text)
+	text = re.sub(r'void OnDropFiles\(HDROP\s*\w*\)', 'void OnDropFiles(const QStringList &files)', text)
+	return text
+
 def twin(text):
 	for k, v in BASES.items():
 		text = re.sub(r'(:\s*(?:public|protected|private)\s+)' + k + r'\b', r'\1' + v, text)
 	# Classes now based on a Qt class get Q_OBJECT.
-	text = re.sub(r'^(class \w+\s*:\s*public\s+(?:Q\w+|DialogBase|PropertyPage|ResizableDialog|CAbstractVstEditor|CModScrollView|CModControlDlg|CModControlView|CModTabCtrl)\b[^\n{]*\n\{\n)', r'\1\tQ_OBJECT\n', text, flags=re.M)
+	text = re.sub(r'^(class \w+\s*:\s*public\s+(?:Q\w+|mfcless::Window<\w+>|DialogBase|PropertyPage|ResizableDialog|CAbstractVstEditor|CModScrollView|CModControlDlg|CModControlView|CModTabCtrl)[^\n{]*\n\{\n)', r'\1\tQ_OBJECT\n', text, flags=re.M)
 	# Control members become pointers to the widgets the dialog template
 	# creates (or that replace them): "\tCEdit m_a, m_b[4];" ->
 	# "\tQLineEdit *m_a = nullptr, *m_b[4] = {};"
@@ -114,6 +145,7 @@ def twin(text):
 		if k in CONTROLS:
 			text = re.sub(r'\b' + k + r'\s*&', v + ' &', text)
 			text = re.sub(r'\b' + k + r'\s*\*', v + ' *', text)
+	text = keys(text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
 	text = re.sub(r'\bafx_msg\s+', '', text)
@@ -128,7 +160,7 @@ def twin(text):
 	# Forward declarations of the Qt classes now named, outside the namespace.
 	used = sorted(set(re.findall(r'\b(Q[A-Z][A-Za-z]+)\b', text)) - {'Q_OBJECT'})
 	# Base classes must be complete: include them rather than declare them.
-	bases = sorted(set(re.findall(r':\s*public\s+(Q[A-Z][A-Za-z]+)\b', text)))
+	bases = sorted(set(re.findall(r':\s*public\s+(?:mfcless::Window<)?(Q[A-Z][A-Za-z]+)\b', text)))
 	used = [q for q in used if q not in bases]
 	if bases and '#include "openmpt/all/BuildSettings.hpp"' in text:
 		incs = ''.join('#include <%s/%s>\n' % ('QtCore' if q in ('QObject',) else 'QtWidgets', q) for q in bases)
@@ -142,7 +174,7 @@ def twin(text):
 	# Qt-based classes with a message map also take commands and notifications.
 	def add_map(m):
 		head, body = m.group(1), m.group(2)
-		if 'RegisterMessageMap' in body and not re.search(r'public\s+(DialogBase|PropertyPage|ResizableDialog|CModControlDlg|CModControlView|CModScrollView|CAbstractVstEditor)\b', head) and 'MessageMap' not in head and 'DocumentView' not in head:
+		if 'RegisterMessageMap' in body and not re.search(r'public\s+(DialogBase|PropertyPage|ResizableDialog|CModControlDlg|CModControlView|CModScrollView|CAbstractVstEditor|mfcless::Window)\b', head) and 'MessageMap' not in head and 'DocumentView' not in head:
 			head = head.rstrip() + ', public mfcless::MessageMap'
 			return head + '\n{' + body
 		return m.group(0)
@@ -151,6 +183,10 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "DocumentView.h"\n', 1)
 	if 'mfcless::MessageMap' in text and '"mfcless/MessageMap.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/MessageMap.h"\n', 1)
+	if 'mfcless::Window<' in text and '"mfcless/Window.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Window.h"\n', 1)
+	elif re.search(r'mfcless::(vk|MouseKey|msg|Message)\b', text) and '"mfcless/Keyboard.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Keyboard.h"\n', 1)
 	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Controls.h"\n', 1)
 	# Dialog bases need their header.
@@ -214,6 +250,8 @@ def message_map(m):
 			out.append('\tAddScroll(Qt::Horizontal, &%s::OnHScroll);%s' % (cls, comment))
 		elif macro == 'ON_WM_VSCROLL':
 			out.append('\tAddScroll(Qt::Vertical, &%s::OnVScroll);%s' % (cls, comment))
+		elif macro.startswith('ON_WM_') and macro[6:] in WINDOW_MESSAGES:
+			out.append('\t// %s (mfcless::Window)%s' % (t, comment))
 		elif macro in ('ON_MESSAGE', 'ON_REGISTERED_MESSAGE'):
 			out.append('\tAddMessage(%s, %s);%s' % (args[0], args[1], comment))
 		else:
@@ -327,8 +365,12 @@ def twin_cpp(text, header):
 		return name + (repl if repl else '->' + method + '(')
 	text = re.sub(r'\b(m_\w+)\.(\w+)\(', call, text)
 	text = re.sub(r'\b(m_\w+)\.(\w+)\b', lambda m: (m.group(1) + '->' + m.group(2)) if m.group(1) in types else m.group(0), text)
+	text = re.sub(r'\b(?:' + '|'.join(BASES) + r')::(' + WINDOW_HANDLERS + r')\(', r'Window::\1(', text)
+	text = re.sub(r'(?:BOOL|bool) (\w+)::PreTranslateMessage\(MSG\s*\*\s*(\w*)\)', r'bool \1::PreTranslateMessage(mfcless::Message *\2)', text)
+	text = re.sub(r'\b(?:' + '|'.join(BASES) + r')::PreTranslateMessage\((\w+)\)', r'WindowBase::PreTranslateMessage(\1)', text)
 	for k, v in BASES.items():
-		text = re.sub(r'\b' + k + r'::', v + '::', text)
+		text = re.sub(r'\b' + k + r'::', v.split(',')[0] + '::', text)
+	text = keys(text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
 	if not PATCH_MODE:

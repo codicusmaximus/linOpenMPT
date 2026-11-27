@@ -14,14 +14,13 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 
 #include "AccessibleControls.h"
 #include "Globals.h"
 
 class QComboBox;
-class QEvent;
 class QLineEdit;
 class QObject;
 class QPoint;
@@ -40,7 +39,7 @@ struct OrdSelection
 	ORDERINDEX GetSelCount() const { return lastOrd - firstOrd + 1; }
 };
 
-class COrderList: public QWidget, public mfcless::MessageMap
+class COrderList: public mfcless::Window<QWidget>
 {
 	Q_OBJECT
 	friend class CCtrlPatterns;
@@ -136,7 +135,7 @@ public:
 	void InsertUpdatePlaystate(ORDERINDEX first, ORDERINDEX last);
 	// Update play state and order lock ranges after deleting order items.
 	void DeleteUpdatePlaystate(ORDERINDEX first, ORDERINDEX last);
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	intptr_t OnToolHitTest(QPoint point, TOOLINFO* pTI) const override;
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
 protected:

@@ -13,7 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 
 #include "CDecimalSupport.h"
@@ -159,7 +159,7 @@ enum
 	KBDNOTIFY_LBUTTONUP,
 };
 
-class CKeyboardControl: public QWidget, public mfcless::MessageMap
+class CKeyboardControl: public mfcless::Window<QWidget>
 {
 	Q_OBJECT
 public:

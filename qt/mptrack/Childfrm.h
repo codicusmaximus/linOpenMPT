@@ -14,6 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "DocumentView.h"
+#include "mfcless/Window.h"
 #include "PatternCursor.h"
 #include "../common/FileReaderFwd.h"
 #include "../soundlib/plugins/PluginStructs.h"
@@ -95,7 +96,7 @@ struct CommentsViewState
 
 
 
-class CChildFrame: public QMdiSubWindow, public mfcless::MessageMap
+class CChildFrame: public mfcless::Window<QMdiSubWindow>
 {
 	Q_OBJECT
 	friend class CModControlDlg;
@@ -179,7 +180,6 @@ protected:
 	intptr_t OnInstrumentSelected(uintptr_t, intptr_t lParam);
 	void RegisterMessageMap() override;
 
-	bool event(QEvent *e) override;
 	void closeEvent(QCloseEvent *e) override;
 };
 

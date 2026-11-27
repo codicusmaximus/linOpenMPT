@@ -11,13 +11,12 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Keyboard.h"
 #include "DialogBase.h"
 #include "../soundlib/Snd_defs.h"
 
 class QAbstractButton;
 class QComboBox;
-class QEvent;
-class QObject;
 class QScrollBar;
 class QSize;
 class QSlider;
@@ -51,7 +50,7 @@ protected:
 
 	void DoDataExchange(DataExchange &dx) override;
 	bool OnInitDialog() override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 	void OnOK() override { }
 	void OnCancel() override { }

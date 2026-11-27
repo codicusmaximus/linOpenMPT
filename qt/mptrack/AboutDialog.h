@@ -12,7 +12,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
-#include "mfcless/MessageMap.h"
+#include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 #include "DialogBase.h"
 
@@ -23,7 +23,7 @@ OPENMPT_NAMESPACE_BEGIN
 
 class RawGDIDIB;
 
-class CRippleBitmap: public QWidget, public mfcless::MessageMap
+class CRippleBitmap: public mfcless::Window<QWidget>
 {
 	Q_OBJECT
 

@@ -13,8 +13,8 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "CommandSet.h"
 #include "../soundlib/Snd_defs.h"
+#include "mfcless/Keyboard.h"
 
-class QKeyEvent;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -46,10 +46,10 @@ public:
 public:
 	CInputHandler(QWidget *mainframe);
 	CommandID KeyEvent(const InputTargetContext context, const KeyboardEvent &event, QWidget *pSourceWnd = nullptr);
-	// mfcless: from Qt key events; key codes are Windows virtual-key codes,
-	// as keymap files store them (mfcless/KeyCodes.h).
-	static KeyboardEvent Translate(const QKeyEvent &msg);
-	static KeyEventType GetKeyEventType(const QKeyEvent &msg);
+	// mfcless: key codes are Windows virtual-key codes, as keymap files store
+	// them (mfcless/Keyboard.h).
+	static KeyboardEvent Translate(const mfcless::Message &msg);
+	static KeyEventType GetKeyEventType(const mfcless::Message &msg);
 	static KeyEventType GetKeyEventType(uint32 nFlags);
 	bool IsKeyPressHandledByTextBox(uint32 wparam, QWidget *hWnd) const;
 	CommandID HandleMIDIMessage(InputTargetContext context, uint32 message);
