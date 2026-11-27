@@ -1,0 +1,1872 @@
+diff --git a/sounddsp/AGC.cpp b/sounddsp/AGC.cpp
+index a91e8e1..6d08e99 100644
+--- a/sounddsp/AGC.cpp
++++ b/sounddsp/AGC.cpp
+@@ -29,7 +29,7 @@ OPENMPT_NAMESPACE_BEGIN
+ #define MIXING_LIMITMIN		(-MIXING_LIMITMAX)
+ 
+ 
+-static UINT ProcessAGC(int *pBuffer, int *pRearBuffer, std::size_t nSamples, std::size_t nChannels, int nAGC)
++static uint32 ProcessAGC(int *pBuffer, int *pRearBuffer, std::size_t nSamples, std::size_t nChannels, int nAGC)
+ {
+ 	if(nChannels == 1)
+ 	{
+@@ -91,7 +91,7 @@ CAGC::CAGC()
+ 
+ void CAGC::Process(int *MixSoundBuffer, int *RearSoundBuffer, std::size_t count, std::size_t nChannels)
+ {
+-	UINT agc = ProcessAGC(MixSoundBuffer, RearSoundBuffer, count, nChannels, m_nAGC);
++	uint32 agc = ProcessAGC(MixSoundBuffer, RearSoundBuffer, count, nChannels, m_nAGC);
+ 	// Some kind custom law, so that the AGC stays quite stable, but slowly
+ 	// goes back up if the sound level stays below a level inversely proportional
+ 	// to the AGC level. (J'me comprends)
+@@ -111,14 +111,14 @@ void CAGC::Process(int *MixSoundBuffer, int *RearSoundBuffer, std::size_t count,
+ }
+ 
+ 
+-void CAGC::Adjust(UINT oldVol, UINT newVol)
++void CAGC::Adjust(uint32 oldVol, uint32 newVol)
+ {
+ 	m_nAGC = m_nAGC * oldVol / newVol;
+ 	if (m_nAGC > AGC_UNITY) m_nAGC = AGC_UNITY;
+ }
+ 
+ 
+-void CAGC::Initialize(bool bReset, DWORD MixingFreq)
++void CAGC::Initialize(bool bReset, uint32 MixingFreq)
+ {
+ 	if(bReset)
+ 	{
+diff --git a/sounddsp/AGC.h b/sounddsp/AGC.h
+index 4317e03..1642916 100644
+--- a/sounddsp/AGC.h
++++ b/sounddsp/AGC.h
+@@ -21,15 +21,15 @@ OPENMPT_NAMESPACE_BEGIN
+ class CAGC
+ {
+ private:
+-	UINT m_nAGC;
++	uint32 m_nAGC;
+ 	std::size_t m_nAGCRecoverCount;
+-	UINT m_Timeout;
++	uint32 m_Timeout;
+ public:
+ 	CAGC();
+-	void Initialize(bool bReset, DWORD MixingFreq);
++	void Initialize(bool bReset, uint32 MixingFreq);
+ public:
+ 	void Process(int *MixSoundBuffer, int *RearSoundBuffer, std::size_t count, std::size_t nChannels);
+-	void Adjust(UINT oldVol, UINT newVol);
++	void Adjust(uint32 oldVol, uint32 newVol);
+ };
+ 
+ #endif // NO_AGC
+diff --git a/sounddsp/DSP.cpp b/sounddsp/DSP.cpp
+index 0c8ec50..e201377 100644
+--- a/sounddsp/DSP.cpp
++++ b/sounddsp/DSP.cpp
+@@ -136,7 +136,7 @@ CMegaBass::CMegaBass()
+ }
+ 
+ 
+-void CSurround::Initialize(bool bReset, DWORD MixingFreq)
++void CSurround::Initialize(bool bReset, uint32 MixingFreq)
+ {
+ 	MPT_UNREFERENCED_PARAMETER(bReset);
+ 	if (!m_Settings.m_nProLogicDelay) m_Settings.m_nProLogicDelay = 20;
+@@ -165,7 +165,7 @@ void CSurround::Initialize(bool bReset, DWORD MixingFreq)
+ }
+ 
+ 
+-void CMegaBass::Initialize(bool bReset, DWORD MixingFreq)
++void CMegaBass::Initialize(bool bReset, uint32 MixingFreq)
+ {
+ 	// Bass Expansion Reset
+ 	{
+@@ -431,7 +431,7 @@ BitCrush::BitCrush()
+ }
+ 
+ 
+-void BitCrush::Initialize(bool bReset, DWORD MixingFreq)
++void BitCrush::Initialize(bool bReset, uint32 MixingFreq)
+ {
+ 	MPT_UNREFERENCED_PARAMETER(bReset);
+ 	MPT_UNREFERENCED_PARAMETER(MixingFreq);
+diff --git a/sounddsp/DSP.h b/sounddsp/DSP.h
+index 90eb984..3795fff 100644
+--- a/sounddsp/DSP.h
++++ b/sounddsp/DSP.h
+@@ -81,7 +81,7 @@ public:
+ 	bool SetXBassParameters(uint32 nDepth, uint32 nRange);
+ 	// [Surround level 0(quiet)-100(heavy)] [delay in ms, usually 5-40ms]
+ 	void SetSurroundParameters(uint32 nDepth, uint32 nDelay);
+-	void Initialize(bool bReset, DWORD MixingFreq);
++	void Initialize(bool bReset, uint32 MixingFreq);
+ 	void Process(int * MixSoundBuffer, int * MixRearBuffer, int count, uint32 nChannels);
+ private:
+ 	void ProcessStereoSurround(int * MixSoundBuffer, int count);
+@@ -118,7 +118,7 @@ public:
+ 	void SetSettings(const CMegaBassSettings &settings) { m_Settings = settings; }
+ 	// [XBass level 0(quiet)-100(loud)], [cutoff in Hz 10-100]
+ 	void SetXBassParameters(uint32 nDepth, uint32 nRange);
+-	void Initialize(bool bReset, DWORD MixingFreq);
++	void Initialize(bool bReset, uint32 MixingFreq);
+ 	void Process(int * MixSoundBuffer, int * MixRearBuffer, int count, uint32 nChannels);
+ };
+ 
+@@ -131,7 +131,7 @@ public:
+ 	BitCrush();
+ public:
+ 	void SetSettings(const BitCrushSettings &settings) { m_Settings = settings; }
+-	void Initialize(bool bReset, DWORD MixingFreq);
++	void Initialize(bool bReset, uint32 MixingFreq);
+ 	void Process(int * MixSoundBuffer, int * MixRearBuffer, int count, uint32 nChannels);
+ };
+ 
+diff --git a/soundlib/MIDIMacros.cpp b/soundlib/MIDIMacros.cpp
+index 73e92f9..a7ab711 100644
+--- a/soundlib/MIDIMacros.cpp
++++ b/soundlib/MIDIMacros.cpp
+@@ -160,7 +160,7 @@ bool MIDIMacroConfig::operator== (const MIDIMacroConfig &other) const
+ #ifdef MODPLUG_TRACKER
+ 
+ // Returns macro description including plugin parameter / MIDI CC information
+-CString MIDIMacroConfig::GetParameteredMacroName(uint32 macroIndex, IMixPlugin *plugin) const
++mpt::ustring MIDIMacroConfig::GetParameteredMacroName(uint32 macroIndex, IMixPlugin *plugin) const
+ {
+ 	const ParameteredMacro macroType = GetParameteredMacroType(macroIndex);
+ 
+@@ -169,30 +169,30 @@ CString MIDIMacroConfig::GetParameteredMacroName(uint32 macroIndex, IMixPlugin *
+ 	case kSFxPlugParam:
+ 		{
+ 			const int param = MacroToPlugParam(macroIndex);
+-			CString formattedName;
+-			formattedName.Format(_T("Param %d"), param);
++			mpt::ustring formattedName;
++			formattedName = MPT_UFORMAT("Param {}")(param);
+ #ifndef NO_PLUGINS
+ 			if(plugin != nullptr)
+ 			{
+-				CString paramName = plugin->GetParamName(param);
+-				if(!paramName.IsEmpty())
++				mpt::ustring paramName = plugin->GetParamName(param);
++				if(!paramName.empty())
+ 				{
+-					formattedName += _T(" (") + paramName + _T(")");
++					formattedName += U_(" (") + paramName + U_(")");
+ 				}
+ 			} else
+ #else
+ 			MPT_UNREFERENCED_PARAMETER(plugin);
+ #endif // NO_PLUGINS
+ 			{
+-				formattedName += _T(" (N/A)");
++				formattedName += U_(" (N/A)");
+ 			}
+ 			return formattedName;
+ 		}
+ 
+ 	case kSFxCC:
+ 		{
+-			CString formattedCC;
+-			formattedCC.Format(_T("MIDI CC %d"), MacroToMidiCC(macroIndex));
++			mpt::ustring formattedCC;
++			formattedCC = MPT_UFORMAT("MIDI CC {}")(MacroToMidiCC(macroIndex));
+ 			return formattedCC;
+ 		}
+ 
+@@ -203,44 +203,44 @@ CString MIDIMacroConfig::GetParameteredMacroName(uint32 macroIndex, IMixPlugin *
+ 
+ 
+ // Returns generic macro description.
+-CString MIDIMacroConfig::GetParameteredMacroName(ParameteredMacro macroType) const
++mpt::ustring MIDIMacroConfig::GetParameteredMacroName(ParameteredMacro macroType) const
+ {
+ 	switch(macroType)
+ 	{
+-	case kSFxUnused:     return _T("Unused");
+-	case kSFxCutoff:     return _T("Set Filter Cutoff");
+-	case kSFxReso:       return _T("Set Filter Resonance");
+-	case kSFxFltMode:    return _T("Set Filter Mode");
+-	case kSFxDryWet:     return _T("Set Plugin Dry/Wet Ratio");
+-	case kSFxPlugParam:  return _T("Control Plugin Parameter...");
+-	case kSFxCC:         return _T("MIDI CC...");
+-	case kSFxChannelAT:  return _T("Channel Aftertouch");
+-	case kSFxPolyAT:     return _T("Polyphonic Aftertouch");
+-	case kSFxPitch:      return _T("Pitch Bend");
+-	case kSFxProgChange: return _T("MIDI Program Change");
++	case kSFxUnused:     return U_("Unused");
++	case kSFxCutoff:     return U_("Set Filter Cutoff");
++	case kSFxReso:       return U_("Set Filter Resonance");
++	case kSFxFltMode:    return U_("Set Filter Mode");
++	case kSFxDryWet:     return U_("Set Plugin Dry/Wet Ratio");
++	case kSFxPlugParam:  return U_("Control Plugin Parameter...");
++	case kSFxCC:         return U_("MIDI CC...");
++	case kSFxChannelAT:  return U_("Channel Aftertouch");
++	case kSFxPolyAT:     return U_("Polyphonic Aftertouch");
++	case kSFxPitch:      return U_("Pitch Bend");
++	case kSFxProgChange: return U_("MIDI Program Change");
+ 	case kSFxCustom:
+-	default:             return _T("Custom");
++	default:             return U_("Custom");
+ 	}
+ }
+ 
+ 
+ // Returns generic macro description.
+-CString MIDIMacroConfig::GetFixedMacroName(FixedMacro macroType) const
++mpt::ustring MIDIMacroConfig::GetFixedMacroName(FixedMacro macroType) const
+ {
+ 	switch(macroType)
+ 	{
+-	case kZxxUnused:      return _T("Unused");
+-	case kZxxReso4Bit:    return _T("Z80 - Z8F controls Resonant Filter Resonance");
+-	case kZxxReso7Bit:    return _T("Z80 - ZFF controls Resonant Filter Resonance");
+-	case kZxxCutoff:      return _T("Z80 - ZFF controls Resonant Filter Cutoff");
+-	case kZxxFltMode:     return _T("Z80 - ZFF controls Resonant Filter Mode");
+-	case kZxxResoFltMode: return _T("Z80 - Z9F controls Resonance + Filter Mode");
+-	case kZxxChannelAT:   return _T("Z80 - ZFF controls Channel Aftertouch");
+-	case kZxxPolyAT:      return _T("Z80 - ZFF controls Polyphonic Aftertouch");
+-	case kZxxPitch:       return _T("Z80 - ZFF controls Pitch Bend");
+-	case kZxxProgChange:  return _T("Z80 - ZFF controls MIDI Program Change");
++	case kZxxUnused:      return U_("Unused");
++	case kZxxReso4Bit:    return U_("Z80 - Z8F controls Resonant Filter Resonance");
++	case kZxxReso7Bit:    return U_("Z80 - ZFF controls Resonant Filter Resonance");
++	case kZxxCutoff:      return U_("Z80 - ZFF controls Resonant Filter Cutoff");
++	case kZxxFltMode:     return U_("Z80 - ZFF controls Resonant Filter Mode");
++	case kZxxResoFltMode: return U_("Z80 - Z9F controls Resonance + Filter Mode");
++	case kZxxChannelAT:   return U_("Z80 - ZFF controls Channel Aftertouch");
++	case kZxxPolyAT:      return U_("Z80 - ZFF controls Polyphonic Aftertouch");
++	case kZxxPitch:       return U_("Z80 - ZFF controls Pitch Bend");
++	case kZxxProgChange:  return U_("Z80 - ZFF controls MIDI Program Change");
+ 	case kZxxCustom:
+-	default:              return _T("Custom");
++	default:              return U_("Custom");
+ 	}
+ }
+ 
+diff --git a/soundlib/MIDIMacros.h b/soundlib/MIDIMacros.h
+index 150aec8..789e7a6 100644
+--- a/soundlib/MIDIMacros.h
++++ b/soundlib/MIDIMacros.h
+@@ -190,9 +190,9 @@ public:
+ #ifdef MODPLUG_TRACKER
+ 
+ 	// Translate macro type or macro string to macro name
+-	CString GetParameteredMacroName(uint32 macroIndex, IMixPlugin *plugin = nullptr) const;
+-	CString GetParameteredMacroName(ParameteredMacro macroType) const;
+-	CString GetFixedMacroName(FixedMacro macroType) const;
++	mpt::ustring GetParameteredMacroName(uint32 macroIndex, IMixPlugin *plugin = nullptr) const;
++	mpt::ustring GetParameteredMacroName(ParameteredMacro macroType) const;
++	mpt::ustring GetFixedMacroName(FixedMacro macroType) const;
+ 
+ 	// Extract information from a parametered macro string.
+ 	PlugParamIndex MacroToPlugParam(uint32 macroIndex) const;
+diff --git a/soundlib/SampleFormatMediaFoundation.cpp b/soundlib/SampleFormatMediaFoundation.cpp
+index efb2cfb..b042661 100644
+--- a/soundlib/SampleFormatMediaFoundation.cpp
++++ b/soundlib/SampleFormatMediaFoundation.cpp
+@@ -74,7 +74,7 @@ static FileTags ReadMFMetadata(IMFMediaSource *mediaSource)
+ 	{
+ 		return tags;
+ 	}
+-	DWORD streams = 0;
++	uint32 streams = 0;
+ 	if(!SUCCEEDED(presentationDescriptor->GetStreamDescriptorCount(&streams)))
+ 	{
+ 		return tags;
+@@ -95,7 +95,7 @@ static FileTags ReadMFMetadata(IMFMediaSource *mediaSource)
+ 	{
+ 		return tags;
+ 	}
+-	for(DWORD propIndex = 0; propIndex < varPropNames.calpwstr.cElems; ++propIndex)
++	for(uint32 propIndex = 0; propIndex < varPropNames.calpwstr.cElems; ++propIndex)
+ 	{
+ 		PropVariant propVal;
+ 		LPWSTR propName = varPropNames.calpwstr.pElems[propIndex];
+@@ -109,7 +109,7 @@ static FileTags ReadMFMetadata(IMFMediaSource *mediaSource)
+ 		std::vector<WCHAR> wcharVal(256);
+ 		for(;;)
+ 		{
+-			HRESULT hrToString = PropVariantToString(propVal, wcharVal.data(), mpt::saturate_cast<UINT>(wcharVal.size()));
++			HRESULT hrToString = PropVariantToString(propVal, wcharVal.data(), mpt::saturate_cast<uint32>(wcharVal.size()));
+ 			if(hrToString == S_OK)
+ 			{
+ 				stringVal = wcharVal.data();
+@@ -201,7 +201,7 @@ std::vector<FileType> CSoundFile::GetMediaFoundationFileTypes()
+ 		return result;
+ 	}
+ 
+-	for(DWORD handlerIndex = 0; ; ++handlerIndex)
++	for(uint32 handlerIndex = 0; ; ++handlerIndex)
+ 	{
+ 
+ 		WCHAR handlerTypeBuf[256];
+@@ -228,13 +228,13 @@ std::vector<FileType> CSoundFile::GetMediaFoundationFileTypes()
+ 
+ 		std::vector<WCHAR> valueNameBuf(16384);
+ 		std::vector<BYTE> valueData(16384);
+-		for(DWORD valueIndex = 0; ; ++valueIndex)
++		for(uint32 valueIndex = 0; ; ++valueIndex)
+ 		{
+ 			std::fill(valueNameBuf.begin(), valueNameBuf.end(), WCHAR{0});
+-			DWORD valueNameBufLen = 16384;
+-			DWORD valueType = 0;
++			uint32 valueNameBufLen = 16384;
++			uint32 valueType = 0;
+ 			std::fill(valueData.begin(), valueData.end(), BYTE{0});
+-			DWORD valueDataLen = 16384;
++			uint32 valueDataLen = 16384;
+ 			regResult = RegEnumValueW(hkHandler, valueIndex, valueNameBuf.data(), &valueNameBufLen, NULL, &valueType, valueData.data(), &valueDataLen);
+ 			if(regResult != ERROR_SUCCESS)
+ 			{
+@@ -342,10 +342,10 @@ bool CSoundFile::ReadMediaFoundationSample(SAMPLEINDEX sample, FileReader &file,
+ 	MPT_MF_CHECKED(MFCreateMediaType(&partialType));
+ 	MPT_MF_CHECKED(partialType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio));
+ 	MPT_MF_CHECKED(partialType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM));
+-	MPT_MF_CHECKED(sourceReader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, partialType));
++	MPT_MF_CHECKED(sourceReader->SetCurrentMediaType((uint32)MF_SOURCE_READER_FIRST_AUDIO_STREAM, NULL, partialType));
+ 	CComPtr<IMFMediaType> uncompressedAudioType;
+-	MPT_MF_CHECKED(sourceReader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &uncompressedAudioType));
+-	MPT_MF_CHECKED(sourceReader->SetStreamSelection((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE));
++	MPT_MF_CHECKED(sourceReader->GetCurrentMediaType((uint32)MF_SOURCE_READER_FIRST_AUDIO_STREAM, &uncompressedAudioType));
++	MPT_MF_CHECKED(sourceReader->SetStreamSelection((uint32)MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE));
+ 	UINT32 numChannels = 0;
+ 	MPT_MF_CHECKED(uncompressedAudioType->GetUINT32(MF_MT_AUDIO_NUM_CHANNELS, &numChannels));
+ 	UINT32 samplesPerSecond = 0;
+@@ -369,9 +369,9 @@ bool CSoundFile::ReadMediaFoundationSample(SAMPLEINDEX sample, FileReader &file,
+ 	for(;;)
+ 	{
+ 		CComPtr<IMFSample> mfSample;
+-		DWORD mfSampleFlags = 0;
++		uint32 mfSampleFlags = 0;
+ 		CComPtr<IMFMediaBuffer> buffer;
+-		MPT_MF_CHECKED(sourceReader->ReadSample((DWORD)MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, NULL, &mfSampleFlags, NULL, &mfSample));
++		MPT_MF_CHECKED(sourceReader->ReadSample((uint32)MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, NULL, &mfSampleFlags, NULL, &mfSample));
+ 		if(mfSampleFlags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+ 		{
+ 			break;
+@@ -383,7 +383,7 @@ bool CSoundFile::ReadMediaFoundationSample(SAMPLEINDEX sample, FileReader &file,
+ 		MPT_MF_CHECKED(mfSample->ConvertToContiguousBuffer(&buffer));
+ 		{
+ 			BYTE *data = NULL;
+-			DWORD dataSize = 0;
++			uint32 dataSize = 0;
+ 			MPT_MF_CHECKED(buffer->Lock(&data, NULL, &dataSize));
+ 			mpt::append(rawData, mpt::byte_cast<char*>(data), mpt::byte_cast<char*>(data + dataSize));
+ 			MPT_MF_CHECKED(buffer->Unlock());
+diff --git a/soundlib/Sndfile.cpp b/soundlib/Sndfile.cpp
+index bcb5db2..0f3ea39 100644
+--- a/soundlib/Sndfile.cpp
++++ b/soundlib/Sndfile.cpp
+@@ -747,7 +747,7 @@ bool CSoundFile::CreateInternal(FileReader file, ModLoadingFlags loadFlags)
+ 						mpt::ufmt::dec0<2>(plug + 1),
+ 						mpt::ToUnicode(mpt::Charset::UTF8, plugin.Info.szLibraryName),
+ 						mpt::ToUnicode(mpt::Charset::Locale, plugin.Info.szName));
+-					CMainFrame::GetMainFrame()->SetHelpText(mpt::ToCString(s));
++					CMainFrame::GetMainFrame()->SetHelpText(mpt::ToUnicode(s));
+ 				}
+ #endif // MODPLUG_TRACKER
+ 				CreateMixPluginProc(plugin, *this);
+diff --git a/soundlib/plugins/DigiBoosterEcho.cpp b/soundlib/plugins/DigiBoosterEcho.cpp
+index 2a2d167..424f769 100644
+--- a/soundlib/plugins/DigiBoosterEcho.cpp
++++ b/soundlib/plugins/DigiBoosterEcho.cpp
+@@ -153,34 +153,34 @@ void DigiBoosterEcho::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString DigiBoosterEcho::GetParamName(PlugParamIndex param)
++mpt::ustring DigiBoosterEcho::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kEchoDelay: return _T("Delay");
+-	case kEchoFeedback: return _T("Feedback");
+-	case kEchoMix: return _T("Wet / Dry Ratio");
+-	case kEchoCross: return _T("Cross Echo");
++	case kEchoDelay: return U_("Delay");
++	case kEchoFeedback: return U_("Feedback");
++	case kEchoMix: return U_("Wet / Dry Ratio");
++	case kEchoCross: return U_("Cross Echo");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString DigiBoosterEcho::GetParamLabel(PlugParamIndex param)
++mpt::ustring DigiBoosterEcho::GetParamLabel(PlugParamIndex param)
+ {
+ 	if(param == kEchoDelay)
+-		return _T("ms");
+-	return CString();
++		return U_("ms");
++	return mpt::ustring();
+ }
+ 
+ 
+-CString DigiBoosterEcho::GetParamDisplay(PlugParamIndex param)
++mpt::ustring DigiBoosterEcho::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	if(param == kEchoMix)
+ 	{
+ 		int wet = (m_chunk.param[kEchoMix] * 100) / 255;
+-		s.Format(_T("%d%% / %d%%"), wet, 100 - wet);
++		s = MPT_UFORMAT("{}% / {}%")(wet, 100 - wet);
+ 	} else if(param < kEchoNumParameters)
+ 	{
+ 		int val = m_chunk.param[param];
+@@ -190,7 +190,7 @@ CString DigiBoosterEcho::GetParamDisplay(PlugParamIndex param)
+ 				val = 167;
+ 			val *= 2;
+ 		}	
+-		s.Format(_T("%d"), val);
++		s = mpt::ufmt::val(val);
+ 	}
+ 	return s;
+ }
+diff --git a/soundlib/plugins/DigiBoosterEcho.h b/soundlib/plugins/DigiBoosterEcho.h
+index 9ea3868..cd4f093 100644
+--- a/soundlib/plugins/DigiBoosterEcho.h
++++ b/soundlib/plugins/DigiBoosterEcho.h
+@@ -96,15 +96,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Echo"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Echo"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/LFOPlugin.cpp b/soundlib/plugins/LFOPlugin.cpp
+index f9c3be3..7d19ebc 100644
+--- a/soundlib/plugins/LFOPlugin.cpp
++++ b/soundlib/plugins/LFOPlugin.cpp
+@@ -367,62 +367,62 @@ std::pair<PlugParamValue, PlugParamValue> LFOPlugin::GetParamUIRange(PlugParamIn
+ 		return {0.0f, 1.0f};
+ }
+ 
+-CString LFOPlugin::GetParamName(PlugParamIndex param)
++mpt::ustring LFOPlugin::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kAmplitude: return _T("Amplitude");
+-	case kOffset: return _T("Offset");
+-	case kFrequency: return _T("Frequency");
+-	case kTempoSync: return _T("Tempo Sync");
+-	case kWaveform: return _T("Waveform");
+-	case kPolarity: return _T("Polarity");
+-	case kBypassed: return _T("Bypassed");
+-	case kLoopMode: return _T("Loop Mode");
+-	case kCurrentPhase: return _T("Set LFO Phase");
++	case kAmplitude: return U_("Amplitude");
++	case kOffset: return U_("Offset");
++	case kFrequency: return U_("Frequency");
++	case kTempoSync: return U_("Tempo Sync");
++	case kWaveform: return U_("Waveform");
++	case kPolarity: return U_("Polarity");
++	case kBypassed: return U_("Bypassed");
++	case kLoopMode: return U_("Loop Mode");
++	case kCurrentPhase: return U_("Set LFO Phase");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString LFOPlugin::GetParamLabel(PlugParamIndex param)
++mpt::ustring LFOPlugin::GetParamLabel(PlugParamIndex param)
+ {
+ 	if(param == kFrequency)
+ 	{
+ 		if(m_tempoSync && m_computedFrequency > 0.0 && m_computedFrequency < 1.0)
+-			return _T("Beats Per Cycle");
++			return U_("Beats Per Cycle");
+ 		else if(m_tempoSync)
+-			return _T("Cycles Per Beat");
++			return U_("Cycles Per Beat");
+ 		else
+-			return _T("Hz");
++			return U_("Hz");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString LFOPlugin::GetParamDisplay(PlugParamIndex param)
++mpt::ustring LFOPlugin::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	if(param == kPolarity)
+ 	{
+-		return m_polarity ? _T("Inverted") : _T("Normal");
++		return m_polarity ? U_("Inverted") : U_("Normal");
+ 	} else if(param == kTempoSync)
+ 	{
+-		return m_tempoSync ? _T("Yes") : _T("No");
++		return m_tempoSync ? U_("Yes") : U_("No");
+ 	} else if(param == kBypassed)
+ 	{
+-		return m_bypassed ? _T("Yes") : _T("No");
++		return m_bypassed ? U_("Yes") : U_("No");
+ 	} else if(param == kWaveform)
+ 	{
+-		static constexpr const TCHAR * const waveforms[] = { _T("Sine"), _T("Triangle"), _T("Saw"), _T("Square"), _T("Noise"), _T("Smoothed Noise") };
++		static constexpr const mpt::uchar * const waveforms[] = { UL_("Sine"), UL_("Triangle"), UL_("Saw"), UL_("Square"), UL_("Noise"), UL_("Smoothed Noise") };
+ 		if(m_waveForm < static_cast<int>(std::size(waveforms)))
+ 			return waveforms[m_waveForm];
+ 	} else if(param == kLoopMode)
+ 	{
+-		return m_oneshot ? _T("One-Shot") : _T("Looped");
++		return m_oneshot ? U_("One-Shot") : U_("Looped");
+ 	} else if(param == kCurrentPhase)
+ 	{
+-		return _T("Write-Only");
++		return U_("Write-Only");
+ 	} else if(param < kLFONumParameters)
+ 	{
+ 		auto val = GetParameter(param);
+@@ -434,7 +434,7 @@ CString LFOPlugin::GetParamDisplay(PlugParamIndex param)
+ 			if(m_tempoSync && val > 0.0f && val < 1.0f)
+ 				val = static_cast<PlugParamValue>(1.0 / m_computedFrequency);
+ 		}
+-		s.Format(_T("%.3f"), val);
++		s = mpt::ufmt::fix(val, 3);
+ 	}
+ 	return s;
+ }
+diff --git a/soundlib/plugins/LFOPlugin.h b/soundlib/plugins/LFOPlugin.h
+index 2adf42c..3771cda 100644
+--- a/soundlib/plugins/LFOPlugin.h
++++ b/soundlib/plugins/LFOPlugin.h
+@@ -111,16 +111,16 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("LFO"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("LFO"); }
+ 
+ 	std::pair<PlugParamValue, PlugParamValue> GetParamUIRange(PlugParamIndex param) override;
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return true; }
+ protected:
+diff --git a/soundlib/plugins/PlugInterface.cpp b/soundlib/plugins/PlugInterface.cpp
+index e52d026..374ebb8 100644
+--- a/soundlib/plugins/PlugInterface.cpp
++++ b/soundlib/plugins/PlugInterface.cpp
+@@ -102,46 +102,46 @@ void IMixPlugin::SetScaledUIParam(PlugParamIndex param, PlugParamValue value)
+ }
+ 
+ 
+-CString IMixPlugin::GetFormattedParamName(PlugParamIndex param)
++mpt::ustring IMixPlugin::GetFormattedParamName(PlugParamIndex param)
+ {
+-	CString paramName = GetParamName(param);
+-	CString name;
+-	if(paramName.IsEmpty())
++	mpt::ustring paramName = GetParamName(param);
++	mpt::ustring name;
++	if(paramName.empty())
+ 	{
+-		name = MPT_CFORMAT("{}: Parameter {}")(mpt::cfmt::dec0<2>(param), mpt::cfmt::dec0<2>(param));
++		name = MPT_UFORMAT("{}: Parameter {}")(mpt::ufmt::dec0<2>(param), mpt::ufmt::dec0<2>(param));
+ 	} else
+ 	{
+-		name = MPT_CFORMAT("{}: {}")(mpt::cfmt::dec0<2>(param), paramName);
++		name = MPT_UFORMAT("{}: {}")(mpt::ufmt::dec0<2>(param), paramName);
+ 	}
+ 	return name;
+ }
+ 
+ 
+ // Get a parameter's current value, represented by the plugin.
+-CString IMixPlugin::GetFormattedParamValue(PlugParamIndex param)
++mpt::ustring IMixPlugin::GetFormattedParamValue(PlugParamIndex param)
+ {
+-	CString paramDisplay = GetParamDisplay(param);
+-	CString paramUnits = GetParamLabel(param);
+-	paramDisplay.Trim();
+-	paramUnits.Trim();
+-	paramDisplay += _T(" ") + paramUnits;
++	mpt::ustring paramDisplay = GetParamDisplay(param);
++	mpt::ustring paramUnits = GetParamLabel(param);
++	paramDisplay = mpt::trim(paramDisplay);
++	paramUnits = mpt::trim(paramUnits);
++	paramDisplay += U_(" ") + paramUnits;
+ 
+ 	return paramDisplay;
+ }
+ 
+ 
+-CString IMixPlugin::GetFormattedProgramName(int32 index)
++mpt::ustring IMixPlugin::GetFormattedProgramName(int32 index)
+ {
+-	CString rawname = GetProgramName(index);
++	mpt::ustring rawname = GetProgramName(index);
+ 	
+ 	// Let's start counting at 1 for the program name (as most MIDI hardware / software does)
+ 	index++;
+ 
+-	CString formattedName;
++	mpt::ustring formattedName;
+ 	if(rawname[0] >= 0 && rawname[0] < _T(' '))
+-		formattedName = MPT_CFORMAT("{} - Program {}")(mpt::cfmt::dec0<2>(index), index);
++		formattedName = MPT_UFORMAT("{} - Program {}")(mpt::ufmt::dec0<2>(index), index);
+ 	else
+-		formattedName = MPT_CFORMAT("{} - {}")(mpt::cfmt::dec0<2>(index), rawname);
++		formattedName = MPT_UFORMAT("{} - {}")(mpt::ufmt::dec0<2>(index), rawname);
+ 
+ 	return formattedName;
+ }
+@@ -641,7 +641,7 @@ bool IMixPlugin::SaveProgram()
+ 		defaultDir = m_Factory.dllPath.GetDirectoryWithDrive();
+ 	}
+ 
+-	CString progName = m_Factory.libraryName.ToCString() + _T(" - ") + GetCurrentProgramName();
++	mpt::ustring progName = m_Factory.libraryName.ToUnicode() + U_(" - ") + GetCurrentProgramName();
+ 	progName = mpt::SanitizePathComponent(progName);
+ 
+ 	FileDialog dlg = SaveFileDialog()
+diff --git a/soundlib/plugins/PlugInterface.h b/soundlib/plugins/PlugInterface.h
+index 7561f94..bdb2438 100644
+--- a/soundlib/plugins/PlugInterface.h
++++ b/soundlib/plugins/PlugInterface.h
+@@ -188,7 +188,7 @@ public:
+ 	bool SaveProgram();
+ 	bool LoadProgram(mpt::PathString fileName = mpt::PathString());
+ 
+-	virtual CString GetDefaultEffectName() = 0;
++	virtual mpt::ustring GetDefaultEffectName() = 0;
+ 
+ 	// Cache a range of names, in case one-by-one retrieval would be slow (e.g. when using plugin bridge)
+ 	virtual void CacheProgramNames(int32 /*firstProg*/, int32 /*lastProg*/) { }
+@@ -200,15 +200,15 @@ public:
+ 	PlugParamValue GetScaledUIParam(PlugParamIndex param);
+ 	void SetScaledUIParam(PlugParamIndex param, PlugParamValue value);
+ 
+-	virtual CString GetParamName(PlugParamIndex param) = 0;
+-	virtual CString GetParamLabel(PlugParamIndex param) = 0;
+-	virtual CString GetParamDisplay(PlugParamIndex param) = 0;
+-	CString GetFormattedParamName(PlugParamIndex param);
+-	CString GetFormattedParamValue(PlugParamIndex param);
+-	virtual CString GetCurrentProgramName() = 0;
+-	virtual void SetCurrentProgramName(const CString &name) = 0;
+-	virtual CString GetProgramName(int32 program) = 0;
+-	CString GetFormattedProgramName(int32 index);
++	virtual mpt::ustring GetParamName(PlugParamIndex param) = 0;
++	virtual mpt::ustring GetParamLabel(PlugParamIndex param) = 0;
++	virtual mpt::ustring GetParamDisplay(PlugParamIndex param) = 0;
++	mpt::ustring GetFormattedParamName(PlugParamIndex param);
++	mpt::ustring GetFormattedParamValue(PlugParamIndex param);
++	virtual mpt::ustring GetCurrentProgramName() = 0;
++	virtual void SetCurrentProgramName(const mpt::ustring &name) = 0;
++	virtual mpt::ustring GetProgramName(int32 program) = 0;
++	mpt::ustring GetFormattedProgramName(int32 index);
+ 
+ 	virtual bool HasEditor() const = 0;
+ protected:
+diff --git a/soundlib/plugins/PluginManager.h b/soundlib/plugins/PluginManager.h
+index 7304282..b1c0611 100644
+--- a/soundlib/plugins/PluginManager.h
++++ b/soundlib/plugins/PluginManager.h
+@@ -65,7 +65,7 @@ public:
+ 	mpt::PathString dllPath;            // Full path name
+ #ifdef MODPLUG_TRACKER
+ 	mpt::ustring tags;                  // User tags
+-	CString vendor;
++	mpt::ustring vendor;
+ #endif // MODPLUG_TRACKER
+ 	int32 pluginId1 = 0;                // Plugin type (kEffectMagic, kDmoMagic, ...)
+ 	int32 pluginId2 = 0;                // Plugin unique ID
+diff --git a/soundlib/plugins/SymMODEcho.cpp b/soundlib/plugins/SymMODEcho.cpp
+index 96f57a8..516eba7 100644
+--- a/soundlib/plugins/SymMODEcho.cpp
++++ b/soundlib/plugins/SymMODEcho.cpp
+@@ -181,48 +181,48 @@ std::pair<PlugParamValue, PlugParamValue> SymMODEcho::GetParamUIRange(PlugParamI
+ 		return {0.0f, 1.0f};
+ }
+ 
+-CString SymMODEcho::GetParamName(PlugParamIndex param)
++mpt::ustring SymMODEcho::GetParamName(PlugParamIndex param)
+ {
+ 	switch (param)
+ 	{
+-	case kEchoType: return _T("Type");
+-	case kEchoDelay: return _T("Delay");
+-	case kEchoFeedback: return _T("Feedback");
++	case kEchoType: return U_("Type");
++	case kEchoDelay: return U_("Delay");
++	case kEchoFeedback: return U_("Feedback");
+ 	case kEchoNumParameters: break;
+ 	}
+ 	return {};
+ }
+ 
+ 
+-CString SymMODEcho::GetParamLabel(PlugParamIndex param)
++mpt::ustring SymMODEcho::GetParamLabel(PlugParamIndex param)
+ {
+ 	if(param == kEchoDelay)
+-		return _T("Ticks");
++		return U_("Ticks");
+ 	if(param == kEchoFeedback)
+-		return _T("%");
++		return U_("%");
+ 	return {};
+ }
+ 
+ 
+-CString SymMODEcho::GetParamDisplay(PlugParamIndex param)
++mpt::ustring SymMODEcho::GetParamDisplay(PlugParamIndex param)
+ {
+ 	switch(static_cast<Parameters>(param))
+ 	{
+ 	case kEchoType:
+ 		switch(GetDSPType())
+ 		{
+-			case DSPType::Off: return _T("Off");
+-			case DSPType::Normal: return _T("Normal");
+-			case DSPType::Cross: return _T("Cross");
+-			case DSPType::Cross2: return _T("Cross 2");
+-			case DSPType::Center: return _T("Center");
++			case DSPType::Off: return U_("Off");
++			case DSPType::Normal: return U_("Normal");
++			case DSPType::Cross: return U_("Cross");
++			case DSPType::Cross2: return U_("Cross 2");
++			case DSPType::Center: return U_("Center");
+ 			case DSPType::NumTypes: break;
+ 		}
+ 		break;
+ 	case kEchoDelay:
+-		return mpt::cfmt::val(m_chunk.param[kEchoDelay]);
++		return mpt::ufmt::val(m_chunk.param[kEchoDelay]);
+ 	case kEchoFeedback:
+-		return mpt::cfmt::flt(m_feedback * 100.0f, 4);
++		return mpt::ufmt::flt(m_feedback * 100.0f, 4);
+ 	case kEchoNumParameters:
+ 		break;
+ 	}
+diff --git a/soundlib/plugins/SymMODEcho.h b/soundlib/plugins/SymMODEcho.h
+index 2457a07..5e4e851 100644
+--- a/soundlib/plugins/SymMODEcho.h
++++ b/soundlib/plugins/SymMODEcho.h
+@@ -96,16 +96,16 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Echo"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Echo"); }
+ 
+ 	std::pair<PlugParamValue, PlugParamValue> GetParamUIRange(PlugParamIndex param) override;
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString&) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring&) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/Chorus.cpp b/soundlib/plugins/dmo/Chorus.cpp
+index a419bff..c8329e4 100644
+--- a/soundlib/plugins/dmo/Chorus.cpp
++++ b/soundlib/plugins/dmo/Chorus.cpp
+@@ -206,44 +206,44 @@ void Chorus::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Chorus::GetParamName(PlugParamIndex param)
++mpt::ustring Chorus::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kChorusWetDryMix: return _T("WetDryMix");
+-	case kChorusDepth: return _T("Depth");
+-	case kChorusFrequency: return _T("Frequency");
+-	case kChorusWaveShape: return _T("WaveShape");
+-	case kChorusPhase: return _T("Phase");
+-	case kChorusFeedback: return _T("Feedback");
+-	case kChorusDelay: return _T("Delay");
++	case kChorusWetDryMix: return U_("WetDryMix");
++	case kChorusDepth: return U_("Depth");
++	case kChorusFrequency: return U_("Frequency");
++	case kChorusWaveShape: return U_("WaveShape");
++	case kChorusPhase: return U_("Phase");
++	case kChorusFeedback: return U_("Feedback");
++	case kChorusDelay: return U_("Delay");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Chorus::GetParamLabel(PlugParamIndex param)
++mpt::ustring Chorus::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kChorusWetDryMix:
+ 	case kChorusDepth:
+ 	case kChorusFeedback:
+-		return _T("%");
++		return U_("%");
+ 	case kChorusFrequency:
+-		return _T("Hz");
++		return U_("Hz");
+ 	case kChorusPhase:
+-		return mpt::ToCString(MPT_UTF8("\xC2\xB0"));  // U+00B0 DEGREE SIGN
++		return mpt::ToUnicode(MPT_UTF8("\xC2\xB0"));  // U+00B0 DEGREE SIGN
+ 	case kChorusDelay:
+-		return _T("ms");
++		return U_("ms");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Chorus::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Chorus::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	float value = m_param[param];
+ 	switch(param)
+ 	{
+@@ -255,16 +255,16 @@ CString Chorus::GetParamDisplay(PlugParamIndex param)
+ 		value = FrequencyInHertz();
+ 		break;
+ 	case kChorusWaveShape:
+-		return (value < 1) ? _T("Square") : _T("Sine");
++		return (value < 1) ? U_("Square") : U_("Sine");
+ 		break;
+ 	case kChorusPhase:
+ 		switch(Phase())
+ 		{
+-		case 0: return _T("-180");
+-		case 1: return _T("-90");
+-		case 2: return _T("0");
+-		case 3: return _T("90");
+-		case 4: return _T("180");
++		case 0: return U_("-180");
++		case 1: return U_("-90");
++		case 2: return U_("0");
++		case 3: return U_("90");
++		case 4: return U_("180");
+ 		}
+ 		break;
+ 	case kChorusFeedback:
+@@ -273,7 +273,7 @@ CString Chorus::GetParamDisplay(PlugParamIndex param)
+ 	case kChorusDelay:
+ 		value = Delay();
+ 	}
+-	s.Format(_T("%.2f"), value);
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/Chorus.h b/soundlib/plugins/dmo/Chorus.h
+index 4734290..e116572 100644
+--- a/soundlib/plugins/dmo/Chorus.h
++++ b/soundlib/plugins/dmo/Chorus.h
+@@ -82,15 +82,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Chorus"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Chorus"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/Compressor.cpp b/soundlib/plugins/dmo/Compressor.cpp
+index 638f5a1..f5d48c8 100644
+--- a/soundlib/plugins/dmo/Compressor.cpp
++++ b/soundlib/plugins/dmo/Compressor.cpp
+@@ -151,40 +151,40 @@ void Compressor::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Compressor::GetParamName(PlugParamIndex param)
++mpt::ustring Compressor::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kCompGain: return _T("Gain");
+-	case kCompAttack: return _T("Attack");
+-	case kCompRelease: return _T("Release");
+-	case kCompThreshold: return _T("Threshold");
+-	case kCompRatio: return _T("Ratio");
+-	case kCompPredelay: return _T("Predelay");
++	case kCompGain: return U_("Gain");
++	case kCompAttack: return U_("Attack");
++	case kCompRelease: return U_("Release");
++	case kCompThreshold: return U_("Threshold");
++	case kCompRatio: return U_("Ratio");
++	case kCompPredelay: return U_("Predelay");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Compressor::GetParamLabel(PlugParamIndex param)
++mpt::ustring Compressor::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kCompGain:
+ 	case kCompThreshold:
+-		return _T("dB");
++		return U_("dB");
+ 	case kCompAttack:
+ 	case kCompRelease:
+ 	case kCompPredelay:
+-		return _T("ms");
++		return U_("ms");
+ 	case kCompRatio:
+-		return _T(": 1");
++		return U_(": 1");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Compressor::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Compressor::GetParamDisplay(PlugParamIndex param)
+ {
+ 	float value = m_param[param];
+ 	switch(param)
+@@ -208,8 +208,8 @@ CString Compressor::GetParamDisplay(PlugParamIndex param)
+ 		value = PreDelay();
+ 		break;
+ 	}
+-	CString s;
+-	s.Format(_T("%.2f"), value);
++	mpt::ustring s;
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/Compressor.h b/soundlib/plugins/dmo/Compressor.h
+index 86d7816..0ad840e 100644
+--- a/soundlib/plugins/dmo/Compressor.h
++++ b/soundlib/plugins/dmo/Compressor.h
+@@ -75,15 +75,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Compressor"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Compressor"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/DMOPlugin.cpp b/soundlib/plugins/dmo/DMOPlugin.cpp
+index 1c7e1f3..9ae21bc 100644
+--- a/soundlib/plugins/dmo/DMOPlugin.cpp
++++ b/soundlib/plugins/dmo/DMOPlugin.cpp
+@@ -49,7 +49,7 @@ IMixPlugin* DMOPlugin::Create(VSTPluginLib &factory, CSoundFile &sndFile, SNDMIX
+ 		} else pMO = nullptr;
+ 		if ((pMO) && (pMOIP))
+ 		{
+-			DWORD dwInputs = 0, dwOutputs = 0;
++			uint32 dwInputs = 0, dwOutputs = 0;
+ 			pMO->GetStreamCount(&dwInputs, &dwOutputs);
+ 			if (dwInputs == 1 && dwOutputs == 1)
+ 			{
+@@ -195,7 +195,7 @@ void DMOPlugin::Process(float *pOutL, float *pOutR, uint32 numFrames)
+ 
+ PlugParamIndex DMOPlugin::GetNumParameters() const
+ {
+-	DWORD dwParamCount = 0;
++	uint32 dwParamCount = 0;
+ 	m_pParamInfo->GetParamCount(&dwParamCount);
+ 	return dwParamCount;
+ }
+@@ -320,7 +320,7 @@ void DMOPlugin::Suspend()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString DMOPlugin::GetParamName(PlugParamIndex param)
++mpt::ustring DMOPlugin::GetParamName(PlugParamIndex param)
+ {
+ 	if(param < GetNumParameters() && m_pParamInfo != nullptr)
+ 	{
+@@ -330,15 +330,15 @@ CString DMOPlugin::GetParamName(PlugParamIndex param)
+ 		mpi.szLabel[0] = 0;
+ 		if(m_pParamInfo->GetParamInfo(param, &mpi) == S_OK)
+ 		{
+-			return mpt::ToCString(mpi.szLabel);
++			return mpt::ToUnicode(mpi.szLabel);
+ 		}
+ 	}
+-	return CString();
++	return mpt::ustring();
+ 
+ }
+ 
+ 
+-CString DMOPlugin::GetParamLabel(PlugParamIndex param)
++mpt::ustring DMOPlugin::GetParamLabel(PlugParamIndex param)
+ {
+ 	if(param < GetNumParameters() && m_pParamInfo != nullptr)
+ 	{
+@@ -348,14 +348,14 @@ CString DMOPlugin::GetParamLabel(PlugParamIndex param)
+ 		mpi.szLabel[0] = 0;
+ 		if(m_pParamInfo->GetParamInfo(param, &mpi) == S_OK)
+ 		{
+-			return mpt::ToCString(mpi.szUnitText);
++			return mpt::ToUnicode(mpi.szUnitText);
+ 		}
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString DMOPlugin::GetParamDisplay(PlugParamIndex param)
++mpt::ustring DMOPlugin::GetParamDisplay(PlugParamIndex param)
+ {
+ 	if(param < GetNumParameters() && m_pParamInfo != nullptr && m_pMediaParams != nullptr)
+ 	{
+@@ -372,14 +372,14 @@ CString DMOPlugin::GetParamDisplay(PlugParamIndex param)
+ 				{
+ 				case MPT_FLOAT:
+ 					{
+-						CString s;
+-						s.Format(_T("%.2f"), md);
++						mpt::ustring s;
++						s = mpt::ufmt::fix(md, 2);
+ 						return s;
+ 					}
+ 					break;
+ 
+ 				case MPT_BOOL:
+-					return ((int)md) ? _T("Yes") : _T("No");
++					return ((int)md) ? U_("Yes") : U_("No");
+ 					break;
+ 
+ 				case MPT_ENUM:
+@@ -393,15 +393,15 @@ CString DMOPlugin::GetParamDisplay(PlugParamIndex param)
+ 						{
+ 							text += wcslen(text) + 1;
+ 						}
+-						return mpt::ToCString(text);
++						return mpt::ToUnicode(text);
+ 					}
+ 					break;
+ 
+ 				case MPT_INT:
+ 				default:
+ 					{
+-						CString s;
+-						s.Format(_T("%d"), mpt::saturate_round<int>(md));
++						mpt::ustring s;
++						s = mpt::ufmt::val(mpt::saturate_round<int>(md));
+ 						return s;
+ 					}
+ 					break;
+@@ -409,7 +409,7 @@ CString DMOPlugin::GetParamDisplay(PlugParamIndex param)
+ 			}
+ 		}
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ #endif // MODPLUG_TRACKER
+diff --git a/soundlib/plugins/dmo/DMOPlugin.h b/soundlib/plugins/dmo/DMOPlugin.h
+index 39cbc42..969af75 100644
+--- a/soundlib/plugins/dmo/DMOPlugin.h
++++ b/soundlib/plugins/dmo/DMOPlugin.h
+@@ -75,16 +75,16 @@ public:
+ 	bool ShouldProcessSilence()  override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return CString(); }
++	mpt::ustring GetDefaultEffectName() override { return mpt::ustring(); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex param) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex param) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+ 	// TODO we could simply add our own preset mechanism. But is it really useful for these plugins?
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/Distortion.cpp b/soundlib/plugins/dmo/Distortion.cpp
+index 7f1ed81..8a50c71 100644
+--- a/soundlib/plugins/dmo/Distortion.cpp
++++ b/soundlib/plugins/dmo/Distortion.cpp
+@@ -122,36 +122,36 @@ void Distortion::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Distortion::GetParamName(PlugParamIndex param)
++mpt::ustring Distortion::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kDistGain: return _T("Gain");
+-	case kDistEdge: return _T("Edge");
+-	case kDistPreLowpassCutoff: return _T("PreLowpassCutoff");
+-	case kDistPostEQCenterFrequency: return _T("PostEQCenterFrequency");
+-	case kDistPostEQBandwidth: return _T("PostEQBandwidth");
++	case kDistGain: return U_("Gain");
++	case kDistEdge: return U_("Edge");
++	case kDistPreLowpassCutoff: return U_("PreLowpassCutoff");
++	case kDistPostEQCenterFrequency: return U_("PostEQCenterFrequency");
++	case kDistPostEQBandwidth: return U_("PostEQBandwidth");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Distortion::GetParamLabel(PlugParamIndex param)
++mpt::ustring Distortion::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kDistGain:
+-		return _T("dB");
++		return U_("dB");
+ 	case kDistPreLowpassCutoff:
+ 	case kDistPostEQCenterFrequency:
+ 	case kDistPostEQBandwidth:
+-		return _T("Hz");
++		return U_("Hz");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Distortion::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Distortion::GetParamDisplay(PlugParamIndex param)
+ {
+ 	float value = m_param[param];
+ 	switch(param)
+@@ -168,8 +168,8 @@ CString Distortion::GetParamDisplay(PlugParamIndex param)
+ 		value = FreqInHertz(value);
+ 		break;
+ 	}
+-	CString s;
+-	s.Format(_T("%.2f"), value);
++	mpt::ustring s;
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/Distortion.h b/soundlib/plugins/dmo/Distortion.h
+index a23738f..e96004e 100644
+--- a/soundlib/plugins/dmo/Distortion.h
++++ b/soundlib/plugins/dmo/Distortion.h
+@@ -67,15 +67,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Distortion"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Distortion"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/Echo.cpp b/soundlib/plugins/dmo/Echo.cpp
+index 1344223..408879f 100644
+--- a/soundlib/plugins/dmo/Echo.cpp
++++ b/soundlib/plugins/dmo/Echo.cpp
+@@ -135,52 +135,52 @@ void Echo::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Echo::GetParamName(PlugParamIndex param)
++mpt::ustring Echo::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kEchoWetDry: return _T("WetDryMix");
+-	case kEchoFeedback: return _T("Feedback");
+-	case kEchoLeftDelay: return _T("LeftDelay");
+-	case kEchoRightDelay: return _T("RightDelay");
+-	case kEchoPanDelay: return _T("PanDelay");
++	case kEchoWetDry: return U_("WetDryMix");
++	case kEchoFeedback: return U_("Feedback");
++	case kEchoLeftDelay: return U_("LeftDelay");
++	case kEchoRightDelay: return U_("RightDelay");
++	case kEchoPanDelay: return U_("PanDelay");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Echo::GetParamLabel(PlugParamIndex param)
++mpt::ustring Echo::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kEchoFeedback:
+-		return _T("%");
++		return U_("%");
+ 	case kEchoLeftDelay:
+ 	case kEchoRightDelay:
+-		return _T("ms");
++		return U_("ms");
+ 	default:
+-		return CString{};
++		return mpt::ustring{};
+ 	}
+ }
+ 
+ 
+-CString Echo::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Echo::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	switch(param)
+ 	{
+ 	case kEchoWetDry:
+-		s.Format(_T("%.1f : %.1f"), m_param[param] * 100.0f, 100.0f - m_param[param] * 100.0f);
++		s = MPT_UFORMAT("{} : {}")(mpt::ufmt::fix(m_param[param] * 100.0f, 1), mpt::ufmt::fix(100.0f - m_param[param] * 100.0f, 1));
+ 		break;
+ 	case kEchoFeedback:
+-		s.Format(_T("%.2f"), m_param[param] * 100.0f);
++		s = mpt::ufmt::fix(m_param[param] * 100.0f, 2);
+ 		break;
+ 	case kEchoLeftDelay:
+ 	case kEchoRightDelay:
+-		s.Format(_T("%.2f"), 1.0f + m_param[param] * 1999.0f);
++		s = mpt::ufmt::fix(1.0f + m_param[param] * 1999.0f, 2);
+ 		break;
+ 	case kEchoPanDelay:
+-		s = (m_param[param] <= 0.5) ? _T("No") : _T("Yes");
++		s = (m_param[param] <= 0.5) ? U_("No") : U_("Yes");
+ 	}
+ 	return s;
+ }
+diff --git a/soundlib/plugins/dmo/Echo.h b/soundlib/plugins/dmo/Echo.h
+index 99b52e3..fa645e3 100644
+--- a/soundlib/plugins/dmo/Echo.h
++++ b/soundlib/plugins/dmo/Echo.h
+@@ -71,15 +71,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Echo"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Echo"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/Flanger.cpp b/soundlib/plugins/dmo/Flanger.cpp
+index 5791e62..9cc61db 100644
+--- a/soundlib/plugins/dmo/Flanger.cpp
++++ b/soundlib/plugins/dmo/Flanger.cpp
+@@ -75,44 +75,44 @@ void Flanger::SetParameter(PlugParamIndex index, PlugParamValue value, PlayState
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Flanger::GetParamName(PlugParamIndex param)
++mpt::ustring Flanger::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kFlangerWetDryMix: return _T("WetDryMix");
+-	case kFlangerWaveShape: return _T("WaveShape");
+-	case kFlangerFrequency: return _T("Frequency");
+-	case kFlangerDepth: return _T("Depth");
+-	case kFlangerPhase: return _T("Phase");
+-	case kFlangerFeedback: return _T("Feedback");
+-	case kFlangerDelay: return _T("Delay");
++	case kFlangerWetDryMix: return U_("WetDryMix");
++	case kFlangerWaveShape: return U_("WaveShape");
++	case kFlangerFrequency: return U_("Frequency");
++	case kFlangerDepth: return U_("Depth");
++	case kFlangerPhase: return U_("Phase");
++	case kFlangerFeedback: return U_("Feedback");
++	case kFlangerDelay: return U_("Delay");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Flanger::GetParamLabel(PlugParamIndex param)
++mpt::ustring Flanger::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kFlangerWetDryMix:
+ 	case kFlangerDepth:
+ 	case kFlangerFeedback:
+-		return _T("%");
++		return U_("%");
+ 	case kFlangerFrequency:
+-		return _T("Hz");
++		return U_("Hz");
+ 	case kFlangerPhase:
+-		return mpt::ToCString(MPT_UTF8("\xC2\xB0"));  // U+00B0 DEGREE SIGN
++		return mpt::ToUnicode(MPT_UTF8("\xC2\xB0"));  // U+00B0 DEGREE SIGN
+ 	case kFlangerDelay:
+-		return _T("ms");
++		return U_("ms");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Flanger::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Flanger::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	float value = m_param[param];
+ 	switch(param)
+ 	{
+@@ -124,16 +124,16 @@ CString Flanger::GetParamDisplay(PlugParamIndex param)
+ 		value = FrequencyInHertz();
+ 		break;
+ 	case kFlangerWaveShape:
+-		return (value < 1) ? _T("Square") : _T("Sine");
++		return (value < 1) ? U_("Square") : U_("Sine");
+ 		break;
+ 	case kFlangerPhase:
+ 		switch(Phase())
+ 		{
+-		case 0: return _T("-180");
+-		case 1: return _T("-90");
+-		case 2: return _T("0");
+-		case 3: return _T("90");
+-		case 4: return _T("180");
++		case 0: return U_("-180");
++		case 1: return U_("-90");
++		case 2: return U_("0");
++		case 3: return U_("90");
++		case 4: return U_("180");
+ 		}
+ 		break;
+ 	case kFlangerFeedback:
+@@ -142,7 +142,7 @@ CString Flanger::GetParamDisplay(PlugParamIndex param)
+ 	case kFlangerDelay:
+ 		value = Delay();
+ 	}
+-	s.Format(_T("%.2f"), value);
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/Flanger.h b/soundlib/plugins/dmo/Flanger.h
+index 1c844f0..2e4f50b 100644
+--- a/soundlib/plugins/dmo/Flanger.h
++++ b/soundlib/plugins/dmo/Flanger.h
+@@ -48,11 +48,11 @@ public:
+ 	void SetParameter(PlugParamIndex index, PlugParamValue value, PlayState * = nullptr, CHANNELINDEX = CHANNELINDEX_INVALID) override;
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Flanger"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Flanger"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ #endif
+ 
+ protected:
+diff --git a/soundlib/plugins/dmo/Gargle.cpp b/soundlib/plugins/dmo/Gargle.cpp
+index ce792eb..06311a8 100644
+--- a/soundlib/plugins/dmo/Gargle.cpp
++++ b/soundlib/plugins/dmo/Gargle.cpp
+@@ -139,37 +139,37 @@ void Gargle::Resume()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString Gargle::GetParamName(PlugParamIndex param)
++mpt::ustring Gargle::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kGargleRate: return _T("Rate");
+-	case kGargleWaveShape: return _T("WaveShape");
++	case kGargleRate: return U_("Rate");
++	case kGargleWaveShape: return U_("WaveShape");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Gargle::GetParamLabel(PlugParamIndex param)
++mpt::ustring Gargle::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kGargleRate: return _T("Hz");
++	case kGargleRate: return U_("Hz");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString Gargle::GetParamDisplay(PlugParamIndex param)
++mpt::ustring Gargle::GetParamDisplay(PlugParamIndex param)
+ {
+-	CString s;
++	mpt::ustring s;
+ 	switch(param)
+ 	{
+ 	case kGargleRate:
+-		s.Format(_T("%u"), RateInHertz());
++		s = mpt::ufmt::val(RateInHertz());
+ 		break;
+ 	case kGargleWaveShape:
+-		return (m_param[param] < 0.5) ? _T("Triangle") : _T("Square");
++		return (m_param[param] < 0.5) ? U_("Triangle") : U_("Square");
+ 	}
+ 	return s;
+ }
+diff --git a/soundlib/plugins/dmo/Gargle.h b/soundlib/plugins/dmo/Gargle.h
+index 3fc93a1..6c0aff3 100644
+--- a/soundlib/plugins/dmo/Gargle.h
++++ b/soundlib/plugins/dmo/Gargle.h
+@@ -61,15 +61,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("Gargle"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("Gargle"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/I3DL2Reverb.cpp b/soundlib/plugins/dmo/I3DL2Reverb.cpp
+index 80d16df..0b0fb5c 100644
+--- a/soundlib/plugins/dmo/I3DL2Reverb.cpp
++++ b/soundlib/plugins/dmo/I3DL2Reverb.cpp
+@@ -403,29 +403,29 @@ void I3DL2Reverb::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString I3DL2Reverb::GetParamName(PlugParamIndex param)
++mpt::ustring I3DL2Reverb::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kI3DL2ReverbRoom: return _T("Room");
+-	case kI3DL2ReverbRoomHF: return _T("RoomHF");
+-	case kI3DL2ReverbRoomRolloffFactor: return _T("RoomRolloffFactor");
+-	case kI3DL2ReverbDecayTime: return _T("DecayTime");
+-	case kI3DL2ReverbDecayHFRatio: return _T("DecayHFRatio");
+-	case kI3DL2ReverbReflections: return _T("Reflections");
+-	case kI3DL2ReverbReflectionsDelay: return _T("ReflectionsDelay");
+-	case kI3DL2ReverbReverb: return _T("Reverb");
+-	case kI3DL2ReverbReverbDelay: return _T("ReverbDelay");
+-	case kI3DL2ReverbDiffusion: return _T("Diffusion");
+-	case kI3DL2ReverbDensity: return _T("Density");
+-	case kI3DL2ReverbHFReference: return _T("HFRefrence");
+-	case kI3DL2ReverbQuality: return _T("Quality");
++	case kI3DL2ReverbRoom: return U_("Room");
++	case kI3DL2ReverbRoomHF: return U_("RoomHF");
++	case kI3DL2ReverbRoomRolloffFactor: return U_("RoomRolloffFactor");
++	case kI3DL2ReverbDecayTime: return U_("DecayTime");
++	case kI3DL2ReverbDecayHFRatio: return U_("DecayHFRatio");
++	case kI3DL2ReverbReflections: return U_("Reflections");
++	case kI3DL2ReverbReflectionsDelay: return U_("ReflectionsDelay");
++	case kI3DL2ReverbReverb: return U_("Reverb");
++	case kI3DL2ReverbReverbDelay: return U_("ReverbDelay");
++	case kI3DL2ReverbDiffusion: return U_("Diffusion");
++	case kI3DL2ReverbDensity: return U_("Density");
++	case kI3DL2ReverbHFReference: return U_("HFRefrence");
++	case kI3DL2ReverbQuality: return U_("Quality");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString I3DL2Reverb::GetParamLabel(PlugParamIndex param)
++mpt::ustring I3DL2Reverb::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+@@ -433,24 +433,24 @@ CString I3DL2Reverb::GetParamLabel(PlugParamIndex param)
+ 	case kI3DL2ReverbRoomHF:
+ 	case kI3DL2ReverbReflections:
+ 	case kI3DL2ReverbReverb:
+-		return _T("dB");
++		return U_("dB");
+ 	case kI3DL2ReverbDecayTime:
+ 	case kI3DL2ReverbReflectionsDelay:
+ 	case kI3DL2ReverbReverbDelay:
+-		return _T("s");
++		return U_("s");
+ 	case kI3DL2ReverbDiffusion:
+ 	case kI3DL2ReverbDensity:
+-		return _T("%");
++		return U_("%");
+ 	case kI3DL2ReverbHFReference:
+-		return _T("Hz");
++		return U_("Hz");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString I3DL2Reverb::GetParamDisplay(PlugParamIndex param)
++mpt::ustring I3DL2Reverb::GetParamDisplay(PlugParamIndex param)
+ {
+-	static constexpr const TCHAR * const modes[] = { _T("LQ"), _T("LQ+"), _T("HQ"), _T("HQ+") };
++	static constexpr const mpt::uchar * const modes[] = { UL_("LQ"), UL_("LQ+"), UL_("HQ"), UL_("HQ+") };
+ 	float value = m_param[param];
+ 	switch(param)
+ 	{
+@@ -468,21 +468,21 @@ CString I3DL2Reverb::GetParamDisplay(PlugParamIndex param)
+ 	case kI3DL2ReverbHFReference: value = HFReference(); break;
+ 	case kI3DL2ReverbQuality: return modes[Quality() % 4u];
+ 	}
+-	CString s;
+-	s.Format(_T("%.2f"), value);
++	mpt::ustring s;
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+ 
+-CString I3DL2Reverb::GetCurrentProgramName()
++mpt::ustring I3DL2Reverb::GetCurrentProgramName()
+ {
+ 	return GetProgramName(m_program);
+ }
+ 
+ 
+-CString I3DL2Reverb::GetProgramName(int32 program)
++mpt::ustring I3DL2Reverb::GetProgramName(int32 program)
+ {
+-	return mpt::ToCString(GetReverbPresetName(program));
++	return mpt::ToUnicode(GetReverbPresetName(program));
+ }
+ 
+ #endif // MODPLUG_TRACKER
+diff --git a/soundlib/plugins/dmo/I3DL2Reverb.h b/soundlib/plugins/dmo/I3DL2Reverb.h
+index 6c40426..312d02a 100644
+--- a/soundlib/plugins/dmo/I3DL2Reverb.h
++++ b/soundlib/plugins/dmo/I3DL2Reverb.h
+@@ -120,15 +120,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("I3DL2Reverb"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("I3DL2Reverb"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override;
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32 program) override;
++	mpt::ustring GetCurrentProgramName() override;
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32 program) override;
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/ParamEq.cpp b/soundlib/plugins/dmo/ParamEq.cpp
+index 4457cd3..d2fb1fe 100644
+--- a/soundlib/plugins/dmo/ParamEq.cpp
++++ b/soundlib/plugins/dmo/ParamEq.cpp
+@@ -119,31 +119,31 @@ void ParamEq::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString ParamEq::GetParamName(PlugParamIndex param)
++mpt::ustring ParamEq::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kEqCenter: return _T("Center");
+-	case kEqBandwidth: return _T("Bandwidth");
+-	case kEqGain: return _T("Gain");
++	case kEqCenter: return U_("Center");
++	case kEqBandwidth: return U_("Bandwidth");
++	case kEqGain: return U_("Gain");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString ParamEq::GetParamLabel(PlugParamIndex param)
++mpt::ustring ParamEq::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kEqCenter: return _T("Hz");
+-	case kEqBandwidth: return _T("Semitones");
+-	case kEqGain: return _T("dB");
++	case kEqCenter: return U_("Hz");
++	case kEqBandwidth: return U_("Semitones");
++	case kEqGain: return U_("dB");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString ParamEq::GetParamDisplay(PlugParamIndex param)
++mpt::ustring ParamEq::GetParamDisplay(PlugParamIndex param)
+ {
+ 	float value = 0.0f;
+ 	switch(param)
+@@ -158,8 +158,8 @@ CString ParamEq::GetParamDisplay(PlugParamIndex param)
+ 		value = GainInDecibel();
+ 		break;
+ 	}
+-	CString s;
+-	s.Format(_T("%.2f"), value);
++	mpt::ustring s;
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/ParamEq.h b/soundlib/plugins/dmo/ParamEq.h
+index f4ef56c..0a08ff0 100644
+--- a/soundlib/plugins/dmo/ParamEq.h
++++ b/soundlib/plugins/dmo/ParamEq.h
+@@ -67,15 +67,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("ParamEq"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("ParamEq"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
+diff --git a/soundlib/plugins/dmo/WavesReverb.cpp b/soundlib/plugins/dmo/WavesReverb.cpp
+index 679018c..ce16886 100644
+--- a/soundlib/plugins/dmo/WavesReverb.cpp
++++ b/soundlib/plugins/dmo/WavesReverb.cpp
+@@ -172,34 +172,34 @@ void WavesReverb::PositionChanged()
+ 
+ #ifdef MODPLUG_TRACKER
+ 
+-CString WavesReverb::GetParamName(PlugParamIndex param)
++mpt::ustring WavesReverb::GetParamName(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+-	case kRvbInGain: return _T("InGain");
+-	case kRvbReverbMix: return _T("ReverbMix");
+-	case kRvbReverbTime: return _T("ReverbTime");
+-	case kRvbHighFreqRTRatio: return _T("HighFreqRTRatio");
++	case kRvbInGain: return U_("InGain");
++	case kRvbReverbMix: return U_("ReverbMix");
++	case kRvbReverbTime: return U_("ReverbTime");
++	case kRvbHighFreqRTRatio: return U_("HighFreqRTRatio");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString WavesReverb::GetParamLabel(PlugParamIndex param)
++mpt::ustring WavesReverb::GetParamLabel(PlugParamIndex param)
+ {
+ 	switch(param)
+ 	{
+ 	case kRvbInGain:
+ 	case kRvbReverbMix:
+-		return _T("dB");
++		return U_("dB");
+ 	case kRvbReverbTime:
+-		return _T("ms");
++		return U_("ms");
+ 	}
+-	return CString();
++	return mpt::ustring();
+ }
+ 
+ 
+-CString WavesReverb::GetParamDisplay(PlugParamIndex param)
++mpt::ustring WavesReverb::GetParamDisplay(PlugParamIndex param)
+ {
+ 	float value = m_param[param];
+ 	switch(param)
+@@ -215,8 +215,8 @@ CString WavesReverb::GetParamDisplay(PlugParamIndex param)
+ 		value = HighFreqRTRatio();
+ 		break;
+ 	}
+-	CString s;
+-	s.Format(_T("%.2f"), value);
++	mpt::ustring s;
++	s = mpt::ufmt::fix(value, 2);
+ 	return s;
+ }
+ 
+diff --git a/soundlib/plugins/dmo/WavesReverb.h b/soundlib/plugins/dmo/WavesReverb.h
+index 9711dec..e2af856 100644
+--- a/soundlib/plugins/dmo/WavesReverb.h
++++ b/soundlib/plugins/dmo/WavesReverb.h
+@@ -76,15 +76,15 @@ public:
+ 	bool ShouldProcessSilence() override { return true; }
+ 
+ #ifdef MODPLUG_TRACKER
+-	CString GetDefaultEffectName() override { return _T("WavesReverb"); }
++	mpt::ustring GetDefaultEffectName() override { return U_("WavesReverb"); }
+ 
+-	CString GetParamName(PlugParamIndex param) override;
+-	CString GetParamLabel(PlugParamIndex) override;
+-	CString GetParamDisplay(PlugParamIndex param) override;
++	mpt::ustring GetParamName(PlugParamIndex param) override;
++	mpt::ustring GetParamLabel(PlugParamIndex) override;
++	mpt::ustring GetParamDisplay(PlugParamIndex param) override;
+ 
+-	CString GetCurrentProgramName() override { return CString(); }
+-	void SetCurrentProgramName(const CString &) override { }
+-	CString GetProgramName(int32) override { return CString(); }
++	mpt::ustring GetCurrentProgramName() override { return mpt::ustring(); }
++	void SetCurrentProgramName(const mpt::ustring &) override { }
++	mpt::ustring GetProgramName(int32) override { return mpt::ustring(); }
+ 
+ 	bool HasEditor() const override { return false; }
+ #endif
