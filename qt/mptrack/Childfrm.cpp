@@ -158,6 +158,13 @@ void CChildFrame::OnMDIActivate(bool bActivate)
 }
 
 
+void CChildFrame::MDIActivate()
+{
+	if(mdiArea())
+		mdiArea()->setActiveSubWindow(this);
+}
+
+
 void CChildFrame::ActivateFrame(int nCmdShow)
 {
 	if ((glMdiOpenCount == 1) && (TrackerSettings::Instance().gbMdiMaximize) && (nCmdShow == -1))

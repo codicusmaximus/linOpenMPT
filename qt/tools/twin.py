@@ -24,6 +24,23 @@ TYPES = [
 	(r'\bIsClipboardFormatAvailable\(', 'mfcless::clip::IsFormatAvailable('),
 	(r'\bRegisterClipboardFormat\(_T\(("[^"]*")\)\)', r'mfcless::clip::RegisterFormat(QStringLiteral(\1))'),
 	(r'\bTVI_ROOT\b', 'nullptr'),
+	(r'\bWINDOWPLACEMENT\b', 'mfcless::WindowPlacement'),
+	(r'\bSBPS_(STRETCH|NORMAL|NOBORDERS|POPOUT|DISABLED)\b', lambda m: 'mfcless::pane::' + {'STRETCH': 'Stretch', 'NORMAL': 'Normal', 'NOBORDERS': 'NoBorders', 'POPOUT': 'PopOut', 'DISABLED': 'Disabled'}[m.group(1)]),
+	(r'\bGetCurrentThreadId\(\)', 'mfcless::CurrentThreadId()'),
+	(r'\bCStatusBar\b', 'mfcless::StatusBar'),
+	(r'\bSleep\(', 'mfcless::SleepMs('),
+	(r'\bASSERT_VALID\((\w+)\)', r'MPT_ASSERT(\1)'),
+	(r'\b(\w+)\.Format\((U_|_T|UL_)\(', r'\1 = mfcless::PrintF(UL_('),
+	(r'\b(\w+)\.AppendFormat\((U_|_T|UL_)\(', r'\1 += mfcless::PrintF(UL_('),
+	(r'\b(\w+)\.AppendChar\(', r'\1.push_back('),
+	(r"\b_T\('(\\?.)'\)", r"u8'\1'"),
+	(r'\.GetString\(\)', '.c_str()'),
+	(r'\bCMDIChildWnd\s*\*', 'CChildFrame *'),
+	(r'\bmpt::PathString::FromCString\(', 'mpt::PathString::FromUnicode('),
+	(r'\.ToCString\(\)', '.ToUnicode()'),
+	(r'\bPOSITION (\w+) = GetFirstViewPosition\(\);', r'mfcless::ViewPosition \1 = GetFirstViewPosition();'),
+	(r'\bwhile\s*\((pos)\s*!=\s*(?:NULL|nullptr)\)', r'while(\1)'),
+	(r'\bBeginWaitCursor\(\);', 'BeginWaitCursor();'),
 	(r'\bNORM_IGNORE(CASE|NONSPACE|SYMBOLS|KANATYPE|WIDTH)\b', lambda m: 'mfcless::compare::Ignore' + {'CASE': 'Case', 'NONSPACE': 'NonSpace', 'SYMBOLS': 'Symbols', 'KANATYPE': 'KanaType', 'WIDTH': 'Width'}[m.group(1)]),
 	(r'\bSORT_DIGITSASNUMBERS\b', 'mfcless::compare::DigitsAsNumbers'),
 	(r'\bCImageList\b(?!Ex)', 'CImageListEx'),
@@ -158,7 +175,7 @@ BASES = {
 	'CToolBar': 'mfcless::Window<QToolBar>', 'CToolBarCtrl': 'mfcless::Window<QToolBar>', 'CDialogBar': 'mfcless::Window<QWidget>',
 	'CReBar': 'mfcless::Window<QWidget>',
 	'CToolTipCtrl': 'QObject', 'COleDropTarget': 'mfcless::DropTarget', 'CMultiDocTemplate': 'QObject',
-	'CDocManager': 'QObject', 'CDocument': 'QObject', 'CImageList': 'QObject',
+	'CDocManager': 'QObject', 'CDocument': 'mfcless::Document', 'CImageList': 'QObject',
 	'CSplitterWnd': 'QSplitter', 'CMFCDynamicLayout': 'QObject',
 }
 
@@ -287,6 +304,8 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Menus.h"\n', 1)
 	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Controls.h"\n', 1)
+	if 'mfcless::StatusBar' in text and '"mfcless/StatusBar.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/StatusBar.h"\n', 1)
 	if 'mfcless::Button' in text and '"mfcless/Button.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Button.h"\n', 1)
 	if re.search(r'mfcless::(DrawItemInfo|ods|odt)\b', text) and '"mfcless/Graphics.h"' not in text:
@@ -295,11 +314,13 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/DropTarget.h"\n', 1)
 	if 'CImageListEx' in text and '"CImageListEx.h"' not in text and not re.search(r'class CImageListEx\b', text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "CImageListEx.h"\n', 1)
+	if 'mfcless::PrintF' in text and '"mfcless/QtString.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/QtString.h"\n', 1)
 	if 'mfcless::compare::' in text and '"mfcless/Text.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Text.h"\n', 1)
 	if 'mfcless::clip::' in text and '"mfcless/Clipboard.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Clipboard.h"\n', 1)
-	if 'mfcless::TickCount' in text and '"mfcless/System.h"' not in text:
+	if re.search(r'mfcless::(TickCount|CurrentThreadId|SleepMs)', text) and '"mfcless/System.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/System.h"\n', 1)
 	if 'mfcless::ListCtrl' in text and '"mfcless/ListCtrl.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/ListCtrl.h"\n', 1)
@@ -329,7 +350,7 @@ NOTIFY = {
 
 def message_map(m):
 	cls, base, body = m.group(1), m.group(2), m.group(3)
-	base = BASES.get(base, base)
+	base = BASES.get(base, base).split(',')[0]
 	out = ['void %s::RegisterMessageMap()' % cls, '{', '\t%s::RegisterMessageMap();' % base]
 	for line in body.split('\n'):
 		t = line.strip()
@@ -431,8 +452,12 @@ def dialog_helpers(text):
 	text = re.sub(r'\bBST_CHECKED\b', '1', text)
 	text = re.sub(r'\bBST_UNCHECKED\b', '0', text)
 	text = re.sub(r'\bBST_INDETERMINATE\b', '2', text)
-	text = re.sub(r'\bSW_SHOW(NA|NOACTIVATE|NORMAL)?\b', 'true', text)
-	text = re.sub(r'\bSW_HIDE\b', 'false', text)
+	text = re.sub(r'\bShowWindow\(SW_SHOW\)', 'ShowWindow(true)', text)
+	text = re.sub(r'\bShowWindow\(SW_HIDE\)', 'ShowWindow(false)', text)
+	text = re.sub(r'\bSW_(HIDE|SHOWNORMAL|NORMAL|SHOWMINIMIZED|SHOWMAXIMIZED|MAXIMIZE|SHOWNOACTIVATE|SHOW|MINIMIZE|SHOWMINNOACTIVE|SHOWNA|RESTORE)\b',
+		lambda m: 'mfcless::show::' + {'HIDE': 'Hide', 'SHOWNORMAL': 'ShowNormal', 'NORMAL': 'Normal', 'SHOWMINIMIZED': 'ShowMinimized',
+			'SHOWMAXIMIZED': 'ShowMaximized', 'MAXIMIZE': 'Maximize', 'SHOWNOACTIVATE': 'ShowNoActivate', 'SHOW': 'Show',
+			'MINIMIZE': 'Minimize', 'SHOWMINNOACTIVE': 'ShowMinNoActive', 'SHOWNA': 'ShowNA', 'RESTORE': 'Restore'}[m.group(1)], text)
 	return text
 
 def member_types(header):
@@ -479,7 +504,7 @@ def twin_cpp(text, header):
 	text = re.sub(r'^IMPLEMENT_(DYNAMIC|DYNCREATE|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
 	# Data exchange
 	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
-	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)) + '::DoDataExchange(dx)', text)
+	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)).split(',')[0] + '::DoDataExchange(dx)', text)
 	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'ExchangeControl(dx, \1, \2)', text)
 	for k, v in DDX.items():
 		text = re.sub(k + r'\(pDX,', v + '(dx,', text)

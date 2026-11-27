@@ -21,6 +21,9 @@
 #include "mfcless/Geometry.h"
 #include "mfcless/Keyboard.h"
 #include "mfcless/MessageMap.h"
+#include "mfcless/ModMessage.h"
+
+#include <QtCore/QThread>
 
 #include <QtCore/QBasicTimer>
 #include <QtCore/QMimeData>
@@ -65,6 +68,26 @@ struct ToolInfo
 // What all windows have, whatever their Qt class.
 struct DrawItemInfo;
 
+// ShowWindow commands, as Windows numbers them.
+namespace show
+{
+	inline constexpr int Hide = 0, ShowNormal = 1, Normal = 1, ShowMinimized = 2, ShowMaximized = 3, Maximize = 3,
+		ShowNoActivate = 4, Show = 5, Minimize = 6, ShowMinNoActive = 7, ShowNA = 8, Restore = 9;
+}
+
+// Where a window is and how it is shown, in the layout of Windows'
+// WINDOWPLACEMENT (so that settings files keep working).
+struct WindowPlacement
+{
+	uint32_t length = sizeof(WindowPlacement);
+	uint32_t flags = 0;
+	uint32_t showCmd = show::ShowNormal;
+	Point ptMinPosition;
+	Point ptMaxPosition;
+	Rect rcNormalPosition;
+};
+static_assert(sizeof(WindowPlacement) == 44);
+
 class WindowBase : public MessageMap
 {
 public:
@@ -94,6 +117,24 @@ public:
 
 	// The widget.
 	virtual QWidget *GetWidget() = 0;
+
+	// Window messages (WM_MOD_*, ...) to this window, as ModMessages.
+	void PostMessage(uint32_t message, uintptr_t wParam = 0, intptr_t lParam = 0) { PostModMessage(GetWidget(), message, wParam, lParam); }
+	intptr_t SendMessage(uint32_t message, uintptr_t wParam = 0, intptr_t lParam = 0) { return SendModMessage(GetWidget(), message, wParam, lParam); }
+	// Sends from the window's thread, posts from any other.
+	void SendNotifyMessage(uint32_t message, uintptr_t wParam = 0, intptr_t lParam = 0)
+	{
+		if(QThread::currentThread() == GetWidget()->thread())
+			SendModMessage(GetWidget(), message, wParam, lParam);
+		else
+			PostModMessage(GetWidget(), message, wParam, lParam);
+	}
+	// Sends to every window inside this one (not to this one).
+	void SendMessageToDescendants(uint32_t message, uintptr_t wParam = 0, intptr_t lParam = 0)
+	{
+		for(QWidget *child : GetWidget()->findChildren<QWidget *>())
+			SendModMessage(child, message, wParam, lParam);
+	}
 };
 
 // Installs the application-wide filter that calls PreTranslateMessage and
@@ -148,7 +189,33 @@ public:
 	void DragAcceptFiles(bool accept = true) { this->setAcceptDrops(accept); }
 
 	// Window functions as upstream calls them.
-	void ShowWindow(bool show) { this->setVisible(show); }
+	void ShowWindow(bool visible) { this->setVisible(visible); }
+	void ShowWindow(int command)
+	{
+		switch(command)
+		{
+		case show::Hide: this->hide(); break;
+		case show::ShowMinimized: case show::Minimize: case show::ShowMinNoActive: this->showMinimized(); break;
+		case show::ShowMaximized: this->showMaximized(); break;
+		case show::Restore: case show::ShowNormal: this->showNormal(); break;
+		default: this->show(); break;
+		}
+	}
+	bool IsIconic() const { return this->isMinimized(); }
+	bool IsZoomed() const { return this->isMaximized(); }
+	bool GetWindowPlacement(WindowPlacement *wp) const
+	{
+		wp->showCmd = this->isMinimized() ? show::ShowMinimized : this->isMaximized() ? show::ShowMaximized : show::ShowNormal;
+		wp->rcNormalPosition = Rect(this->normalGeometry().isValid() ? this->normalGeometry() : this->geometry());
+		return true;
+	}
+	bool SetWindowPlacement(const WindowPlacement *wp)
+	{
+		if(!wp->rcNormalPosition.IsRectEmpty())
+			this->setGeometry(QRect(wp->rcNormalPosition));
+		ShowWindow(static_cast<int>(wp->showCmd));
+		return true;
+	}
 	bool IsWindowVisible() const { return this->isVisible(); }
 	void EnableWindow(bool enable = true) { this->setEnabled(enable); }
 	bool IsWindowEnabled() const { return this->isEnabled(); }
@@ -186,7 +253,7 @@ public:
 	void SetWindowText(const QString &text) { this->setWindowTitle(text); }
 	QString GetWindowText() const { return this->windowTitle(); }
 	// Hides the window; PostNcDestroy follows from the event loop.
-	bool DestroyWindow()
+	virtual bool DestroyWindow()
 	{
 		this->hide();
 		QMetaObject::invokeMethod(this, [this] { PostNcDestroy(); }, Qt::QueuedConnection);

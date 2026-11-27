@@ -2,10 +2,11 @@
  * Mainfrm.h
  * ---------
  * Purpose: Implementation of OpenMPT's main window code.
- * Notes  : mfcless twin of upstream's mptrack/Mainfrm.h. Same declarations in
- *          the same order; CMDIFrameWnd becomes QMainWindow with a QMdiArea,
- *          message handlers become plain member functions that the generated
- *          menus, timers and mfcless::ModMessage events call.
+ * Notes  : mfcless twin of upstream's mptrack/Mainfrm.h. The MDI frame is a
+ *          QMainWindow with a QMdiArea in the middle; the tree bar, toolbar
+ *          and status bar are its children as upstream's control bars were.
+ *          Windows' text services (keyboard layout notifications), the focus
+ *          hook and HTML help are left out; MIDI input runs on RtMidi.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -14,10 +15,16 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/System.h"
+#include "mfcless/StatusBar.h"
+#include "mfcless/Menus.h"
+#include "mfcless/Graphics.h"
+#include "mfcless/Window.h"
+#include "DocumentView.h"
+#include <QtWidgets/QMainWindow>
 #include "CImageListEx.h"
-#include "../soundlib/Snd_defs.h"  // mfcless: upstream gets it through Mainbar.h
+#include "Mainbar.h"
 #include "Notification.h"
-#include "UpdateHints.h"  // mfcless: upstream gets it through Mainbar.h
 #include "openmpt/soundbase/Dither.hpp"
 #include "Settings.h"
 #include "../soundlib/AudioCriticalSection.h"
@@ -29,33 +36,24 @@
 #include "openmpt/sounddevice/SoundDeviceBuffer.hpp"
 #include "../misc/mptClock.h"
 
-#include <QtWidgets/QMainWindow>
-#include <QtGui/QFont>
-#include <QtGui/QIcon>
-
 #include <functional>
 #include <thread>
 
+class QCursor;
 class QMdiArea;
-class QMenu;
-class QStatusBar;
-class QTimer;
+class QMdiSubWindow;
+class QFont;
+class QIcon;
+class QObject;
 class QWidget;
-class QCloseEvent;
-class QDragEnterEvent;
-class QDropEvent;
-class QEvent;
 
 OPENMPT_NAMESPACE_BEGIN
 
 class CAutoSaver;
 class CDLSBank;
+class CChildFrame;
 class CInputHandler;
 class CModDoc;
-class CModTree;
-class CModTreeBar;
-class CMainToolBar;
-class CModView;
 class QuickStartDlg;
 struct UpdateCheckResult;
 struct UpdateHint;
@@ -98,6 +96,17 @@ enum OptionsPage
 
 #define MAX_UPDATE_HISTORY		2000 // 2 seconds with 1 ms updates
 
+template<> inline SettingValue ToSettingValue(const mfcless::WindowPlacement &val)
+{
+	return SettingValue(EncodeBinarySetting<mfcless::WindowPlacement>(val), "mfcless::WindowPlacement");
+}
+template<> inline mfcless::WindowPlacement FromSettingValue(const SettingValue &val)
+{
+	MPT_ASSERT(val.GetTypeTag() == "mfcless::WindowPlacement");
+	return DecodeBinarySetting<mfcless::WindowPlacement>(val.as<std::vector<std::byte> >());
+}
+
+
 class VUMeter
 	: public IMonitorInput
 	, public IMonitorOutput
@@ -130,7 +139,7 @@ public:
 
 
 class CMainFrame
-	: public QMainWindow
+	: public mfcless::Window<QMainWindow>
 	, public SoundDevice::CallbackBufferHandler<DithersOpenMPT>
 	, public SoundDevice::IMessageReceiver
 {
@@ -145,6 +154,9 @@ public:
 	QFont m_hCommentsFont;
 	static QFont m_hGUIFont;
 	static QIcon m_hIcon;
+	static mfcless::Pen penDarkGray, penHalfDarkGray, penGray99;
+	static QCursor curDragging, curNoDrop, curArrow, curNoDrop2, curVSplit;
+	static MODPLUGDIB *bmpNotes;
 	static uint32 gcolrefVuMeter[NUM_VUMETER_PENS * 2];	// General tab VU meters
 
 public:
@@ -153,18 +165,19 @@ public:
 	CriticalSection m_SoundDeviceFillBufferCriticalSection;
 	Util::MultimediaClock m_SoundDeviceClock;
 	SoundDevice::IBase *gpSoundDevice = nullptr;
-	QTimer *m_NotifyTimer = nullptr;
+	uintptr_t m_NotifyTimer = 0;
 	VUMeter m_VUMeterInput;
 	VUMeter m_VUMeterOutput;
 
-	std::thread::id m_AudioThreadId;
+	uint32 m_AudioThreadId = 0;  // mfcless: as mfcless::CurrentThreadId gives it
 	bool m_InNotifyHandler = false;
 
 	// Midi Input
 public:
-	// mfcless: MIDI input runs on RtMidi (qt/mptrack/MidiInput.cpp).
 	struct MidiInData
 	{
+		// mfcless: MIDI input runs on RtMidi (qt/mptrack/Mpt_midi.cpp),
+		// which collects SysEx messages itself.
 		std::vector<std::byte> sysexData;
 		mpt::mutex dataMutex;
 		void *inHandle = nullptr;  // RtMidiIn
@@ -179,15 +192,16 @@ public:
 	CImageListEx m_SampleIcons;								// Sample editor icons
 
 protected:
-	CModTreeBar *m_wndTree = nullptr;
-	QStatusBar *m_wndStatusBar = nullptr;
-	CMainToolBar *m_wndToolBar = nullptr;
+	CModTreeBar m_wndTree;
+	mfcless::StatusBar m_wndStatusBar;
+	CMainToolBar m_wndToolBar;
+	// mfcless: the MDI client window, in the middle of the main window.
 	QMdiArea *m_mdiArea = nullptr;
 	CSoundFile *m_pSndFile = nullptr; // != NULL only when currently playing or rendering
-	QObject *m_hWndMidi = nullptr;
+	QWidget * m_hWndMidi = nullptr;
 	std::function<void(mpt::const_byte_span)> m_midiSysExCallback;
 	samplecount_t m_dwTimeSec = 0;
-	QTimer *m_nTimer = nullptr;
+	uintptr_t m_nTimer = 0;
 	uint32 m_nAvgMixChn = 0, m_nMixChn = 0;
 	uint32 m_currentSpeed = 0;
 	// Misc
@@ -242,7 +256,7 @@ public:
 	void SoundDeviceMessage(LogLevel level, const mpt::ustring &str) override;
 
 	bool InGuiThread() const noexcept;
-	bool InAudioThread() const noexcept { return std::this_thread::get_id() == m_AudioThreadId; }
+	bool InAudioThread() const noexcept { return mfcless::CurrentThreadId() == m_AudioThreadId; }
 	bool InNotifyHandler() const noexcept { return m_InNotifyHandler; }
 
 	bool audioOpenDevice();
@@ -254,12 +268,12 @@ public:
 public:
 	bool midiOpenDevice(bool showSettings = true);
 	void midiCloseDevice();
-	void SetMidiRecordWnd(QObject *hwnd, std::function<void(mpt::const_byte_span)> sysExCallback = {})
+	void SetMidiRecordWnd(QWidget * hwnd, std::function<void(mpt::const_byte_span)> sysExCallback = {})
 	{
 		m_hWndMidi = hwnd;
 		m_midiSysExCallback = std::move(sysExCallback);
 	}
-	QObject *GetMidiRecordWnd() const { return m_hWndMidi; }
+	QWidget * GetMidiRecordWnd() const { return m_hWndMidi; }
 	auto GetMidiSysexCallback() const { return m_midiSysExCallback; }
 	void LoadMetronomeSamples();
 	void UpdateMetronomeSamples();
@@ -278,14 +292,15 @@ public:
 public:
 	QFont &GetCommentsFont() { return m_hCommentsFont; }
 
-	void SetUserText(const mpt::ustring &text);
-	void SetInfoText(const mpt::ustring &text);
-	void SetXInfoText(const mpt::ustring &text);
-	void SetHelpText(const mpt::ustring &text);
+	void SetUserText(const mpt::uchar *text);
+	void SetInfoText(const mpt::uchar *text);
+	void SetXInfoText(const mpt::uchar *text);
+	void SetHelpText(const mpt::uchar *text);
+	void SetHelpText(const mpt::ustring &text) { SetHelpText(text.c_str()); }
 	mpt::ustring GetHelpText() const;
 	uint32 GetBaseOctave() const;
 	CModDoc *GetActiveDoc() const;
-	CModView *GetActiveView() const;
+	mfcless::DocumentView *GetActiveView() const;
 	void OnDocumentCreated(CModDoc *pModDoc);
 	void OnDocumentClosed(CModDoc *pModDoc);
 	void UpdateTree(CModDoc *pModDoc, UpdateHint hint, QObject *pHint = nullptr);
@@ -297,13 +312,13 @@ public:
 	bool ShowUpdateIndicator(const UpdateCheckResult &result, const mpt::ustring &releaseVersion, const mpt::ustring &infoURL, bool showHighlight);
 #endif // MPT_ENABLE_UPDATE
 
-	CModTree *GetUpperTreeview();
-	CModTree *GetLowerTreeview();
-	bool SetTreeSoundfile(FileReader &file);
+	CModTree *GetUpperTreeview() { return m_wndTree.m_pModTree; }
+	CModTree *GetLowerTreeview() { return m_wndTree.m_pModTreeData; }
+	bool SetTreeSoundfile(FileReader &file) { return m_wndTree.SetTreeSoundfile(file); }
 
 	void CreateExampleModulesMenu();
 	void CreateTemplateModulesMenu();
-	static std::pair<QMenu *, int> FindMenuItemByCommand(QMenu &menu, uint32 commandID);
+	static std::pair<mfcless::Menu , int> FindMenuItemByCommand(mfcless::Menu &menu, uint32 commandID);
 
 	// Creates submenu whose items are filenames of files in both
 	// AppDirectory\folderName\ (usually C:\Program Files\OpenMPT\folderName\)
@@ -313,7 +328,7 @@ public:
 	// [out] paths: Receives the full paths of the files added to the menu.
 	// [in] folderName: Name of the folder
 	// [in] idRangeBegin: First ID for the menu item.
-	static QMenu *CreateFileMenu(const size_t maxCount, std::vector<mpt::PathString> &paths, const mpt::PathString &folderName, const uint16 idRangeBegin);
+	static mfcless::Menu CreateFileMenu(const size_t maxCount, std::vector<mpt::PathString> &paths, const mpt::PathString &folderName, const uint16 idRangeBegin);
 
 // Player functions
 public:
@@ -362,39 +377,35 @@ public:
 	void SetupPlayer();
 
 	void SetupMidi(FlagSet<MidiSetup> d, uint32 n);
-	QObject *GetFollowSong() const;
-	QObject *GetFollowSong(const CModDoc *pDoc) const { return (pDoc == GetModPlaying()) ? GetFollowSong() : nullptr; }
+	QWidget * GetFollowSong() const;
+	QWidget * GetFollowSong(const CModDoc *pDoc) const { return (pDoc == GetModPlaying()) ? GetFollowSong() : nullptr; }
 	void ResetNotificationBuffer();
 
 	// Notify accessbility software that it should read out updated UI elements
 	void NotifyAccessibilityUpdate(QWidget &source);
 
-	// mfcless: PostMessage to the main frame, as a queued mfcless::ModMessage.
-	void PostModMessage(uint32 msg, uintptr_t wParam = 0, intptr_t lParam = 0);
-
 	void UpdateDocumentCount();
 
-	// mfcless: the window geometry, as Qt's saveGeometry() in Display/WindowGeometry
-	// (upstream keeps a WINDOWPLACEMENT in Display/WindowPlacement).
-	void SaveWindowGeometry(SettingsContainer &conf);
-	void RestoreWindowGeometry(SettingsContainer &conf);
+	// mfcless: what CMDIFrameWnd did with its MDI client.
+	QMdiArea *GetMDIClient() const { return m_mdiArea; }
+	CChildFrame *MDIGetActive() const;
+	void MDIActivate(CChildFrame *frame);
+	void MDINext();
+	void MDIPrev();
 
 // Overrides
 protected:
-	// mfcless: CFrameWnd's overrides, as Qt event handlers.
-	bool event(QEvent *e) override;
-	bool eventFilter(QObject *watched, QEvent *e) override;
-	void closeEvent(QCloseEvent *e) override;
-	void changeEvent(QEvent *e) override;
-	void dragEnterEvent(QDragEnterEvent *e) override;
-	void dropEvent(QDropEvent *e) override;
+	// ClassWizard generated virtual function overrides
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
+	bool DestroyWindow() override;
+public:
 	void OnUpdateFrameTitle(bool bAddToTitle);
-
+protected:
 	/// Opens either template or example menu item.
 	void OpenMenuItemFile(const uint32 nId, const bool isTemplateFile);
 
-	void ShowToolbarMenu(QPoint screenPt);
-	void AddToolBarMenuEntries(QMenu &menu) const;
+	void ShowToolbarMenu(mfcless::Point screenPt);
+	void AddToolBarMenuEntries(mfcless::Menu &menu) const;
 
 	void RecreateImageLists();
 	void SetupStatusBarSizes();
@@ -407,12 +418,15 @@ public:
 	~CMainFrame() override;
 	void RecalcLayout(bool notify = true);
 
+	// mfcless: the window geometry, as Qt's saveGeometry() in Display/WindowGeometry
+	// (upstream keeps a WINDOWPLACEMENT in Display/WindowPlacement).
+	void SaveWindowGeometry(SettingsContainer &conf);
+	void RestoreWindowGeometry(SettingsContainer &conf);
+
 	void OnTimerGUI();
 	void OnTimerNotify();
 
 // Message map functions
-	// mfcless: upstream's message map is the table in Mainfrm.cpp that
-	// connects menu commands, timers and mfcless::ModMessage events to these.
 public:
 	void OnAddDlsBank();
 	void OnImportMidiLib();
@@ -420,19 +434,20 @@ public:
 	void OnHelp();
 protected:
 	int OnCreate();
-	void OnRButtonDown(uint32, QPoint);
+	void OnRButtonDown(uint32, mfcless::Point);
 	void OnClose();
-	void OnTimer();
+	void OnTimer(uintptr_t);
+	intptr_t OnDPIChanged(uintptr_t, intptr_t);
 
 	void OnPluginManager();
 	void OnClipboardManager();
 
 	intptr_t OnViewMIDIMapping(uintptr_t wParam, intptr_t lParam);
-	bool OnUpdateTime() const;  // update handler
-	bool OnUpdateUser() const;  // update handler
-	bool OnUpdateInfo() const;  // update handler
-	bool OnUpdateXInfo() const;  // update handler
-	bool OnUpdateMidiRecord() const;  // update handler
+	void OnUpdateTime(mfcless::CommandState &state);
+	void OnUpdateUser(mfcless::CommandState &state);
+	void OnUpdateInfo(mfcless::CommandState &state);
+	void OnUpdateXInfo(mfcless::CommandState &state);
+	void OnUpdateMidiRecord(mfcless::CommandState &state);
 	void OnPlayerPause();
 	void OnMidiRecord();
 	void OnPrevOctave();
@@ -446,7 +461,7 @@ protected:
 	void OnOpenTemplateModule(uint32 nId);
 	void OnExampleSong(uint32 nId);
 	void OnOpenMRUItem(uint32 nId);
-	bool OnUpdateMRUItem() const;  // update handler
+	void OnUpdateMRUItem(mfcless::CommandState &state);
 	intptr_t OnInvalidatePatterns(uintptr_t, intptr_t);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	void OnInternetUpdate();
@@ -460,8 +475,11 @@ protected:
 	intptr_t OnUpdateCheckSuccess(uintptr_t wparam, intptr_t lparam);
 	intptr_t OnToolbarUpdateIndicatorClick(uintptr_t wparam, intptr_t lparam);
 #endif // MPT_ENABLE_UPDATE
+	bool OnDeviceChange(uint32 nEventType, uintptr_t dwData);
+	void OnDropFiles(const QStringList &files);
 	bool OnQueryEndSession();
-	void OnActivateApp(bool active);
+	void OnActivateApp(bool active, uint32 threadID);
+	void OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized);
 
 	void OnToggleMainBarShowOctave();
 	void OnToggleMainBarShowTempo();
@@ -479,7 +497,7 @@ protected:
 	void OnCreateMixerDump();
 	void OnVerifyMixerDump();
 	void OnConvertMixerDumpToText();
-
+	void RegisterMessageMap() override;
 public:
 	bool UpdateEffectKeys(const CModDoc *modDoc);
 	void OnShowWindow(bool bShow, uint32 nStatus);
@@ -499,5 +517,9 @@ private:
 
 
 /////////////////////////////////////////////////////////////////////////////
+
+//{{AFX_INSERT_LOCATION}}
+// Microsoft Developer Studio will insert additional declarations immediately before the previous line.
+
 
 OPENMPT_NAMESPACE_END

@@ -24,9 +24,9 @@ OPENMPT_NAMESPACE_BEGIN
 static bool CreateShellLink(const mpt::PathString &path, const mpt::PathString &target, const mpt::ustring &/*description*/)
 {
 	// The description has no place in a symbolic link.
-	const QString link = QString::fromStdString(path.AsNative());
+	const QString link = mfcless::ToQString(path.ToUnicode());
 	QFile::remove(link);
-	return QFile::link(QString::fromStdString(target.AsNative()), link);
+	return QFile::link(mfcless::ToQString(target.ToUnicode()), link);
 }
 
 
@@ -42,7 +42,7 @@ bool CreateShellFileLink(const mpt::PathString &path, const mpt::PathString &tar
 }
 
 
-mpt::const_byte_span GetResource(uint32 id, const mpt::uchar *type)
+mpt::const_byte_span GetResource(uint32 id, const mpt::ustring &type)
 {
 	const QString typeName = mfcless::ToQString(type);
 	const auto res = mfcless::res::FindData(mfcless::res::ResourceName(typeName.toStdU16String()), static_cast<uint16>(id));
@@ -50,7 +50,7 @@ mpt::const_byte_span GetResource(uint32 id, const mpt::uchar *type)
 	{
 		return mpt::const_byte_span();
 	}
-	return mpt::const_byte_span(mpt::void_cast<const std::byte *>(res.data), res.size);
+	return mpt::const_byte_span(reinterpret_cast<const std::byte *>(res.data), res.size);
 }
 
 

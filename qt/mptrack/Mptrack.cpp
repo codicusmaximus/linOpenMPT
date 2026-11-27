@@ -333,9 +333,9 @@ public:
 public:
 	CMPTCommandLineInfo()
 	{
-		std::vector<mpt::uchar> curDir(::GetCurrentDirectory(0, nullptr), _T('\0'));
+		std::vector<mpt::uchar> curDir(::GetCurrentDirectory(0, nullptr), u8'\0');
 		::GetCurrentDirectory(static_cast<uint32>(curDir.size()), curDir.data());
-		m_workingDir = mpt::PathString::FromCString(curDir.data());
+		m_workingDir = mpt::PathString::FromUnicode(curDir.data());
 	}
 
 	void ParseParam(const mpt::uchar * param, bool isFlag, bool isLast) override
@@ -359,7 +359,7 @@ public:
 #endif
 		} else
 		{
-			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromCString(param), m_workingDir));
+			m_fileNames.push_back(mpt::RelativePathToAbsolute(mpt::PathString::FromUnicode(param), m_workingDir));
 			if(m_nShellCommand == FileNew) m_nShellCommand = FileOpen;
 		}
 		CCommandLineInfo::ParseParam(param, isFlag, isLast);
@@ -535,7 +535,7 @@ std::future<std::vector<std::unique_ptr<CDLSBank>>> CTrackApp::LoadDefaultDLSBan
 				mpt::ustring filenamestr = ParseMaybeNullTerminatedStringFromBufferWithSizeInBytes<mpt::ustring>(filenameT.data(), dwSize);
 				std::vector<mpt::uchar> filenameExpanded(::ExpandEnvironmentStrings(filenamestr.c_str(), nullptr, 0));
 				::ExpandEnvironmentStrings(filenamestr.c_str(), filenameExpanded.data(), static_cast<uint32>(filenameExpanded.size()));
-				auto filename = mpt::PathString::FromCString(filenameExpanded.data());
+				auto filename = mpt::PathString::FromUnicode(filenameExpanded.data());
 				ImportMidiConfig(filename, true);
 				paths.insert(std::move(filename));
 			}
@@ -730,7 +730,7 @@ public:
 			bRet = false;
 
 			// Save the open document list and associated autosave info to the registry
-			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromCString(GetRestartIdentifier()) + P_(".ini"));
+			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini"));
 			ini.ConvertToUnicode();
 			int32 count = 0;
 			while (posAutosave != NULL)
@@ -764,7 +764,7 @@ public:
 	bool ReadOpenDocumentList() override
 	{
 		{
-			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromCString(GetRestartIdentifier()) + P_(".ini"));
+			IniFileSettingsBackend ini(theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini"));
 			int32 count = ini.ReadSetting({ U_("Restart"), U_("Count") }, SettingValue(0));
 
 			for(int32 index = 0; index < count; ++index)
@@ -783,7 +783,7 @@ public:
 
 		}
 
-		DeleteFile((theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromCString(GetRestartIdentifier()) + P_(".ini")).AsNative().c_str());
+		DeleteFile((theApp.GetConfigPath() + P_("restart.") + mpt::PathString::FromUnicode(GetRestartIdentifier()) + P_(".ini")).AsNative().c_str());
 
 		// In case no previously open documents are found,
 		// MFC RestartManager integration assumes the default action to be
@@ -829,7 +829,7 @@ CDocument *CTrackApp::OpenTemplateFile(const mpt::PathString &file) const
 
 void CTrackApp::AddToRecentFileList(const mpt::uchar * lpszPathName)
 {
-	AddToRecentFileList(mpt::PathString::FromCString(lpszPathName));
+	AddToRecentFileList(mpt::PathString::FromUnicode(lpszPathName));
 }
 
 
@@ -1012,7 +1012,7 @@ void CTrackApp::SetupPaths(bool overridePortable)
 			|| (SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK))
 		{
 			// Store our app settings in %APPDATA% or "My Documents"
-			configPathUser = mpt::PathString::FromCString(dir) + P_("\\OpenMPT\\");
+			configPathUser = mpt::PathString::FromUnicode(dir) + P_("\\OpenMPT\\");
 		}
 	}
 
@@ -1044,7 +1044,7 @@ void CTrackApp::SetupPaths(bool overridePortable)
 	{
 		free((void *)m_pszProfileName);
 	}
-	m_pszProfileName = _tcsdup(m_szConfigFileName.ToCString());
+	m_pszProfileName = _tcsdup(m_szConfigFileName.ToUnicode());
 
 	m_bInstallerMode = !modeSourceProject && !portableMode;
 	m_bPortableMode = portableMode;
@@ -1258,7 +1258,7 @@ bool CTrackApp::InitInstanceEarly(CMPTCommandLineInfo &cmdInfo)
 bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 {
 
-	m_GuiThreadId = GetCurrentThreadId();
+	m_GuiThreadId = mfcless::CurrentThreadId();
 
 	mpt::log::Trace::SetThreadId(mpt::log::Trace::ThreadKindGUI, m_GuiThreadId);
 
@@ -1479,7 +1479,7 @@ bool CTrackApp::InitInstanceImpl(CMPTCommandLineInfo &cmdInfo)
 		cmdInfo.m_nShellCommand = CCommandLineInfo::FileOpen;
 		for(const auto &filename : cmdInfo.m_fileNames)
 		{
-			cmdInfo.m_strFileName = filename.ToCString();
+			cmdInfo.m_strFileName = filename.ToUnicode();
 			shellSuccess |= ProcessShellCommand(cmdInfo) != false;
 		}
 	}
@@ -1812,7 +1812,7 @@ void CTrackApp::OnFileOpen()
 	OpenModulesDialog(files);
 	for(const auto &file : files)
 	{
-		OpenDocumentFile(file.ToCString());
+		OpenDocumentFile(file.ToUnicode());
 	}
 }
 
@@ -2119,7 +2119,7 @@ void ErrorBox(uint32 nStringID, QWidget *parent)
 	bool resourceLoaded = str.LoadString(nStringID);
 	if(!resourceLoaded)
 	{
-		str.Format(U_("Resource string %u not found."), nStringID);
+		str = mfcless::PrintF(UL_("Resource string %u not found."), nStringID);
 	}
 	MPT_ASSERT(resourceLoaded);
 	Reporting::CustomNotification(str, U_("Error!"), MB_OK | MB_ICONERROR, parent);
@@ -2152,7 +2152,7 @@ mpt::ustring FormatFileSize(uint64 fileSize)
 			mpt::ustring s = mpt::ufmt::fix(size, 2);
 			if(i == 0)
 			{
-				if(int pos = s.ReverseFind(_T('.')); pos >= 0)
+				if(int pos = s.ReverseFind(u8'.'); pos >= 0)
 					s.Delete(pos, s.GetLength() - pos);
 			}
 			return s + Unit[i];
@@ -2419,7 +2419,7 @@ void CTrackApp::InitializeDXPlugins()
 			if(skipFailed == cnfCancel)
 			{
 				const mpt::ustring text = MPT_UFORMAT("The following plugin has previously crashed OpenMPT during initialisation:\n\n{}\n\nDo you still want to load it?")
-					(failedPlugin.ToCString());
+					(failedPlugin.ToUnicode());
 				skipFailed = Reporting::Confirm(text, false, true, &pluginScanDlg);
 			}
 
@@ -2539,10 +2539,10 @@ bool CTrackApp::OpenURL(const mpt::PathString &lpszURL, const mpt::ustring &para
 		if(reinterpret_cast<intptr_t>(ShellExecute(
 			theApp.m_pMainWnd->m_hWnd,
 			U_("open"),
-			lpszURL.ToCString(),
+			lpszURL.ToUnicode(),
 			param.empty() ? nullptr : param.c_str(),
 			nullptr,
-			true)) >= 32)
+			mfcless::show::Show)) >= 32)
 		{
 			return true;
 		}

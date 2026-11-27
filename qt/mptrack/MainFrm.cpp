@@ -236,10 +236,10 @@ void CMainFrame::Initialize()
 	m_nTimer = SetTimer(TIMERID_GUI, MPTTIMER_PERIOD, nullptr);
 
 	// Setup Keyboard Hook
-	g_focusHook = SetWindowsHookEx(WH_CBT, FocusChangeProc, AfxGetInstanceHandle(), GetCurrentThreadId());
+	g_focusHook = SetWindowsHookEx(WH_CBT, FocusChangeProc, AfxGetInstanceHandle(), mfcless::CurrentThreadId());
 
 	// Update the tree
-	m_wndTree->Init();
+	m_wndTree.Init();
 
 	CreateExampleModulesMenu();
 	CreateTemplateModulesMenu();
@@ -300,20 +300,20 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	bmpNotes = LoadDib(MAKEINTRESOURCE(IDB_PATTERNVIEW));
 	// Toolbars
 	EnableDocking(CBRS_ALIGN_ANY);
-	if (!m_wndToolBar->Create(this)) return -1;
-	if (!m_wndStatusBar->Create(this)) return -1;
-	if (!m_wndTree->Create(this, IDD_TREEVIEW, TrackerSettings::Instance().treeViewOnLeft ? CBRS_LEFT : CBRS_RIGHT, IDD_TREEVIEW)) return -1;
-	m_wndStatusBar->SetIndicators(StatusBarIndicators, static_cast<int>(std::size(StatusBarIndicators)));
+	if (!m_wndToolBar.Create(this)) return -1;
+	if (!m_wndStatusBar.Create(this)) return -1;
+	if (!m_wndTree.Create(this, IDD_TREEVIEW, TrackerSettings::Instance().treeViewOnLeft ? CBRS_LEFT : CBRS_RIGHT, IDD_TREEVIEW)) return -1;
+	m_wndStatusBar.SetIndicators(StatusBarIndicators, static_cast<int>(std::size(StatusBarIndicators)));
 	SetupStatusBarSizes();
-	m_wndToolBar->Init(this);
-	m_wndTree->RecalcLayout();
+	m_wndToolBar.Init(this);
+	m_wndTree.RecalcLayout();
 
-	RemoveControlBar(m_wndStatusBar); //Removing statusbar because corrupted statusbar inifiledata can crash the program.
-	m_wndTree->EnableDocking(0); //To prevent a crash when there's "Docking=1" for treebar in ini-settings.
+	RemoveControlBar(&m_wndStatusBar); //Removing statusbar because corrupted statusbar inifiledata can crash the program.
+	m_wndTree.EnableDocking(0); //To prevent a crash when there's "Docking=1" for treebar in ini-settings.
 	// Restore toobar positions
 	LoadBarState(U_("Toolbars"));
 
-	AddControlBar(m_wndStatusBar); //Restore statusbar to mainframe.
+	AddControlBar(&m_wndStatusBar); //Restore statusbar to mainframe.
 
 	UpdateColors();
 
@@ -342,7 +342,7 @@ intptr_t CMainFrame::OnDPIChanged(uintptr_t, intptr_t suggestedRect)
 
 	RecreateImageLists();
 	SetupStatusBarSizes();
-	m_wndTree->RecalcLayout();
+	m_wndTree.RecalcLayout();
 	return result;
 }
 
@@ -369,7 +369,7 @@ void CMainFrame::RecreateImageLists()
 
 void CMainFrame::SetupStatusBarSizes()
 {
-	m_wndStatusBar->SetPaneInfo(0, ID_SEPARATOR, SBPS_STRETCH, HighDPISupport::ScalePixels(256, m_hWnd));
+	m_wndStatusBar.SetPaneInfo(0, ID_SEPARATOR, mfcless::pane::Stretch, HighDPISupport::ScalePixels(256, m_hWnd));
 
 	mfcless::DC *dc = GetDC();
 	MPT_ASSERT(m_hGUIFont.m_hObject);
@@ -380,7 +380,7 @@ void CMainFrame::SetupStatusBarSizes()
 			continue;
 		mpt::ustring text;
 		VERIFY(text.LoadString(StatusBarIndicators[i]));
-		m_wndStatusBar->SetPaneInfo(static_cast<int>(i), StatusBarIndicators[i], SBPS_NORMAL, dc->GetTextExtent(text).cx);
+		m_wndStatusBar.SetPaneInfo(static_cast<int>(i), StatusBarIndicators[i], mfcless::pane::Normal, dc->GetTextExtent(text).cx);
 	}
 	dc->SelectObject(oldFont);
 	ReleaseDC(dc);
@@ -468,9 +468,9 @@ void CMainFrame::OnClose()
 	}
 
 	// Save Settings
-	RemoveControlBar(m_wndStatusBar); // Remove statusbar so that its state won't get saved.
+	RemoveControlBar(&m_wndStatusBar); // Remove statusbar so that its state won't get saved.
 	SaveBarState(U_("Toolbars"));
-	AddControlBar(m_wndStatusBar); // Restore statusbar to mainframe.
+	AddControlBar(&m_wndStatusBar); // Restore statusbar to mainframe.
 	TrackerSettings::Instance().SaveSettings();
 
 	if(m_InputHandler->m_activeCommandSet)
@@ -514,7 +514,7 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
 		std::vector<mpt::uchar> fileName(size, L'\0');
 		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			const mpt::PathString file = mpt::PathString::FromCString(fileName.data());
+			const mpt::PathString file = mpt::PathString::FromUnicode(fileName.data());
 #ifdef MPT_BUILD_DEBUG
 			// Debug Hack: Quickly scan a folder containing module files (without running out of window handles ;)
 			if(scanAll && mpt::native_fs{}.is_directory(file))
@@ -527,7 +527,7 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
 					mpt::IO::InputFile inputFile(scanName, TrackerSettings::Instance().MiscCacheCompleteFileBeforeLoading);
 					if(!inputFile.IsValid())
 						continue;
-					SetHelpText(scanName.GetFilename().ToCString());
+					SetHelpText(scanName.GetFilename().ToUnicode());
 					auto sndFile = std::make_unique<CSoundFile>();
 					MPT_LOG_GLOBAL(LogDebug, "info", U_("Loading ") + scanName.ToUnicode());
 					if(!sndFile->Create(GetFileReader(inputFile), CSoundFile::loadCompleteModule, nullptr))
@@ -546,7 +546,7 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
 				if(!inputFile.IsValid())
 					continue;
 				auto sndFile = std::make_unique<CSoundFile>();
-				SetHelpText(file.GetFilename().ToCString());
+				SetHelpText(file.GetFilename().ToUnicode());
 				MPT_LOG_GLOBAL(LogDebug, "info", U_("Loading ") + file.ToUnicode());
 				if(!sndFile->Create(GetFileReader(inputFile), CSoundFile::loadCompleteModule, nullptr))
 					MPT_LOG_GLOBAL(LogDebug, "info", U_("FAILED: ") + file.ToUnicode());
@@ -554,7 +554,7 @@ void CMainFrame::OnDropFiles(HDROP hDropInfo)
 				continue;
 			}
 #endif
-			theApp.OpenDocumentFile(file.ToCString());
+			theApp.OpenDocumentFile(file.ToUnicode());
 		}
 	}
 	::DragFinish(hDropInfo);
@@ -662,7 +662,7 @@ void CMainFrame::OnUpdateFrameTitle(bool bAddToTitle)
 {
 	if ((GetStyle() & FWS_ADDTOTITLE) == 0)	return;     // leave it alone!
 
-	CMDIChildWnd* pActiveChild = nullptr;
+	CChildFrame * pActiveChild = nullptr;
 	CDocument* pDocument = GetActiveDocument();
 	if (bAddToTitle &&
 	  (pActiveChild = MDIGetActive()) != nullptr &&
@@ -672,7 +672,7 @@ void CMainFrame::OnUpdateFrameTitle(bool bAddToTitle)
 	{
 		mpt::ustring title = pDocument->GetTitle();
 		if(pDocument->IsModified())
-			title.AppendChar(_T('*'));
+			title.push_back(u8'*');
 		UpdateFrameTitleForDocument(title);
 	} else
 	{
@@ -812,7 +812,7 @@ void CMainFrame::SoundCallbackLock()
 	MPT_TRACE_SCOPE();
 	m_SoundDeviceFillBufferCriticalSection.Enter();
 	MPT_ASSERT_ALWAYS(m_pSndFile != nullptr);
-	m_AudioThreadId = GetCurrentThreadId();
+	m_AudioThreadId = mfcless::CurrentThreadId();
 	mpt::log::Trace::SetThreadId(mpt::log::Trace::ThreadKindAudio, m_AudioThreadId);
 }
 
@@ -1341,7 +1341,7 @@ void CMainFrame::UpdateColors()
 	CMainFrame *mainFrm = GetMainFrame();
 	if(mainFrm != nullptr)
 	{
-		mainFrm->m_wndToolBar->m_VuMeter.Invalidate();
+		mainFrm->m_wndToolBar.m_VuMeter.Invalidate();
 	}
 }
 
@@ -1352,7 +1352,7 @@ void CMainFrame::UpdateColors()
 
 uint32 CMainFrame::GetBaseOctave() const
 {
-	return m_wndToolBar->GetBaseOctave();
+	return m_wndToolBar.GetBaseOctave();
 }
 
 
@@ -1478,11 +1478,11 @@ void CMainFrame::UnsetPlaybackSoundFile()
 		cs.Leave();
 		if(m_pSndFile->GetpModDoc())
 		{
-			m_wndTree->UpdatePlayPos(m_pSndFile->GetpModDoc(), nullptr);
+			m_wndTree.UpdatePlayPos(m_pSndFile->GetpModDoc(), nullptr);
 		}
 	}
 	m_pSndFile = nullptr;
-	m_wndToolBar->SetCurrentSong(nullptr);
+	m_wndToolBar.SetCurrentSong(nullptr);
 	ResetNotificationBuffer();
 }
 
@@ -1526,7 +1526,7 @@ bool CMainFrame::PlayMod(CModDoc *pModDoc)
 	sndFile.InitPlayer(true);
 	sndFile.ResumePlugins();
 
-	m_wndToolBar->SetCurrentSong(m_pSndFile);
+	m_wndToolBar.SetCurrentSong(m_pSndFile);
 
 	m_VUMeterInput = VUMeter();
 	m_VUMeterOutput = VUMeter();
@@ -1939,7 +1939,7 @@ void CMainFrame::SetupMiscOptions()
 		if(GetSoundFilePlaying()) UpdateAudioParameters(*GetSoundFilePlaying());
 	}
 
-	m_wndToolBar->EnableFlatButtons(patternSetup[PatternSetup::FlatToolbarButtons]);
+	m_wndToolBar.EnableFlatButtons(patternSetup[PatternSetup::FlatToolbarButtons]);
 
 	UpdateTree(nullptr, UpdateHint().MPTOptions());
 	theApp.UpdateAllViews(UpdateHint().MPTOptions());
@@ -1992,19 +1992,19 @@ void CMainFrame::SetXInfoText(const mpt::uchar *text)
 
 void CMainFrame::SetHelpText(const mpt::uchar *text)
 {
-	m_wndStatusBar->SetPaneText(0, text);
+	m_wndStatusBar.SetPaneText(0, text);
 }
 
 
 mpt::ustring CMainFrame::GetHelpText() const
 {
-	return m_wndStatusBar->GetPaneText(0);
+	return m_wndStatusBar.GetPaneText(0);
 }
 
 
 void CMainFrame::OnDocumentCreated(CModDoc *pModDoc)
 {
-	m_wndTree->OnDocumentCreated(pModDoc);
+	m_wndTree.OnDocumentCreated(pModDoc);
 	UpdateMRUList();
 	UpdateDocumentCount();
 }
@@ -2014,20 +2014,20 @@ void CMainFrame::OnDocumentClosed(CModDoc *pModDoc)
 {
 	if (pModDoc == GetModPlaying()) PauseMod();
 
-	m_wndTree->OnDocumentClosed(pModDoc);
+	m_wndTree.OnDocumentClosed(pModDoc);
 	// We don't do UpdateDocumentCount() here because the document still exists at this point in time - the document template informs us instead.
 }
 
 
 void CMainFrame::UpdateTree(CModDoc *pModDoc, UpdateHint hint, QObject *pHint)
 {
-	m_wndTree->OnUpdate(pModDoc, hint, pHint);
+	m_wndTree.OnUpdate(pModDoc, hint, pHint);
 }
 
 
 void CMainFrame::RefreshDlsBanks()
 {
-	m_wndTree->RefreshDlsBanks();
+	m_wndTree.RefreshDlsBanks();
 }
 
 
@@ -2131,7 +2131,7 @@ void CMainFrame::OnViewOptions()
 	m_UpdateOptionsDialog = nullptr;
 #endif // MPT_ENABLE_UPDATE
 	m_bOptionsLocked = false;
-	m_wndTree->OnOptionsChanged();
+	m_wndTree.OnOptionsChanged();
 }
 
 
@@ -2195,7 +2195,7 @@ void CMainFrame::OnAddDlsBank()
 	{
 		Reporting::Error("At least one selected file was not a valid sound bank.");
 	}
-	m_wndTree->RefreshDlsBanks();
+	m_wndTree.RefreshDlsBanks();
 	EndWaitCursor();
 }
 
@@ -2212,7 +2212,7 @@ void CMainFrame::OnImportMidiLib()
 
 	BeginWaitCursor();
 	CTrackApp::ImportMidiConfig(dlg.GetFirstFile());
-	m_wndTree->RefreshMidiLibrary();
+	m_wndTree.RefreshMidiLibrary();
 	EndWaitCursor();
 }
 
@@ -2302,7 +2302,7 @@ void CMainFrame::OnTimerGUI()
 
 CModDoc *CMainFrame::GetActiveDoc() const
 {
-	CMDIChildWnd *pMDIActive = MDIGetActive();
+	CChildFrame *pMDIActive = MDIGetActive();
 	if (pMDIActive)
 	{
 		return static_cast<CModDoc *>(pMDIActive->GetActiveDocument());
@@ -2313,7 +2313,7 @@ CModDoc *CMainFrame::GetActiveDoc() const
 
 mfcless::DocumentView *CMainFrame::GetActiveView() const
 {
-	CMDIChildWnd *pMDIActive = MDIGetActive();
+	CChildFrame *pMDIActive = MDIGetActive();
 	if (pMDIActive)
 	{
 		return pMDIActive->GetActiveView();
@@ -2356,25 +2356,25 @@ void CMainFrame::OnUpdateTime(CCmdUI *)
 		}
 		wsprintf(s + _tcslen(s), U_(" %uch"), m_nAvgMixChn);
 	}
-	m_wndStatusBar->SetPaneText(m_wndStatusBar->CommandToIndex(ID_INDICATOR_TIME), s, true);
+	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_TIME), s, true);
 }
 
 
 void CMainFrame::OnUpdateUser(CCmdUI *)
 {
-	m_wndStatusBar->SetPaneText(m_wndStatusBar->CommandToIndex(ID_INDICATOR_USER), m_userText, true);
+	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_USER), m_userText, true);
 }
 
 
 void CMainFrame::OnUpdateInfo(CCmdUI *)
 {
-	m_wndStatusBar->SetPaneText(m_wndStatusBar->CommandToIndex(ID_INDICATOR_INFO), m_infoText, true);
+	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_INFO), m_infoText, true);
 }
 
 
 void CMainFrame::OnUpdateXInfo(CCmdUI *)
 {
-	m_wndStatusBar->SetPaneText(m_wndStatusBar->CommandToIndex(ID_INDICATOR_XINFO), m_xInfoText, true);
+	m_wndStatusBar.SetPaneText(m_wndStatusBar.CommandToIndex(ID_INDICATOR_XINFO), m_xInfoText, true);
 }
 
 void CMainFrame::OnPlayerPause()
@@ -2406,7 +2406,7 @@ void CMainFrame::OpenMenuItemFile(const uint32 nId, const bool isTemplateFile)
 		}
 		if(!pDoc)
 		{
-			Reporting::Notification(U_("The file '") + sPath.ToCString() + U_("' ") + (bExists ? U_("exists but can't be read.") : U_("does not exist.")));
+			Reporting::Notification(U_("The file '") + sPath.ToUnicode() + U_("' ") + (bExists ? U_("exists but can't be read.") : U_("does not exist.")));
 		}
 	} else
 	{
@@ -2415,7 +2415,7 @@ void CMainFrame::OpenMenuItemFile(const uint32 nId, const bool isTemplateFile)
 		theApp.OpenModulesDialog(files, isTemplateFile ? theApp.GetUserTemplatesPath() : theApp.GetExampleSongsPath());
 		for(const auto &file : files)
 		{
-			theApp.OpenDocumentFile(file.ToCString());
+			theApp.OpenDocumentFile(file.ToUnicode());
 		}
 	}
 }
@@ -2435,7 +2435,7 @@ void CMainFrame::OnExampleSong(uint32 nId)
 
 void CMainFrame::OnOpenMRUItem(uint32 nId)
 {
-	theApp.OpenDocumentFile(TrackerSettings::Instance().mruFiles[nId - ID_MRU_LIST_FIRST].ToCString());
+	theApp.OpenDocumentFile(TrackerSettings::Instance().mruFiles[nId - ID_MRU_LIST_FIRST].ToUnicode());
 }
 
 
@@ -2468,7 +2468,7 @@ intptr_t CMainFrame::OnUpdatePosition(uintptr_t, intptr_t lParam)
 		//Log("OnUpdatePosition: row=%d time=%lu\n", pnotify->nRow, pnotify->TimestampSamples);
 		if(CModDoc *modDoc = GetModPlaying(); modDoc != nullptr)
 		{
-			m_wndTree->UpdatePlayPos(modDoc, pnotify);
+			m_wndTree.UpdatePlayPos(modDoc, pnotify);
 			if (GetFollowSong())
 				::SendMessage(GetFollowSong(), WM_MOD_UPDATEPOSITION, 0, lParam);
 			if(m_pSndFile->m_pluginDryWetRatioChanged.any())
@@ -2517,9 +2517,9 @@ intptr_t CMainFrame::OnUpdatePosition(uintptr_t, intptr_t lParam)
 			countChan += 1;
 		}
 
-		m_wndToolBar->m_VuMeter.SetVuMeter(countChan, vu, pnotify->type[Notification::Stop]);
+		m_wndToolBar.m_VuMeter.SetVuMeter(countChan, vu, pnotify->type[Notification::Stop]);
 
-		m_wndToolBar->SetCurrentSong(m_pSndFile);
+		m_wndToolBar.SetCurrentSong(m_pSndFile);
 	}
 	return 0;
 }
@@ -2562,14 +2562,14 @@ void CMainFrame::OnPanic()
 void CMainFrame::OnPrevOctave()
 {
 	uint32 n = GetBaseOctave();
-	if (n > MIN_BASEOCTAVE) m_wndToolBar->SetBaseOctave(n-1);
+	if (n > MIN_BASEOCTAVE) m_wndToolBar.SetBaseOctave(n-1);
 }
 
 
 void CMainFrame::OnNextOctave()
 {
 	uint32 n = GetBaseOctave();
-	if (n < MAX_BASEOCTAVE) m_wndToolBar->SetBaseOctave(n+1);
+	if (n < MAX_BASEOCTAVE) m_wndToolBar.SetBaseOctave(n+1);
 }
 
 
@@ -2650,7 +2650,7 @@ void CMainFrame::OnToggleMainBarShowMiscIcons() { OnToggleMainBarItem(MainToolBa
 
 void CMainFrame::OnToggleMainBarItem(MainToolBarItem item, uint32 menuID)
 {
-	const bool visible = m_wndToolBar->ToggleVisibility(item);
+	const bool visible = m_wndToolBar.ToggleVisibility(item);
 	GetMenu()->CheckMenuItem(menuID, mfcless::menu::ByCommand | (visible ? mfcless::menu::Checked : 0));
 }
 
@@ -2659,7 +2659,7 @@ void CMainFrame::OnToggleTreeViewOnLeft()
 {
 	const bool left = !TrackerSettings::Instance().treeViewOnLeft;
 	TrackerSettings::Instance().treeViewOnLeft = left;
-	m_wndTree->SetBarOnLeft(left);
+	m_wndTree.SetBarOnLeft(left);
 	RecalcLayout();
 	GetMenu()->CheckMenuItem(ID_TREEVIEW_ON_LEFT, mfcless::menu::ByCommand | (left ? mfcless::menu::Checked : 0));
 }
@@ -2743,18 +2743,18 @@ intptr_t CMainFrame::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 			break;
 
 		case kcSwitchToInstrLibrary:
-			if(!m_wndTree->IsVisible())
+			if(!m_wndTree.IsVisible())
 				return kcNull;
 			if(m_bModTreeHasFocus)
 				SwitchToActiveView();
 			else
-				m_wndTree->setFocus();
+				m_wndTree.SetFocus();
 			break;
 
 		default:
 			// If handled neither by MainFrame nor by ModDoc, send it to the active view
 			// Note: MDIGetActive() will return a valid view even if we are currently in a modal dialog!
-			CMDIChildWnd *pMDIActive = MDIGetActive();
+			CChildFrame *pMDIActive = MDIGetActive();
 			QWidget *wnd = nullptr;
 			if(pMDIActive)
 			{
@@ -2861,9 +2861,9 @@ void CMainFrame::OnShowWindow(bool bShow, uint32 /*nStatus*/)
 	if(bShow && !IsWindowVisible() && firstShow)
 	{
 		firstShow = false;
-		WINDOWPLACEMENT wpl;
+		mfcless::WindowPlacement wpl;
 		GetWindowPlacement(&wpl);
-		wpl = theApp.GetSettings().Read<WINDOWPLACEMENT>(U_("Display"), U_("WindowPlacement"), wpl);
+		wpl = theApp.GetSettings().Read<mfcless::WindowPlacement>(U_("Display"), U_("WindowPlacement"), wpl);
 		HighDPISupport::SetWindowPlacement(m_hWnd, wpl);
 	}
 }
@@ -2918,9 +2918,9 @@ static std::unique_ptr<CUpdateCheckProgressDialog> g_UpdateCheckProgressDialog =
 bool CMainFrame::ShowUpdateIndicator(const UpdateCheckResult &result, const mpt::ustring &releaseVersion, const mpt::ustring &infoURL, bool showHighlight)
 {
 	m_updateCheckResult = std::make_unique<UpdateCheckResult>(result);
-	if(m_wndToolBar->IsVisible() && (TrackerSettings::Instance().mainToolBarVisibleItems.Get() & MainToolBarItem::IconsMisc))
+	if(m_wndToolBar.IsVisible() && (TrackerSettings::Instance().mainToolBarVisibleItems.Get() & MainToolBarItem::IconsMisc))
 	{
-		return m_wndToolBar->ShowUpdateInfo(releaseVersion, infoURL, showHighlight);
+		return m_wndToolBar.ShowUpdateInfo(releaseVersion, infoURL, showHighlight);
 	} else
 	{
 		GetMenu()->RemoveMenu(ID_UPDATE_AVAILABLE, mfcless::menu::ByCommand);
@@ -2934,7 +2934,7 @@ bool CMainFrame::ShowUpdateIndicator(const UpdateCheckResult &result, const mpt:
 intptr_t CMainFrame::OnUpdateCheckStart(uintptr_t wparam, intptr_t lparam)
 {
 	GetMenu()->RemoveMenu(ID_UPDATE_AVAILABLE, mfcless::menu::ByCommand);
-	m_wndToolBar->RemoveUpdateInfo();
+	m_wndToolBar.RemoveUpdateInfo();
 
 	const bool isAutoUpdate = CUpdateCheck::IsAutoUpdateFromMessage(wparam, lparam);
 	mpt::ustring updateText = U_("Checking for updates...");
@@ -3153,12 +3153,12 @@ void CMainFrame::OnHelp()
 	}
 
 	const mpt::PathString helpFile = theApp.GetInstallPath() + P_("OpenMPT Manual.chm") + mpt::PathString::FromUTF8(page) + P_(">OpenMPT");
-	if(!::HtmlHelp(m_hWnd, helpFile.ToCString(), strcmp(page, "") ? HH_DISPLAY_TOC : HH_DISPLAY_TOPIC, NULL))
+	if(!::HtmlHelp(m_hWnd, helpFile.ToUnicode(), strcmp(page, "") ? HH_DISPLAY_TOC : HH_DISPLAY_TOPIC, NULL))
 	{
-		Reporting::Error(U_("Could not find help file:\n") + helpFile.ToCString());
+		Reporting::Error(U_("Could not find help file:\n") + helpFile.ToUnicode());
 		return;
 	}
-	//::ShowWindow(hwndHelp, SW_SHOWMAXIMIZED);
+	//::ShowWindow(hwndHelp, mfcless::show::ShowMaximized);
 }
 
 
@@ -3293,7 +3293,7 @@ mfcless::Menu CMainFrame::CreateFileMenu(const size_t maxCount, std::vector<mpt:
 	uintptr_t filesAdded = 0;
 	for(const auto &fileName : paths)
 	{
-		mpt::ustring file = fileName.GetFilename().ToCString();
+		mpt::ustring file = fileName.GetFilename().ToUnicode();
 		file.Replace(U_("&"), U_("&&"));
 		hMenu.AppendMenu(mfcless::menu::String, idRangeBegin + filesAdded, file);
 		filesAdded++;

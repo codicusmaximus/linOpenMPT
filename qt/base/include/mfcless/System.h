@@ -24,6 +24,12 @@ constexpr uint8 BlueOf(uint32 c) noexcept { return static_cast<uint8>((c >> 16) 
 
 // Milliseconds since an arbitrary start, wrapping as Windows' tick counts do.
 uint32 TickCount();
+// The calling thread's ID (as the system numbers threads).
+uint32 CurrentThreadId();
+void SleepMs(uint32 milliseconds);
+// The size of the desktop spanning all screens (SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN).
+int VirtualScreenWidth();
+int VirtualScreenHeight();
 
 // The desktop's colours for the roles upstream reads with GetSysColor, from
 // the Qt style's palette.

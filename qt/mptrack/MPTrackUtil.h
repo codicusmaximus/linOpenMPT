@@ -30,7 +30,7 @@ bool CreateShellFileLink(const mpt::PathString &path, const mpt::PathString &tar
  * [in] id and type: the resource's ID and type name (such as U_("PNG")).
  * Return: span representing the resource data, valid for the program's lifetime.
  */
-mpt::const_byte_span GetResource(uint32 id, const mpt::uchar *type);
+mpt::const_byte_span GetResource(uint32 id, const mpt::ustring &type);
 
 
 mpt::ustring LoadResourceString(uint32 nID);

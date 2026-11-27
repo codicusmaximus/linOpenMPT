@@ -167,6 +167,8 @@ public:
 	// Creates the views for the document (upstream: OnCreateClient).
 	bool OnCreateClient(CModDoc *document, const mfcless::ViewClass *pNewViewClass);
 	void ActivateFrame(int nCmdShow = -1);
+	// mfcless: makes this the active MDI child (CMDIChildWnd::MDIActivate).
+	void MDIActivate();
 	void OnUpdateFrameTitle(bool bAddToTitle);
 
 // Generated message map functions

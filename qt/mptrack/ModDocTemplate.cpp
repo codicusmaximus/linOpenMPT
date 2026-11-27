@@ -3,7 +3,7 @@
  * ------------------
  * Purpose: CDocTemplate and CModDocManager specialization for CModDoc.
  * Notes  : mfcless twin of upstream's mptrack/ModDocTemplate.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          What CMultiDocTemplate and CDocManager did for OpenMPT is here too.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -18,6 +18,11 @@
 #include "SelectPluginDialog.h"
 #include "TrackerSettings.h"
 #include "../soundlib/plugins/PluginManager.h"
+#include "Childfrm.h"
+
+#include "mfcless/QtString.h"
+
+#include <QtWidgets/QMdiArea>
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -27,21 +32,54 @@ OPENMPT_NAMESPACE_BEGIN
 #endif
 
 
-CDocument *CModDocTemplate::OpenDocumentFile(const mpt::uchar * lpszPathName, bool addToMru, bool makeVisible)
+CModDoc *CModDocTemplate::OpenDocumentFile(const mpt::PathString &filename, bool addToMru, bool makeVisible)
 {
-	const mpt::PathString filename = (lpszPathName ? mpt::PathString::FromCString(lpszPathName) : mpt::PathString());
-
 	// First, remove document from MRU list.
 	if(addToMru)
 	{
 		theApp.RemoveMruItem(filename);
 	}
 
-	CDocument *pDoc = QObject::OpenDocumentFile(filename.empty() ? nullptr : filename.ToCString().GetString(), addToMru, makeVisible);
+	// mfcless: CMultiDocTemplate::OpenDocumentFile
+	CModDoc *pDoc = new CModDoc();
+	AddDocument(pDoc);
+	CChildFrame *pFrame = CreateNewFrame(pDoc);
+	if(pFrame == nullptr)
+	{
+		delete pDoc;
+		pDoc = nullptr;
+	} else if(filename.empty())
+	{
+		SetDefaultTitle(pDoc);
+		if(!pDoc->OnNewDocument())
+		{
+			pDoc->OnCloseDocument();
+			pDoc = nullptr;
+		} else
+		{
+			m_nUntitledCount++;
+		}
+	} else
+	{
+		pDoc->BeginWaitCursor();
+		const bool opened = pDoc->OnOpenDocument(filename.ToUnicode().c_str());
+		pDoc->EndWaitCursor();
+		if(!opened)
+		{
+			pDoc->OnCloseDocument();
+			pDoc = nullptr;
+		} else
+		{
+			pDoc->SetPathName(filename.ToUnicode().c_str(), addToMru);
+		}
+	}
+	if(pDoc)
+		InitialUpdateFrame(pFrame, pDoc, makeVisible);
+
 	if(pDoc)
 	{
 		CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-		if (pMainFrm) pMainFrm->OnDocumentCreated(static_cast<CModDoc *>(pDoc));
+		if (pMainFrm) pMainFrm->OnDocumentCreated(pDoc);
 	} else if(!filename.empty() && CMainFrame::GetMainFrame() && addToMru)
 	{
 		// Opening the document failed
@@ -51,17 +89,17 @@ CDocument *CModDocTemplate::OpenDocumentFile(const mpt::uchar * lpszPathName, bo
 }
 
 
-CDocument *CModDocTemplate::OpenTemplateFile(const mpt::PathString &filename, bool isExampleTune)
+CModDoc *CModDocTemplate::OpenTemplateFile(const mpt::PathString &filename, bool isExampleTune)
 {
-	CDocument *doc = OpenDocumentFile(filename.ToCString(), isExampleTune ? true : false, true);
+	CModDoc *doc = OpenDocumentFile(filename, isExampleTune ? true : false, true);
 	if(doc)
 	{
-		CModDoc *modDoc = static_cast<CModDoc *>(doc);
+		CModDoc *modDoc = doc;
 		// Clear path so that saving will not take place in templates/examples folder.
 		modDoc->ClearFilePath();
 		if(!isExampleTune)
 		{
-			QObject::SetDefaultTitle(modDoc);
+			SetDefaultTitle(modDoc);
 			m_nUntitledCount++;
 			// Name has changed...
 			CMainFrame::GetMainFrame()->UpdateTree(modDoc, GeneralHint().General());
@@ -78,15 +116,15 @@ CDocument *CModDocTemplate::OpenTemplateFile(const mpt::PathString &filename, bo
 				// Always enforce most compatible playback for legacy module types
 				sndFile.m_playBehaviour = sndFile.GetDefaultPlaybackBehaviour(sndFile.GetType());
 			}
-			doc->UpdateAllViews(nullptr, UpdateHint().ModType().AsLPARAM());
+			doc->UpdateAllViews(nullptr, UpdateHint().ModType());
 		} else
 		{
 			// Remove extension from title, so that saving the file will not suggest a filename like e.g. "example.it.it".
 			const mpt::ustring title = modDoc->GetTitle();
-			const int dotPos = title.ReverseFind(_T('.'));
-			if(dotPos >= 0)
+			const auto dotPos = title.rfind(u8'.');
+			if(dotPos != mpt::ustring::npos)
 			{
-				modDoc->SetTitle(title.Left(dotPos));
+				modDoc->SetTitle(title.substr(0, dotPos));
 			}
 		}
 	}
@@ -94,19 +132,21 @@ CDocument *CModDocTemplate::OpenTemplateFile(const mpt::PathString &filename, bo
 }
 
 
-void CModDocTemplate::AddDocument(CDocument *doc)
+void CModDocTemplate::AddDocument(CModDoc *doc)
 {
-	QObject::AddDocument(doc);
-	m_documents.insert(static_cast<CModDoc *>(doc));
+	doc->SetDocTemplate(this);
+	m_documents.insert(doc);
 	// At this point we don't know yet if opening the document is going to be successful, so don't call UpdateDocumentCount()
 }
 
 
-void CModDocTemplate::RemoveDocument(CDocument *doc)
+void CModDocTemplate::RemoveDocument(CModDoc *doc)
 {
-	QObject::RemoveDocument(doc);
-	m_documents.erase(static_cast<CModDoc *>(doc));
-	CMainFrame::GetMainFrame()->UpdateDocumentCount();
+	if(doc->GetDocTemplate() == this)
+		doc->SetDocTemplate(nullptr);
+	m_documents.erase(doc);
+	if(CMainFrame::GetMainFrame())
+		CMainFrame::GetMainFrame()->UpdateDocumentCount();
 }
 
 
@@ -116,18 +156,79 @@ bool CModDocTemplate::DocumentExists(const CModDoc *doc) const
 }
 
 
-CDocument *CModDocManager::OpenDocumentFile(const mpt::uchar * lpszFileName, bool bAddToMRU)
-{
-	const mpt::PathString filename = (lpszFileName ? mpt::PathString::FromCString(lpszFileName) : mpt::PathString());
+// mfcless: CMultiDocTemplate's part
 
+void CModDocTemplate::SetDefaultTitle(CModDoc *doc)
+{
+	mpt::ustring title = U_("Untitled");
+	if(m_nUntitledCount != 0)
+		title += mpt::ufmt::val(m_nUntitledCount + 1);
+	doc->SetTitle(title);
+}
+
+
+CChildFrame *CModDocTemplate::CreateNewFrame(CModDoc *doc)
+{
+	CMainFrame *mainFrm = CMainFrame::GetMainFrame();
+	if(!mainFrm || !mainFrm->GetMDIClient())
+		return nullptr;
+	auto *frame = new CChildFrame();
+	mainFrm->GetMDIClient()->addSubWindow(frame);
+	if(!frame->OnCreateClient(doc, m_pViewClass))
+	{
+		delete frame;
+		return nullptr;
+	}
+	return frame;
+}
+
+
+void CModDocTemplate::InitialUpdateFrame(CChildFrame *frame, CModDoc *doc, bool makeVisible)
+{
+	if(!frame)
+		return;
+	if(makeVisible)
+		frame->ActivateFrame();
+	frame->OnUpdateFrameTitle(true);
+	if(doc)
+		doc->UpdateAllViews(nullptr, UpdateHint().ModType());
+}
+
+
+void CModDocTemplate::CloseAllDocuments(bool)
+{
+	// A copy: closing a document removes it from the set.
+	const std::vector<CModDoc *> docs(m_documents.begin(), m_documents.end());
+	for(CModDoc *doc : docs)
+	{
+		if(DocumentExists(doc))
+			doc->OnCloseDocument();
+	}
+}
+
+
+bool CModDocTemplate::SaveAllModified()
+{
+	const std::vector<CModDoc *> docs(m_documents.begin(), m_documents.end());
+	for(CModDoc *doc : docs)
+	{
+		if(DocumentExists(doc) && !doc->SaveModified())
+			return false;
+	}
+	return true;
+}
+
+
+CModDoc *CModDocManager::OpenDocumentFile(const mpt::PathString &filename, bool bAddToMRU)
+{
 	if(mpt::native_fs{}.is_directory(filename))
 	{
 		FolderScanner scanner(filename, FolderScanner::kOnlyFiles | FolderScanner::kFindInSubDirectories);
 		mpt::PathString file;
-		CDocument *pDoc = nullptr;
+		CModDoc *pDoc = nullptr;
 		while(scanner.Next(file))
 		{
-			pDoc = OpenDocumentFile(file.ToCString(), bAddToMRU);
+			pDoc = OpenDocumentFile(file, bAddToMRU);
 		}
 		return pDoc;
 	}
@@ -152,12 +253,31 @@ CDocument *CModDocManager::OpenDocumentFile(const mpt::uchar * lpszFileName, boo
 		}
 	}
 
-	CDocument *pDoc = QObject::OpenDocumentFile(lpszFileName, bAddToMRU);
+	// mfcless: CDocManager::OpenDocumentFile; an open document is activated
+	// instead of opened again.
+	CModDoc *pDoc = nullptr;
+	if(m_template)
+	{
+		if(!filename.empty())
+		{
+			for(CModDoc *doc : *m_template)
+			{
+				if(!doc->GetPathNameMpt().empty() && !mpt::PathCompareNoCase(doc->GetPathNameMpt(), filename))
+				{
+					mfcless::ViewPosition pos = doc->GetFirstViewPosition();
+					if(mfcless::DocumentView *view = doc->GetNextView(pos); view && view->GetParentFrame())
+						view->GetParentFrame()->MDIActivate();
+					return doc;
+				}
+			}
+		}
+		pDoc = m_template->OpenDocumentFile(filename, bAddToMRU);
+	}
 	if(pDoc == nullptr && !filename.empty())
 	{
 		if(!mpt::native_fs{}.is_file(filename))
 		{
-			Reporting::Error(MPT_UFORMAT("Unable to open \"{}\": file does not exist.")(filename.ToCString()));
+			Reporting::Error(MPT_UFORMAT("Unable to open \"{}\": file does not exist.")(filename.ToUnicode()));
 			theApp.RemoveMruItem(filename);
 			CMainFrame::GetMainFrame()->UpdateMRUList();
 		} else
@@ -167,72 +287,72 @@ CDocument *CModDocManager::OpenDocumentFile(const mpt::uchar * lpszFileName, boo
 			Reporting::Notification(MPT_UFORMAT("Opening \"{}\" failed. This can happen if "
 				"no more modules can be opened or if the file type was not "
 				"recognised (currently there {} {} document{} open).")(
-					filename.ToCString(), (numDocs == 1) ? mpt::ustring(U_("is")) : mpt::ustring(U_("are")), numDocs, (numDocs == 1) ? mpt::ustring(U_("")) : mpt::ustring(U_("s"))));
+					filename.ToUnicode(), (numDocs == 1) ? mpt::ustring(U_("is")) : mpt::ustring(U_("are")), numDocs, (numDocs == 1) ? mpt::ustring(U_("")) : mpt::ustring(U_("s"))));
 		}
 	}
 	return pDoc;
 }
 
 
-bool CModDocManager::OnDDECommand(LPTSTR lpszCommand)
+bool CModDocManager::OnDDECommand(const mpt::ustring &command)
 {
 	bool bResult, bActivate;
 #ifdef DDEDEBUG
-	MPT_LOG_GLOBAL(LogDebug, "DDE", U_("OnDDECommand: ") + mpt::ToUnicode(mpt::ustring(lpszCommand)));
+	MPT_LOG_GLOBAL(LogDebug, "DDE", U_("OnDDECommand: ") + command);
 #endif
 	// Handle any DDE commands recognized by your application
 	// and return true.  See implementation of CWinApp::OnDDEComand
 	// for example of parsing the DDE command string.
 	bResult = false;
 	bActivate = false;
-	if ((lpszCommand) && lpszCommand[0] && (theApp.m_pMainWnd))
+	CMainFrame *mainFrm = CMainFrame::GetMainFrame();
+	if(!command.empty() && mainFrm)
 	{
-		std::size_t len = _tcslen(lpszCommand);
-		std::vector<mpt::uchar> s(lpszCommand, lpszCommand + len + 1);
-
-		len--;
-		while((len > 0) && _tcschr(U_("(){}[]\'\" "), s[len]))
-		{
-			s[len--] = 0;
-		}
-		mpt::uchar *pszCmd = s.data();
-		while (pszCmd[0] == _T('[')) pszCmd++;
-		mpt::uchar *pszData = pszCmd;
-		while ((pszData[0] != _T('(')) && (pszData[0]))
-		{
-			if (((uint8)pszData[0]) <= (uint8)' ') *pszData = 0;
-			pszData++;
-		}
-		while ((*pszData) && (_tcschr(U_("(){}[]\'\" "), *pszData)))
-		{
-			*pszData = 0;
-			pszData++;
-		}
+		// mfcless: the same parsing as upstream's, on a string:
+		// [Cmd(data)] with brackets, quotes and spaces trimmed.
+		const auto isTrim = [](char8_t c) { return mpt::ustring(U_("(){}[]\'\" ")).find(c) != mpt::ustring::npos; };
+		mpt::ustring s = command;
+		while(s.size() > 1 && isTrim(s.back()))
+			s.pop_back();
+		std::size_t start = 0;
+		while(start < s.size() && s[start] == u8'[')
+			start++;
+		std::size_t dataPos = start;
+		while(dataPos < s.size() && s[dataPos] != u8'(')
+			dataPos++;
+		mpt::ustring cmd;
+		for(std::size_t i = start; i < dataPos && static_cast<uint8>(s[i]) > static_cast<uint8>(' '); i++)
+			cmd.push_back(s[i]);
+		while(dataPos < s.size() && isTrim(s[dataPos]))
+			dataPos++;
+		const mpt::ustring data = s.substr(dataPos);
+		const QString qcmd = mfcless::ToQString(cmd);
 		// Edit/Open
-		if ((!lstrcmpi(pszCmd, U_("Edit")))
-		 || (!lstrcmpi(pszCmd, U_("Open"))))
+		if(!qcmd.compare(QStringLiteral("Edit"), Qt::CaseInsensitive)
+		 || !qcmd.compare(QStringLiteral("Open"), Qt::CaseInsensitive))
 		{
-			if (pszData[0])
+			if(!data.empty())
 			{
 				bResult = true;
 				bActivate = true;
-				OpenDocumentFile(pszData);
+				OpenDocumentFile(mpt::PathString::FromUnicode(data));
 			}
 		} else
 		// New
-		if (!lstrcmpi(pszCmd, U_("New")))
+		if(!qcmd.compare(QStringLiteral("New"), Qt::CaseInsensitive))
 		{
-			OpenDocumentFile(U_(""));
+			OpenDocumentFile(mpt::PathString());
 			bResult = true;
 			bActivate = true;
 		}
 	#ifdef DDEDEBUG
-		MPT_LOG_GLOBAL(LogDebug, "DDE", MPT_UFORMAT("{}({})")(mpt::ustring(pszCmd), mpt::ustring(pszData)));
+		MPT_LOG_GLOBAL(LogDebug, "DDE", MPT_UFORMAT("{}({})")(cmd, data));
 	#endif
-		if ((bActivate) && (theApp.m_pMainWnd->m_hWnd))
+		if(bActivate)
 		{
-			if (theApp.m_pMainWnd->IsIconic()) theApp.m_pMainWnd->ShowWindow(SW_RESTORE);
-			theApp.m_pMainWnd->SetActiveWindow();
+			if(mainFrm->IsIconic()) mainFrm->ShowWindow(mfcless::show::Restore);
+			mainFrm->raise();
+			mainFrm->activateWindow();
 		}
 	}
 	// Return false for any DDE commands you do not handle.

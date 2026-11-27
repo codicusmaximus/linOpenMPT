@@ -6,8 +6,12 @@
 #include <QtCore/QStandardPaths>
 
 #include <chrono>
+#include <thread>
+
+#include <unistd.h>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QPalette>
+#include <QtGui/QScreen>
 
 namespace mfcless
 {
@@ -16,6 +20,32 @@ uint32 TickCount()
 {
 	using namespace std::chrono;
 	return static_cast<uint32>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+}
+
+uint32 CurrentThreadId()
+{
+	return static_cast<uint32>(::gettid());
+}
+
+void SleepMs(uint32 milliseconds)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
+
+static QRect VirtualScreen()
+{
+	QScreen *screen = QGuiApplication::primaryScreen();
+	return screen ? screen->virtualGeometry() : QRect();
+}
+
+int VirtualScreenWidth()
+{
+	return VirtualScreen().width();
+}
+
+int VirtualScreenHeight()
+{
+	return VirtualScreen().height();
 }
 
 uint32 SystemColor(SysColor role)

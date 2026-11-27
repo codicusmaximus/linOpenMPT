@@ -27,6 +27,7 @@ struct ResourceName
 	ResourceName() = default;
 	ResourceName(uint16_t i) : id(i) { }
 	ResourceName(const char16_t *n) : name(n) { }
+	ResourceName(std::u16string n) : name(std::move(n)) { }
 	bool operator<(const ResourceName &o) const { return id != o.id ? id < o.id : name < o.name; }
 	bool operator==(const ResourceName &o) const { return id == o.id && name == o.name; }
 };

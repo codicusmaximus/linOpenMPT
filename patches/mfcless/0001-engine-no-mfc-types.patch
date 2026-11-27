@@ -628,7 +628,7 @@ index 2adf42c..ae02583 100644
  	bool HasEditor() const override { return true; }
  protected:
 diff --git a/soundlib/plugins/PlugInterface.cpp b/soundlib/plugins/PlugInterface.cpp
-index e52d026..e3f9900 100644
+index e52d026..fade2b1 100644
 --- a/soundlib/plugins/PlugInterface.cpp
 +++ b/soundlib/plugins/PlugInterface.cpp
 @@ -102,46 +102,46 @@ void IMixPlugin::SetScaledUIParam(PlugParamIndex param, PlugParamValue value)
@@ -705,7 +705,7 @@ index e52d026..e3f9900 100644
  		delete m_pEditor;
  		m_pEditor = nullptr;
  	}
-@@ -599,16 +599,16 @@ void IMixPlugin::AutomateParameter(PlugParamIndex param)
+@@ -599,13 +599,13 @@ void IMixPlugin::AutomateParameter(PlugParamIndex param)
  
  	modDoc->SendNotifyMessageToAllViews(WM_MOD_PLUGPARAMAUTOMATE, m_nSlot, param);
  
@@ -720,11 +720,7 @@ index e52d026..e3f9900 100644
 +		if(CInputHandler::ShiftPressed() && TrackerSettings::Instance().midiMappingInPluginEditor)
  		{
  			// Shift pressed -> Open MIDI mapping dialog
--			CMainFrame::GetMainFrame()->PostMessage(WM_MOD_MIDIMAPPING, m_nSlot, param);
-+			CMainFrame::GetMainFrame()->PostModMessage(WM_MOD_MIDIMAPPING, m_nSlot, param);
- 		}
- 
- 		// Learn macro
+ 			CMainFrame::GetMainFrame()->PostMessage(WM_MOD_MIDIMAPPING, m_nSlot, param);
 @@ -641,7 +641,7 @@ bool IMixPlugin::SaveProgram()
  		defaultDir = m_Factory.dllPath.GetDirectoryWithDrive();
  	}

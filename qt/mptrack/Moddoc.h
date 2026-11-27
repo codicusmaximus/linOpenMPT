@@ -123,7 +123,7 @@ enum class RecordGroup : uint8
 };
 
 
-class CModDoc final : public QObject, public mfcless::MessageMap
+class CModDoc final : public mfcless::Document
 {
 	Q_OBJECT
 protected:
@@ -132,7 +132,7 @@ protected:
 	LogMode m_LogMode = LogModeInstantReporting;
 	CSoundFile m_SndFile;
 
-	QObject *m_hWndFollow = nullptr;
+	QWidget *m_hWndFollow = nullptr;
 	FlagSet<Notification::Type, uint16> m_notifyType;
 	Notification::Item m_notifyItem = 0;
 	QSize m_szOldPatternScrollbarsPos = { -10, -10 };
@@ -163,12 +163,6 @@ protected:
 	std::bitset<16> m_midiSustainActive;
 
 	std::vector<RecordGroup> m_multiRecordGroup;
-
-	// mfcless: what CDocument kept.
-	mpt::PathString m_strPathName;
-	mpt::ustring m_strTitle;
-	bool m_bModified = false;
-	std::vector<mfcless::DocumentView *> m_views;
 
 public: // created by CModDocTemplate (upstream: from serialization only)
 	CModDoc();
@@ -206,13 +200,13 @@ protected:
 
 public:
 
-	void ClearFilePath() { m_strPathName = mpt::PathString(); }
+	void ClearFilePath() { m_strPathName.clear(); }
 
 	void ViewPattern(uint32 nPat, uint32 nOrd);
 	void ViewSample(uint32 nSmp);
 	void ViewInstrument(uint32 nIns);
-	QObject *GetFollowWnd() const { return m_hWndFollow; }
-	void SetFollowWnd(QObject *hwnd);
+	QWidget *GetFollowWnd() const { return m_hWndFollow; }
+	void SetFollowWnd(QWidget *hwnd);
 
 	void SetNotifications(FlagSet<Notification::Type> type, Notification::Item item = 0) { m_notifyType = type; m_notifyItem = item; }
 	FlagSet<Notification::Type, uint16> GetNotificationType() const { return m_notifyType; }
@@ -365,34 +359,38 @@ protected:
 	CChildFrame *GetChildFrame(); //rewbs.customKeys
 
 // Overrides
-	// mfcless: CDocument's overrides and what they relied on.
 public:
-	bool OnNewDocument();
-	bool OnOpenDocument(const mpt::PathString &filename);
-	void OnCloseDocument();
+	bool OnNewDocument() override;
+	bool OnOpenDocument(const mpt::uchar *lpszPathName) override;
+	bool OnSaveDocument(const mpt::uchar *lpszPathName) override
+	{
+		return OnSaveDocument(lpszPathName ? mpt::PathString::FromUnicode(lpszPathName) : mpt::PathString());
+	}
+	void OnCloseDocument() override;
 	void SafeFileClose();
 	bool OnSaveDocument(const mpt::PathString &filename, const bool setPath = true);
 	bool SaveFile(const mpt::PathString &filename, bool allowRelativeSamplePaths);
 
-	void SetPathName(const mpt::PathString &filename, bool bAddToMRU = true);
+	using mfcless::Document::SetPathName;
+	void SetPathName(const mpt::PathString &filename, bool bAddToMRU = true)
+	{
+		mfcless::Document::SetPathName(filename.ToUnicode().c_str(), bAddToMRU);
+	}
 	mpt::PathString GetPathNameMpt() const
 	{
-		return m_strPathName;
+		return mpt::PathString::FromUnicode(GetPathName());
 	}
-	const mpt::ustring &GetTitle() const { return m_strTitle; }
-	void SetTitle(const mpt::ustring &title);
 
-	bool SaveModified();
+	bool SaveModified() override;
 	bool SaveAllSamples(bool showPrompt = true);
 	bool SaveSample(SAMPLEINDEX smp);
 
+	bool DoSave(const mpt::uchar *lpszPathName, bool /*bSaveAs*/ = true) override
+	{
+		return DoSave(lpszPathName ? mpt::PathString::FromUnicode(lpszPathName) : mpt::PathString());
+	}
 	bool DoSave(const mpt::PathString &filename, bool setPath = true);
-	void DeleteContents();
-
-	// mfcless: CDocument's view list.
-	void AddView(mfcless::DocumentView *view);
-	void RemoveView(mfcless::DocumentView *view);
-	const std::vector<mfcless::DocumentView *> &GetViews() const { return m_views; }
+	void DeleteContents() override;
 
 	// Get the sample index for the current pattern cell (resolves instrument note maps, etc)
 	SAMPLEINDEX GetSampleIndex(const ModCommand &m, ModCommand::INSTR lastInstr = 0) const;

@@ -39,7 +39,7 @@ Upstream: 8bc4cd9
 | `ExceptionHandler.cpp` | 861 | reuse | todo |
 | `ExternalSamples.cpp` | 373 | twin | todo |
 | `FileDialog.cpp` | 274 | twin | todo |
-| `FolderScanner.cpp` | 89 | reuse | todo |
+| `FolderScanner.cpp` | 89 | twin | done |
 | `GeneralConfigDlg.cpp` | 246 | twin | todo |
 | `Globals.cpp` | 896 | twin | todo |
 | `HTTP.cpp` | 522 | reuse | todo |
