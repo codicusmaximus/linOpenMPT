@@ -17,13 +17,24 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "Snd_defs.h"
 
+#include "mfcless/MessageMap.h"
+
 #include <QtWidgets/QDialog>
 
 #include <map>
+#include <type_traits>
 
 OPENMPT_NAMESPACE_BEGIN
 
-class DialogBase : public QDialog
+// mfcless: the direction of a DoDataExchange pass: true reads the controls
+// into the members, false shows the members in the controls.
+struct DataExchange
+{
+	bool save = false;
+	bool failed = false;
+};
+
+class DialogBase : public QDialog, public mfcless::MessageMap
 {
 	Q_OBJECT
 public:
@@ -56,15 +67,52 @@ public:
 	T *Item(uint32 id) const { return qobject_cast<T *>(GetDlgItem(id)); }
 	uint32 GetTemplateID() const { return m_templateID; }
 
+	// mfcless: helpers for the controls by resource ID.
+	template <typename T>
+	void Bind(uint32 id, T *&member) { member = qobject_cast<T *>(GetDlgItem(id)); }
+	void SetItemText(uint32 id, const mpt::ustring &text);
+	mpt::ustring GetItemText(uint32 id) const;
+	void SetItemInt(uint32 id, int64 value);
+	int64 GetItemInt(uint32 id, bool *ok = nullptr) const;
+	// 0 unchecked, 1 checked, 2 indeterminate
+	void SetChecked(uint32 id, int state);
+	int IsChecked(uint32 id) const;
+	// Checks id and unchecks the other radio buttons from first to last.
+	void CheckRadio(uint32 first, uint32 last, uint32 id);
+	// The checked radio button from first to last, or 0.
+	uint32 GetCheckedRadio(uint32 first, uint32 last) const;
+	void EnableItem(uint32 id, bool enable = true);
+	void ShowItem(uint32 id, bool show = true);
+
+	// Reads the controls into the members (save) or the other way round,
+	// through DoDataExchange. False if a value did not validate.
+	bool UpdateData(bool save = true);
+
 protected:
-	virtual void OnOK() { accept(); }
+	virtual void OnOK() { if(UpdateData(true)) accept(); }
 	virtual void OnCancel() { reject(); }
+	virtual void DoDataExchange(DataExchange & /*dx*/) {}
+	void RegisterMessageMap() override;
+
+	void ExchangeText(DataExchange &dx, uint32 id, mpt::ustring &value);
+	void ExchangeText(DataExchange &dx, uint32 id, int32 &value);
+	void ExchangeText(DataExchange &dx, uint32 id, uint32 &value);
+	void ExchangeText(DataExchange &dx, uint32 id, double &value);
+	void ExchangeCheck(DataExchange &dx, uint32 id, int &value);
+	void ExchangeCheck(DataExchange &dx, uint32 id, bool &value);
+	// The index of the checked button of the radio group that starts at id.
+	void ExchangeRadio(DataExchange &dx, uint32 id, int &value);
+	void ExchangeSlider(DataExchange &dx, uint32 id, int &value);
+	void ExchangeComboIndex(DataExchange &dx, uint32 id, int &value);
+	// Fails the exchange if value is outside min..max (and says so).
+	void ValidateMinMax(DataExchange &dx, int64 value, int64 min, int64 max);
 
 	virtual void OnDPIChanged() {}
 	void UpdateDPI();
 
 	virtual mpt::ustring GetToolTipText(uint32 /*id*/, QWidget * /*hwnd*/) const { return {}; }
 
+	void reject() override;
 	bool event(QEvent *e) override;
 	bool eventFilter(QObject *watched, QEvent *e) override;
 	void showEvent(QShowEvent *e) override;
@@ -74,7 +122,9 @@ private:
 
 	uint32 m_templateID = 0;
 	std::map<uint32, QWidget *> m_items;
+	std::vector<QWidget *> m_templateOrder;
 	bool m_initialized = false;
+	bool m_inCancel = false;
 	int m_dpi = 96;
 protected:
 	InputDevice m_lastInputDevice = InputDevice::Unknown;
@@ -93,7 +143,7 @@ public:
 	virtual bool OnSetActive() { return true; }
 	virtual bool OnKillActive() { return true; }
 	virtual bool OnApply() { OnOK(); return true; }
-	void OnOK() override { }
+	void OnOK() override { UpdateData(true); }
 	void OnCancel() override { }
 	// Marks the page as changed, which enables the sheet's Apply button.
 	void SetModified(bool changed = true);

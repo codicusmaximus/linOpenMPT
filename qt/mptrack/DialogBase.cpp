@@ -16,12 +16,23 @@
 #include "Mainfrm.h"
 
 #include "mfcless/DialogBuilder.h"
+#include "mfcless/ModMessage.h"
 #include "mfcless/QtString.h"
 
 #include <QtGui/QHelpEvent>
 #include <QtGui/QKeyEvent>
 #include <QtWidgets/QAbstractButton>
+#include <QtWidgets/QAbstractSlider>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QRadioButton>
+#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolTip>
 
 OPENMPT_NAMESPACE_BEGIN
@@ -48,6 +59,7 @@ void DialogBase::CreateFromTemplate()
 	if(!mfcless::BuildDialog(this, m_templateID, built))
 		return;
 	m_items.insert(built.items.begin(), built.items.end());
+	m_templateOrder = built.all;
 	const uint32 style = built.dlgTemplate.style;
 	if(style & mfcless::Style::Child)
 	{
@@ -60,17 +72,35 @@ void DialogBase::CreateFromTemplate()
 		setMinimumSize(built.size);
 		new mfcless::DialogLayout(this, built, mfcless::res::DialogLayout(m_templateID));
 	}
-	// Buttons with IDOK and IDCANCEL close the dialog, as in Windows.
 	for(const auto &[id, w] : built.items)
 	{
-		if(auto *button = qobject_cast<QAbstractButton *>(w))
-		{
-			if(id == 1)
-				connect(button, &QAbstractButton::clicked, this, [this] { OnOK(); });
-			else if(id == 2)
-				connect(button, &QAbstractButton::clicked, this, [this] { OnCancel(); });
-		}
+		mfcless::ConnectNotifications(w, id, this);
 		w->installEventFilter(this);
+	}
+	RegisterMessageMap();
+}
+
+
+void DialogBase::RegisterMessageMap()
+{
+	// Buttons with IDOK and IDCANCEL close the dialog, as in Windows.
+	AddCommand(1, &DialogBase::OnOK);
+	AddCommand(2, &DialogBase::OnCancel);
+}
+
+
+void DialogBase::reject()
+{
+	// Escape and the window's close button come here; as on Windows, they
+	// are the Cancel command, which a dialog may handle itself.
+	if(!m_inCancel)
+	{
+		m_inCancel = true;
+		DispatchCommand(2);
+		m_inCancel = false;
+	} else
+	{
+		QDialog::reject();
 	}
 }
 
@@ -106,6 +136,7 @@ bool DialogBase::Create(QWidget *parent)
 bool DialogBase::OnInitDialog()
 {
 	UpdateDPI();
+	UpdateData(false);
 	return true;
 }
 
@@ -153,6 +184,12 @@ bool DialogBase::eventFilter(QObject *watched, QEvent *e)
 
 bool DialogBase::event(QEvent *e)
 {
+	if(e->type() == mfcless::ModMessage::EventType())
+	{
+		auto *m = static_cast<mfcless::ModMessage *>(e);
+		DispatchMessage(m->message, m->wParam, m->lParam, m->result);
+		return true;
+	}
 	if(e->type() == QEvent::KeyPress || e->type() == QEvent::KeyRelease)
 	{
 		m_lastInputDevice = InputDevice::Keyboard;
@@ -219,6 +256,299 @@ void DialogBase::SetFocusToFirstControl()
 void DialogBase::UpdateDPI()
 {
 	m_dpi = HighDPISupport::GetDpiForWindow(this);
+}
+
+
+void DialogBase::SetItemText(uint32 id, const mpt::ustring &text)
+{
+	QWidget *w = GetDlgItem(id);
+	const QString t = mfcless::ToQString(text);
+	if(auto *e = qobject_cast<QLineEdit *>(w))
+		e->setText(t);
+	else if(auto *l = qobject_cast<QLabel *>(w))
+		l->setText(t);
+	else if(auto *b = qobject_cast<QAbstractButton *>(w))
+		b->setText(t);
+	else if(auto *g = qobject_cast<QGroupBox *>(w))
+		g->setTitle(t);
+	else if(auto *c = qobject_cast<QComboBox *>(w))
+	{
+		if(c->isEditable())
+			c->setEditText(t);
+		else
+			c->setCurrentIndex(c->findText(t));
+	}
+	else if(auto *p = qobject_cast<QPlainTextEdit *>(w))
+		p->setPlainText(t);
+	else if(auto *x = qobject_cast<QTextEdit *>(w))
+		x->setPlainText(t);
+	else if(w)
+		w->setWindowTitle(t);
+}
+
+
+mpt::ustring DialogBase::GetItemText(uint32 id) const
+{
+	QWidget *w = GetDlgItem(id);
+	QString t;
+	if(auto *e = qobject_cast<QLineEdit *>(w))
+		t = e->text();
+	else if(auto *l = qobject_cast<QLabel *>(w))
+		t = l->text();
+	else if(auto *b = qobject_cast<QAbstractButton *>(w))
+		t = b->text();
+	else if(auto *g = qobject_cast<QGroupBox *>(w))
+		t = g->title();
+	else if(auto *c = qobject_cast<QComboBox *>(w))
+		t = c->currentText();
+	else if(auto *p = qobject_cast<QPlainTextEdit *>(w))
+		t = p->toPlainText();
+	else if(auto *x = qobject_cast<QTextEdit *>(w))
+		t = x->toPlainText();
+	else if(w)
+		t = w->windowTitle();
+	return mfcless::FromQString(t);
+}
+
+
+void DialogBase::SetItemInt(uint32 id, int64 value)
+{
+	SetItemText(id, mpt::ufmt::val(value));
+}
+
+
+int64 DialogBase::GetItemInt(uint32 id, bool *ok) const
+{
+	bool parsed = false;
+	const int64 value = mfcless::ToQString(GetItemText(id)).trimmed().toLongLong(&parsed);
+	if(ok)
+		*ok = parsed;
+	return parsed ? value : 0;
+}
+
+
+void DialogBase::SetChecked(uint32 id, int state)
+{
+	auto *b = qobject_cast<QAbstractButton *>(GetDlgItem(id));
+	if(!b)
+		return;
+	QSignalBlocker block(b);
+	if(auto *c = qobject_cast<QCheckBox *>(b); c && c->isTristate())
+		c->setCheckState(state == 2 ? Qt::PartiallyChecked : (state ? Qt::Checked : Qt::Unchecked));
+	else
+		b->setChecked(state != 0);
+}
+
+
+int DialogBase::IsChecked(uint32 id) const
+{
+	auto *b = qobject_cast<QAbstractButton *>(GetDlgItem(id));
+	if(!b)
+		return 0;
+	if(auto *c = qobject_cast<QCheckBox *>(b); c && c->checkState() == Qt::PartiallyChecked)
+		return 2;
+	return b->isChecked() ? 1 : 0;
+}
+
+
+void DialogBase::CheckRadio(uint32 first, uint32 last, uint32 id)
+{
+	for(uint32 i = first; i <= last; i++)
+		SetChecked(i, i == id ? 1 : 0);
+}
+
+
+uint32 DialogBase::GetCheckedRadio(uint32 first, uint32 last) const
+{
+	for(uint32 i = first; i <= last; i++)
+	{
+		if(IsChecked(i))
+			return i;
+	}
+	return 0;
+}
+
+
+void DialogBase::EnableItem(uint32 id, bool enable)
+{
+	if(QWidget *w = GetDlgItem(id))
+		w->setEnabled(enable);
+}
+
+
+void DialogBase::ShowItem(uint32 id, bool show)
+{
+	if(QWidget *w = GetDlgItem(id))
+		w->setVisible(show);
+}
+
+
+bool DialogBase::UpdateData(bool save)
+{
+	DataExchange dx;
+	dx.save = save;
+	DoDataExchange(dx);
+	return !dx.failed;
+}
+
+
+void DialogBase::ExchangeText(DataExchange &dx, uint32 id, mpt::ustring &value)
+{
+	if(dx.save)
+		value = GetItemText(id);
+	else
+		SetItemText(id, value);
+}
+
+
+void DialogBase::ExchangeText(DataExchange &dx, uint32 id, int32 &value)
+{
+	if(dx.save)
+	{
+		bool ok = false;
+		const int64 v = GetItemInt(id, &ok);
+		if(!ok || v < std::numeric_limits<int32>::min() || v > std::numeric_limits<int32>::max())
+		{
+			dx.failed = true;
+			QMessageBox::warning(this, QString(), tr("Please enter an integer."));
+			if(QWidget *w = GetDlgItem(id))
+				w->setFocus();
+			return;
+		}
+		value = static_cast<int32>(v);
+	} else
+	{
+		SetItemInt(id, value);
+	}
+}
+
+
+void DialogBase::ExchangeText(DataExchange &dx, uint32 id, uint32 &value)
+{
+	if(dx.save)
+	{
+		bool ok = false;
+		const int64 v = GetItemInt(id, &ok);
+		if(!ok || v < 0 || v > std::numeric_limits<uint32>::max())
+		{
+			dx.failed = true;
+			QMessageBox::warning(this, QString(), tr("Please enter a positive integer."));
+			if(QWidget *w = GetDlgItem(id))
+				w->setFocus();
+			return;
+		}
+		value = static_cast<uint32>(v);
+	} else
+	{
+		SetItemInt(id, value);
+	}
+}
+
+
+void DialogBase::ExchangeText(DataExchange &dx, uint32 id, double &value)
+{
+	if(dx.save)
+	{
+		bool ok = false;
+		const double v = mfcless::ToQString(GetItemText(id)).trimmed().toDouble(&ok);
+		if(!ok)
+		{
+			dx.failed = true;
+			QMessageBox::warning(this, QString(), tr("Please enter a number."));
+			if(QWidget *w = GetDlgItem(id))
+				w->setFocus();
+			return;
+		}
+		value = v;
+	} else
+	{
+		SetItemText(id, mpt::ufmt::val(value));
+	}
+}
+
+
+void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, int &value)
+{
+	if(dx.save)
+		value = IsChecked(id);
+	else
+		SetChecked(id, value);
+}
+
+
+void DialogBase::ExchangeCheck(DataExchange &dx, uint32 id, bool &value)
+{
+	if(dx.save)
+		value = IsChecked(id) != 0;
+	else
+		SetChecked(id, value ? 1 : 0);
+}
+
+
+void DialogBase::ExchangeRadio(DataExchange &dx, uint32 id, int &value)
+{
+	// The group runs from id to the next control that starts a group.
+	QWidget *first = GetDlgItem(id);
+	auto it = std::find(m_templateOrder.begin(), m_templateOrder.end(), first);
+	if(it == m_templateOrder.end())
+		return;
+	int index = 0;
+	if(dx.save)
+		value = -1;
+	for(; it != m_templateOrder.end(); ++it)
+	{
+		if(it != m_templateOrder.begin() && *it != first && (((*it)->property("mfcless_style").toUInt() & mfcless::Style::Group)))
+			break;
+		auto *radio = qobject_cast<QRadioButton *>(*it);
+		if(!radio)
+			continue;
+		if(dx.save)
+		{
+			if(radio->isChecked())
+				value = index;
+		} else
+		{
+			QSignalBlocker block(radio);
+			radio->setChecked(index == value);
+		}
+		index++;
+	}
+}
+
+
+void DialogBase::ExchangeSlider(DataExchange &dx, uint32 id, int &value)
+{
+	auto *s = qobject_cast<QAbstractSlider *>(GetDlgItem(id));
+	if(!s)
+		return;
+	if(dx.save)
+		value = s->value();
+	else
+		s->setValue(value);
+}
+
+
+void DialogBase::ExchangeComboIndex(DataExchange &dx, uint32 id, int &value)
+{
+	auto *c = qobject_cast<QComboBox *>(GetDlgItem(id));
+	if(!c)
+		return;
+	if(dx.save)
+		value = c->currentIndex();
+	else
+		c->setCurrentIndex(value);
+}
+
+
+void DialogBase::ValidateMinMax(DataExchange &dx, int64 value, int64 min, int64 max)
+{
+	if(!dx.save || dx.failed)
+		return;
+	if(value < min || value > max)
+	{
+		dx.failed = true;
+		QMessageBox::warning(this, QString(), tr("Please enter an integer between %1 and %2.").arg(min).arg(max));
+	}
 }
 
 

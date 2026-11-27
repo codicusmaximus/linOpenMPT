@@ -17,8 +17,8 @@ set(LINOPENMPT_COMPAT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include PARENT_SCO
 # differ from the MFC build.
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 set(CMAKE_AUTOMOC ON)
-add_library(mfcless_base STATIC src/IniFile.cpp src/Resources.cpp src/Controls.cpp src/DialogBuilder.cpp
-  include/mfcless/Controls.h include/mfcless/DialogBuilder.h)
+add_library(mfcless_base STATIC src/IniFile.cpp src/Resources.cpp src/Controls.cpp src/DialogBuilder.cpp src/MessageMap.cpp
+  include/mfcless/Controls.h include/mfcless/DialogBuilder.h include/mfcless/MessageMap.h)
 target_include_directories(mfcless_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(mfcless_base PUBLIC MPT_MFCLESS)
 target_link_libraries(mfcless_base PUBLIC Qt6::Widgets)
