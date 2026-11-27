@@ -46,7 +46,10 @@ bool StatusBar::SetIndicators(const uint32_t *ids, int count)
 			addWidget(p.label, 1);
 		} else
 		{
-			p.label->setAlignment(Qt::AlignCenter);
+			// CStatusBar panes draw their text from the left (a leading tab
+			// would centre it, which OpenMPT does not use).
+			p.label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+			p.label->setIndent(3);
 			p.label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
 			addPermanentWidget(p.label);
 		}

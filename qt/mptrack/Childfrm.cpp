@@ -9,6 +9,8 @@
 
 
 #include "Childfrm.h"
+#include <QtGui/QAction>
+#include <QtWidgets/QMenu>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
 #include "ChannelManagerDlg.h"
@@ -86,6 +88,14 @@ CChildFrame::CChildFrame()
 {
 	glMdiOpenCount++;
 	setAttribute(Qt::WA_DeleteOnClose);
+	// The window menu's keys (Ctrl+W, Ctrl+F4 and so on) are OpenMPT's own
+	// key bindings, which the user can change; QMdiSubWindow's shortcuts for
+	// them would take the keys first.
+	if(QMenu *menu = systemMenu())
+	{
+		for(QAction *action : menu->actions())
+			action->setShortcuts({});
+	}
 	EnsureMessageMap();
 }
 
