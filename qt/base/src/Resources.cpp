@@ -162,6 +162,18 @@ ResourceData FindData(const ResourceName &type, const ResourceName &name)
 }
 
 
+std::vector<ResourceName> List(const ResourceName &type)
+{
+	std::vector<ResourceName> names;
+	for(const auto &[key, data] : Index())
+	{
+		if(key.type == type)
+			names.push_back(key.name);
+	}
+	return names;
+}
+
+
 std::u16string String(uint32_t id)
 {
 	// Strings are stored in blocks of 16; block n holds IDs (n - 1) * 16 to n * 16 - 1.

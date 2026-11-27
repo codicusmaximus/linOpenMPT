@@ -1,0 +1,134 @@
+/*
+ * Controls.cpp
+ * ------------
+ * Purpose: Qt widgets for Windows common controls with no Qt counterpart.
+ * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+ */
+
+#include "mfcless/Controls.h"
+
+#include <QtGui/QPainter>
+#include <QtWidgets/QBoxLayout>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QStyleOptionTabWidgetFrame>
+#include <QtWidgets/QStylePainter>
+#include <QtWidgets/QTabBar>
+#include <QtWidgets/QToolButton>
+
+#include <algorithm>
+
+namespace mfcless
+{
+
+UpDown::UpDown(bool vertical, QWidget *parent)
+	: QWidget(parent), m_vertical(vertical)
+{
+	auto *layout = vertical ? static_cast<QBoxLayout *>(new QVBoxLayout(this)) : new QHBoxLayout(this);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(0);
+	m_up = new QToolButton(this);
+	m_down = new QToolButton(this);
+	m_up->setArrowType(vertical ? Qt::UpArrow : Qt::RightArrow);
+	m_down->setArrowType(vertical ? Qt::DownArrow : Qt::LeftArrow);
+	for(QToolButton *b : {m_up, m_down})
+	{
+		b->setAutoRepeat(true);
+		b->setFocusPolicy(Qt::NoFocus);
+		b->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+	}
+	if(vertical)
+	{
+		layout->addWidget(m_up);
+		layout->addWidget(m_down);
+	} else
+	{
+		layout->addWidget(m_down);
+		layout->addWidget(m_up);
+	}
+	connect(m_up, &QToolButton::clicked, this, [this] { Step(1); });
+	connect(m_down, &QToolButton::clicked, this, [this] { Step(-1); });
+}
+
+void UpDown::SetRange(int lower, int upper)
+{
+	m_lower = lower;
+	m_upper = upper;
+	SetPos(m_pos);
+}
+
+void UpDown::SetPos(int pos)
+{
+	m_pos = std::clamp(pos, std::min(m_lower, m_upper), std::max(m_lower, m_upper));
+	if(m_buddy && m_buddyInt)
+		m_buddy->setText(QString::number(m_pos));
+}
+
+int UpDown::GetPos() const
+{
+	if(m_buddy && m_buddyInt)
+	{
+		bool ok = false;
+		int v = m_buddy->text().toInt(&ok);
+		if(ok)
+			return v;
+	}
+	return m_pos;
+}
+
+void UpDown::Step(int delta)
+{
+	bool accepted = true;
+	const int cur = GetPos();
+	emit deltaPos(cur, delta, &accepted);
+	if(!accepted)
+		return;
+	// "Up" moves towards the upper end of the range, which may be smaller.
+	const int dir = (m_upper >= m_lower) ? delta : -delta;
+	int next = cur + dir;
+	const int lo = std::min(m_lower, m_upper), hi = std::max(m_lower, m_upper);
+	if(next < lo)
+		next = m_wrap ? hi : lo;
+	if(next > hi)
+		next = m_wrap ? lo : hi;
+	if(next == cur && !(m_buddy && m_buddyInt))
+		return;
+	SetPos(next);
+	emit posChanged(m_pos);
+}
+
+QSize UpDown::sizeHint() const
+{
+	return m_vertical ? QSize(16, 22) : QSize(32, 16);
+}
+
+
+TabControl::TabControl(QWidget *parent)
+	: QWidget(parent)
+{
+	m_bar = new QTabBar(this);
+	m_bar->setDrawBase(false);
+	m_bar->setExpanding(false);
+}
+
+QRect TabControl::DisplayRect() const
+{
+	return QRect(0, m_bar->sizeHint().height(), width(), height() - m_bar->sizeHint().height()).adjusted(4, 4, -4, -4);
+}
+
+void TabControl::resizeEvent(QResizeEvent *)
+{
+	m_bar->setGeometry(0, 0, width(), m_bar->sizeHint().height());
+}
+
+void TabControl::paintEvent(QPaintEvent *)
+{
+	QStylePainter p(this);
+	QStyleOptionTabWidgetFrame opt;
+	opt.initFrom(this);
+	opt.rect = QRect(0, m_bar->sizeHint().height() - 1, width(), height() - m_bar->sizeHint().height() + 1);
+	opt.tabBarSize = m_bar->sizeHint();
+	opt.shape = QTabBar::RoundedNorth;
+	p.drawPrimitive(QStyle::PE_FrameTabWidget, opt);
+}
+
+} // namespace mfcless

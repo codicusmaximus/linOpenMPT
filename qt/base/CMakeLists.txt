@@ -16,7 +16,9 @@ set(LINOPENMPT_COMPAT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include PARENT_SCO
 # sees Qt. MPT_MFCLESS marks the few spots in patched upstream files that
 # differ from the MFC build.
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
-add_library(mfcless_base STATIC src/IniFile.cpp src/Resources.cpp)
+set(CMAKE_AUTOMOC ON)
+add_library(mfcless_base STATIC src/IniFile.cpp src/Resources.cpp src/Controls.cpp src/DialogBuilder.cpp
+  include/mfcless/Controls.h include/mfcless/DialogBuilder.h)
 target_include_directories(mfcless_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(mfcless_base PUBLIC MPT_MFCLESS)
 target_link_libraries(mfcless_base PUBLIC Qt6::Widgets)

@@ -45,6 +45,8 @@ struct ResourceData
 	explicit operator bool() const { return data != nullptr; }
 };
 ResourceData FindData(const ResourceName &type, const ResourceName &name);
+// The names of all resources of a type.
+std::vector<ResourceName> List(const ResourceName &type);
 
 // String table entry. Empty if missing.
 std::u16string String(uint32_t id);
