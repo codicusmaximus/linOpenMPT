@@ -46,6 +46,7 @@
 #include "UpdateCheck.h"
 #include "WindowMessages.h"
 #include "View_pat.h"
+#include "View_tre.h"
 
 #include "../common/FileReader.h"
 #include "../common/mptFileIO.h"
@@ -407,6 +408,12 @@ intptr_t CMainFrame::OnDPIChanged(uintptr_t, intptr_t)
 	// mfcless: Qt moves and scales the window itself.
 	RecreateImageLists();
 	SetupStatusBarSizes();
+	// WM_DPICHANGED_AFTERPARENT of the tree views
+	for(CModTree *tree : {m_wndTree.m_pModTree, m_wndTree.m_pModTreeData})
+	{
+		if(tree)
+			tree->OnDPIChanged();
+	}
 	m_wndTree.RecalcLayout();
 	return 0;
 }

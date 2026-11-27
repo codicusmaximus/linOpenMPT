@@ -66,6 +66,11 @@ public:
 		if(keep && item)
 			item->setText(0, text);
 	}
+	void setEditorData(QWidget *editor, const QModelIndex &index) const override
+	{
+		QStyledItemDelegate::setEditorData(editor, index);
+		Q_EMIT m_tree->labelEditorReady(m_tree->itemFromIndex(index), qobject_cast<QLineEdit *>(editor));
+	}
 
 private:
 	TreeCtrl *m_tree;

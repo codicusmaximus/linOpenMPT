@@ -24,6 +24,7 @@ public:
 
 
 	mpt::PathString Resolve(const mpt::uchar *inPath);
+	mpt::PathString Resolve(const mpt::ustring &inPath) { return Resolve(inPath.c_str()); }
 };
 
 OPENMPT_NAMESPACE_END

@@ -139,6 +139,8 @@ Q_SIGNALS:
 	void itemExpandedChanged(QTreeWidgetItem *item, bool expanded);
 	void beginDrag(QTreeWidgetItem *item, bool rightButton);
 	void labelEditBegun(QTreeWidgetItem *item, bool *allow);
+	// The editor exists and holds the item's text; a handler may change its text or length.
+	void labelEditorReady(QTreeWidgetItem *item, QLineEdit *editor);
 	// *keep = true makes the new text the item's text.
 	void labelEditEnded(QTreeWidgetItem *item, const QString &text, bool accepted, bool *keep);
 	void itemDeleted(QTreeWidgetItem *item, intptr_t data);

@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: Generate samples from math formulas using muParser
  * Notes  : mfcless twin of upstream's mptrack/SampleGenerator.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */

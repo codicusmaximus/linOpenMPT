@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Tree view for managing open songs, sound files, file browser, ...
  * Notes  : mfcless twin of upstream's mptrack/View_tre.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -25,6 +25,11 @@
 #include "Mptrack.h"
 #include "Notification.h"
 #include "UpdateHints.h"
+
+#include "mfcless/QtString.h"
+
+#include <QtCore/QFileSystemWatcher>
+#include <QtCore/QTimer>
 
 #include <vector>
 #include <bitset>
@@ -176,10 +181,14 @@ protected:
 	CModTree *m_pDataTree = nullptr;  // Pointer to instrument browser (lower part of tree view) - if it's a nullptr, this object is the instrument browser itself.
 	QWidget * m_hDropWnd = nullptr;
 	mpt::mutex m_WatchDirMutex;
-	void * m_hSwitchWatchDir = nullptr;
 	mpt::PathString m_WatchDir;
-	void * m_hWatchDirKillThread = nullptr;
-	std::thread m_WatchDirThread;
+	// mfcless: the instrument library folder is watched with a
+	// QFileSystemWatcher (instead of a thread waiting on change
+	// notifications), and refreshed at most every FSUpdateInterval ms.
+	QFileSystemWatcher *m_watchDirWatcher = nullptr;
+	QTimer *m_watchDirTimer = nullptr;
+	uint64 m_watchDirLastRefresh = 0;
+	void OnWatchDirChanged();
 	ModItem m_itemDrag;
 	uint32 m_dwStatus = 0;
 	CModDoc *m_selectedDoc = nullptr, *m_dragDoc = nullptr;
@@ -229,6 +238,8 @@ protected:
 
 	bool m_showAllFiles = false;
 	bool m_doLabelEdit = false;
+	mpt::ustring m_labelEditText;  // mfcless: applied when the label editor is ready
+	int m_labelEditMaxLength = 0;
 
 public:
 	CModTree(CModTree *pDataTree);
@@ -318,14 +329,18 @@ protected:
 	}
 
 protected:
-	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
+public:
+	// WM_DPICHANGED_AFTERPARENT: CModTreeBar::OnDPIChanged calls it.
+	void OnDPIChanged();
+	// mfcless: upstream's CString item texts, as Unicode strings
+	mpt::ustring GetItemText(QTreeWidgetItem *item) const { return mfcless::FromQString(mfcless::TreeCtrl::GetItemText(item)); }
+protected:
 	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
 	void OnRButtonUp(uint32 nFlags, mfcless::Point point);
 	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 	void OnMouseMove(uint32 nFlags, mfcless::Point point);
 	void OnBeginDrag(QTreeWidgetItem *, bool bLeft, intptr_t *pResult);
-	void OnBeginLDrag();
-	void OnBeginRDrag();
+	void OnBeginDrag();
 	void OnEndDrag(uint32 dwMask);
 	void OnItemDblClk();
 	void OnItemReturn();
@@ -350,7 +365,8 @@ protected:
 	void OnRenameItem();
 	void OnBeginLabelEdit();
 	void OnEndLabelEdit();
-	void OnDropFiles(const QStringList &files);
+	void OnLabelEditorReady(QLineEdit *editor);
+	void OnDropFiles(const QStringList &files) override;
 	void OnKillFocus(QWidget *pNewWnd);
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnDestroy();

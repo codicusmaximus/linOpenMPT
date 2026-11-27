@@ -1,4 +1,4 @@
-// Draft from qt/tools/twin.py, not yet edited by hand.
+// Hand-edited from the twin.py draft.
 /*
  * View_tre.cpp
  * ------------
@@ -14,6 +14,7 @@
 
 #include "View_tre.h"
 #include "mfcless/Widgets.h"
+#include "Childfrm.h"
 #include "dlg_misc.h"
 #include "Dlsbank.h"
 #include "ExternalSamples.h"
@@ -41,6 +42,16 @@
 #include "mpt/io_file_read/inputfile_filecursor.hpp"
 #include "mpt/parse/parse.hpp"
 
+#include <QtCore/QDateTime>
+#include <QtCore/QCollator>
+#include <QtCore/QDir>
+#include <QtCore/QRegularExpression>
+#include <QtCore/QFile>
+#include <QtCore/QLocale>
+#include <QtCore/QStorageInfo>
+#include <QtCore/QMimeData>
+#include <QtCore/QUrl>
+
 
 
 OPENMPT_NAMESPACE_BEGIN
@@ -48,6 +59,19 @@ OPENMPT_NAMESPACE_BEGIN
 
 CSoundFile *CModTree::m_SongFile = nullptr;
 CModTree::LibrarySortOrder CModTree::m_librarySort = LibrarySortOrder::Name;
+
+namespace
+{
+// mfcless: WindowFromPoint, resolved to the window that handles messages
+// (a scroll view's viewport resolves to the view).
+QWidget *DropTargetFromPoint(QPoint screenPt)
+{
+	QWidget *widget = QApplication::widgetAt(screenPt);
+	while(widget != nullptr && dynamic_cast<mfcless::MessageMap *>(widget) == nullptr)
+		widget = widget->parentWidget();
+	return widget;
+}
+}  // namespace
 
 /////////////////////////////////////////////////////////////////////////////
 // CModTreeDropTarget
@@ -108,18 +132,19 @@ void CModTree::RegisterMessageMap()
 	// ON_WM_RBUTTONUP() (mfcless::Window)
 	// ON_WM_XBUTTONUP() (mfcless::Window)
 	// ON_WM_DROPFILES() (mfcless::Window)
-	AddMessage(WM_DPICHANGED_AFTERPARENT, &CModTree::OnDPIChangedAfterParent);
-	// ON_NOTIFY_REFLECT(NM_DBLCLK,          &CModTree::OnItemDblClk): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(NM_RETURN,          &CModTree::OnItemReturn): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(NM_RCLICK,          &CModTree::OnItemRightClick): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(NM_CLICK,           &CModTree::OnItemLeftClick): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_ITEMEXPANDED,   &CModTree::OnItemExpanded): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_BEGINDRAG,      &CModTree::OnBeginLDrag): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_BEGINRDRAG,     &CModTree::OnBeginRDrag): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_BEGINLABELEDIT, &CModTree::OnBeginLabelEdit): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_ENDLABELEDIT,   &CModTree::OnEndLabelEdit): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_GETDISPINFO,    &CModTree::OnGetDispInfo): by hand (Qt event override)
-	// ON_NOTIFY_REFLECT(TVN_SELCHANGED,     &CModTree::OnSelChanged): by hand (Qt event override)
+	// WM_DPICHANGED_AFTERPARENT: OnDPIChanged
+	// mfcless: the tree's own notifications (ON_NOTIFY_REFLECT) come to the tree itself, with ID 0.
+	// NM_RETURN is handled in PreTranslateMessage; TVN_GETDISPINFO is not needed, as items hold their text.
+	mfcless::ConnectNotifications(this, 0, this);
+	connect(this, &mfcless::TreeCtrl::labelEditorReady, this, [this](QTreeWidgetItem *, QLineEdit *editor) { OnLabelEditorReady(editor); });
+	AddNotify(0, mfcless::Notify::DoubleClicked, &CModTree::OnItemDblClk);
+	AddNotify(0, mfcless::Notify::RightClick, &CModTree::OnItemRightClick);
+	AddNotify(0, mfcless::Notify::Click, &CModTree::OnItemLeftClick);
+	AddNotify(0, mfcless::Notify::ItemExpanded, &CModTree::OnItemExpanded);
+	AddNotify(0, mfcless::Notify::BeginDrag, &CModTree::OnBeginDrag);
+	AddNotify(0, mfcless::Notify::BeginLabelEdit, &CModTree::OnBeginLabelEdit);
+	AddNotify(0, mfcless::Notify::EndLabelEdit, &CModTree::OnEndLabelEdit);
+	AddNotify(0, mfcless::Notify::SelChange, &CModTree::OnSelChanged);
 	AddCommand(ID_MODTREE_REFRESH, &CModTree::OnRefreshTree);
 	AddCommand(ID_MODTREE_EXECUTE, &CModTree::OnExecuteItem);
 	AddCommand(ID_MODTREE_REMOVE, &CModTree::OnDeleteTreeItem);
@@ -167,19 +192,20 @@ CModTree::CModTree(CModTree *pDataTree)
 {
 	if(m_pDataTree != nullptr)
 	{
-		// Set up instrument library monitoring thread
-		m_hWatchDirKillThread = CreateEvent(nullptr, false, false, nullptr);
-		m_hSwitchWatchDir = CreateEvent(nullptr, false, false, nullptr);
-		m_WatchDirThread = std::thread([this]() { MonitorInstrumentLibrary(); });
+		// Set up instrument library monitoring
+		m_watchDirWatcher = new QFileSystemWatcher(this);
+		m_watchDirTimer = new QTimer(this);
+		m_watchDirTimer->setSingleShot(true);
+		connect(m_watchDirWatcher, &QFileSystemWatcher::directoryChanged, this, [this] { OnWatchDirChanged(); });
+		connect(m_watchDirTimer, &QTimer::timeout, this, [this]
+		{
+			m_watchDirLastRefresh = Util::GetTickCount64();
+			mfcless::PostCommand(this, ID_MODTREE_REFRESHINSTRLIB);
+		});
 	}
 	MemsetZero(m_tiMidi);
 	MemsetZero(m_tiPerc);
 
-#if MPT_WINNT_AT_LEAST(MPT_WIN_7)
-	// Wine does not support natural sorting with mfcless::compare::DigitsAsNumbers, fall back to normal sorting
-	if(::CompareString(LOCALE_USER_DEFAULT, m_stringCompareFlags | mfcless::compare::DigitsAsNumbers, UL_(""), -1, UL_(""), -1) == CSTR_EQUAL)
-		m_stringCompareFlags |= mfcless::compare::DigitsAsNumbers;
-#endif
 }
 
 
@@ -190,10 +216,7 @@ CModTree::~CModTree()
 
 	if(m_pDataTree != nullptr)
 	{
-		SetEvent(m_hWatchDirKillThread);
-		m_WatchDirThread.join();
-		CloseHandle(m_hSwitchWatchDir);
-		CloseHandle(m_hWatchDirKillThread);
+		// The watcher and its timer are children of the tree.
 	}
 }
 
@@ -222,14 +245,13 @@ void CModTree::Init()
 
 	if(!IsSampleBrowser())
 	{
-		std::vector<mpt::uchar> curDir(::GetCurrentDirectory(0, nullptr), '\0');
-		::GetCurrentDirectory(static_cast<uint32>(curDir.size()), curDir.data());
+		const mpt::ustring curDir = mfcless::FromQString(QDir::currentPath());
 		mpt::PathString dirs[] =
 		{
 			TrackerSettings::Instance().PathSamples.GetDefaultDir(),
 			TrackerSettings::Instance().PathInstruments.GetDefaultDir(),
 			TrackerSettings::Instance().PathSongs.GetDefaultDir(),
-			mpt::PathString::FromUnicode(curDir.data())
+			mpt::PathString::FromUnicode(curDir)
 		};
 		for(auto &path : dirs)
 		{
@@ -241,7 +263,7 @@ void CModTree::Init()
 		m_pDataTree->InsLibSetFullPath(m_InstrLibPath, mpt::PathString());
 	}
 
-	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons);
+	SetImageList(CMainFrame::GetMainFrame()->m_MiscIcons.GetIcons());
 	if(!IsSampleBrowser())
 	{
 		// Create Midi Library
@@ -268,12 +290,10 @@ void CModTree::OnDestroy()
 }
 
 
-intptr_t CModTree::OnDPIChangedAfterParent(uintptr_t, intptr_t)
+void CModTree::OnDPIChanged()
 {
-	auto result = Default();
-	SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons);
+	SetImageList(CMainFrame::GetMainFrame()->m_MiscIcons.GetIcons());
 	SetIndent(0);  // Set to minimum after going back from high-DPI to low-DPI
-	return result;
 }
 
 
@@ -296,8 +316,12 @@ bool CModTree::PreTranslateMessage(mfcless::Message *pMsg)
 	{
 		switch(pMsg->wParam)
 		{
+		case mfcless::vk::RETURN:
+			// mfcless: NM_RETURN
+			OnItemReturn();
+			return true;
 		case mfcless::vk::ESCAPE:
-			mfcless::PostCommand(GetParent(), ID_CLOSE_LIBRARY_FILTER);
+			mfcless::PostCommand(parentWidget(), ID_CLOSE_LIBRARY_FILTER);
 			break;
 		}
 	} else if(pMsg->message == mfcless::msg::Char)
@@ -529,7 +553,6 @@ CDLSBank *CModTree::GetDLSBankFromItem(QTreeWidgetItem * hItem) const
 void CModTree::RefreshMidiLibrary()
 {
 	mpt::ustring s;
-	mpt::ustring stmp;
 	mfcless::TreeItemInfo tvi;
 	const MidiLibrary &midiLib = CTrackApp::GetMidiLibrary();
 
@@ -554,13 +577,10 @@ void CModTree::RefreshMidiLibrary()
 		} else
 		{
 			tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
-			tvi.hItem = m_tiMidi[iMidi];
-			tvi.pszText = stmp.GetBuffer(s.GetLength() + 1);
-			tvi.cchTextMax = stmp.GetAllocLength();
-			tvi.iImage = tvi.iSelectedImage = image;
-			GetItem(&tvi);
-			stmp.ReleaseBuffer();
-			if(tvi.iImage != image || s != stmp)
+			tvi.item = m_tiMidi[iMidi];
+			tvi.image = tvi.selectedImage = image;
+			GetItem(tvi);
+			if(tvi.image != image || mfcless::Text(s).value != tvi.text)
 			{
 				SetItem(m_tiMidi[iMidi], mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam,
 					s, image, image, 0, 0, param);
@@ -590,13 +610,10 @@ void CModTree::RefreshMidiLibrary()
 		} else
 		{
 			tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
-			tvi.hItem = m_tiPerc[iPerc];
-			tvi.pszText = stmp.GetBuffer(s.GetLength() + 1);
-			tvi.cchTextMax = stmp.GetAllocLength();
-			tvi.iImage = tvi.iSelectedImage = image;
-			GetItem(&tvi);
-			stmp.ReleaseBuffer();
-			if(tvi.iImage != image || s != stmp)
+			tvi.item = m_tiPerc[iPerc];
+			tvi.image = tvi.selectedImage = image;
+			GetItem(tvi);
+			if(tvi.image != image || mfcless::Text(s).value != tvi.text)
 			{
 				SetItem(m_tiPerc[iPerc], mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage,
 							s, image, image, 0, 0, param);
@@ -761,7 +778,7 @@ void CModTree::RefreshInstrumentLibrary()
 		selectedName = m_InstrLibHighlightPath.ToUnicode();
 	}
 	m_InstrLibHighlightPath = {};
-	FillInstrumentLibrary(selectedName);
+	FillInstrumentLibrary(selectedName.c_str());
 	auto selectedItem = GetSelectedItem();
 	if(selectedItem)
 		EnsureVisible(selectedItem);
@@ -776,9 +793,7 @@ void CModTree::RefreshInstrumentLibrary()
 
 void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 {
-	mpt::uchar stmp[256];
 	mfcless::TreeItemInfo tvi;
-	MemsetZero(tvi);
 	const FlagSet<HintType> hintType = hint.GetType();
 	if(IsSampleBrowser() || hintType == HINT_NONE)
 		return;
@@ -859,11 +874,9 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				{
 					// Replace existing item
 					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam;
-					tvi.hItem = hItem;
-					tvi.pszText = stmp;
-					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
-					GetItem(&tvi);
-					if(tvi.iImage != nImage || tvi.lParam != i || s != mpt::ustring(tvi.pszText))
+					tvi.item = hItem;
+					GetItem(tvi);
+					if(tvi.image != nImage || tvi.data != i || mfcless::Text(s).value != tvi.text)
 					{
 						SetItem(hItem, mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, i);
 					}
@@ -976,16 +989,13 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					info.tiSequences[seq] = InsertItem(seqName, IMAGE_FOLDER, IMAGE_FOLDER, info.hOrders, mfcless::tree::Last);
 				}
 				// Update bold item
-				_tcscpy(stmp, seqName);
 				tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskState | mfcless::tree::MaskParam;
 				tvi.state = 0;
 				tvi.stateMask = mfcless::tree::Bold;
-				tvi.hItem = info.tiSequences[seq];
-				tvi.pszText = stmp;
-				tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
+				tvi.item = info.tiSequences[seq];
 				intptr_t param = (seq << SEQU_SHIFT) | ORDERINDEX_INVALID;
-				GetItem(&tvi);
-				if(tvi.state != state || tvi.pszText != seqName || tvi.lParam != param)
+				GetItem(tvi);
+				if(tvi.state != state || tvi.text != mfcless::Text(seqName).value || tvi.data != param)
 					SetItem(info.tiSequences[seq], mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, seqName, 0, 0, state, mfcless::tree::Bold, param);
 
 				hAncestorNode = info.tiSequences[seq];
@@ -1018,7 +1028,7 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					{
 						s = mfcless::PrintF(hexOrders ? UL_("[%02Xh] %u: ") : UL_("[%02u] %u: "),
 							iOrd, sndFile.Order(seq)[iOrd]);
-						_tcscat(s, patName.c_str());
+						s += patName;
 					} else
 					{
 						s = mfcless::PrintF(hexOrders ? UL_("[%02Xh] Pattern %u") : UL_("[%02u] Pattern %u"),
@@ -1043,11 +1053,9 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskState;
 					tvi.state = 0;
 					tvi.stateMask = mfcless::tree::Bold;
-					tvi.hItem = info.tiOrders[seq][iOrd];
-					tvi.pszText = stmp;
-					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
-					GetItem(&tvi);
-					if(tvi.state != state || _tcscmp(s, stmp))
+					tvi.item = info.tiOrders[seq][iOrd];
+					GetItem(tvi);
+					if(tvi.state != state || (mfcless::Text(s).value != tvi.text))
 						SetItem(info.tiOrders[seq][iOrd], mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, s, 0, 0, state, mfcless::tree::Bold, param);
 				} else
 				{
@@ -1085,17 +1093,15 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				s = mfcless::PrintF(UL_("%u"), pat);
 				if(!patName.empty())
 				{
-					_tcscat(s, UL_(": "));
-					_tcscat(s, patName.c_str());
+					s += UL_(": ");
+					s += patName;
 				}
 				if(info.tiPatterns[pat])
 				{
 					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle;
-					tvi.hItem = info.tiPatterns[pat];
-					tvi.pszText = stmp;
-					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
-					GetItem(&tvi);
-					if(_tcscmp(s, stmp))
+					tvi.item = info.tiPatterns[pat];
+					GetItem(tvi);
+					if((mfcless::Text(s).value != tvi.text))
 						SetItem(info.tiPatterns[pat], mfcless::tree::MaskText, s, 0, 0, 0, 0, 0);
 				} else
 				{
@@ -1175,16 +1181,14 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				} else
 				{
 					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage;
-					tvi.hItem = hChild;
-					tvi.pszText = stmp;
-					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
-					tvi.iImage = tvi.iSelectedImage = image;
-					GetItem(&tvi);
+					tvi.item = hChild;
+					tvi.image = tvi.selectedImage = image;
+					GetItem(tvi);
 #if MPT_COMPILER_MSVC
 #pragma warning(push)
 #pragma warning(disable:6054) // String 'stmp' might not be zero-terminated.
 #endif // MPT_COMPILER_MSVC
-					if(tvi.iImage != image || _tcsncmp(s, stmp, std::size(stmp)) || GetItemData(hChild) != nSmp)
+					if(tvi.image != image || (mfcless::Text(s).value != tvi.text) || GetItemData(hChild) != nSmp)
 #if MPT_COMPILER_MSVC
 #pragma warning(pop)
 #endif // MPT_COMPILER_MSVC
@@ -1234,12 +1238,10 @@ void CModTree::UpdateView(ModTreeDocInfo &info, UpdateHint hint)
 				} else
 				{
 					tvi.mask = mfcless::tree::MaskText | mfcless::tree::MaskHandle | mfcless::tree::MaskImage;
-					tvi.hItem = hChild;
-					tvi.pszText = stmp;
-					tvi.cchTextMax = mpt::saturate_cast<int>(std::size(stmp));
-					tvi.iImage = tvi.iSelectedImage = nImage;
-					GetItem(&tvi);
-					if(tvi.iImage != nImage || _tcscmp(s, stmp) || GetItemData(hChild) != nIns)
+					tvi.item = hChild;
+					tvi.image = tvi.selectedImage = nImage;
+					GetItem(tvi);
+					if(tvi.image != nImage || (mfcless::Text(s).value != tvi.text) || GetItemData(hChild) != nIns)
 					{
 						SetItem(hChild, mfcless::tree::MaskText | mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskParam, s, nImage, nImage, 0, 0, nIns);
 					}
@@ -1291,11 +1293,11 @@ CModTree::ModItem CModTree::GetModItem(QTreeWidgetItem * hItem)
 	{
 		mfcless::TreeItemInfo tvi;
 		tvi.mask = mfcless::tree::MaskImage | mfcless::tree::MaskHandle;
-		tvi.hItem = hItem;
-		tvi.iImage = 0;
-		if(GetItem(&tvi))
+		tvi.item = hItem;
+		tvi.image = 0;
+		if(GetItem(tvi))
 		{
-			switch(tvi.iImage)
+			switch(tvi.image)
 			{
 			case IMAGE_SAMPLES:
 			case IMAGE_OPLINSTR:
@@ -1802,15 +1804,9 @@ void CModTree::DeleteTreeItem(QTreeWidgetItem * hItem, const bool permanently)
 	case MODITEM_INSLIB_SAMPLE:
 	case MODITEM_INSLIB_INSTRUMENT:
 		{
-			// Create double-null-terminated path
-			const mpt::ustring fullPath = InsLibGetFullPath(hItem).ToUnicode() + u8'\0';
-			SHFILEOPSTRUCT fos;
-			MemsetZero(fos);
-			fos.hwnd = this;
-			fos.wFunc = FO_DELETE;
-			fos.pFrom = fullPath.c_str();
-			fos.fFlags = permanently ? 0 : FOF_ALLOWUNDO;
-			if(!SHFileOperation(&fos) && !fos.fAnyOperationsAborted)
+			// mfcless: to the trash (Windows' recycle bin), or for good
+			const QString fullPath = mfcless::ToQString(InsLibGetFullPath(hItem).ToUnicode());
+			if(permanently ? QFile::remove(fullPath) : QFile::moveToTrash(fullPath))
 			{
 				QTreeWidgetItem * newSel = GetNextSiblingItem(hItem);
 				if(!newSel) newSel = GetPrevSiblingItem(hItem);
@@ -1838,7 +1834,7 @@ bool CModTree::OpenTreeItem(QTreeWidgetItem * hItem)
 			CTrackApp::OpenDirectory(pathName);
 		break;
 	case MODITEM_INSLIB_SONG:
-		theApp.OpenDocumentFile(InsLibGetFullPath(hItem).ToUnicode());
+		theApp.OpenDocumentFile(InsLibGetFullPath(hItem));
 		break;
 	case MODITEM_HDR_INSTRUMENTLIB:
 		CTrackApp::OpenDirectory(m_InstrLibPath + m_SongFileName);
@@ -1924,8 +1920,8 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 			ModInstrument *pIns = m_SongFile->Instruments[ins];
 			if(pIns)
 			{
-				mpt::uchar s[MAX_INSTRUMENTNAME + 10];
-				_sntprintf(s, std::size(s), UL_("%3d: %s"), ins, mpt::ToUnicode(m_SongFile->GetCharsetInternal(), pIns->name).c_str());
+				mpt::ustring s;
+				s = mfcless::PrintF(UL_("%3d: %s"), ins, mpt::ToUnicode(m_SongFile->GetCharsetInternal(), pIns->name).c_str());
 				m_fileBrowserEntries.push_back({s, 0, 0, IMAGE_INSTRUMENTS, false});
 			}
 		}
@@ -1934,8 +1930,8 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 			const ModSample &sample = m_SongFile->GetSample(smp);
 			if(sample.HasSampleData() || sample.uFlags[CHN_ADLIB])
 			{
-				mpt::uchar s[MAX_SAMPLENAME + 10];
-				_sntprintf(s, std::size(s), UL_("%3d: %s"), smp, mpt::ToUnicode(m_SongFile->GetCharsetInternal(), m_SongFile->m_szNames[smp]).c_str());
+				mpt::ustring s;
+				s = mfcless::PrintF(UL_("%3d: %s"), smp, mpt::ToUnicode(m_SongFile->GetCharsetInternal(), m_SongFile->m_szNames[smp]).c_str());
 				m_fileBrowserEntries.push_back({s, sample.GetSampleSizeInBytes(), 0, static_cast<uint32>(sample.uFlags[CHN_ADLIB] ? IMAGE_OPLINSTR : IMAGE_SAMPLES), false});
 			}
 		}
@@ -1949,52 +1945,20 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 		// Enumerating Drives...
 		if(!IsSampleBrowser())
 		{
-			CImageListEx &images = CMainFrame::GetMainFrame()->m_MiscIcons;
-			// Avoid adding the same images again and again...
-			images.SetImageCount(IMGLIST_NUMIMAGES);
-
-#if MPT_OS_WINDOWS
-			mpt::uchar s[] = UL_("?:\\");
-			for(int drive = 'A'; drive <= 'Z'; drive++)
+			// mfcless: no drive letters: the file system's root, the home folder
+			// and mounted drives instead, as absolute paths with a trailing slash.
+			std::vector<QString> places{QStringLiteral("/"), QDir::homePath()};
+			for(const QStorageInfo &volume : QStorageInfo::mountedVolumes())
 			{
-				s[0] = static_cast<mpt::uchar>(drive);
-				auto driveType = GetDriveType(s);
-				if(driveType != DRIVE_UNKNOWN && driveType != DRIVE_NO_ROOT_DIR)
-				{
-					if(driveType == DRIVE_REMOVABLE)
-					{
-						mpt::uchar sDevice[] = UL_("\\\\.\\?:");
-						sDevice[4] = s[0];
-						auto hDevice = CreateFile(sDevice, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-						if(hDevice != INVALID_HANDLE_VALUE)
-						{
-							// Check if removable media is inserted
-							uint32 bytesReturned = 0;
-							auto success = DeviceIoControl(hDevice, IOCTL_STORAGE_CHECK_VERIFY2, nullptr, 0, nullptr, 0, &bytesReturned, nullptr);
-							CloseHandle(hDevice);
-							if(!success && GetLastError() == ERROR_NOT_READY)
-								continue;
-						}
-					}
-					SHFILEINFO fileInfo;
-					SHGetFileInfo(s, 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_SMALLICON | SHGFI_USEFILEATTRIBUTES);  // SHGFI_USEFILEATTRIBUTES speeds up retrieval for offline network shares
-					const int imageIndex = fileInfo.hIcon ? images.Add(fileInfo.hIcon) : IMAGE_FOLDER;
-					m_fileBrowserEntries.push_back({s, 0, 0, static_cast<uint32>(imageIndex < 0 ? IMAGE_FOLDER : imageIndex), false});
-					DestroyIcon(fileInfo.hIcon);
-				}
+				if(volume.isValid() && volume.isReady() && !volume.isRoot() && (volume.rootPath().startsWith(QStringLiteral("/media/")) || volume.rootPath().startsWith(QStringLiteral("/run/media/")) || volume.rootPath().startsWith(QStringLiteral("/mnt/"))))
+					places.push_back(volume.rootPath());
 			}
-#else
-			// No drive letters: the file system's root, the home folder and
-			// mounted drives instead, as absolute paths with a trailing slash.
-			for(const mpt::ustring &place : MfcQtFileBrowserPlaces())
+			for(QString place : places)
 			{
-				SHFILEINFO fileInfo{};
-				SHGetFileInfo(place.c_str(), 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_SMALLICON);
-				const int imageIndex = fileInfo.hIcon ? images.Add(fileInfo.hIcon) : IMAGE_FOLDER;
-				m_fileBrowserEntries.push_back({place, 0, 0, static_cast<uint32>(imageIndex < 0 ? IMAGE_FOLDER : imageIndex), false});
-				DestroyIcon(fileInfo.hIcon);
+				if(!place.endsWith(QLatin1Char('/')))
+					place += QLatin1Char('/');
+				m_fileBrowserEntries.push_back({mfcless::FromQString(place), 0, 0, static_cast<uint32>(IMAGE_FOLDER), false});
 			}
-#endif
 		}
 
 		// Enumerating Directories and samples/instruments
@@ -2065,70 +2029,56 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 			return (knownExtension || ext == "zip") ? FILTER_REJECT_FILE : FILTER_UNKNOWN_FILE;
 		};
 
-		HKEY hkey = nullptr;
-		bool showHidden = false;
-		if(auto cr = RegOpenKeyEx(HKEY_CURRENT_USER, UL_("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"), 0, KEY_READ, &hkey); cr == ERROR_SUCCESS)
-		{
-			uint32 dataType = REG_NONE;
-			uint32 data = 0, datasize = sizeof(data);
-			if(RegQueryValueEx(hkey, UL_("Hidden"), 0, &dataType, reinterpret_cast<uint8 *>(&data), &datasize) == ERROR_SUCCESS && dataType == REG_DWORD)
-				showHidden = (data == 1);
-			RegCloseKey(hkey);
-		}
+		// mfcless: Explorer's "show hidden files" setting; dot files stay hidden.
+		const bool showHidden = false;
 
 		LinkResolver linkResolver;
-		void * hFind;
-		WIN32_FIND_DATA wfd{};
-		if((hFind = FindFirstFile(mpt::support_long_path(path.AsNative()).c_str(), &wfd)) != INVALID_HANDLE_VALUE)
+		MPT_UNUSED(path);
+		const QDir dir(mfcless::ToQString(m_InstrLibPath.ToUnicode()));
+		const QFileInfoList entries = dir.entryInfoList(QDir::AllEntries | QDir::NoDot | QDir::Hidden | QDir::System, QDir::NoSort);
+		for(const QFileInfo &entry : entries)
 		{
-			do
+			const mpt::ustring fileName = mfcless::FromQString(entry.fileName());
+			// Up Directory
+			int type = FILTER_REJECT_FILE;
+			if(entry.fileName() == QStringLiteral(".."))
 			{
-				// Up Directory
-				int type = FILTER_REJECT_FILE;
-				if(!_tcscmp(wfd.cFileName, UL_("..")))
+				if(showDirs)
+					type = IMAGE_FOLDERPARENT;
+			} else if(entry.isHidden() && !showHidden)
+			{
+				// Only show hidden files if configured to do so
+				continue;
+			} else if(entry.isDir())
+			{
+				// Directory
+				if(showDirs)
+					type = IMAGE_FOLDER;
+			} else if(entry.size() >= 9)
+			{
+				type = FilterFile(mpt::PathString::FromUnicode(fileName));
+				if(type == FILTER_UNKNOWN_FILE)
 				{
-					if(showDirs)
-						type = IMAGE_FOLDERPARENT;
-				} else if(wfd.dwFileAttributes & FILE_ATTRIBUTE_OFFLINE)
-				{
-					// Ignore unavailable files
-					continue;
-				} else if((wfd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)
-				          && ((wfd.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) || !showHidden))
-				{
-					// Only show hidden files if Explorer is configured to do so (and never show hidden system files)
-					continue;
-				} else if(wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				{
-					// Directory
-					if(_tcscmp(wfd.cFileName, UL_(".")) && showDirs)
-						type = IMAGE_FOLDER;
-				} else if(wfd.nFileSizeHigh > 0 || wfd.nFileSizeLow >= 9)
-				{
-					type = FilterFile(mpt::PathString::FromUnicode(wfd.cFileName));
-					if(type == FILTER_UNKNOWN_FILE)
+					// Try resolving file as link if it wasn't a module or instrument
+					const auto nativePath = (m_InstrLibPath.ToUnicode() + fileName);
+					if(const auto resolvedName = linkResolver.Resolve(nativePath.c_str()); !resolvedName.empty())
 					{
-						// Try resolving file as link if it wasn't a module or instrument
-						const auto nativePath = (m_InstrLibPath.ToUnicode() + wfd.cFileName);
-						if(const auto resolvedName = linkResolver.Resolve(nativePath.c_str()); !resolvedName.empty())
-						{
-							if(mpt::native_fs{}.is_directory(resolvedName) && showDirs)
-								type = IMAGE_FOLDER;
-							else if(mpt::native_fs{}.is_file(resolvedName))
-								type = FilterFile(resolvedName);
-						}
+						if(mpt::native_fs{}.is_directory(resolvedName) && showDirs)
+							type = IMAGE_FOLDER;
+						else if(mpt::native_fs{}.is_file(resolvedName))
+							type = FilterFile(resolvedName);
 					}
 				}
-				if(type >= FILTER_FIRST_VALID)
-				{
-					m_fileBrowserEntries.push_back({wfd.cFileName,
-						wfd.nFileSizeLow | (static_cast<uint64>(wfd.nFileSizeHigh) << 32),
-						wfd.ftLastWriteTime.dwLowDateTime | (static_cast<uint64>(wfd.ftLastWriteTime.dwHighDateTime) << 32),
-						static_cast<uint32>(type),
-						(wfd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0});
-				}
-			} while(FindNextFile(hFind, &wfd));
-			FindClose(hFind);
+			}
+			if(type >= FILTER_FIRST_VALID)
+			{
+				// modtime: milliseconds since 1970
+				m_fileBrowserEntries.push_back({fileName,
+					static_cast<uint64>(entry.size()),
+					static_cast<uint64>(entry.lastModified().toMSecsSinceEpoch()),
+					static_cast<uint32>(type),
+					entry.isHidden()});
+			}
 		}
 	}
 
@@ -2137,21 +2087,26 @@ void CModTree::FillInstrumentLibrary(const mpt::uchar *selectedItem)
 
 	UnlockRedraw();
 
+	bool switchWatchDir = false;
 	{
 		mpt::lock_guard<mpt::mutex> l(m_WatchDirMutex);
 		if(m_InstrLibPath != m_WatchDir)
 		{
 			m_WatchDir = m_InstrLibPath;
-			if(m_hSwitchWatchDir)
-				SetEvent(m_hSwitchWatchDir);
+			switchWatchDir = true;
 		}
 	}
+	if(switchWatchDir)
+		MonitorInstrumentLibrary();
 }
 
 
 void CModTree::SortInstrumentLibrary()
 {
-	std::sort(m_fileBrowserEntries.begin(), m_fileBrowserEntries.end(), [this](const FileBrowserEntry &left, const FileBrowserEntry &right)
+	QCollator collator;
+	collator.setCaseSensitivity(Qt::CaseInsensitive);
+	collator.setNumericMode(true);
+	std::sort(m_fileBrowserEntries.begin(), m_fileBrowserEntries.end(), [this, &collator](const FileBrowserEntry &left, const FileBrowserEntry &right)
 	{
 		const int sortL = ImageToSortOrder(left.image), sortR = ImageToSortOrder(right.image);
 		if (sortL != sortR)
@@ -2162,7 +2117,8 @@ void CModTree::SortInstrumentLibrary()
 		else if (m_librarySort == LibrarySortOrder::Size && left.size != right.size)
 			return left.size > right.size;
 
-		return ::CompareString(LOCALE_USER_DEFAULT, m_stringCompareFlags, left.name.c_str(), -1, right.name.c_str(), -1) == CSTR_LESS_THAN;
+		// mfcless: CompareString with NORM_IGNORECASE and SORT_DIGITSASNUMBERS
+		return collator.compare(mfcless::ToQString(left.name), mfcless::ToQString(right.name)) < 0;
 	});
 }
 
@@ -2185,12 +2141,15 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 
 	// TODO: Maybe first delete front-to-back, then insert back-to-front?
 
+	// mfcless: PathMatchSpec (wildcards, ignoring case)
+	const QRegularExpression filterSpec(QRegularExpression::wildcardToRegularExpression(mfcless::ToQString(filter), QRegularExpression::DefaultWildcardConversion), QRegularExpression::CaseInsensitiveOption);
+
 	// Insert items in reverse, as insertion via mfcless::tree::First is faster than mfcless::tree::Last as per https://devblogs.microsoft.com/oldnewthing/20111125-00/?p=9033
 	uintptr_t entryID = m_fileBrowserEntries.size();
 	QTreeWidgetItem * selectedTreeItem = nullptr;
 	for(auto entry = m_fileBrowserEntries.crbegin(); entry != m_fileBrowserEntries.crend(); entry++, entryID--)
 	{
-		const bool add = filter.empty() || PathMatchSpec(entry->name.c_str(), filter.c_str()) != false;
+		const bool add = filter.empty() || filterSpec.match(mfcless::ToQString(entry->name)).hasMatch();
 
 		if(add)
 		{
@@ -2202,10 +2161,10 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 			if(!item || GetItemData(item) != entryID)
 			{
 				int state = entry->hidden ? mfcless::tree::Cut : 0;
-				item = InsertItem(mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, LPSTR_TEXTCALLBACK, entry->image, entry->image, state, state, entryID, IsSampleBrowser() ? nullptr : m_hInsLib, item ? item : mfcless::tree::First);
+				item = InsertItem(mfcless::tree::MaskImage | mfcless::tree::MaskSelectedImage | mfcless::tree::MaskText | mfcless::tree::MaskState | mfcless::tree::MaskParam, entry->name, entry->image, entry->image, state, state, entryID, IsSampleBrowser() ? nullptr : m_hInsLib, item ? item : mfcless::tree::First);
 			}
 
-			if(selectedItem != nullptr && !_tcscmp(entry->name.c_str(), selectedItem))
+			if(selectedItem != nullptr && entry->name == selectedItem)
 			{
 				selectedTreeItem = item;
 			}
@@ -2252,7 +2211,7 @@ void CModTree::FilterInstrumentLibrary(mpt::ustring filter, const mpt::uchar *se
 	if(selectedTreeItem)
 	{
 		SelectItem(selectedTreeItem);
-		PostMessage(TVM_ENSUREVISIBLE, 0, reinterpret_cast<intptr_t>(selectedTreeItem));  // For some reason this doesn't work properly if the message is sent instead
+		EnsureVisible(selectedTreeItem);  // TVM_ENSUREVISIBLE (posted upstream, as sending it did not work there)
 	}
 }
 
@@ -2263,7 +2222,7 @@ void CModTree::SetInstrumentLibraryFilter(const mpt::ustring &filter)
 		return;
 
 	m_filterString = filter;
-	FilterInstrumentLibrary(m_filterString, GetItemText(GetSelectedItem()));
+	FilterInstrumentLibrary(m_filterString, GetItemText(GetSelectedItem()).c_str());
 }
 
 
@@ -2274,20 +2233,16 @@ void CModTree::SetInstrumentLibraryFilterSortOrder(LibrarySortOrder sortType)
 
 	m_librarySort = sortType;
 	SortInstrumentLibrary();
-	FilterInstrumentLibrary(m_filterString, GetItemText(GetSelectedItem()));
+	FilterInstrumentLibrary(m_filterString, GetItemText(GetSelectedItem()).c_str());
 	GetOtherView()->SortInstrumentLibrary();
-	GetOtherView()->FilterInstrumentLibrary(GetOtherView()->m_filterString, GetItemText(GetSelectedItem()));
+	GetOtherView()->FilterInstrumentLibrary(GetOtherView()->m_filterString, GetItemText(GetSelectedItem()).c_str());
 }
 
 
 void CModTree::OnGetDispInfo()
 {
-	NMTVDISPINFO *nmtv = reinterpret_cast<NMTVDISPINFO *>(pnmhdr);
-	size_t index = nmtv->item.lParam;
-	if(index > 0 && index <= m_fileBrowserEntries.size())
-		nmtv->item.pszText = const_cast<mpt::uchar *>(m_fileBrowserEntries[index - 1].name.c_str());
-	else
-		nmtv->item.pszText = const_cast<mpt::uchar*>(UL_("???"));
+	// mfcless: no text callbacks (LPSTR_TEXTCALLBACK); FilterInstrumentLibrary
+	// gives the items their names.
 }
 
 
@@ -2316,83 +2271,39 @@ int CModTree::ImageToSortOrder(int image) const
 
 
 // Monitor changes in the instrument library folder.
-#if MPT_COMPILER_MSVC
-// silence static analyzer false positive for FindFirstFile
-#pragma warning(push)
-#pragma warning(disable:6387) // 'void *' could be '0'
-#endif // MPT_COMPILER_MSVC
+// mfcless: watches m_WatchDir (call it when that changes); OnWatchDirChanged
+// refreshes the library, at most every FSUpdateInterval milliseconds.
 void CModTree::MonitorInstrumentLibrary()
 {
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-	mpt::log::Trace::SetThreadId(mpt::log::Trace::ThreadKindWatchdir, mfcless::CurrentThreadId());
-	uint32 result;
-	mpt::PathString lastWatchDir;
-	void * hWatchDir = INVALID_HANDLE_VALUE;
-	uint64 lastRefresh = Util::GetTickCount64();
-	uint32 timeout = INFINITE;
-	uint32 interval = TrackerSettings::Instance().FSUpdateInterval;
-	do
+	if(!m_watchDirWatcher)
+		return;
+	mpt::PathString watchDir;
 	{
-		{
-			mpt::lock_guard<mpt::mutex> l(m_WatchDirMutex);
-			if(m_WatchDir != lastWatchDir)
-			{
-				if(hWatchDir != INVALID_HANDLE_VALUE)
-				{
-					FindCloseChangeNotification(hWatchDir);
-					hWatchDir = INVALID_HANDLE_VALUE;
-					lastWatchDir = mpt::PathString();
-				}
-				if(!m_WatchDir.empty())
-				{
-					hWatchDir = FindFirstChangeNotification(m_WatchDir.AsNative().c_str(), false, FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME);
-					lastWatchDir = m_WatchDir;
-				}
-			}
-		}
-		const void * waitHandles[3] = {m_hWatchDirKillThread, m_hSwitchWatchDir, hWatchDir};
-		result = WaitForMultipleObjects(hWatchDir != INVALID_HANDLE_VALUE ? 3 : 2, waitHandles, false, timeout);
-		uint64 now = Util::GetTickCount64();
-		if(result == WAIT_TIMEOUT)
-		{
-			mfcless::PostCommand(this, ID_MODTREE_REFRESHINSTRLIB);
-			lastRefresh = now;
-			timeout = INFINITE;
-		} else if(result == WAIT_OBJECT_0 + 1)
-		{
-			// nothing
-			// will switch to new dir in next loop iteration
-		} else if(result == WAIT_OBJECT_0 + 2)
-		{
-			FindNextChangeNotification(hWatchDir);
-			timeout = 0;  // update timeout later
-		}
-		if(timeout != INFINITE)
-		{
-			// Update timeout. Can happen either because we just got a change event,
-			// or because we got a directory switch event and still have a change
-			// notification pending.
-			if(now - lastRefresh >= interval)
-			{
-				mfcless::PostCommand(this, ID_MODTREE_REFRESHINSTRLIB);
-				lastRefresh = now;
-				timeout = INFINITE;
-			} else
-			{
-				timeout = interval - static_cast<uint32>(now - lastRefresh);
-			}
-		}
-	} while(result != WAIT_OBJECT_0);
-	if(hWatchDir != INVALID_HANDLE_VALUE)
+		mpt::lock_guard<mpt::mutex> l(m_WatchDirMutex);
+		watchDir = m_WatchDir;
+	}
+	if(const QStringList dirs = m_watchDirWatcher->directories(); !dirs.isEmpty())
+		m_watchDirWatcher->removePaths(dirs);
+	if(!watchDir.empty())
+		m_watchDirWatcher->addPath(mfcless::ToQString(watchDir.ToUnicode()));
+}
+
+
+void CModTree::OnWatchDirChanged()
+{
+	if(m_watchDirTimer->isActive())
+		return;
+	const uint64 now = Util::GetTickCount64();
+	const uint32 interval = TrackerSettings::Instance().FSUpdateInterval;
+	if(now - m_watchDirLastRefresh >= interval)
 	{
-		FindCloseChangeNotification(hWatchDir);
-		hWatchDir = INVALID_HANDLE_VALUE;
-		lastWatchDir = mpt::PathString();
+		m_watchDirLastRefresh = now;
+		mfcless::PostCommand(this, ID_MODTREE_REFRESHINSTRLIB);
+	} else
+	{
+		m_watchDirTimer->start(static_cast<int>(interval - (now - m_watchDirLastRefresh)));
 	}
 }
-#if MPT_COMPILER_MSVC
-#pragma warning(pop)
-#endif // MPT_COMPILER_MSVC
 
 
 void CModTree::SetFullInstrumentLibraryPath(mpt::PathString path)
@@ -2423,7 +2334,7 @@ void CModTree::InstrumentLibraryChDir(mpt::PathString dir, bool isSong)
 		return;
 	}
 
-	mfcless::PostCommand(GetParent(), ID_CLOSE_LIBRARY_FILTER);
+	mfcless::PostCommand(parentWidget(), ID_CLOSE_LIBRARY_FILTER);
 	m_filterString.clear();
 	m_pDataTree->m_filterString.clear();
 
@@ -2456,11 +2367,11 @@ void CModTree::InstrumentLibraryChDir(mpt::PathString dir, bool isSong)
 				mpt::ustring::size_type pos = prevDir.find_last_of(UL_("\\/"), prevDir.length() - 2);
 				if(pos != mpt::ustring::npos)
 				{
-					m_InstrLibHighlightPath = mpt::PathString::FromWide(prevDir.substr(pos + 1, prevDir.length() - pos - 2));  // Highlight previously accessed directory
+					m_InstrLibHighlightPath = mpt::PathString::FromUnicode(prevDir.substr(pos + 1, prevDir.length() - pos - 2));  // Highlight previously accessed directory
 					prevDir = prevDir.substr(0, pos + 1);
 				}
 				m_previousPath = m_InstrLibHighlightPath;
-				dir = mpt::PathString::FromWide(prevDir);
+				dir = mpt::PathString::FromUnicode(prevDir);
 			}
 		} else
 		{
@@ -2909,13 +2820,14 @@ void CModTree::OnUpdate(CModDoc *pModDoc, UpdateHint hint, QObject *pHint)
 void CModTree::OnItemExpanded()
 {
 	const mfcless::NotifyInfo *pnm = &CurrentNotify();
-	if((pnm->itemNew.iImage == IMAGE_FOLDER) || (pnm->itemNew.iImage == IMAGE_OPENFOLDER))
+	int image = 0, selectedImage = 0;
+	GetItemImage(pnm->treeItem, image, selectedImage);
+	if((image == IMAGE_FOLDER) || (image == IMAGE_OPENFOLDER))
 	{
-		int iNewImage = (pnm->itemNew.state & mfcless::tree::Expanded) ? IMAGE_OPENFOLDER : IMAGE_FOLDER;
+		int iNewImage = pnm->delta ? IMAGE_OPENFOLDER : IMAGE_FOLDER;
 		SetItemImage(pnm->treeItem, iNewImage, iNewImage);
 	}
-	if(pResult)
-		CurrentNotify().result = true;
+	CurrentNotify().result = true;
 }
 
 
@@ -2967,28 +2879,13 @@ void CModTree::OnBeginDrag(QTreeWidgetItem * hItem, bool bLeft, intptr_t *pResul
 			SetCapture();
 		}
 	}
-	if(pResult)
-		CurrentNotify().result = true;
 }
 
 
-void CModTree::OnBeginRDrag()
+void CModTree::OnBeginDrag()
 {
-	if(pnmhdr)
-	{
-		const mfcless::NotifyInfo *pnmtv = &CurrentNotify();
-		OnBeginDrag(pnmtv->treeItem, false, pResult);
-	}
-}
-
-
-void CModTree::OnBeginLDrag()
-{
-	if(pnmhdr)
-	{
-		const mfcless::NotifyInfo *pnmtv = &CurrentNotify();
-		OnBeginDrag(pnmtv->treeItem, true, pResult);
-	}
+	const mfcless::NotifyInfo *pnmtv = &CurrentNotify();
+	OnBeginDrag(pnmtv->treeItem, !pnmtv->rightButton, nullptr);
 }
 
 
@@ -3002,8 +2899,6 @@ void CModTree::OnItemDblClk()
 	{
 		ExecuteItem(hItem);
 	}
-	if(pResult)
-		CurrentNotify().result = 0;
 }
 
 
@@ -3012,8 +2907,6 @@ void CModTree::OnItemReturn()
 	QTreeWidgetItem * hItem = GetSelectedItem();
 	if(hItem)
 		ExecuteItem(hItem);
-	if(pResult)
-		CurrentNotify().result = 0;
 }
 
 
@@ -3026,8 +2919,6 @@ void CModTree::OnItemRightClick()
 	ptClient = pt;
 	ScreenToClient(&ptClient);
 	OnItemRightClick(HitTest(ptClient, &flags), pt);
-	if(pResult)
-		CurrentNotify().result = 0;
 }
 
 
@@ -3052,7 +2943,7 @@ void CModTree::OnItemRightClick(QTreeWidgetItem * hItem, mfcless::Point pt)
 			m_hDropWnd = NULL;
 			OnEndDrag(TREESTATUS_DRAGGING);
 		}
-		mfcless::Menu hMenu = mfcless::Menu::CreatePopup(), hSubMenu = nullptr;
+		mfcless::Menu hMenu = mfcless::Menu::CreatePopup(), hSubMenu;
 		if(!hMenu)
 			return;
 
@@ -3308,7 +3199,7 @@ void CModTree::OnItemRightClick(QTreeWidgetItem * hItem, mfcless::Point pt)
 		}
 
 		if(defaultID)
-			SetMenuDefaultItem(hMenu, defaultID, false);
+			hMenu.SetDefaultItem(defaultID, false);
 		
 		if((modItem.type == MODITEM_INSLIB_FOLDER)
 			|| (modItem.type == MODITEM_INSLIB_SONG)
@@ -3374,7 +3265,7 @@ void CModTree::OnItemLeftClick()
 			case MODITEM_INSTRUMENT:
 				{
 					CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
-					CFrameWnd *pFrame = pMainFrm->GetActiveFrame();
+					CChildFrame *pFrame = pMainFrm->MDIGetActive();
 					if (pFrame)
 					{
 						pFrame->SendMessage(WM_MOD_INSTRSELECTED,
@@ -3393,8 +3284,6 @@ void CModTree::OnItemLeftClick()
 			}
 		}
 	}
-	if(pResult)
-		CurrentNotify().result = 0;
 }
 
 
@@ -3415,8 +3304,8 @@ void CModTree::OnSelChanged()
 			m_HelpText = MPT_UFORMAT("Size: {}")(FormatFileSize(entry.size));
 			if(!m_SongFile)
 			{
-				const FILETIME modtime{LODWORD(entry.modtime), HIDWORD(entry.modtime)};
-				m_HelpText += MPT_UFORMAT(", last modified: {}")(CTime(modtime).Format(UL_("%d %b %Y, %H:%M:%S")));
+				const QDateTime modtime = QDateTime::fromMSecsSinceEpoch(static_cast<qint64>(entry.modtime));
+				m_HelpText += MPT_UFORMAT(", last modified: {}")(mfcless::FromQString(QLocale::c().toString(modtime, QStringLiteral("dd MMM yyyy, HH:mm:ss"))));
 			} else if(type != MODITEM_INSLIB_SAMPLE)
 			{
 				m_HelpText.clear();
@@ -3457,10 +3346,10 @@ void CModTree::OnEndDrag(uint32 dwMask)
 				{
 					if(dropinfo.dropType == DRAGONDROP_SONG)
 					{
-						theApp.OpenDocumentFile(fullPath.ToUnicode());
+						theApp.OpenDocumentFile(fullPath);
 					} else
 					{
-						::SendMessage(m_hDropWnd, WM_MOD_DRAGONDROPPING, true, (intptr_t)&dropinfo);
+						mfcless::SendModMessage(m_hDropWnd, WM_MOD_DRAGONDROPPING, true, (intptr_t)&dropinfo);
 					}
 				}
 			}
@@ -3538,7 +3427,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 			{
 				mfcless::Point screenPt = point;
 				ClientToScreen(&screenPt);
-				QWidget * hwnd = ::WindowFromPoint(screenPt);
+				QWidget * hwnd = DropTargetFromPoint(screenPt);
 				if(hwnd != m_hDropWnd)
 				{
 					bool canDrop = false;
@@ -3555,7 +3444,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 							if(dropinfo.dropType == DRAGONDROP_SONG)
 							{
 								canDrop = true;
-							} else if(::SendMessage(hwnd, WM_MOD_DRAGONDROPPING, false, (intptr_t)&dropinfo))
+							} else if(mfcless::SendModMessage(hwnd, WM_MOD_DRAGONDROPPING, false, (intptr_t)&dropinfo))
 							{
 								canDrop = true;
 							}
@@ -3583,7 +3472,7 @@ void CModTree::OnMouseMove(uint32 nFlags, mfcless::Point point)
 					{
 						QTreeWidgetItem * hprev = GetPrevVisibleItem(hfirst);
 						if(hprev != NULL)
-							SelectSetFirstVisible(hprev);
+							scrollToItem(hprev, QAbstractItemView::PositionAtTop);
 					}
 				} else if(point.y >= rect.bottom - 1)
 				{
@@ -4102,34 +3991,22 @@ uint32 CModTree::OnDragOver(const QMimeData *, uint32, mfcless::Point point)
 
 bool CModTree::OnDrop(const QMimeData *pDataObject, uint32, mfcless::Point)
 {
-	STGMEDIUM stgm;
-	HDROP hDropInfo;
-	uint32 nFiles;
 	bool bOk = false;
 
-	if(!pDataObject)
+	if(!pDataObject || !pDataObject->hasUrls())
 		return false;
-	if(!pDataObject->GetData(CF_HDROP, &stgm))
-		return false;
-	if(stgm.tymed != TYMED_HGLOBAL)
-		return false;
-	if(stgm.hGlobal == NULL)
-		return false;
-	hDropInfo = (HDROP)stgm.hGlobal;
-	nFiles = DragQueryFile(hDropInfo, (uint32)-1, nullptr, 0);
-	if(nFiles)
+	const QList<QUrl> urls = pDataObject->urls();
+	if(!urls.isEmpty() && urls.front().isLocalFile())
 	{
-		uint32 size = ::DragQueryFile(hDropInfo, 0, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, u8'\0');
-		if(DragQueryFile(hDropInfo, 0, fileName.data(), size))
+		const mpt::PathString fileName = mpt::PathString::FromUnicode(mfcless::FromQString(urls.front().toLocalFile()));
 		{
 			switch(m_itemDrag.type)
 			{
 			case MODITEM_MIDIINSTRUMENT:
-				bOk = SetMidiInstrument(m_itemDrag.val1, mpt::PathString::FromUnicode(fileName.data()));
+				bOk = SetMidiInstrument(m_itemDrag.val1, fileName);
 				break;
 			case MODITEM_MIDIPERCUSSION:
-				bOk = SetMidiPercussion(m_itemDrag.val1, mpt::PathString::FromUnicode(fileName.data()));
+				bOk = SetMidiPercussion(m_itemDrag.val1, fileName);
 				break;
 			default:
 				break;
@@ -4145,7 +4022,6 @@ bool CModTree::OnDrop(const QMimeData *pDataObject, uint32, mfcless::Point)
 	}
 	m_itemDrag = ModItem(MODITEM_NULL);
 	m_hItemDrag = NULL;
-	::DragFinish(hDropInfo);
 	return bOk;
 }
 
@@ -4160,7 +4036,7 @@ void CModTree::OnRefreshInstrLib()
 
 void CModTree::OnOpenInstrumentLibraryFilter()
 {
-	static_cast<CModTreeBar*>(GetParent())->StartTreeFilter(*this);
+	static_cast<CModTreeBar*>(parentWidget())->StartTreeFilter(*this);
 }
 
 
@@ -4230,7 +4106,7 @@ intptr_t CModTree::OnCustomKeyMsg(uintptr_t wParam, intptr_t /*lParam*/)
 		{
 			mfcless::Rect rect;
 			GetItemRect(item, &rect, false);
-			ClientToScreen(rect);
+			ClientToScreen(&rect);
 			OnItemRightClick(item, rect.TopLeft() + mfcless::Point{ rect.Height() / 2, rect.Height() / 2 });
 			return wParam;
 		}
@@ -4242,7 +4118,7 @@ intptr_t CModTree::OnCustomKeyMsg(uintptr_t wParam, intptr_t /*lParam*/)
 
 	case kcTreeViewSwitchViews:
 		// Tab: Switch between folder and file view.
-		GetOtherView()->SetFocus();
+		GetOtherView()->setFocus();
 		return wParam;
 
 	case kcTreeViewOpen:
@@ -4307,7 +4183,7 @@ intptr_t CModTree::OnCustomKeyMsg(uintptr_t wParam, intptr_t /*lParam*/)
 					if((isSampleView || isInstrumentView) && GetDropInfo(dropInfo, fullPath))
 					{
 						dropInfo.insertType = (wParam == kcTreeViewSendToEditorInsertNew) ? DRAGONDROP::InsertType::InsertNew : DRAGONDROP::InsertType::Replace;
-						view->SendMessage(WM_MOD_DRAGONDROPPING, true, reinterpret_cast<intptr_t>(&dropInfo));
+						mfcless::SendModMessage(view, WM_MOD_DRAGONDROPPING, true, reinterpret_cast<intptr_t>(&dropInfo));
 						// In case a message box like "create instrument for sample?" showed up
 						setFocus();
 					}
@@ -4430,12 +4306,11 @@ void CModTree::OnCloseItem()
 	if(pModDoc == nullptr)
 		return;
 	// Spam our message to the first available view
-	POSITION pos = pModDoc->GetFirstViewPosition();
-	if(pos == nullptr)
+	if(pModDoc->GetViews().empty())
 		return;
-	mfcless::DocumentView *pView = pModDoc->GetNextView(pos);
+	mfcless::DocumentView *pView = pModDoc->GetViews().front();
 	if(pView)
-		mfcless::PostCommand(pView, ID_FILE_CLOSE);
+		mfcless::PostCommand(pView->ViewWidget(), ID_FILE_CLOSE);
 }
 
 
@@ -4493,13 +4368,16 @@ void CModTree::OnRenameItem()
 // Editing sample, instrument, order, pattern, etc. labels
 void CModTree::OnBeginLabelEdit()
 {
-	NMTVDISPINFO *info = reinterpret_cast<NMTVDISPINFO *>(nmhdr);
-	QLineEdit *editCtrl = GetEditControl();
-	if(editCtrl == nullptr)
-		return;
+	QTreeWidgetItem *editItem = CurrentNotify().treeItem;
+	// mfcless: the editor does not exist yet; its text and length are applied in OnLabelEditorReady.
+	struct
+	{
+		void setMaxLength(int length) { maxLength = length; }
+		int maxLength = 0;
+	} editSettings, *editCtrl = &editSettings;
 
-	const ModItem modItem = GetModItem(info->item.hItem);
-	const CModDoc *modDoc = modItem.IsSongItem() ? GetDocumentFromItem(info->item.hItem) : nullptr;
+	const ModItem modItem = GetModItem(editItem);
+	const CModDoc *modDoc = modItem.IsSongItem() ? GetDocumentFromItem(editItem) : nullptr;
 
 	mpt::ustring text;
 	m_doLabelEdit = false;
@@ -4583,9 +4461,21 @@ void CModTree::OnBeginLabelEdit()
 	if(m_doLabelEdit)
 	{
 		CMainFrame::GetInputHandler()->Bypass(true);
-		mfcless::SetWindowText(editCtrl, mpt::ToUnicode(text));
+		m_labelEditText = text;
+		m_labelEditMaxLength = editSettings.maxLength;
 	}
-	*result = m_doLabelEdit ? false : true;
+	CurrentNotify().result = m_doLabelEdit ? false : true;
+}
+
+
+void CModTree::OnLabelEditorReady(QLineEdit *editor)
+{
+	if(editor == nullptr || !m_doLabelEdit)
+		return;
+	if(m_labelEditMaxLength > 0)
+		editor->setMaxLength(m_labelEditMaxLength);
+	editor->setText(mfcless::ToQString(m_labelEditText));
+	editor->selectAll();
 }
 
 
@@ -4595,12 +4485,12 @@ void CModTree::OnEndLabelEdit()
 	CMainFrame::GetInputHandler()->Bypass(false);
 	m_doLabelEdit = false;
 
-	NMTVDISPINFO *info = reinterpret_cast<NMTVDISPINFO *>(nmhdr);
-	const ModItem modItem = GetModItem(info->item.hItem);
-	CModDoc *modDoc = modItem.IsSongItem() ? GetDocumentFromItem(info->item.hItem) : nullptr;
+	const mfcless::NotifyInfo &info = CurrentNotify();
+	const ModItem modItem = GetModItem(info.treeItem);
+	CModDoc *modDoc = modItem.IsSongItem() ? GetDocumentFromItem(info.treeItem) : nullptr;
 
-	*result = false;
-	if(info->item.pszText == nullptr)
+	CurrentNotify().result = false;
+	if(!info.textValid)
 		return;
 
 	if(modDoc != nullptr)
@@ -4608,7 +4498,7 @@ void CModTree::OnEndLabelEdit()
 		CSoundFile &sndFile = modDoc->GetSoundFile();
 		const CModSpecifications &modSpecs = sndFile.GetModSpecifications();
 
-		const mpt::ustring itemText = mpt::ToUnicode(mpt::ustring(info->item.pszText));
+		const mpt::ustring itemText = mfcless::FromQString(info.text);
 		switch(modItem.type)
 		{
 		case MODITEM_HDR_SONG:
@@ -4693,7 +4583,7 @@ void CModTree::OnEndLabelEdit()
 		}
 	} else if(modItem.type == MODITEM_HDR_INSTRUMENTLIB)
 	{
-		const auto newPath = mpt::PathString::FromUnicode(info->item.pszText);
+		const auto newPath = mpt::PathString::FromUnicode(mfcless::FromQString(info.text));
 		if(mpt::PathCompareNoCase(newPath, m_InstrLibPath + m_SongFileName))
 			SetFullInstrumentLibraryPath(newPath);
 	}
@@ -4701,18 +4591,14 @@ void CModTree::OnEndLabelEdit()
 
 
 // Drop files from Windows
-void CModTree::OnDropFiles(HDROP hDropInfo)
+void CModTree::OnDropFiles(const QStringList &files)
 {
 	bool refreshDLS = false;
-	const uint32 nFiles = ::DragQueryFile(hDropInfo, (uint32)-1, nullptr, 0);
-	CMainFrame::GetMainFrame()->SetForegroundWindow();
-	for(uint32 f = 0; f < nFiles; f++)
+	CMainFrame::GetMainFrame()->activateWindow();
+	for(const QString &fileName : files)
 	{
-		uint32 size = ::DragQueryFile(hDropInfo, f, nullptr, 0) + 1;
-		std::vector<mpt::uchar> fileName(size, u8'\0');
-		if(::DragQueryFile(hDropInfo, f, fileName.data(), size))
 		{
-			mpt::PathString file(mpt::PathString::FromUnicode(fileName.data()));
+			mpt::PathString file(mpt::PathString::FromUnicode(mfcless::FromQString(fileName)));
 			if(IsSampleBrowser())
 			{
 				// Set sample browser location to this directory or file
@@ -4726,7 +4612,7 @@ void CModTree::OnDropFiles(HDROP hDropInfo)
 				} else
 				{
 					// Pass message on
-					theApp.OpenDocumentFile(file.ToUnicode());
+					theApp.OpenDocumentFile(file);
 				}
 			}
 		}
@@ -4735,7 +4621,6 @@ void CModTree::OnDropFiles(HDROP hDropInfo)
 	{
 		RefreshDlsBanks();
 	}
-	::DragFinish(hDropInfo);
 }
 
 
