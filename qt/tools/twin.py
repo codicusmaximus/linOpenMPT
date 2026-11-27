@@ -204,6 +204,8 @@ LATE = [
 	(r'::SendMessage\((\w+),\s*WM_COMMAND,\s*(\w+),\s*0\)', r'mfcless::SendCommand(\1, \2)'),
 	(r'(?<![\w.>:])PostMessage\(WM_COMMAND,\s*', 'mfcless::PostCommand(this, '),
 	(r'(?<![\w.>:])GetCursorPos\(', 'mfcless::GetCursorPos('),
+	(r'NMTOOLBAR \*pToolBar = reinterpret_cast<NMTOOLBAR \*>\(pNMHDR\);\n\s*ClientToScreen\(&\(pToolBar->rcButton\)\);[^\n]*\n(?:\s*const int offset = [^\n]*\n)?\s*int x = pToolBar->rcButton\.left[^\n]*;', 'const uint32 dropDownButton = static_cast<uint32>(CurrentNotify().item);  // TBN_DROPDOWN: the button\n\tconst QPoint dropDownPos = m_ToolBar->GetDropDownPos(dropDownButton);\n\tconst int x = dropDownPos.x(), y = dropDownPos.y();'),
+	(r'\bpToolBar->iItem\b', 'dropDownButton'),
 	(r'(?<![\w.>:])GetKeyState\(', 'mfcless::KeyState('),
 	(r'\bLPSTR\b', 'char *'), (r'\bLPCSTR\b', 'const char *'),
 	(r'(?<![\w.>:])find\((\w+)\.begin\(\)', r'std::find(\1.begin()'),
@@ -708,7 +710,7 @@ def twin_cpp(text, header):
 	# Windows' and MFC's own headers.
 	text = re.sub(r'^#include <(?:Dbt|HtmlHelp|afx\w*|atlbase|crtdbg|gdiplus|intrin|mmsystem|uxtheme|winioctl|windows|commctrl|shlobj|shellapi)\.h>\n', '', text, flags=re.M)
 	text = re.sub(r'^BEGIN_MESSAGE_MAP\((\w+),\s*(\w+)\)\n(.*?)^END_MESSAGE_MAP\(\)', message_map, text, flags=re.M | re.S)
-	text = re.sub(r'^IMPLEMENT_DYNCREATE\((\w+),\s*\w+\)\s*\n', r'const mfcless::ViewClass \1::class\1{"\1", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new \1(); if(parent) view->setParent(parent); return view; }};\n', text, flags=re.M)
+	text = re.sub(r'^(?:IMPLEMENT_DYNCREATE\((\w+),\s*\w+|IMPLEMENT_SERIAL\((CView\w+),\s*\w+,\s*\w+)\)\s*\n', lambda m: (lambda c: 'const mfcless::ViewClass %s::class%s{"%s", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new %s(); if(parent) view->setParent(parent); return view; }};\n' % (c, c, c, c))(m.group(1) or m.group(2)), text, flags=re.M)
 	text = re.sub(r'^IMPLEMENT_(DYNAMIC|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
 	# Data exchange
 	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)

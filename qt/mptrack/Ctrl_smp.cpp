@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Sample tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_smp.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -283,11 +283,10 @@ bool CCtrlSamples::OnInitDialog()
 		mfcless::SetItemData(m_ComboPitch, mfcless::AddItem(m_ComboPitch, str.c_str()), i + 12);
 	}
 
-	COMBOBOXINFO cbi{};
-	cbi.cbSize = sizeof(cbi);
-	GetComboBoxInfo(m_ComboPitch, &cbi);
-	(m_EditPitch->SubclassWindow)(cbi.hwndItem);
-	m_EditPitch->ModifyStyle(0, ES_NUMBER);
+	// The combo box's edit field is a number field (upstream subclasses it).
+	m_ComboPitch->setEditable(true);
+	m_EditPitch = new CNumberEdit(m_ComboPitch);
+	m_ComboPitch->setLineEdit(m_EditPitch);
 	m_EditPitch->AllowNegative(true);
 	m_EditPitch->AllowFractions(true);
 
@@ -1174,12 +1173,11 @@ void CCtrlSamples::OnZoomChanged()
 void CCtrlSamples::OnTbnDropDownToolBar()
 {
 	CInputHandler *ih = CMainFrame::GetInputHandler();
-	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
-	ClientToScreen(&(pToolBar->rcButton)); // TrackPopupMenu uses screen coords
-	const int offset = HighDPISupport::ScalePixels(4, this);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
-	int x = pToolBar->rcButton.left + offset, y = pToolBar->rcButton.bottom + offset;
+	const uint32 dropDownButton = static_cast<uint32>(CurrentNotify().item);  // TBN_DROPDOWN: the button
+	const QPoint dropDownPos = m_ToolBar1->GetDropDownPos(dropDownButton);
+	const int x = dropDownPos.x(), y = dropDownPos.y();
 	mfcless::Menu menu;
-	switch(pToolBar->iItem)
+	switch(dropDownButton)
 	{
 	case IDC_SAMPLE_NEW:
 		menu.CreatePopupMenu();
@@ -1666,7 +1664,7 @@ void CCtrlSamples::RemoveDCOffset(bool allSamples)
 		}
 	} else
 	{
-		dcInfo.SetString(UL_("No DC offset found"));
+		dcInfo = UL_("No DC offset found");
 	}
 
 	CMainFrame *pMainFrm = CMainFrame::GetMainFrame();
@@ -2484,7 +2482,7 @@ void CCtrlSamples::OnVScroll(mfcless::ScrollCode nCode, int nPos, QWidget *scrol
 	const bool moveLoop = CMainFrame::GetInputHandler()->CtrlPressed();
 	const bool fineLoop = CMainFrame::GetInputHandler()->ShiftPressed();
 	bool redraw = false;
-	static CScrollBar *lastScrollbar = nullptr;
+	static QWidget *lastScrollbar = nullptr;
 
 	LockControls();
 	// Loop Start

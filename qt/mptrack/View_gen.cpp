@@ -3,7 +3,7 @@
  * ------------
  * Purpose: General tab, lower panel.
  * Notes  : mfcless twin of upstream's mptrack/View_gen.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -12,6 +12,9 @@
 
 #include "View_gen.h"
 #include "mfcless/Widgets.h"
+#include <QtCore/QSignalBlocker>
+#include <QtWidgets/QScrollArea>
+#include <QtWidgets/QTabBar>
 #include "AbstractVstEditor.h"
 #include "Childfrm.h"
 #include "Ctrl_gen.h"
@@ -36,13 +39,14 @@
 OPENMPT_NAMESPACE_BEGIN
 
 
+const mfcless::ViewClass CViewGlobals::classCViewGlobals{"CViewGlobals", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new CViewGlobals(); if(parent) view->setParent(parent); return view; }};
 void CViewGlobals::RegisterMessageMap()
 {
 	DialogBase::RegisterMessageMap();
 	// ON_WM_SIZE() (mfcless::Window)
 	AddScroll(Qt::Horizontal, &CViewGlobals::OnHScroll);
 	AddScroll(Qt::Vertical, &CViewGlobals::OnVScroll);
-	// ON_WM_DESTROY(): by hand (Qt event override)
+	// ON_WM_DESTROY(): the destructor (OnDestroy)
 	AddMessage(WM_MOD_MDIACTIVATE, &CViewGlobals::OnMDIDeactivate);
 	AddMessage(WM_MOD_MDIDEACTIVATE, &CViewGlobals::OnMDIDeactivate);
 	AddCommand(IDC_CHECK1, &CViewGlobals::OnMute1);
@@ -110,7 +114,7 @@ void CViewGlobals::RegisterMessageMap()
 	AddCommand(ID_EDIT_REDO, &CViewGlobals::OnEditRedo);
 	AddCommandUpdate(ID_EDIT_UNDO, &CViewGlobals::OnUpdateUndo);
 	AddCommandUpdate(ID_EDIT_REDO, &CViewGlobals::OnUpdateRedo);
-	// ON_NOTIFY_EX_RANGE(TTN_NEEDTEXT, 0, 0xFFFF, &CViewGlobals::OnToolTipText): by hand (Qt event override)
+	// TTN_NEEDTEXT: GetToolTipText.
 }
 
 
@@ -157,26 +161,44 @@ void CViewGlobals::DoDataExchange(DataExchange &dx)
 }
 
 
-CViewGlobals::CViewGlobals() : CFormView{IDD_VIEW_GLOBALS}
+CViewGlobals::CViewGlobals() : DialogBase{IDD_VIEW_GLOBALS}
 {
-	m_prevPluginButton->SetAccessibleText(UL_("Previous Plugin"));
-	m_nextPluginButton->SetAccessibleText(UL_("Next Plugin"));
+	// mfcless: a form view is its dialog in a scroll area, which scrolls
+	// when the view is smaller than the template (CFormView).
+	m_scrollArea = new QScrollArea;
+	m_scrollArea->setFrameShape(QFrame::NoFrame);
+	m_scrollArea->setWidgetResizable(true);
+	m_scrollArea->setWidget(this);
 }
 
 
-CModDoc* CViewGlobals::GetDocument() const { return static_cast<CModDoc *>(m_pDocument); }
+CViewGlobals::~CViewGlobals()
+{
+	OnDestroy();
+}
+
+
+QWidget *CViewGlobals::ViewWidget()
+{
+	return m_scrollArea;
+}
+
+
+CModDoc* CViewGlobals::GetDocument() const { return m_document; }
 
 void CViewGlobals::OnInitialUpdate()
 {
-	CChildFrame *pFrame = (CChildFrame *)GetParentFrame();
-	int nMapMode = MM_TEXT;
-	mfcless::Size sizeTotal, sizePage, sizeLine;
+	CChildFrame *pFrame = mfcless::DocumentView::GetParentFrame();
+	m_frame = pFrame;
 
 	m_nActiveTab = CHANNELINDEX(-1);
 	m_nCurrentPlugin = 0;
 	m_nCurrentParam = 0;
-	DialogBase::OnInitialUpdate();
-	EnableToolTips();
+	// CFormView::OnInitialUpdate: the controls of the template.
+	Create(m_scrollArea->viewport());
+	show();
+	m_prevPluginButton->SetAccessibleText(UL_("Previous Plugin"));
+	m_nextPluginButton->SetAccessibleText(UL_("Next Plugin"));
 
 	if (pFrame)
 	{
@@ -189,8 +211,10 @@ void CViewGlobals::OnInitialUpdate()
 			m_nCurrentParam = generalState.nParam;
 		}
 	}
-	GetDeviceScrollSizes(nMapMode, sizeTotal, sizePage, sizeLine);
-	m_rcClient.SetRect(0, 0, sizeTotal.cx, sizeTotal.cy);
+	// The template's size is the scroll size.
+	const QSize templateSize = childrenRect().united(QRect(0, 0, 1, 1)).size();
+	m_rcClient.SetRect(0, 0, templateSize.width(), templateSize.height());
+	setMinimumSize(templateSize);
 	RecalcLayout();
 
 	// Initializing scroll ranges
@@ -229,15 +253,14 @@ void CViewGlobals::OnInitialUpdate()
 	UpdateView(UpdateHint().ModType());
 	OnParamChanged();
 	m_nLockCount = 0;
-
-	// Use tab background color rather than regular dialog background color (required for Aero/etc. where they are not the same color)
-	EnableThemeDialogTexture(this, ETDT_ENABLETAB);
 }
 
 
 void CViewGlobals::OnDestroy()
 {
-	CChildFrame *pFrame = (CChildFrame *)GetParentFrame();
+	// mfcless: the frame as it was at OnInitialUpdate; the view is already
+	// out of it when it is deleted.
+	CChildFrame *pFrame = m_frame;
 	if (pFrame)
 	{
 		GeneralViewState &generalState = pFrame->GetGeneralViewState();
@@ -246,7 +269,7 @@ void CViewGlobals::OnDestroy()
 		generalState.nPlugin = m_nCurrentPlugin;
 		generalState.nParam = m_nCurrentParam;
 	}
-	DialogBase::OnDestroy();
+	m_frame = nullptr;
 }
 
 
@@ -277,20 +300,21 @@ void CViewGlobals::RecalcLayout()
 		GetClientRect(&rect);
 		if (rect.right < m_rcClient.right) rect.right = m_rcClient.right;
 		if (rect.bottom < m_rcClient.bottom) rect.bottom = m_rcClient.bottom;
-		m_TabCtrl->SetWindowPos(&mfcless::Window<QWidget>::wndBottom, 0,0, rect.right, rect.bottom, mfcless::swp::NoMove);
+		m_TabCtrl->resize(rect.right, rect.bottom);
+		m_TabCtrl->lower();  // HWND_BOTTOM: the tab is behind the controls
 	}
 }
 
 
-void CViewGlobals::UnlockControls() { PostMessage(WM_MOD_UNLOCKCONTROLS); }
+void CViewGlobals::UnlockControls() { mfcless::PostModMessage(this, WM_MOD_UNLOCKCONTROLS); }
 
 
 int CViewGlobals::GetDlgItemIntEx(uint32 nID)
 {
 	mpt::ustring s;
 	s = GetItemText(nID);
-	if(s.GetLength() < 1 || s[0] < u8'0' || s[0] > u8'9') return -1;
-	return _ttoi(s);
+	if(s.length() < 1 || s[0] < u8'0' || s[0] > u8'9') return -1;
+	return mpt::parse<int>(s);
 }
 
 
@@ -334,21 +358,22 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 
 	mpt::ustring s;
 	nTabCount = (sndFile.GetNumChannels() + (CHANNELS_IN_TAB - 1)) / CHANNELS_IN_TAB;
-	if (nTabCount != m_TabCtrl->GetItemCount())
+	if (nTabCount != m_TabCtrl->count())
 	{
 		uint32 nOldSel = m_TabCtrl->currentIndex();
-		if (!m_TabCtrl->GetItemCount()) nOldSel = m_nActiveTab;
+		if (!m_TabCtrl->count()) nOldSel = m_nActiveTab;
 		m_TabCtrl->setUpdatesEnabled(false);
-		m_TabCtrl->DeleteAllItems();
+		{
+			QSignalBlocker block(m_TabCtrl->tabBar());
+			while(m_TabCtrl->tabBar()->count() > 0)
+				m_TabCtrl->tabBar()->removeTab(0);
+		}
 		for (int iItem=0; iItem<nTabCount; iItem++)
 		{
 			const int lastItem = std::min(iItem * CHANNELS_IN_TAB + CHANNELS_IN_TAB, static_cast<int>(MAX_BASECHANNELS));
 			s = MPT_UFORMAT("{} - {}")(iItem * CHANNELS_IN_TAB + 1, lastItem);
-			TC_ITEM tci;
-			tci.mask = TCIF_TEXT | TCIF_PARAM;
-			tci.pszText = const_cast<mpt::uchar *>(s.c_str());
-			tci.lParam = iItem * CHANNELS_IN_TAB;
-			m_TabCtrl->InsertItem(iItem, &tci);
+			const int index = m_TabCtrl->InsertItem(iItem, mfcless::Text(s).value);
+			m_TabCtrl->tabBar()->setTabData(index, iItem * CHANNELS_IN_TAB);
 		}
 		if (nOldSel >= (uint32)nTabCount) nOldSel = 0;
 
@@ -398,7 +423,7 @@ void CViewGlobals::UpdateView(UpdateHint hint, QObject *pObject)
 				// Channel name
 				s = mpt::ToUnicode(sndFile.GetCharsetInternal(), chnSettings.szName);
 				SetItemText(IDC_EDIT9 + ichn, s);
-				((QLineEdit*)(GetDlgItem(IDC_EDIT9 + ichn)))->LimitText(MAX_CHANNELNAME - 1);
+				Item<QLineEdit>(IDC_EDIT9 + ichn)->setMaxLength(MAX_CHANNELNAME - 1);
 			} else
 			{
 				SetItemText(IDC_TEXT1 + ichn, UL_(""));
@@ -626,17 +651,16 @@ IMixPlugin *CViewGlobals::GetCurrentPlugin() const
 void CViewGlobals::OnTabSelchange()
 {
 	UpdateView(GeneralHint().Channels());
-	if (pResult) CurrentNotify().result = 0;
 }
 
 
 void CViewGlobals::OnUpdateUndo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanUndoChannelSettings());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, UL_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()));
+		state.SetText(mfcless::Text(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditUndo, (UL_("Undo ") + pModDoc->GetPatternUndo().GetUndoName()).c_str())).value);
 	}
 }
 
@@ -644,10 +668,10 @@ void CViewGlobals::OnUpdateUndo(mfcless::CommandState &state)
 void CViewGlobals::OnUpdateRedo(mfcless::CommandState &state)
 {
 	CModDoc *pModDoc = GetDocument();
-	if((pCmdUI) && (pModDoc))
+	if(pModDoc)
 	{
 		state.Enable(pModDoc->GetPatternUndo().CanRedoChannelSettings());
-		state.SetText(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, UL_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()));
+		state.SetText(mfcless::Text(CMainFrame::GetInputHandler()->GetKeyTextFromCommand(kcEditRedo, (UL_("Redo ") + pModDoc->GetPatternUndo().GetRedoName()).c_str())).value);
 	}
 }
 
@@ -890,9 +914,7 @@ void CViewGlobals::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pSc
 
 	if((m_nCurrentPlugin >= MAX_MIXPLUGINS) || (!pModDoc)) return;
 	CSoundFile &sndFile = pModDoc->GetSoundFile();
-	mpt::uchar s[32];
-
-	if(nSBCode != mfcless::ScrollCode::EndScroll && pScrollBar && pScrollBar == (CScrollBar*)&m_SpinMixGain)
+	if(nSBCode != mfcless::ScrollCode::EndScroll && pScrollBar && pScrollBar == m_SpinMixGain)
 	{
 
 		SNDMIXPLUGIN &plugin = sndFile.m_MixPlugins[m_nCurrentPlugin];
@@ -905,9 +927,7 @@ void CViewGlobals::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pSc
 			plugin.SetGain(gain);
 
 			float fValue = 0.1f * (float)gain;
-			_stprintf(s, UL_("Gain: x%1.1f"), fValue);
-			QLineEdit *gainEdit = Item<QLineEdit>(IDC_EDIT16);
-			mfcless::SetWindowText(gainEdit, s);
+			SetItemText(IDC_EDIT16, mfcless::PrintF(UL_("Gain: x%1.1f"), fValue));
 
 			SetPluginModified();
 		}
@@ -1114,7 +1134,7 @@ void CViewGlobals::OnParamChanged()
 			LockControls();
 			if(mfcless::GetFocus() != GetDlgItem(IDC_EDIT14))
 			{
-				mpt::ustring s = pPlugin->GetFormattedParamValue(m_nCurrentParam).Trim();
+				mpt::ustring s = mpt::trim(pPlugin->GetFormattedParamValue(m_nCurrentParam));
 				if(s.empty())
 				{
 					s = mfcless::PrintF(UL_("%f"), value);
@@ -1140,9 +1160,8 @@ void CViewGlobals::OnFocusParam()
 		const PlugParamIndex nParams = pPlugin->GetNumVisibleParameters();
 		if(m_nCurrentParam < nParams)
 		{
-			mpt::uchar s[32];
 			float fValue = pPlugin->GetScaledUIParam(m_nCurrentParam);
-			_stprintf(s, UL_("%f"), fValue);
+			const mpt::ustring s = mfcless::PrintF(UL_("%f"), fValue);
 			LockControls();
 			SetItemText(IDC_EDIT14, s);
 			UnlockControls();
@@ -1211,11 +1230,10 @@ void CViewGlobals::OnSetParameter()
 	if(pPlugin != nullptr)
 	{
 		const PlugParamIndex nParams = pPlugin->GetNumVisibleParameters();
-		mpt::uchar s[32];
-		s, mpt::saturate_cast<int>(std::size(s = GetItemText(IDC_EDIT14)));
-		if ((m_nCurrentParam < nParams) && (s[0]))
+		const mpt::ustring s = GetItemText(IDC_EDIT14);
+		if ((m_nCurrentParam < nParams) && !s.empty())
 		{
-			float fValue = (float)_tstof(s);
+			float fValue = mpt::parse<float>(s);
 			pPlugin->SetScaledUIParam(m_nCurrentParam, fValue);
 			OnParamChanged();
 			SetPluginModified();
@@ -1750,37 +1768,12 @@ void CViewGlobals::FillPluginProgramBox(int32 firstProg, int32 lastProg)
 }
 
 
-intptr_t CViewGlobals::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const
+// mfcless: the dialog's tooltips come here for every control, disabled ones
+// too (upstream needed OnToolHitTest for those in group boxes).
+mpt::ustring CViewGlobals::GetToolTipText(uint32 id, QWidget *) const
 {
-	intptr_t nHit = DialogBase::OnToolHitTest(point, pTI);
-	if(nHit >= 0 && pTI && (pTI->uFlags & TTF_IDISHWND))
-	{
-		// Workaround to get tooltips even for disabled controls inside group boxes that are positioned in the "correct" tab order position.
-		// For some reason doesn't work for enabled controls (probably because pTI->hwnd then doesn't point at the active control under the cursor),
-		// so we use the default code path there, which works just fine.
-		QWidget * child = reinterpret_cast<QWidget *>(pTI->uId);
-		if(!::IsWindowEnabled(child))
-		{
-			pTI->uId = nHit;
-			pTI->uFlags &= ~TTF_IDISHWND;
-			::GetWindowRect(child, &pTI->rect);
-			ScreenToClient(&pTI->rect);
-		}
-	}
-	return nHit;
-}
-
-
-bool CViewGlobals::OnToolTipText(uint32 )
-{
-	auto pTTT = reinterpret_cast<TOOLTIPTEXT *>(pNMHDR);
-	uintptr_t id = pNMHDR->idFrom;
-	if(pTTT->uFlags & TTF_IDISHWND)
-	{
-		// idFrom is actually the QWidget * of the tool
-		id = static_cast<uintptr_t>(::GetDlgCtrlID(reinterpret_cast<QWidget *>(id)));
-	}
-
+	if(!GetDocument())
+		return {};
 	mpt::ustring text;
 	const auto &chnSettings = GetDocument()->GetSoundFile().ChnSettings;
 	switch(id)
@@ -1826,16 +1819,9 @@ bool CViewGlobals::OnToolTipText(uint32 )
 			text = UL_("Next Plugin");
 			break;
 		default:
-			return false;
+			return {};
 	}
-
-	mpt::String::WriteWinBuf(pTTT->szText) = text;
-	CurrentNotify().result = 0;
-
-	// bring the tooltip window above other popup windows
-	::SetWindowPos(pNMHDR->hwndFrom, HWND_TOP, 0, 0, 0, 0, mfcless::swp::NoActivate | mfcless::swp::NoSize | mfcless::swp::NoMove | mfcless::swp::NoOwnerZOrder);
-
-	return true;  // message was handled
+	return text;
 }
 
 

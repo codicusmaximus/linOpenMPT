@@ -87,6 +87,7 @@ static constexpr uint32 cLeftBarButtons[SMP_LEFTBAR_BUTTONS] =
 };
 
 
+const mfcless::ViewClass CViewSample::classCViewSample{"CViewSample", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new CViewSample(); if(parent) view->setParent(parent); return view; }};
 void CViewSample::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();

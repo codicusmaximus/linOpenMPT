@@ -82,6 +82,7 @@ static constexpr CListCtrlEx::Header InstrumentHeaders[INSLIST_COLUMNS] =
 };
 
 
+const mfcless::ViewClass CViewComments::classCViewComments{"CViewComments", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new CViewComments(); if(parent) view->setParent(parent); return view; }};
 void CViewComments::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();

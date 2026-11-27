@@ -17,6 +17,7 @@
 #include "mfcless/Controls.h"
 #include "mfcless/Geometry.h"
 #include "DocumentView.h"
+#include <QtCore/QPointer>
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
 #include "PluginComboBox.h"
@@ -25,10 +26,13 @@
 class QAbstractButton;
 class QComboBox;
 class QObject;
+class QScrollArea;
 class QScrollBar;
 class QSlider;
 
 OPENMPT_NAMESPACE_BEGIN
+
+class CChildFrame;
 
 //Note: Changing this won't increase the number of tabs in general view. Most
 //of the code use plain number 4.
@@ -69,6 +73,12 @@ protected:
 protected:
 	CViewGlobals();
 public:
+	~CViewGlobals() override;
+	QWidget *ViewWidget() override;
+protected:
+	QScrollArea *m_scrollArea = nullptr;
+	QPointer<CChildFrame> m_frame;
+public:
 	static const mfcless::ViewClass classCViewGlobals;
 	const mfcless::ViewClass *GetRuntimeClass() const override { return &classCViewGlobals; }
 public:
@@ -86,7 +96,7 @@ public:
 	void OnInitialUpdate() override;
 	void DoDataExchange(DataExchange &dx) override;
 	void OnUpdate(mfcless::DocumentView *pSender, intptr_t lHint, QObject *pHint) override;
-	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
+	mpt::ustring GetToolTipText(uint32 id, QWidget *hwnd) const override;
 
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr);
 	intptr_t OnModViewMsg(uintptr_t, intptr_t);
@@ -181,7 +191,6 @@ protected:
 	void OnTabSelchange();
 	intptr_t OnMDIDeactivate(uintptr_t, intptr_t);
 	intptr_t OnUnlockControls(uintptr_t, intptr_t) { if (m_nLockCount > 0) m_nLockCount--; return 0; }
-	bool OnToolTipText(uint32 );
 	void RegisterMessageMap() override;
 };
 

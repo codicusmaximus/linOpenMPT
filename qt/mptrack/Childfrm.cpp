@@ -243,8 +243,7 @@ bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 		m_wndSplitter->setSizes(sizes);
 	view->SetDocument(m_document);
 	m_currentViewClassName = pViewClass->m_lpszClassName;
-	if(auto *scrollView = dynamic_cast<CModScrollView *>(view))
-		scrollView->OnInitialUpdate();
+	view->OnInitialUpdate();
 	if ((m_hWndView) && (m_hWndCtrl))
 	{
 		mfcless::PostModMessage(m_hWndView, WM_MOD_VIEWMSG, VIEWMSG_SETCTRLWND, reinterpret_cast<intptr_t>(m_hWndCtrl));

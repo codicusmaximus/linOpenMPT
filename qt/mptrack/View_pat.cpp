@@ -44,6 +44,7 @@ OPENMPT_NAMESPACE_BEGIN
 ModCommand CViewPattern::m_cmdOld = ModCommand{};
 int32 CViewPattern::m_nTransposeAmount = 1;
 
+const mfcless::ViewClass CViewPattern::classCViewPattern{"CViewPattern", [](QWidget *parent) -> mfcless::DocumentView * { auto *view = new CViewPattern(); if(parent) view->setParent(parent); return view; }};
 void CViewPattern::RegisterMessageMap()
 {
 	CModScrollView::RegisterMessageMap();

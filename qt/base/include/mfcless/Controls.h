@@ -40,6 +40,7 @@ public:
 	void SetRange(int lower, int upper);
 	int GetLower() const { return m_lower; }
 	int GetUpper() const { return m_upper; }
+	void GetRange(int &lower, int &upper) const { lower = m_lower; upper = m_upper; }
 	void SetPos(int pos);
 	int GetPos() const;
 

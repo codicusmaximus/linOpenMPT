@@ -1141,12 +1141,11 @@ void CCtrlInstruments::RecalcLayout()
 void CCtrlInstruments::OnTbnDropDownToolBar()
 {
 	CInputHandler *ih = CMainFrame::GetInputHandler();
-	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
-	ClientToScreen(&(pToolBar->rcButton)); // TrackPopupMenu uses screen coords
-	const int offset = HighDPISupport::ScalePixels(4, this);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
-	int x = pToolBar->rcButton.left + offset, y = pToolBar->rcButton.bottom + offset;
+	const uint32 dropDownButton = static_cast<uint32>(CurrentNotify().item);  // TBN_DROPDOWN: the button
+	const QPoint dropDownPos = m_ToolBar->GetDropDownPos(dropDownButton);
+	const int x = dropDownPos.x(), y = dropDownPos.y();
 	mfcless::Menu menu;
-	switch(pToolBar->iItem)
+	switch(dropDownButton)
 	{
 	case IDC_INSTRUMENT_NEW:
 		{
