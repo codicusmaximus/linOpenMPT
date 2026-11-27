@@ -16,6 +16,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 
+#include <optional>
 #include <typeinfo>
 #include "Snd_defs.h"
 
@@ -23,6 +24,7 @@
 #include "mfcless/Window.h"
 
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QFrame>
 
 #include <map>
 #include <type_traits>
@@ -110,6 +112,7 @@ protected:
 	virtual void OnOK() { if(UpdateData(true)) accept(); }
 	// Closes a modal dialog with this result (IDOK accepts it).
 	void EndDialog(int result) { done(result == 1 /* IDOK */ ? QDialog::Accepted : result); }
+	void done(int result) override;
 	virtual void OnCancel() { reject(); }
 	virtual void DoDataExchange(DataExchange & /*dx*/) {}
 	void RegisterMessageMap() override;
@@ -224,6 +227,10 @@ private:
 	std::map<uint32, QWidget *> m_items;
 	std::vector<QWidget *> m_templateOrder;
 	bool m_initialized = false;
+	QFrame *m_childFrame = nullptr;  // the frame of a child dialog that has one
+	// A modal dialog that ends while OnInitDialog runs (EndDialog there) is never shown.
+	bool m_inModalInit = false;
+	std::optional<int> m_endedInInit;
 	bool m_inCancel = false;
 	int m_dpi = 96;
 protected:

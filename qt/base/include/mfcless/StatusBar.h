@@ -43,6 +43,9 @@ public:
 	void SetPaneInfo(int index, uint32_t id, uint32_t style, int width);
 	bool SetPaneText(int index, const Text &text, bool update = true);
 	QString GetPaneText(int index) const;
+	// Asks target for the state of each pane's command (its ON_UPDATE_COMMAND_UI
+	// handler sets the pane's text), as MFC does when the program is idle.
+	void UpdatePanes(MessageMap *target);
 
 protected:
 	struct PaneInfo

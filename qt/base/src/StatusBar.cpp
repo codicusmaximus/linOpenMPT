@@ -101,6 +101,21 @@ bool StatusBar::SetPaneText(int index, const Text &text, bool)
 }
 
 
+void StatusBar::UpdatePanes(MessageMap *target)
+{
+	if(target == nullptr || !isVisible())
+		return;
+	for(const PaneInfo &p : m_panes)
+	{
+		if(p.id == 0)
+			continue;
+		CommandState state;
+		state.id = p.id;
+		target->DispatchCommandUpdate(p.id, state);
+	}
+}
+
+
 QString StatusBar::GetPaneText(int index) const
 {
 	if(index < 0 || index >= static_cast<int>(m_panes.size()))

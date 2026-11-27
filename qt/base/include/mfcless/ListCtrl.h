@@ -137,6 +137,7 @@ protected:
 
 	uint32_t m_exStyle = 0;
 	bool m_groupView = false;
+	bool m_groupWatch = false;
 	bool m_virtual = false;
 	std::vector<QTreeWidgetItem *> m_items;
 	std::vector<std::pair<int, QTreeWidgetItem *>> m_groups;

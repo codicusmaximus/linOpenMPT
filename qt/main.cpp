@@ -41,6 +41,8 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QWidget>
 
@@ -81,8 +83,12 @@ void DumpWidgets(QWidget *w, QWidget *origin, int depth)
 	QString text = w->windowTitle();
 	if(auto *button = qobject_cast<QAbstractButton *>(w))
 		text = button->text();
-	std::fprintf(stderr, "%*s%s (%s) %s \"%s\" (%d,%d %dx%d)\n", depth * 2, "", typeid(*w).name(), w->metaObject()->className(),
-		w->isVisible() ? "visible" : "hidden", text.left(40).toLocal8Bit().constData(), topLeft.x(), topLeft.y(), w->width(), w->height());
+	else if(auto *edit = qobject_cast<QLineEdit *>(w))
+		text = edit->text();
+	else if(auto *label = qobject_cast<QLabel *>(w))
+		text = label->text();
+	std::fprintf(stderr, "%*s%p %s (%s) %s%s \"%s\" (%d,%d %dx%d)\n", depth * 2, "", (void *)w, typeid(*w).name(), w->metaObject()->className(),
+		w->isVisible() ? "visible" : "hidden", w->isEnabled() ? "" : " disabled", text.left(40).toLocal8Bit().constData(), topLeft.x(), topLeft.y(), w->width(), w->height());
 	for(QObject *child : w->children())
 	{
 		if(auto *cw = qobject_cast<QWidget *>(child); cw && !cw->isWindow())

@@ -75,6 +75,8 @@
 #include "mfcless/QtString.h"
 #include "mfcless/Resources.h"
 
+#include <QtCore/QTimer>
+#include <QtGui/QScreen>
 #include <QtCore/QCollator>
 #include <QtCore/QDir>
 #include <QtCore/QUrl>
@@ -93,6 +95,17 @@
 
 
 OPENMPT_NAMESPACE_BEGIN
+
+// mfcless: tells the frame when the MDI client changed its size.
+class MdiClientResizeWatcher : public QObject
+{
+public:
+	explicit MdiClientResizeWatcher(CMainFrame *frame) : QObject(frame), m_frame(frame) {}
+	bool eventFilter(QObject *watched, QEvent *e) override;
+
+private:
+	CMainFrame *m_frame;
+};
 
 static constexpr uint32 TIMERID_GUI = 1;
 static constexpr uint32 TIMERID_NOTIFY = 2;
@@ -231,10 +244,6 @@ CMainFrame::CMainFrame()
 
 void CMainFrame::Initialize()
 {
-	// mfcless: CFrameWnd::LoadFrame created the window (OnCreate) before
-	// upstream's InitInstance called this.
-	OnCreate();
-
 	//Adding version number to the frame title
 	mpt::ustring title = GetTitle();
 	title += U_(" ") + mpt::ufmt::val(Version::Current());
@@ -355,6 +364,8 @@ int CMainFrame::OnCreate()
 	m_mdiArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	m_mdiArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	m_mdiArea->setActivationOrder(QMdiArea::ActivationHistoryOrder);
+	// The frame's layout follows the MDI client's size (upstream: RecalcLayout on WM_SIZE).
+	m_mdiArea->installEventFilter(new MdiClientResizeWatcher(this));
 	connect(m_mdiArea, &QMdiArea::subWindowActivated, this, [this](QMdiSubWindow *window)
 	{
 		static QPointer<CChildFrame> previous;
@@ -381,6 +392,12 @@ int CMainFrame::OnCreate()
 	m_wndTree.SetBarOnLeft(TrackerSettings::Instance().treeViewOnLeft);
 	m_wndStatusBar.SetIndicators(StatusBarIndicators, static_cast<int>(std::size(StatusBarIndicators)));
 	SetupStatusBarSizes();
+	{
+		// mfcless: the panes' texts come from their update handlers when idle (upstream: CFrameWnd::OnIdleUpdateCmdUI)
+		auto *statusTimer = new QTimer(this);
+		connect(statusTimer, &QTimer::timeout, this, [this] { m_wndStatusBar.UpdatePanes(this); });
+		statusTimer->start(100);
+	}
 	m_wndToolBar.Init(this);
 	m_wndTree.RecalcLayout();
 
@@ -711,6 +728,14 @@ void CMainFrame::UpdateFrameTitleForDocument(const mpt::ustring &docTitle)
 	if(!docTitle.empty())
 		title = mfcless::ToQString(docTitle) + QStringLiteral(" - ") + title;
 	setWindowTitle(title);
+}
+
+
+bool MdiClientResizeWatcher::eventFilter(QObject *watched, QEvent *e)
+{
+	if(e->type() == QEvent::Resize)
+		m_frame->RecalcLayout();
+	return QObject::eventFilter(watched, e);
 }
 
 
@@ -3020,8 +3045,15 @@ void CMainFrame::SaveWindowGeometry(SettingsContainer &conf)
 void CMainFrame::RestoreWindowGeometry(SettingsContainer &conf)
 {
 	const std::string geometry = conf.Read<std::string>(U_("Display"), U_("WindowGeometry"), std::string());
-	if(!geometry.empty())
-		restoreGeometry(QByteArray::fromBase64(QByteArray::fromStdString(geometry)));
+	if(geometry.empty() || !restoreGeometry(QByteArray::fromBase64(QByteArray::fromStdString(geometry))))
+	{
+		// No saved place: Windows' default (CW_USEDEFAULT) size, three quarters of the screen.
+		if(const QScreen *screen = this->screen(); screen != nullptr)
+		{
+			const QRect area = screen->availableGeometry();
+			resize(area.width() * 3 / 4, area.height() * 3 / 4);
+		}
+	}
 }
 
 

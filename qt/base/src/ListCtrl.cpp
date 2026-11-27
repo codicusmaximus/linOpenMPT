@@ -342,6 +342,17 @@ bool ListCtrl::EnableGroupView(bool enable)
 	// The groups' headers have the arrows that collapse them.
 	setRootIsDecorated(enable);
 	setIndentation(enable ? 8 : 0);
+	if(enable && !m_groupWatch)
+	{
+		// As on Windows, a group without items has no header either.
+		m_groupWatch = true;
+		auto update = [this] {
+			for(auto &[id, header] : m_groups)
+				header->setHidden(header->childCount() == 0);
+		};
+		connect(model(), &QAbstractItemModel::rowsInserted, this, update);
+		connect(model(), &QAbstractItemModel::rowsRemoved, this, update);
+	}
 	return true;
 }
 
@@ -358,6 +369,7 @@ int ListCtrl::InsertGroup(int groupId, const Text &header)
 	addTopLevelItem(item);
 	item->setFirstColumnSpanned(true);
 	item->setExpanded(true);
+	item->setHidden(true);  // until it has items
 	m_groups.emplace_back(groupId, item);
 	return static_cast<int>(m_groups.size()) - 1;
 }

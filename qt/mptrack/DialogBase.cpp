@@ -79,6 +79,18 @@ void DialogBase::CreateFromTemplate()
 	if(style & mfcless::Style::Child)
 	{
 		setWindowFlags(Qt::Widget);
+		// A child dialog paints its background, as on Windows, and one with a
+		// frame (DS_MODALFRAME, WS_DLGFRAME, WS_BORDER) shows it (Quick Start).
+		setAutoFillBackground(true);
+		if(style & (0x80 | 0x00400000 | mfcless::Style::Border))
+		{
+			m_childFrame = new QFrame(this);
+			m_childFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Raised);
+			m_childFrame->setAttribute(Qt::WA_TransparentForMouseEvents);
+			m_childFrame->setGeometry(rect());
+			m_childFrame->lower();
+			installEventFilter(this);
+		}
 	} else if(!(style & mfcless::Style::ThickFrame))
 	{
 		setFixedSize(built.size);
@@ -166,17 +178,28 @@ void DialogBase::reject()
 }
 
 
+void DialogBase::done(int result)
+{
+	if(m_inModalInit)
+		m_endedInInit = result;
+	QDialog::done(result);
+}
+
+
 int DialogBase::DoModal()
 {
+	m_endedInInit.reset();
 	if(!m_initialized)
 	{
 		CreateFromTemplate();
 		m_initialized = true;
+		m_inModalInit = true;
 		if(OnInitDialog())
 			SetFocusToFirstControl();
+		m_inModalInit = false;
 	}
 	// IDOK, IDCANCEL, or what EndDialog gave.
-	const int result = exec();
+	const int result = m_endedInInit ? *m_endedInInit : exec();
 	return result == QDialog::Accepted ? IDOK : (result == QDialog::Rejected ? IDCANCEL : result);
 }
 
@@ -213,6 +236,12 @@ QWidget *DialogBase::GetDlgItem(uint32 id) const
 
 bool DialogBase::eventFilter(QObject *watched, QEvent *e)
 {
+	if(watched == this)
+	{
+		if(e->type() == QEvent::Resize && m_childFrame)
+			m_childFrame->setGeometry(rect());
+		return Window::eventFilter(watched, e);
+	}
 	switch(e->type())
 	{
 	case QEvent::ToolTip:
