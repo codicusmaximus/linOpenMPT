@@ -565,7 +565,7 @@ void CTuningDialog::UpdateRatioMapEdits(const NOTEINDEXTYPE& note)
 void CTuningDialog::OnBnClickedButtonNew()
 {
 	mfcless::Point point;
-	GetCursorPos(&point);
+	mfcless::GetCursorPos(&point);
 
 	mfcless::Menu popUpMenu = CreatePopupMenu();
 	if(popUpMenu == NULL) return;
@@ -1098,7 +1098,7 @@ void CTuningDialog::OnNMRclickTreeTuning()
 	QTreeWidgetItem * hItem;
 	mfcless::Point point, ptClient;
 
-	GetCursorPos(&point);
+	mfcless::GetCursorPos(&point);
 	ptClient = point;
 	m_TreeCtrlTuning->ScreenToClient(&ptClient);
 	hItem = m_TreeCtrlTuning->HitTest(ptClient, NULL);
@@ -1158,7 +1158,7 @@ void CTuningDialog::OnNMRclickTreeTuning()
 		}
 	}
 
-	GetCursorPos(&point);
+	mfcless::GetCursorPos(&point);
 	TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
 	DestroyMenu(popUpMenu);
 }
@@ -1189,7 +1189,7 @@ void CTuningDialog::OnTvnBegindragTreeTuning()
 		return;
 	}
 
-	SetCursor(CMainFrame::curDragging);
+	setCursor(CMainFrame::curDragging);
 
 	m_TreeCtrlTuning->SetDragging();
 	m_DragItem = m_TreeItemTuningItemMap.GetMapping_12(pNMTreeView->itemNew.hItem);
@@ -1234,7 +1234,7 @@ CTuningCollection *CTuningDialog::CanDrop(QTreeWidgetItem * dragDestItem)
 
 void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 {
-	SetCursor(CMainFrame::curArrow);
+	setCursor(CMainFrame::curArrow);
 	m_TreeCtrlTuning->SetDragging(false);
 	if(!m_DragItem)
 		return;
@@ -1257,7 +1257,7 @@ void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 		if(popUpMenu == NULL) return;
 
 		mfcless::Point point;
-		GetCursorPos(&point);
+		mfcless::GetCursorPos(&point);
 
 		if(!CanEdit(pTCdest))
 		{
@@ -1265,7 +1265,7 @@ void CTuningDialog::OnEndDrag(QTreeWidgetItem * dragDestItem)
 		}
 		popUpMenu.AppendMenu(mask, ID_COPYTUNING, UL_("&Copy here"));
 
-		GetCursorPos(&point);
+		mfcless::GetCursorPos(&point);
 		TrackPopupMenu(popUpMenu, mfcless::menu::LeftAlign|mfcless::menu::RightButton, point.x, point.y, 0, this, NULL);
 		DestroyMenu(popUpMenu);
 

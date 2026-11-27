@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Order list for the pattern editor upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_seq.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -12,6 +12,9 @@
 
 #include "Ctrl_pat.h"
 #include "mfcless/Widgets.h"
+#include <QtCore/QSignalBlocker>
+#include <QtGui/QFontMetrics>
+#include <QtWidgets/QScrollBar>
 #include "Globals.h"
 #include "HighDPISupport.h"
 #include "InputHandler.h"
@@ -47,7 +50,7 @@ static bool IsSelectionKeyPressed() { return CMainFrame::GetInputHandler()->Sele
 
 void COrderList::RegisterMessageMap()
 {
-	mfcless::Window<QWidget>::RegisterMessageMap();
+	mfcless::Window<QAbstractScrollArea>::RegisterMessageMap();
 	// ON_WM_PAINT() (mfcless::Window)
 	// ON_WM_ERASEBKGND(): by hand (Qt event override)
 	// ON_WM_MOUSEMOVE() (mfcless::Window)
@@ -86,8 +89,8 @@ void COrderList::RegisterMessageMap()
 	AddCommand(ID_QUEUE_AT_ROW_END, &COrderList::OnQueueAtRowEnd);
 	AddMessage(WM_MOD_DRAGONDROPPING, &COrderList::OnDragonDropping);
 	AddMessage(WM_MOD_KEYCOMMAND, &COrderList::OnCustomKeyMsg);
-	AddMessage(WM_DPICHANGED_AFTERPARENT, &COrderList::OnDPIChangedAfterParent);
-	// ON_NOTIFY_EX(TTN_NEEDTEXT, 0,             &COrderList::OnToolTipText): by hand (Qt event override)
+	// WM_DPICHANGED_AFTERPARENT: CCtrlPatterns::OnDPIChanged calls OnDPIChanged.
+	// TTN_NEEDTEXT: GetToolTipText.
 	AddCommandRange(ID_SEQUENCE_ITEM, ID_SEQUENCE_ITEM + kMaxSequenceActions - 1, &COrderList::OnSelectSequence);
 }
 
@@ -131,24 +134,22 @@ const ModSequence &COrderList::Order() const { return m_modDoc.GetSoundFile().Or
 
 void COrderList::SetScrollPos(int pos)
 {
-	// Work around 16-bit limitations of WM_HSCROLL
-	SCROLLINFO si{};
-	si.cbSize = sizeof(si);
-	si.fMask = SIF_TRACKPOS;
-	GetScrollInfo(Qt::Horizontal, &si);
-	si.nPos = pos;
-	SetScrollInfo(Qt::Horizontal, &si);
+	QSignalBlocker block(horizontalScrollBar());
+	horizontalScrollBar()->setValue(pos);
 }
 
 
 int COrderList::GetScrollPos(bool getTrackPos)
 {
-	// Work around 16-bit limitations of WM_HSCROLL
-	SCROLLINFO si{};
-	si.cbSize = sizeof(si);
-	si.fMask = SIF_TRACKPOS;
-	GetScrollInfo(Qt::Horizontal, &si);
-	return getTrackPos ? si.nTrackPos : si.nPos;
+	return getTrackPos ? horizontalScrollBar()->sliderPosition() : horizontalScrollBar()->value();
+}
+
+
+// The scroll range as Windows has it: the last position is max + page - 1.
+void COrderList::GetScrollRange(int &smin, int &smax)
+{
+	smin = horizontalScrollBar()->minimum();
+	smax = horizontalScrollBar()->maximum() + std::max(horizontalScrollBar()->pageStep() - 1, 0);
 }
 
 
@@ -205,13 +206,22 @@ mfcless::Rect COrderList::GetRectFromOrder(ORDERINDEX ord) const
 
 bool COrderList::Init(const mfcless::Rect &rect)
 {
-	CreateEx(WS_EX_STATICEDGE, NULL, UL_(""), WS_CHILD | WS_VISIBLE, rect, &m_pParent, IDC_ORDERLIST);
+	// A child window with a thin sunken edge (WS_EX_STATICEDGE) and a
+	// horizontal scroll bar.
+	setParent(&m_pParent);
+	setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+	setFocusPolicy(Qt::StrongFocus);
+	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+	horizontalScrollBar()->setSingleStep(1);
+	mfcless::ConnectNotifications(horizontalScrollBar(), IDC_ORDERLIST, this);
+	setGeometry(QRect(rect));
 	m_hFont = CMainFrame::GetGUIFont();
-	SendMessage(WM_SETFONT, (uintptr_t)m_hFont);
+	setFont(m_hFont);
+	m_pParent.AddDynamicItem(IDC_ORDERLIST, this);
 	SetScrollPos(0);
-	EnableScrollBarCtrl(Qt::Horizontal, true);
 	SetCurSel(0);
-	EnableToolTips();
+	show();
 	return true;
 }
 
@@ -223,23 +233,20 @@ void COrderList::UpdateScrollInfo()
 	GetClientRect(&rcClient);
 	if((m_cxFont > 0) && (rcClient.right > 0))
 	{
-		mfcless::Rect rect;
-		SCROLLINFO info;
-		uint32 nPage;
-
 		int nMax = Order().GetLengthTailTrimmed() + std::max(ORDERINDEX(1), GetMargins()) - 1;
 
-		GetScrollInfo(Qt::Horizontal, &info, SIF_PAGE | SIF_RANGE);
-		info.fMask = SIF_PAGE | SIF_RANGE;
-		info.nMin = 0;
-		nPage = rcClient.right / m_cxFont;
-		if(nMax <= (int)nPage)
+		const int nPage = rcClient.right / m_cxFont;
+		if(nMax <= nPage)
 			nMax = nPage + 1;
-		if((nMax != info.nMax) || (nPage != info.nPage))
+		// Windows' range is 0..nMax with a page of nPage; Qt's maximum is the
+		// last position the page can start at.
+		QScrollBar *bar = horizontalScrollBar();
+		const int qtMax = std::max(nMax - std::max(nPage - 1, 0), 0);
+		if(bar->maximum() != qtMax || bar->pageStep() != nPage)
 		{
-			info.nPage = nPage;
-			info.nMax = nMax;
-			SetScrollInfo(Qt::Horizontal, &info, true);
+			QSignalBlocker block(bar);
+			bar->setPageStep(nPage);
+			bar->setRange(0, qtMax);
 		}
 	}
 }
@@ -247,14 +254,9 @@ void COrderList::UpdateScrollInfo()
 
 int COrderList::GetFontWidth()
 {
-	if((m_cxFont <= 0) && (this) && (m_hFont))
+	if(m_cxFont <= 0)
 	{
-		mfcless::PaintDC dc(this);
-		HGDIOBJ oldfont = dc.SelectObject(m_hFont);
-		mfcless::Size sz = dc.GetTextExtent(UL_("000+"), 4);
-		if(oldfont)
-			dc.SelectObject(oldfont);
-		return sz.cx;
+		return QFontMetrics(m_hFont).horizontalAdvance(QStringLiteral("000+"));
 	}
 	return m_cxFont;
 }
@@ -345,7 +347,7 @@ bool COrderList::SetCurSel(ORDERINDEX sel, bool setPlayPos, bool shiftClick, boo
 	ORDERINDEX &ord = shiftClick ? m_nScrollPos2nd : m_nScrollPos;
 	const ORDERINDEX lastIndex = std::max(Order().GetLength(), sndFile.GetModSpecifications().ordersMax) - 1u;
 
-	if((sel < 0) || (sel > lastIndex) || (!m_pParent) || (!pMainFrm))
+	if((sel < 0) || (sel > lastIndex) || (!pMainFrm))
 		return false;
 	if(!ignoreCurSel && sel == ord && (sel == sndFile.m_PlayState.m_nCurrentOrder))
 		return true;
@@ -724,7 +726,7 @@ void COrderList::UpdateInfoText()
 
 
 // Accessible description for screen readers
-HRESULT COrderList::get_accName(VARIANT, BSTR *pszName)
+QString COrderList::GetAccessibleName()
 {
 	CSoundFile &sndFile = m_modDoc.GetSoundFile();
 	const auto &order = Order();
@@ -756,21 +758,19 @@ HRESULT COrderList::get_accName(VARIANT, BSTR *pszName)
 		}
 	}
 	
-	*pszName = s.AllocSysString();
-	return S_OK;
+	return mfcless::Text(s).value;
 }
 
 
 /////////////////////////////////////////////////////////////////
 // COrderList messages
 
-intptr_t COrderList::OnDPIChangedAfterParent(uintptr_t, intptr_t)
+void COrderList::OnDPIChanged()
 {
-	auto result = Default();
 	m_cxFont = m_cyFont = 0;
 	m_hFont = CMainFrame::GetGUIFont();
+	setFont(m_hFont);
 	Invalidate(false);
-	return result;
 }
 
 
@@ -778,18 +778,17 @@ void COrderList::OnPaint()
 {
 	mpt::ustring s;
 	mfcless::PaintDC dc(this);
-	HGDIOBJ oldfont = dc.SelectObject(m_hFont);
-	HGDIOBJ oldpen = dc.SelectStockObject(mfcless::Stock::DCPen);
+	dc.SelectObject(m_hFont);
 	const auto separatorColor = mfcless::SystemColor(mfcless::SysColor::Window) ^ 0x808080;
 	const auto colorText = mfcless::SystemColor(mfcless::SysColor::WindowText), colorInvalid = mfcless::SystemColor(mfcless::SysColor::GrayText), colorTextSel = mfcless::SystemColor(mfcless::SysColor::HighlightText);
 	const auto windowColor = mfcless::SystemColor(mfcless::SysColor::Window), highlightColor = mfcless::SystemColor(mfcless::SysColor::Highlight), faceColor = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
 
-	SetDCPenColor(dc, separatorColor);
+	dc.SelectObject(mfcless::Pen(mfcless::pen::Solid, 1, separatorColor));
 
 	// First time?
 	if(m_cxFont <= 0 || m_cyFont <= 0)
 	{
-		mfcless::Size sz = dc.GetTextExtent(UL_("000+"), 4);
+		mfcless::Size sz = dc.GetTextExtent(UL_("000+"));
 		m_cxFont = sz.cx;
 		m_cyFont = sz.cy;
 	}
@@ -844,8 +843,8 @@ void COrderList::OnPaint()
 				dc.DrawFocusRect(&rect);
 				rect.InflateRect(1, 1);
 			}
-			MoveToEx(dc, rect.right, rect.top, NULL);
-			LineTo(dc, rect.right, rect.bottom);
+			dc.MoveTo(rect.right, rect.top);
+			dc.LineTo(rect.right, rect.bottom);
 
 			// Drawing the 'ctrl-transition' indicator
 			if(ord == sndFile.m_PlayState.m_nSeqOverride && sndFile.m_PlayState.m_nSeqOverride != ORDERINDEX_INVALID)
@@ -867,14 +866,14 @@ void COrderList::OnPaint()
 				dc.FillSolidRect(mfcless::Rect{dropLeft ? (rect.left + 2) : (rect.right - 2 - lineWidth2), rect.top + 2, dropLeft ? (rect.left + 2 + lineWidth2) : (rect.right - 2), rect.bottom - 2}, separatorColor);
 			}
 
-			s[0] = u8'\0';
+			s.clear();
 			const PATTERNINDEX pat = (ord < order.size()) ? order[ord] : PATTERNINDEX_INVALID;
 			if(ord < maxEntries && (rect.left + m_cxFont - 4) <= rcClient.right)
 			{
 				if(pat == PATTERNINDEX_INVALID)
-					_tcscpy(s, UL_("---"));
+					s = UL_("---");
 				else if(pat == PATTERNINDEX_SKIP)
-					_tcscpy(s, UL_("+++"));
+					s = UL_("+++");
 				else
 					s = mfcless::PrintF(UL_("%u"), pat);
 			}
@@ -890,10 +889,6 @@ void COrderList::OnPaint()
 			dc.DrawText(s, -1, &rect, mfcless::dt::SingleLine | mfcless::dt::Center | mfcless::dt::VCenter);
 		}
 	}
-	if(oldpen)
-		dc.SelectObject(oldpen);
-	if(oldfont)
-		dc.SelectObject(oldfont);
 }
 
 
@@ -1051,11 +1046,11 @@ void COrderList::OnMouseMove(uint32 nFlags, mfcless::Point pt)
 				m_nMouseDownPos = ORDERINDEX_INVALID;
 				m_nDropPos = n;
 				Invalidate(false);
-				SetCursor(CMainFrame::curDragging);
+				setCursor(CMainFrame::curDragging);
 			} else
 			{
 				m_nDropPos = ORDERINDEX_INVALID;
-				SetCursor(CMainFrame::curNoDrop);
+				setCursor(CMainFrame::curNoDrop);
 			}
 		}
 	} else
@@ -1149,7 +1144,7 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 			hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
 
 			mfcless::Menu menuSequence = mfcless::Menu::CreatePopup();
-			hMenu.AppendMenu(mfcless::menu::Popup, (uintptr_t)menuSequence, UL_("&Sequences"));
+			hMenu.AppendMenu(mfcless::menu::Popup, menuSequence, UL_("&Sequences"));
 
 			const SEQUENCEINDEX numSequences = sndFile.Order.GetNumSequences();
 			for(SEQUENCEINDEX i = 0; i < numSequences; i++)
@@ -1160,17 +1155,17 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 				else
 					str = MPT_UFORMAT("{}: {}")(i + 1, mpt::ToUnicode(sndFile.Order(i).GetName()));
 				const uint32 flags = (sndFile.Order.GetCurrentSequenceIndex() == i) ? mfcless::menu::String | mfcless::menu::Checked : mfcless::menu::String;
-				AppendMenu(menuSequence, flags, ID_SEQUENCE_ITEM + i, str);
+				menuSequence.AppendMenu(flags, ID_SEQUENCE_ITEM + i, str);
 			}
 			if(sndFile.Order.GetNumSequences() < sndFile.GetModSpecifications().sequencesMax)
 			{
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDuplicateSequence, UL_("&Duplicate current sequence"));
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kAddSequence, UL_("&Create empty sequence"));
+				menuSequence.AppendMenu(mfcless::menu::String, ID_SEQUENCE_ITEM + kDuplicateSequence, UL_("&Duplicate current sequence"));
+				menuSequence.AppendMenu(mfcless::menu::String, ID_SEQUENCE_ITEM + kAddSequence, UL_("&Create empty sequence"));
 			}
 			if(sndFile.Order.GetNumSequences() > 1)
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kDeleteSequence, UL_("D&elete current sequence"));
+				menuSequence.AppendMenu(mfcless::menu::String, ID_SEQUENCE_ITEM + kDeleteSequence, UL_("D&elete current sequence"));
 			else
-				AppendMenu(menuSequence, mfcless::menu::String, ID_SEQUENCE_ITEM + kSplitSequence, UL_("&Split sub songs into sequences"));
+				menuSequence.AppendMenu(mfcless::menu::String, ID_SEQUENCE_ITEM + kSplitSequence, UL_("&Split sub songs into sequences"));
 		}
 	}
 	hMenu.AppendMenu(mfcless::menu::Separator, NULL, UL_(""));
@@ -1179,10 +1174,10 @@ void COrderList::OnRButtonUp(uint32 nFlags, mfcless::Point pt)
 	if(!multiSelection)
 	{
 		mfcless::Menu menuQueue = mfcless::Menu::CreatePopup();
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_PATTERN_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtPatternEnd, UL_("Transition at end of current &pattern")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_MEASURE_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtMeasureEnd, UL_("Transition at end of current &measure")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_BEAT_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtBeatEnd, UL_("Transition at end of current &beat")));
-		AppendMenu(menuQueue, mfcless::menu::String, ID_QUEUE_AT_ROW_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtRowEnd, UL_("Transition at end of current &row")));
+		menuQueue.AppendMenu(mfcless::menu::String, ID_QUEUE_AT_PATTERN_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtPatternEnd, UL_("Transition at end of current &pattern")));
+		menuQueue.AppendMenu(mfcless::menu::String, ID_QUEUE_AT_MEASURE_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtMeasureEnd, UL_("Transition at end of current &measure")));
+		menuQueue.AppendMenu(mfcless::menu::String, ID_QUEUE_AT_BEAT_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtBeatEnd, UL_("Transition at end of current &beat")));
+		menuQueue.AppendMenu(mfcless::menu::String, ID_QUEUE_AT_ROW_END, ih->GetKeyTextFromCommand(kcOrderlistQueueAtRowEnd, UL_("Transition at end of current &row")));
 		hMenu.AppendMenu(mfcless::menu::Popup, menuQueue, UL_("&Queue Pattern"));
 	}
 
@@ -1217,12 +1212,13 @@ void COrderList::OnMButtonDown(uint32 nFlags, mfcless::Point pt)
 }
 
 
-void COrderList::OnHScroll(uint32 nSBCode, uint32 /*nPos*/, CScrollBar *)
+void COrderList::OnHScroll(mfcless::ScrollCode nSBCode, int /*nPos*/, QWidget *)
 {
 	uint32 nNewPos = m_nXScroll;
-	uint32 smin, smax;
+	int smin, smaxInt;
 
-	GetScrollRange(Qt::Horizontal, (LPINT)&smin, (LPINT)&smax);
+	GetScrollRange(smin, smaxInt);
+	const uint32 smax = static_cast<uint32>(std::max(smaxInt, 0));
 	m_bScrolling = true;
 	switch(nSBCode)
 	{
@@ -1253,7 +1249,7 @@ void COrderList::OnSize(uint32 nType, int cx, int cy)
 
 	Window::OnSize(nType, cx, cy);
 	UpdateScrollInfo();
-	GetScrollRange(Qt::Horizontal, &smin, &smax);
+	GetScrollRange(smin, smax);
 	nPos = GetScrollPos();
 	if(nPos > smax)
 		nPos = smax;
@@ -1361,43 +1357,43 @@ void COrderList::OnPatternProperties()
 
 void COrderList::OnPlayerPlay()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAY);
+	mfcless::PostCommand(&m_pParent, ID_PLAYER_PLAY);
 }
 
 
 void COrderList::OnPlayerPause()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PAUSE);
+	mfcless::PostCommand(&m_pParent, ID_PLAYER_PAUSE);
 }
 
 
 void COrderList::OnPlayerPlayFromStart()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PLAYER_PLAYFROMSTART);
+	mfcless::PostCommand(&m_pParent, ID_PLAYER_PLAYFROMSTART);
 }
 
 
 void COrderList::OnPatternPlayFromStart()
 {
-	m_pParent.PostMessage(WM_COMMAND, IDC_PATTERN_PLAYFROMSTART);
+	mfcless::PostCommand(&m_pParent, IDC_PATTERN_PLAYFROMSTART);
 }
 
 
 void COrderList::OnCreateNewPattern()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_NEW);
+	mfcless::PostCommand(&m_pParent, ID_ORDERLIST_NEW);
 }
 
 
 void COrderList::OnDuplicatePattern()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_COPY);
+	mfcless::PostCommand(&m_pParent, ID_ORDERLIST_COPY);
 }
 
 
 void COrderList::OnMergePatterns()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_ORDERLIST_MERGE);
+	mfcless::PostCommand(&m_pParent, ID_ORDERLIST_MERGE);
 }
 
 
@@ -1413,7 +1409,7 @@ void COrderList::OnPatternCopy()
 
 void COrderList::OnPatternPaste()
 {
-	m_pParent.PostMessage(WM_COMMAND, ID_PATTERNPASTE);
+	mfcless::PostCommand(&m_pParent, ID_PATTERNPASTE);
 }
 
 
@@ -1462,7 +1458,7 @@ intptr_t COrderList::OnDragonDropping(uintptr_t doDrop, intptr_t lParam)
 	}
 	if(!canDrop || !doDrop)
 		return canDrop;
-	GetCursorPos(&pt);
+	mfcless::GetCursorPos(&pt);
 	ScreenToClient(&pt);
 	if(pt.x < 0)
 		pt.x = 0;
@@ -1649,39 +1645,29 @@ intptr_t COrderList::OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI)
 	mfcless::Rect rect;
 	GetClientRect(&rect);
 
-	pTI->hwnd = this;
+	pTI->hwnd = const_cast<COrderList *>(this);
 	pTI->uId = GetOrderFromPoint(point);
-	pTI->rect = rect;
-	pTI->lpszText = LPSTR_TEXTCALLBACK;
+	// One tool per order box, so the tip changes as the mouse moves on.
+	pTI->rect = GetRectFromOrder(static_cast<ORDERINDEX>(pTI->uId));
 	return pTI->uId;
 }
 
 
-bool COrderList::OnToolTipText(uint32 )
+QString COrderList::GetToolTipText(uintptr_t id)
 {
-	// cppcheck-suppress dangerousTypeCast
-	TOOLTIPTEXT *pTTT = (TOOLTIPTEXT *)pNMHDR;
-	if(!(pTTT->uFlags & TTF_IDISHWND))
+	mpt::ustring text;
+	const CSoundFile &sndFile = m_modDoc.GetSoundFile();
+	const ModSequence &order = Order();
+	const ORDERINDEX ord = mpt::saturate_cast<ORDERINDEX>(id), ordLen = order.GetLengthTailTrimmed();
+	text = mfcless::PrintF(UL_("Position %u of %u [%02Xh of %02Xh]"), ord, ordLen, ord, ordLen);
+	if(order.IsValidPat(ord))
 	{
-		mpt::ustring text;
-		const CSoundFile &sndFile = m_modDoc.GetSoundFile();
-		const ModSequence &order = Order();
-		const ORDERINDEX ord = mpt::saturate_cast<ORDERINDEX>(pNMHDR->idFrom), ordLen = order.GetLengthTailTrimmed();
-		text = mfcless::PrintF(UL_("Position %u of %u [%02Xh of %02Xh]"), ord, ordLen, ord, ordLen);
-		if(order.IsValidPat(ord))
-		{
-			PATTERNINDEX pat = order[ord];
-			const std::string name = sndFile.Patterns[pat].GetName();
-			if(!name.empty())
-			{
-				::SendMessage(pNMHDR->hwndFrom, TTM_SETMAXTIPWIDTH, 0, int32_max);  // Allow multiline tooltip
-				text += UL_("\r\n") + mpt::ToUnicode(sndFile.GetCharsetInternal(), name);
-			}
-		}
-		mpt::String::WriteCStringBuf(pTTT->szText) = text;
-		return true;
+		PATTERNINDEX pat = order[ord];
+		const std::string name = sndFile.Patterns[pat].GetName();
+		if(!name.empty())
+			text += UL_("\n") + mpt::ToUnicode(sndFile.GetCharsetInternal(), name);  // multiline tooltip
 	}
-	return false;
+	return mfcless::Text(text).value;
 }
 
 

@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Implementation of various OpenMPT dialogs.
  * Notes  : mfcless twin of upstream's mptrack/dlg_misc.cpp.
- *          Draft from qt/tools/twin.py, partly edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +11,11 @@
 
 #include "dlg_misc.h"
 #include "mfcless/Widgets.h"
+#include <QtCore/QDateTime>
+#include <QtGui/QFontDatabase>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QListWidget>
+#include <QtWidgets/QStyle>
 #include "Childfrm.h"
 #include "Dlsbank.h"
 #include "HighDPISupport.h"
@@ -125,22 +130,11 @@ void CModTypeDlg::OnDPIChanged()
 	DialogBase::OnDPIChanged();
 
 	const int iconSize = HighDPISupport::ScalePixels(32, this);
-	DestroyIcon(m_warnIcon);
-	m_warnIcon = nullptr;
-
-	mpt::Library comctl32(mpt::LibraryPath::System(P_("Comctl32")));
-	if(comctl32.IsValid())
-	{
-		using PLOADICONWITHSCALEDOWN = HRESULT(WINAPI *)(HINSTANCE, PCWSTR, int, int, QIcon *);
-		PLOADICONWITHSCALEDOWN LoadIconWithScaleDown = nullptr;
-		if(comctl32.Bind(LoadIconWithScaleDown, "LoadIconWithScaleDown"))
-			LoadIconWithScaleDown(NULL, MAKEINTRESOURCEW(IDI_EXCLAMATION), iconSize, iconSize, &m_warnIcon);
-	}
-	if(!m_warnIcon)
-		m_warnIcon = reinterpret_cast<QIcon>(::LoadImage(NULL, IDI_EXCLAMATION, IMAGE_ICON, iconSize, iconSize, LR_SHARED));
+	m_warnIcon = style()->standardIcon(QStyle::SP_MessageBoxWarning);
+	m_warnIconSize = iconSize;
 
 	if(m_showWarning)
-		static_cast<CStatic *>(GetDlgItem(IDC_STATIC1))->SetIcon(m_warnIcon);
+		Item<QLabel>(IDC_STATIC1)->setPixmap(m_warnIcon.pixmap(iconSize, iconSize));
 }
 
 
@@ -300,8 +294,11 @@ void CModTypeDlg::UpdateDialog()
 			}
 		}
 	}
-	static_cast<CStatic *>(GetDlgItem(IDC_STATIC1))->SetIcon(m_showWarning ? m_warnIcon : nullptr);
-	GetDlgItem(IDC_STATIC2)->SetWindowText(m_showWarning
+	if(m_showWarning)
+		Item<QLabel>(IDC_STATIC1)->setPixmap(m_warnIcon.pixmap(m_warnIconSize, m_warnIconSize));
+	else
+		Item<QLabel>(IDC_STATIC1)->clear();
+	SetItemText(IDC_STATIC2, m_showWarning
 		? UL_("Playback settings have been set to legacy compatibility mode. Click \"Set Defaults\" to use the recommended settings instead.")
 		: UL_("Compatibility settings are currently optimal. It is advised to not edit them."));
 	EnableItem(IDC_BUTTON3, enableSetDefaults ? true : false);
@@ -475,7 +472,6 @@ void CModTypeDlg::OnOK()
 		sndFile.m_playBehaviour.set(i, m_playBehaviour[i] && (allowedFlags[i] || (sndFile.m_playBehaviour[i] && sndFile.GetType() == m_nType)));
 	}
 
-	DestroyIcon(m_warnIcon);
 	DialogBase::OnOK();
 }
 
@@ -596,7 +592,7 @@ void CLegacyPlaybackSettingsDlg::OnFilterStringChanged()
 	mpt::ustring s;
 	s = GetItemText(IDC_EDIT1);
 	const bool filterActive = !s.empty();
-	s.MakeLower();
+	s = mpt::ToLowerCase(s);
 
 	m_CheckList->setUpdatesEnabled(false);
 	m_CheckList->clear();
@@ -762,7 +758,7 @@ void CLegacyPlaybackSettingsDlg::OnFilterStringChanged()
 		default: MPT_ASSERT_NOTREACHED();
 		}
 
-		if(filterActive && mpt::ustring{desc}.MakeLower().Find(s) < 0)
+		if(filterActive && mpt::ToLowerCase(mpt::ustring{desc}).find(s) == mpt::ustring::npos)
 			continue;
 
 		if(m_playBehaviour[i] || allowedFlags[i])
@@ -839,8 +835,10 @@ bool CRemoveChannelsDlg::OnInitDialog()
 void CRemoveChannelsDlg::OnOK()
 {
 	int selCount = mfcless::GetSelCount(m_RemChansList);
-	std::vector<int> selected(selCount);
-	m_RemChansList->GetSelItems(selCount, selected.data());
+	std::vector<int> selected;
+	for(const QListWidgetItem *item : m_RemChansList->selectedItems())
+		selected.push_back(m_RemChansList->row(item));
+	std::sort(selected.begin(), selected.end());
 
 	m_bKeepMask.assign(sndFile.GetNumChannels(), true);
 	for (const auto sel : selected)
@@ -906,7 +904,7 @@ CSoundBankProperties::CSoundBankProperties(const CDLSBank &bank, QWidget *parent
 		info += "\r\nSoftware:\t" + bi.szSoftware;
 	if (bi.szComments.size())
 		info += "\r\n\r\nComments:\r\n" + bi.szComments;
-	SetCaption((bank.GetFileName().ToWide() + UL_(" - Sound Bank Information")));
+	SetCaption(bank.GetFileName().ToUnicode() + UL_(" - Sound Bank Information"));
 	SetContent(mpt::ToUnicode(mpt::Charset::Locale, info));
 }
 
@@ -920,8 +918,8 @@ static constexpr uint8 blacktab[7] = {0xff,1,3,0xff,6,8,10};
 void CKeyboardControl::RegisterMessageMap()
 {
 	mfcless::Window<QWidget>::RegisterMessageMap();
-	AddMessage(WM_DPICHANGED, &CKeyboardControl::OnDPIChanged);
-	// ON_WM_DESTROY(): by hand (Qt event override)
+	// WM_DPICHANGED: the owner calls OnDPIChanged.
+	// ON_WM_DESTROY(): nothing to free
 	// ON_WM_PAINT() (mfcless::Window)
 	// ON_WM_MOUSEMOVE() (mfcless::Window)
 	// ON_WM_LBUTTONDOWN() (mfcless::Window)
@@ -936,23 +934,17 @@ void CKeyboardControl::Init(QWidget *parent, int octaves, bool cursorNotify)
 	m_cursorNotify = cursorNotify;
 	MemsetZero(KeyFlags);
 	MemsetZero(m_sampleNum);
-	OnDPIChanged(0, 0);
+	OnDPIChanged();
 }
 
 
-intptr_t CKeyboardControl::OnDPIChanged(uintptr_t, intptr_t)
+void CKeyboardControl::OnDPIChanged()
 {
-	// Point size to pixels
-	int fontSize = -mfcless::MulDiv(60, HighDPISupport::GetDpiForWindow(this), 720);
-	m_font.DeleteObject();
-	m_font.CreateFont(fontSize, 0, 0, 0, FW_NORMAL, false, false, false, DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH | FF_DONTCARE, UL_("MS Shell Dlg"));
-	return 0;
-}
-
-
-void CKeyboardControl::OnDestroy()
-{
-	m_font.DeleteObject();
+	// 6 points, in pixels, of a fixed-pitch font (upstream: "MS Shell Dlg").
+	const int fontSize = mfcless::MulDiv(60, HighDPISupport::GetDpiForWindow(this), 720);
+	m_font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+	m_font.setPixelSize(std::max(fontSize, 1));
+	update();
 }
 
 
@@ -965,7 +957,7 @@ void CKeyboardControl::DrawKey(mfcless::PaintDC &dc, const mfcless::Rect rect, i
 	else if(selected)
 		color = black ? mfcless::Rgb(130, 130, 130) : mfcless::Rgb(228, 228, 228);
 	dc.SetDCBrushColor(color);
-	dc.Rectangle(&rect);
+	dc.Rectangle(rect);
 
 	if(static_cast<size_t>(key) < std::size(KeyFlags) && KeyFlags[key] != KEYFLAG_NORMAL)
 	{
@@ -976,8 +968,7 @@ void CKeyboardControl::DrawKey(mfcless::PaintDC &dc, const mfcless::Rect rect, i
 		if(m_sampleNum[key] != 0)
 		{
 			dc.SetTextColor((KeyFlags[key] & KEYFLAG_BRIGHTDOT) ? mfcless::Rgb(0, 0, 0) : mfcless::Rgb(255, 255, 255));
-			mpt::uchar s[16];
-			wsprintf(s, UL_("%u"), m_sampleNum[key]);
+			const mpt::ustring s = mpt::ufmt::val(m_sampleNum[key]);
 			dc.DrawText(s, -1, ellipseRect, mfcless::dt::Center | mfcless::dt::SingleLine | mfcless::dt::VCenter);
 		}
 
@@ -1000,9 +991,9 @@ void CKeyboardControl::OnPaint()
 	dc.SetBkMode(mfcless::bk::Transparent);
 	GetClientRect(&rcClient);
 	rect = rcClient;
-	auto oldBrush = dc.SelectObject(GetStockObject(DC_BRUSH));
-	auto oldPen = dc.SelectObject(GetStockObject(DC_PEN));
-	auto oldFont = dc.SelectObject(&m_font);
+	dc.SelectStockObject(mfcless::Stock::DCBrush);
+	dc.SelectStockObject(mfcless::Stock::DCPen);
+	dc.SelectObject(m_font);
 
 	// Rectangle outline
 	dc.SetDCPenColor(mfcless::Rgb(50, 50, 50));
@@ -1044,9 +1035,6 @@ void CKeyboardControl::OnPaint()
 		}
 	}
 
-	dc.SelectObject(oldBrush);
-	dc.SelectObject(oldPen);
-	dc.SelectObject(oldFont);
 }
 
 
@@ -1123,9 +1111,9 @@ void CKeyboardControl::OnMouseMove(uint32 flags, mfcless::Point point)
 		InvalidateRect(&rcClient, false);
 		if(m_cursorNotify && m_parent)
 		{
-			m_parent->PostMessage(WM_MOD_KBDNOTIFY, KBDNOTIFY_MOUSEMOVE, m_nSelection);
+			mfcless::PostModMessage(m_parent, WM_MOD_KBDNOTIFY, KBDNOTIFY_MOUSEMOVE, m_nSelection);
 			if(flags & mfcless::MouseKey::Left)
-				m_parent->SendMessage(WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONDOWN, m_nSelection);
+				mfcless::SendModMessage(m_parent, WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONDOWN, m_nSelection);
 		}
 	}
 	if(sel >= 0)
@@ -1151,7 +1139,7 @@ void CKeyboardControl::OnLButtonDown(uint32, mfcless::Point)
 	m_mouseDown = true;
 	InvalidateRect(nullptr, false);
 	if(m_parent)
-		m_parent->SendMessage(WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONDOWN, m_nSelection);
+		mfcless::SendModMessage(m_parent, WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONDOWN, m_nSelection);
 }
 
 
@@ -1160,7 +1148,7 @@ void CKeyboardControl::OnLButtonUp(uint32, mfcless::Point)
 	m_mouseDown = false;
 	InvalidateRect(nullptr, false);
 	if(m_parent)
-		m_parent->SendMessage(WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONUP, m_nSelection);
+		mfcless::SendModMessage(m_parent, WM_MOD_KBDNOTIFY, KBDNOTIFY_LBUTTONUP, m_nSelection);
 }
 
 
@@ -1215,7 +1203,7 @@ bool CSampleMapDlg::OnInitDialog()
 void CSampleMapDlg::OnDPIChanged()
 {
 	DialogBase::OnDPIChanged();
-	m_Keyboard->SendMessage(WM_DPICHANGED);
+	m_Keyboard->OnDPIChanged();
 }
 
 
@@ -1265,9 +1253,8 @@ void CSampleMapDlg::OnUpdateSamples()
 
 void CSampleMapDlg::OnUpdateOctave()
 {
-	mpt::uchar s[64];
 	const uint32 baseOctave = m_SbOctave->value() & 7;
-	wsprintf(s, UL_("Octaves %u-%u"), baseOctave, baseOctave + 2);
+	const mpt::ustring s = mfcless::PrintF(UL_("Octaves %u-%u"), baseOctave, baseOctave + 2);
 	SetItemText(IDC_TEXT1, s);
 }
 
@@ -1302,7 +1289,7 @@ void CSampleMapDlg::OnUpdateKeyboard()
 
 intptr_t CSampleMapDlg::OnKeyboardNotify(uintptr_t wParam, intptr_t lParam)
 {
-	mpt::uchar s[32] = UL_("--");
+	mpt::ustring s = UL_("--");
 
 	if((lParam >= 0) && (lParam < 3 * 12))
 	{
@@ -1310,10 +1297,10 @@ intptr_t CSampleMapDlg::OnKeyboardNotify(uintptr_t wParam, intptr_t lParam)
 		const uint32 baseOctave = m_SbOctave->value() & 7;
 
 		const mpt::ustring temp = mpt::ToUnicode(sndFile.GetNoteName(static_cast<ModCommand::NOTE>(lParam + 1 + 12 * baseOctave), m_nInstrument));
-		if(temp.GetLength() >= mpt::saturate_cast<int>(std::size(s)))
-			wsprintf(s, UL_("%s"), UL_("..."));
+		if(temp.length() >= 32)
+			s = UL_("...");
 		else
-			wsprintf(s, UL_("%s"), temp.c_str());
+			s = temp;
 
 		ModInstrument *pIns = sndFile.Instruments[m_nInstrument];
 		if((wParam == KBDNOTIFY_LBUTTONDOWN) && (sample < MAX_SAMPLES) && (pIns))
@@ -1417,7 +1404,7 @@ bool CEditHistoryDlg::OnInitDialog()
 				? mpt::Date::UnixFromLocal(mpt::Date::interpret_as_timezone<mpt::Date::LogicalTimezone::Local>(entry.loadDate))
 				: mpt::Date::UnixFromUTC(mpt::Date::interpret_as_timezone<mpt::Date::LogicalTimezone::UTC>(entry.loadDate));
 				;
-			sDate = CTime(mpt::Date::UnixAsSeconds(unixdate)).Format(UL_("%d %b %Y, %H:%M:%S"));
+			sDate = mfcless::FromQString(QDateTime::fromSecsSinceEpoch(mpt::Date::UnixAsSeconds(unixdate)).toString(QStringLiteral("dd MMM yyyy, HH:mm:ss")));
 		}
 		// Time + stuff
 		uint32 duration = mpt::saturate_round<uint32>(entry.openTime / HISTORY_TIMER_PRECISION);
@@ -1497,31 +1484,28 @@ bool CInputDlg::OnInitDialog()
 
 	// Get all current control sizes and positions
 	mfcless::Rect windowRect, labelRect, inputRect, okRect, cancelRect;
-	GetWindowRect(windowRect);
-	GetDlgItem(IDC_PROMPT)->GetWindowRect(labelRect);
-	GetDlgItem(IDC_EDIT1)->GetWindowRect(inputRect);
-	GetDlgItem(IDOK)->GetWindowRect(okRect);
-	GetDlgItem(IDCANCEL)->GetWindowRect(cancelRect);
-	ScreenToClient(labelRect);
-	ScreenToClient(inputRect);
-	ScreenToClient(okRect);
-	ScreenToClient(cancelRect);
+	GetWindowRect(&windowRect);
+	mfcless::GetWindowRect(GetDlgItem(IDC_PROMPT), &labelRect);
+	mfcless::GetWindowRect(GetDlgItem(IDC_EDIT1), &inputRect);
+	mfcless::GetWindowRect(GetDlgItem(IDOK), &okRect);
+	mfcless::GetWindowRect(GetDlgItem(IDCANCEL), &cancelRect);
+	ScreenToClient(&labelRect);
+	ScreenToClient(&inputRect);
+	ScreenToClient(&okRect);
+	ScreenToClient(&cancelRect);
 
 	// Find out how big our label shall be
-	mfcless::DC * dc = ::GetDC(this);
-	mfcless::Rect textRect(0,0,0,0);
-	DrawText(dc, m_description, m_description.GetLength(), textRect, mfcless::dt::CalcRect);
-	LPtoDP(dc, &textRect.BottomRight(), 1);
-	::ReleaseDC(this, dc);
+	const QSize textSize = GetDlgItem(IDC_PROMPT)->fontMetrics().boundingRect(QRect(), 0, mfcless::Text(m_description).value).size();
+	mfcless::Rect textRect(0, 0, textSize.width(), textSize.height());
 	if(textRect.right < 320) textRect.right = 320;
 	const int windowWidth = windowRect.Width() - labelRect.Width() + textRect.right;
 	const int windowHeight = windowRect.Height() - labelRect.Height() + textRect.bottom;
 
 	// Resize and move all controls
-	GetDlgItem(IDC_PROMPT)->SetWindowPos(nullptr, 0, 0, textRect.right, textRect.bottom, mfcless::swp::NoMove | mfcless::swp::NoZOrder);
-	GetDlgItem(IDC_EDIT1)->SetWindowPos(nullptr, inputRect.left, labelRect.top + textRect.bottom + (inputRect.top - labelRect.bottom), textRect.right, inputRect.Height(), mfcless::swp::NoZOrder);
-	GetDlgItem(IDOK)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - okRect.left), windowHeight - (windowRect.Height() - okRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
-	GetDlgItem(IDCANCEL)->SetWindowPos(nullptr, windowWidth - (windowRect.Width() - cancelRect.left), windowHeight - (windowRect.Height() - cancelRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
+	mfcless::SetWindowPos(GetDlgItem(IDC_PROMPT), nullptr, 0, 0, textRect.right, textRect.bottom, mfcless::swp::NoMove | mfcless::swp::NoZOrder);
+	mfcless::SetWindowPos(GetDlgItem(IDC_EDIT1), nullptr, inputRect.left, labelRect.top + textRect.bottom + (inputRect.top - labelRect.bottom), textRect.right, inputRect.Height(), mfcless::swp::NoZOrder);
+	mfcless::SetWindowPos(GetDlgItem(IDOK), nullptr, windowWidth - (windowRect.Width() - okRect.left), windowHeight - (windowRect.Height() - okRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
+	mfcless::SetWindowPos(GetDlgItem(IDCANCEL), nullptr, windowWidth - (windowRect.Width() - cancelRect.left), windowHeight - (windowRect.Height() - cancelRect.top), 0, 0, mfcless::swp::NoSize | mfcless::swp::NoZOrder);
 	SetWindowPos(nullptr, 0, 0, windowWidth, windowHeight, mfcless::swp::NoMove | mfcless::swp::NoZOrder);
 
 	if(m_minValueInt != m_maxValueInt)
@@ -1529,7 +1513,6 @@ bool CInputDlg::OnInitDialog()
 		// Numeric (int)
 		m_spin->SetRange(m_minValueInt, m_maxValueInt);
 		SubclassDlgItem(IDC_EDIT1, m_edit);
-		m_edit->ModifyStyle(0, ES_NUMBER);
 		m_edit->AllowNegative(m_minValueInt < 0);
 		m_edit->AllowFractions(false);
 		SetItemInt(IDC_EDIT1, resultAsInt);
@@ -1539,7 +1522,6 @@ bool CInputDlg::OnInitDialog()
 		// Numeric (double)
 		m_spin->SetRange(static_cast<int32>(m_minValueDbl), static_cast<int32>(m_maxValueDbl));
 		SubclassDlgItem(IDC_EDIT1, m_edit);
-		m_edit->ModifyStyle(0, ES_NUMBER);
 		m_edit->AllowNegative(m_minValueDbl < 0);
 		m_edit->AllowFractions(true);
 		m_edit->SetDecimalValue(resultAsDouble);
@@ -1549,7 +1531,7 @@ bool CInputDlg::OnInitDialog()
 		// Text
 		m_spin->setVisible(false);
 		if(m_maxLength > 0)
-			Edit_LimitText(m_edit, m_maxLength);
+			m_edit->setMaxLength(m_maxLength);
 		SetItemText(IDC_EDIT1, resultAsString);
 	}
 
@@ -1630,7 +1612,7 @@ void AppendNotesToControl(QComboBox& combobox, ModCommand::NOTE noteStart, ModCo
 {
 	const ModCommand::NOTE upperLimit = std::min(ModCommand::NOTE(NOTE_MAX), noteEnd);
 	for(ModCommand::NOTE note = noteStart; note <= upperLimit; note++)
-		combobox.SetItemData(combobox.AddString(mpt::ToUnicode(CSoundFile::GetNoteName(note, CSoundFile::GetDefaultNoteNames()))), note);
+		mfcless::AddItem(&combobox, mpt::ToUnicode(CSoundFile::GetNoteName(note, CSoundFile::GetDefaultNoteNames())), note);
 }
 
 
@@ -1644,14 +1626,14 @@ void AppendNotesToControlEx(QComboBox& combobox, const CSoundFile &sndFile, INST
 	}
 	for(ModCommand::NOTE note = noteStart; note <= noteEnd; note++)
 	{
-		combobox.SetItemData(combobox.AddString(mpt::ToUnicode(sndFile.GetNoteName(note, nInstr))), note);
+		mfcless::AddItem(&combobox, mpt::ToUnicode(sndFile.GetNoteName(note, nInstr)), note);
 	}
 	if(addSpecial)
 	{
 		for(ModCommand::NOTE note = NOTE_MIN_SPECIAL - 1; note++ < NOTE_MAX_SPECIAL;)
 		{
 			if(sndFile.GetModSpecifications().HasNote(note))
-				combobox.SetItemData(combobox.AddString(szSpecialNoteNamesMPT[note - NOTE_MIN_SPECIAL]), note);
+				mfcless::AddItem(&combobox, szSpecialNoteNamesMPT[note - NOTE_MIN_SPECIAL], note);
 		}
 	}
 }

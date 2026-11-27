@@ -3,13 +3,14 @@
  * ----------------
  * Purpose: Implementation of OpenMPT's keyboard configuration dialog.
  * Notes  : mfcless twin of upstream's mptrack/KeyConfigDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
 
 
 #include "KeyConfigDlg.h"
+#include <QtWidgets/QStyle>
 #include "mfcless/Widgets.h"
 #include "CListCtrl.h"
 #include "FileDialog.h"
@@ -139,7 +140,6 @@ void COptionsKeyboard::RegisterMessageMap()
 	PropertyPage::RegisterMessageMap();
 	// ON_WM_LBUTTONDBLCLK() (mfcless::Window)
 	// ON_WM_DESTROY(): by hand (Qt event override)
-	AddMessage(WM_DPICHANGED_AFTERPARENT, &COptionsKeyboard::OnDPIChangedAfterParent);
 	AddNotify(IDC_CHOICECOMBO, mfcless::Notify::SelChange, &COptionsKeyboard::OnKeyChoiceSelect);
 	AddNotify(IDC_KEYCATEGORY, mfcless::Notify::SelChange, &COptionsKeyboard::OnCategorySelChanged);
 	AddNotify(IDC_CHORDDETECTWAITTIME, mfcless::Notify::EditUpdate, &COptionsKeyboard::OnChordWaitTimeChanged);
@@ -213,7 +213,7 @@ bool COptionsKeyboard::OnInitDialog()
 	DefineCommandCategories();
 	for(size_t c = 0; c < commandCategories.size(); c++)
 	{
-		if(commandCategories[c].name && !commandCategories[c].commandRanges.empty())
+		if(!commandCategories[c].name.empty() && !commandCategories[c].commandRanges.empty())
 			mfcless::SetItemData(m_cmbCategory, mfcless::AddItem(m_cmbCategory, commandCategories[c].name), c);
 	}
 	m_cmbCategory->setCurrentIndex(0);
@@ -233,25 +233,15 @@ bool COptionsKeyboard::OnInitDialog()
 }
 
 
-intptr_t COptionsKeyboard::OnDPIChangedAfterParent(uintptr_t, intptr_t)
+void COptionsKeyboard::OnDPIChanged()
 {
-	auto result = Default();
+	PropertyPage::OnDPIChanged();
 
 	m_lbnCommandKeys->SetColumnWidths(KeyListHeaders);
 
-	if(m_warnIcon)
-	{
-		DestroyIcon(m_warnIcon);
-		m_warnIcon = nullptr;
-	}
-	if(m_infoIcon)
-	{
-		DestroyIcon(m_infoIcon);
-		m_infoIcon = nullptr;
-	}
+	m_warnIcon = QIcon();
+	m_infoIcon = QIcon();
 	UpdateWarning(m_lastWarning);
-
-	return result;
 }
 
 
@@ -445,7 +435,7 @@ void COptionsKeyboard::OnEnableFindHotKey()
 	ShowItem(IDC_BUTTON2, mfcless::show::Hide);
 	ShowItem(IDC_FINDHOTKEY_LABEL, mfcless::show::Show);
 	ShowItem(IDC_FINDHOTKEY, mfcless::show::Show);
-	GetDlgItem(IDC_FINDHOTKEY)->SetFocus();
+	GetDlgItem(IDC_FINDHOTKEY)->setFocus();
 }
 
 
@@ -469,30 +459,10 @@ void COptionsKeyboard::OnClearHotKey()
 }
 
 
-void COptionsKeyboard::InsertGroup(const mpt::uchar *title, int groupId)
+void COptionsKeyboard::InsertGroup(const mpt::ustring &title, int groupId)
 {
-	LVGROUP group{};
-#if MPT_WINNT_AT_LEAST(MPT_WIN_VISTA)
-	group.cbSize = LVGROUP_V5_SIZE;
-#else
-	group.cbSize = sizeof(group);
-#endif
-	group.mask = LVGF_HEADER | LVGF_GROUPID;
-#if defined(UNICODE)
-	group.pszHeader = const_cast<mpt::uchar *>(title);
-#else
-	std::wstring titlew = mpt::ToWide(mpt::ustring(title));
-	group.pszHeader = const_cast<WCHAR *>(titlew.c_str());
-#endif
-	group.cchHeader = 0;
-	group.pszFooter = nullptr;
-	group.cchFooter = 0;
-	group.iGroupId = groupId;
-	group.stateMask = 0;
-	group.state = 0;
-	group.uAlign = LVGA_HEADER_LEFT;
-	ListView_InsertGroup(m_lbnCommandKeys, -1, &group);
-	ListView_SetGroupState(m_lbnCommandKeys, group.iGroupId, LVGS_COLLAPSIBLE, LVGS_COLLAPSIBLE);
+	m_lbnCommandKeys->InsertGroup(groupId, title);
+	m_lbnCommandKeys->SetGroupCollapsed(groupId, false);
 }
 
 
@@ -501,7 +471,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 {
 	mpt::ustring findString;
 	mfcless::GetWindowText(m_eFind, findString);
-	findString.MakeLower();
+	findString = mpt::ToLowerCase(findString);
 
 	const bool searchByName = !findString.empty(), searchByKey = m_eFindHotKey->HasKey();
 	const bool doSearch = (searchByName || searchByKey);
@@ -520,7 +490,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 	m_lbnCommandKeys->DeleteAllItems();
 	if(m_listGrouped)
 	{
-		ListView_RemoveAllGroups(m_lbnCommandKeys);
+		m_lbnCommandKeys->RemoveAllGroups();
 		m_lbnCommandKeys->EnableGroupView();
 	}
 
@@ -554,7 +524,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 				}
 				if(searchByName && addKey)
 				{
-					addKey = (cmdText.MakeLower().Find(findString) >= 0);
+					addKey = (mpt::ToLowerCase(cmdText).find(findString) != mpt::ustring::npos);
 				}
 
 				if(!addKey)
@@ -562,17 +532,11 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 
 				m_curCategory = cat;
 
-				LVITEM lvi;
-				lvi.mask = LVIF_TEXT | LVIF_PARAM;
-				if(m_listGrouped)
-					lvi.mask |= LVIF_GROUPID;
-				lvi.iSubItem = 0;
-				lvi.state = 0;
-				lvi.stateMask = 0;
-				lvi.cchTextMax = 0;
-				lvi.iImage = 0;
-				lvi.iIndent = 0;
-				lvi.iGroupId = 0;
+				// Items go into the current group when the list shows groups.
+				auto insertItem = [&](const mpt::ustring &text, uintptr_t data)
+				{
+					m_lbnCommandKeys->InsertItem(++itemID, text, -1, m_listGrouped ? currentGroup : -1, data);
+				};
 
 				if(com == range.first && !doSearch)
 				{
@@ -581,15 +545,12 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 						InsertGroup(range.name, ++currentGroup);
 					} else
 					{
-						lvi.iItem = ++itemID;
-						lvi.lParam = kcNull;
 						mpt::ustring catName;
 						if(range.name.empty())
-							catName = const_cast<mpt::uchar *>(UL_("------------------------------------------------------"));
+							catName = UL_("------------------------------------------------------");
 						else
 							catName = UL_("------ ") + range.name + UL_(" ------");
-						lvi.pszText = const_cast<mpt::uchar *>(catName.c_str());
-						m_lbnCommandKeys->InsertItem(&lvi);
+						insertItem(catName, kcNull);
 						if(itemToSelect == -1)
 							itemToSelect = itemID;
 					}
@@ -601,14 +562,11 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 					{
 						if(m_listGrouped)
 						{
-							InsertGroup(mpt::ustring{commandCategories[cat].name}.TrimLeft(), ++currentGroup);
+							InsertGroup(mpt::trim_left(commandCategories[cat].name), ++currentGroup);
 						} else
 						{
-							const mpt::ustring catName = UL_("------ ") + mpt::ustring{commandCategories[cat].name}.TrimLeft() + UL_(" ------");
-							lvi.iItem = ++itemID;
-							lvi.lParam = kcNull;
-							lvi.pszText = const_cast<mpt::uchar *>(catName.c_str());
-							m_lbnCommandKeys->InsertItem(&lvi);
+							const mpt::ustring catName = UL_("------ ") + mpt::trim_left(commandCategories[cat].name) + UL_(" ------");
+							insertItem(catName, kcNull);
 						}
 						addCategoryName = false;
 					} else if(currentGroup == -1 && m_listGrouped)
@@ -617,11 +575,7 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 					}
 
 					const mpt::ustring text = m_localCmdSet->GetCommandText(com);
-					lvi.iItem = ++itemID;
-					lvi.lParam = static_cast<intptr_t>(com);
-					lvi.pszText = const_cast<mpt::uchar *>(text.c_str());
-					lvi.iGroupId = currentGroup;
-					m_lbnCommandKeys->InsertItem(&lvi);
+					insertItem(text, static_cast<uintptr_t>(com));
 					m_lbnCommandKeys->SetItemText(itemID, 1, m_localCmdSet->GetKeyTextFromCommand(com));
 					if(itemToSelect == -1)
 						itemToSelect = itemID;
@@ -650,12 +604,12 @@ void COptionsKeyboard::UpdateShortcutList(int category)
 void COptionsKeyboard::OnCommandKeySelChanged()
 {
 	int selectedItem;
-	if(pNMHDR)
+	if(const auto &info = CurrentNotify(); info.id == IDC_COMMAND_LIST && info.code == mfcless::Notify::ItemChanged)
 	{
-		auto hdr = reinterpret_cast<const NMLISTVIEW *>(pNMHDR);
-		if(!(hdr->uNewState & mfcless::list::Selected))
+		// The list's selection changed.
+		if(info.item < 0)
 			return;
-		selectedItem = hdr->iItem;
+		selectedItem = info.item;
 	} else
 	{
 		selectedItem = m_lbnCommandKeys->GetSelectionMark();
@@ -720,8 +674,7 @@ void COptionsKeyboard::OnCommandKeySelChanged()
 
 void COptionsKeyboard::OnListenForKeysFromList()
 {
-	auto hdr = reinterpret_cast<const NMLISTVIEW *>(pNMHDR);
-	if(m_curCommand != kcNull && hdr->iSubItem == 1)
+	if(m_curCommand != kcNull && CurrentNotify().subItem == 1)
 		OnListenForKeys();
 }
 
@@ -775,7 +728,7 @@ void COptionsKeyboard::OnChordWaitTimeChanged()
 	mpt::ustring s;
 	uint32 val;
 	mfcless::GetWindowText(m_eChordWaitTime, s);
-	val = _tstoi(s);
+	val = mpt::parse<uint32>(s);
 	if(val > 5000)
 	{
 		val = 5000;
@@ -825,7 +778,7 @@ void COptionsKeyboard::OnLButtonDblClk(uint32 flags, mfcless::Point point)
 {
 	ClientToScreen(&point);
 	mfcless::Rect rect;
-	m_eCustHotKey->GetWindowRect(rect);
+	mfcless::GetWindowRect(m_eCustHotKey, &rect);
 	if(m_curCommand != kcNull && m_eCustHotKey->IsBypassed() && rect.PtInRect(point))
 		EnableKeyChoice(true);
 	else
@@ -958,20 +911,10 @@ void COptionsKeyboard::OnSetKeyChoice(const QWidget *source)
 }
 
 
-static QIcon LoadScaledIcon(const mpt::uchar *resourceName, int iconSize)
+// The desktop's message box icons (upstream: the system's IDI_INFORMATION and IDI_EXCLAMATION).
+static QIcon LoadScaledIcon(QStyle::StandardPixmap icon, const QWidget *widget)
 {
-	mpt::Library comctl32(mpt::LibraryPath::System(P_("Comctl32")));
-	if(comctl32.IsValid())
-	{
-		using PLOADICONWITHSCALEDOWN = HRESULT(WINAPI *)(HINSTANCE, PCWSTR, int, int, QIcon *);
-		PLOADICONWITHSCALEDOWN LoadIconWithScaleDown = nullptr;
-		QIcon icon;
-		if(comctl32.Bind(LoadIconWithScaleDown, "LoadIconWithScaleDown"))
-			LoadIconWithScaleDown(NULL, MAKEINTRESOURCEW(resourceName), iconSize, iconSize, &icon);
-		if(icon)
-			return icon;
-	}
-	return static_cast<QIcon>(::LoadImage(nullptr, resourceName, IMAGE_ICON, iconSize, iconSize, LR_SHARED));
+	return widget->style()->standardIcon(icon, nullptr, widget);
 }
 
 
@@ -982,8 +925,8 @@ void COptionsKeyboard::UpdateWarning(mpt::ustring text, bool notify)
 	if(text.empty())
 	{
 		mfcless::SetWindowText(m_warnText, UL_("No conflicts found."));
-		if(!m_infoIcon)
-			m_infoIcon = LoadScaledIcon(IDI_INFORMATION, iconSize);
+		if(m_infoIcon.isNull())
+			m_infoIcon = LoadScaledIcon(QStyle::SP_MessageBoxInformation, this);
 		icon = m_infoIcon;
 	} else
 	{
@@ -991,12 +934,13 @@ void COptionsKeyboard::UpdateWarning(mpt::ustring text, bool notify)
 			mfcless::MessageBeep();
 
 		mfcless::SetWindowText(m_warnText, text);
-		if(!m_warnIcon)
-			m_warnIcon = LoadScaledIcon(IDI_EXCLAMATION, iconSize);
+		if(m_warnIcon.isNull())
+			m_warnIcon = LoadScaledIcon(QStyle::SP_MessageBoxWarning, this);
 		icon = m_warnIcon;
 	}
-	m_warnIconCtl->SetWindowPos(nullptr, 0, 0, iconSize, iconSize, mfcless::swp::ShowWindow | mfcless::swp::NoZOrder | mfcless::swp::NoRedraw | mfcless::swp::NoMove | mfcless::swp::NoActivate);
-	m_warnIconCtl->SetIcon(icon);
+	m_warnIconCtl->resize(iconSize, iconSize);
+	m_warnIconCtl->setPixmap(icon.pixmap(iconSize, iconSize));
+	m_warnIconCtl->show();
 	m_lastWarning = std::move(text);
 }
 
@@ -1007,7 +951,7 @@ void COptionsKeyboard::OnOK()
 
 	mpt::ustring cs;
 	mfcless::GetWindowText(m_eChordWaitTime, cs);
-	TrackerSettings::Instance().gnAutoChordWaitTime = _tstoi(cs);
+	TrackerSettings::Instance().gnAutoChordWaitTime = mpt::parse<int32>(cs);
 
 	PropertyPage::OnOK();
 }
@@ -1015,17 +959,8 @@ void COptionsKeyboard::OnOK()
 
 void COptionsKeyboard::OnDestroy()
 {
-	if(m_warnIcon)
-	{
-		DestroyIcon(m_warnIcon);
-		m_warnIcon = nullptr;
-	}
-	if(m_infoIcon)
-	{
-		DestroyIcon(m_infoIcon);
-		m_infoIcon = nullptr;
-	}
-	PropertyPage::OnDestroy();
+	m_warnIcon = QIcon();
+	m_infoIcon = QIcon();
 	m_localCmdSet.reset();
 }
 
@@ -1120,7 +1055,6 @@ void COptionsKeyboard::UpdateNoteRepeatCheckbox()
 void COptionsKeyboard::OnRestoreKeymapDropdown()
 {
 	ShowRestoreKeymapMenu();
-	*result = 0;
 }
 
 void COptionsKeyboard::OnRestoreDefaultKeymap()
@@ -1138,12 +1072,9 @@ void COptionsKeyboard::OnRestoreDefaultKeymap()
 
 void COptionsKeyboard::ShowRestoreKeymapMenu()
 {
+	// Below the button.
 	mfcless::Rect rect;
-	m_restoreDefaultButton->GetWindowRect(rect);
-
-	TPMPARAMS tpmParams{};
-	tpmParams.cbSize = sizeof(TPMPARAMS);
-	tpmParams.rcExclude = rect;
+	mfcless::GetWindowRect(m_restoreDefaultButton, &rect);
 
 	mfcless::Menu menu;
 	if(!menu.CreatePopupMenu())
@@ -1151,7 +1082,7 @@ void COptionsKeyboard::ShowRestoreKeymapMenu()
 	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_MPT, UL_("&OpenMPT style"));
 	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_IT, UL_("&Impulse Tracker style"));
 	menu.AppendMenu(mfcless::menu::String, ID_KEYPRESET_FT2, UL_("&Fast Tracker style"));
-	menu.TrackPopupMenuEx(mfcless::menu::LeftAlign | mfcless::menu::TopAlign | mfcless::menu::LeftButton, rect.left, rect.bottom, this, &tpmParams);
+	menu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::TopAlign | mfcless::menu::LeftButton, rect.left, rect.bottom, this);
 }
 
 

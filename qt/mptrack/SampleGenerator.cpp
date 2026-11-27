@@ -425,7 +425,7 @@ void CSmpGenDialog::OnShowExpressions()
 			if(hSubMenu != NULL) hSubMenu.DestroyMenu();
 			hSubMenu = ::CreatePopupMenu();
 
-			hMenu.AppendMenu(mfcless::menu::Popup, (uintptr_t)hSubMenu, menu_descriptions[i].description.c_str());
+			hMenu.AppendMenu(mfcless::menu::Popup, hSubMenu, menu_descriptions[i].description.c_str());
 		} else
 		{
 			// add sub menu entry (formula)
@@ -435,7 +435,7 @@ void CSmpGenDialog::OnShowExpressions()
 
 	// place popup menu below button
 	mfcless::Rect button;
-	GetDlgItem(IDC_BUTTON_SHOW_EXPRESSIONS)->GetWindowRect(&button);
+	mfcless::GetWindowRect(GetDlgItem(IDC_BUTTON_SHOW_EXPRESSIONS), &button);
 	hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, button.left, button.bottom, this);
 	hMenu.DestroyMenu();
 	hSubMenu.DestroyMenu();
@@ -471,7 +471,7 @@ void CSmpGenDialog::OnShowPresets()
 
 	// place popup menu below button
 	mfcless::Rect button;
-	GetDlgItem(IDC_BUTTON_SAMPLEGEN_PRESETS)->GetWindowRect(&button);
+	mfcless::GetWindowRect(GetDlgItem(IDC_BUTTON_SAMPLEGEN_PRESETS), &button);
 	hMenu.TrackPopupMenu(mfcless::menu::LeftAlign | mfcless::menu::RightButton, button.left, button.bottom, this);
 	hMenu.DestroyMenu();
 }

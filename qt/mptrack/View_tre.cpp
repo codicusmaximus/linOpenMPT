@@ -2995,7 +2995,7 @@ void CModTree::OnBeginLDrag()
 void CModTree::OnItemDblClk()
 {
 	mfcless::Point pt;
-	GetCursorPos(&pt);
+	mfcless::GetCursorPos(&pt);
 	ScreenToClient(&pt);
 	QTreeWidgetItem * hItem = GetSelectedItem();
 	if((hItem) && (hItem == HitTest(pt)))
@@ -3022,7 +3022,7 @@ void CModTree::OnItemRightClick()
 	mfcless::Point pt, ptClient;
 	uint32 flags = 0;
 
-	GetCursorPos(&pt);
+	mfcless::GetCursorPos(&pt);
 	ptClient = pt;
 	ScreenToClient(&ptClient);
 	OnItemRightClick(HitTest(ptClient, &flags), pt);
@@ -3354,7 +3354,7 @@ void CModTree::OnItemLeftClick()
 	{
 		mfcless::Point pt;
 		uint32 flags = 0;
-		GetCursorPos(&pt);
+		mfcless::GetCursorPos(&pt);
 		ScreenToClient(&pt);
 		QTreeWidgetItem * hItem = HitTest(pt, &flags);
 		if(hItem != NULL)
@@ -3444,7 +3444,7 @@ void CModTree::OnEndDrag(uint32 dwMask)
 		if(!(m_dwStatus & TREESTATUS_DRAGGING))
 		{
 			ReleaseCapture();
-			SetCursor(CMainFrame::curArrow);
+			setCursor(CMainFrame::curArrow);
 			SelectDropTarget(nullptr);
 			if(m_hItemDrop != nullptr)
 			{
@@ -3496,10 +3496,10 @@ void CModTree::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 	}
 	if(isSampleBrowser)
 	{
-		if(nButton == XBUTTON1)
+		if(nButton == mfcless::XButton::Back)
 		{
 			InstrumentLibraryChDir(P_(".."), !m_SongFileName.empty());
-		} else if(nButton == XBUTTON2)
+		} else if(nButton == mfcless::XButton::Forward)
 		{
 			const auto &previousPath = CMainFrame::GetMainFrame()->GetUpperTreeview()->m_previousPath;
 			InstrumentLibraryChDir(previousPath, mpt::native_fs{}.is_file(m_InstrLibPath + previousPath));

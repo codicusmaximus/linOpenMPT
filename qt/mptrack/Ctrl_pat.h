@@ -41,7 +41,7 @@ struct OrdSelection
 	ORDERINDEX GetSelCount() const { return lastOrd - firstOrd + 1; }
 };
 
-class COrderList: public mfcless::Window<QWidget>
+class COrderList: public mfcless::Window<QAbstractScrollArea>
 {
 	Q_OBJECT
 	friend class CCtrlPatterns;
@@ -140,16 +140,18 @@ public:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo* pTI) const override;
 	QString GetAccessibleName() override;
+	QString GetToolTipText(uintptr_t id) override;
+	void OnDPIChanged();
 protected:
 	ModSequence& Order();
 	const ModSequence& Order() const;
 
 	void SetScrollPos(int pos);
 	int GetScrollPos(bool getTrackPos = false);
+	void GetScrollRange(int &smin, int &smax);
 
 	// Resizes the order list if the specified order is past the order list length
 	bool EnsureEditable(ORDERINDEX ord);
-	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
 	void OnPaint();
 	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	void OnSetFocus(QWidget *);
@@ -190,7 +192,6 @@ protected:
 	void OnQueueAtMeasureEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtMeasureEnd); }
 	void OnQueueAtBeatEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtBeatEnd); }
 	void OnQueueAtRowEnd() { QueuePattern(m_menuOrder, OrderTransitionMode::AtRowEnd); }
-	bool OnToolTipText(uint32 );
 	void RegisterMessageMap() override;
 };
 

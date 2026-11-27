@@ -1180,7 +1180,7 @@ bool CChordEditor::OnInitDialog()
 void CChordEditor::OnDPIChanged()
 {
 	ResizableDialog::OnDPIChanged();
-	m_Keyboard->SendMessage(WM_DPICHANGED);
+	m_Keyboard->OnDPIChanged();
 }
 
 
@@ -1557,13 +1557,13 @@ void QuickChannelProperties::Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Po
 	// Volume controls
 	m_volSlider->setEnabled(itOnly);
 	m_volSpin->setEnabled(itOnly);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT1), itOnly);
+	GetDlgItem(IDC_EDIT1)->setEnabled(itOnly);
 
 	// Pan controls
 	m_panSlider->setEnabled(enablePan);
 	m_panSpin->setEnabled(enablePan);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT2), enablePan);
-	::EnableWindow(::GetDlgItem(this, IDC_CHECK2), itOnly);
+	GetDlgItem(IDC_EDIT2)->setEnabled(enablePan);
+	GetDlgItem(IDC_CHECK2)->setEnabled(itOnly);
 
 	// Channel name
 	m_nameEdit->setEnabled((m_document->GetModType() & (MOD_TYPE_IT | MOD_TYPE_MPT | MOD_TYPE_XM)) ? true : false);
@@ -1608,8 +1608,8 @@ void QuickChannelProperties::UpdateDisplay()
 	m_settingsChanged = false;
 	m_visible = true;
 
-	::EnableWindow(::GetDlgItem(this, IDC_BUTTON1), isFirst ? false : true);
-	::EnableWindow(::GetDlgItem(this, IDC_BUTTON2), isLast ? false : true);
+	GetDlgItem(IDC_BUTTON1)->setEnabled(isFirst ? false : true);
+	GetDlgItem(IDC_BUTTON2)->setEnabled(isLast ? false : true);
 
 	// Avoid focus trap if we just navigated to the first or last channel
 	const int PrevNextButtons[] = {IDC_BUTTON1, IDC_BUTTON2, IDC_BUTTON5, IDC_BUTTON6};

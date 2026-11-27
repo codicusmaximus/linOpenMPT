@@ -583,14 +583,14 @@ void CNoteMapWnd::OnEditSample(uint32 nID)
 void CNoteMapWnd::OnEditSampleMap()
 {
 	m_undo = true;
-	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_SAMPLEMAP);
+	mfcless::PostCommand(&m_pParent, ID_INSTRUMENT_SAMPLEMAP);
 }
 
 
 void CNoteMapWnd::OnInstrumentDuplicate()
 {
 	m_undo = true;
-	m_pParent.PostMessage(WM_COMMAND, ID_INSTRUMENT_DUPLICATE);
+	mfcless::PostCommand(&m_pParent, ID_INSTRUMENT_DUPLICATE);
 }
 
 
@@ -646,8 +646,8 @@ intptr_t CNoteMapWnd::OnCustomKeyMsg(uintptr_t wParam, intptr_t lParam)
 
 	// Parent shortcuts (also displayed in context menu of this control)
 	case kcInstrumentCtrlDuplicate:		OnInstrumentDuplicate(); return wParam;
-	case kcNextInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_NEXTINSTRUMENT); return wParam;
-	case kcPrevInstrument:				m_pParent.PostMessage(WM_COMMAND, ID_PREVINSTRUMENT); return wParam;
+	case kcNextInstrument:				mfcless::PostCommand(&m_pParent, ID_NEXTINSTRUMENT); return wParam;
+	case kcPrevInstrument:				mfcless::PostCommand(&m_pParent, ID_PREVINSTRUMENT); return wParam;
 	}
 
 	return kcNull;
@@ -908,7 +908,7 @@ void CCtrlInstruments::RegisterMessageMap()
 	AddScroll(Qt::Vertical, &CCtrlInstruments::OnVScroll);
 	AddScroll(Qt::Horizontal, &CCtrlInstruments::OnHScroll);
 	// ON_WM_XBUTTONUP() (mfcless::Window)
-	// ON_NOTIFY(TBN_DROPDOWN, IDC_TOOLBAR1, &CCtrlInstruments::OnTbnDropDownToolBar): by hand (Qt event override)
+	AddNotify(IDC_TOOLBAR1, mfcless::Notify::DropDown, &CCtrlInstruments::OnTbnDropDownToolBar);
 	AddCommand(IDC_INSTRUMENT_NEW, &CCtrlInstruments::OnInstrumentNew);
 	AddCommand(IDC_INSTRUMENT_OPEN, &CCtrlInstruments::OnInstrumentOpen);
 	AddCommand(IDC_INSTRUMENT_SAVEAS, &CCtrlInstruments::OnInstrumentSave);
@@ -1036,11 +1036,10 @@ bool CCtrlInstruments::OnInitDialog()
 	m_initialized = false;
 	SetRedraw(false);
 
-	m_ToolBar->SetExtendedStyle(m_ToolBar->GetExtendedStyle() | TBSTYLE_EX_DRAWDDARROWS);
 	m_ToolBar->Init(CMainFrame::GetMainFrame()->m_PatternIcons,CMainFrame::GetMainFrame()->m_PatternIconsDisabled);
-	m_ToolBar->AddButton(IDC_INSTRUMENT_NEW, TIMAGE_INSTR_NEW, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
+	m_ToolBar->AddButton(IDC_INSTRUMENT_NEW, TIMAGE_INSTR_NEW, CModControlBar::Button | CModControlBar::DropDown);
 	m_ToolBar->AddButton(IDC_INSTRUMENT_OPEN, TIMAGE_OPEN);
-	m_ToolBar->AddButton(IDC_INSTRUMENT_SAVEAS, TIMAGE_SAVE, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
+	m_ToolBar->AddButton(IDC_INSTRUMENT_SAVEAS, TIMAGE_SAVE, CModControlBar::Button | CModControlBar::DropDown);
 	m_ToolBar->AddButton(IDC_INSTRUMENT_PLAY, TIMAGE_PREVIEW);
 	m_SpinInstrument->SetRange(0, 0);
 	m_SpinInstrument->setEnabled(false);
@@ -1367,9 +1366,9 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		const bool onlyITandMPT = ((m_sndFile.GetType() & (MOD_TYPE_IT | MOD_TYPE_MPT)) && (m_sndFile.GetNumInstruments())) ? true : false;
 		const bool anyFormat = m_sndFile.GetNumInstruments() ? true : false;
 		const bool onlyMPT = ((m_sndFile.GetType() == MOD_TYPE_MPT) && (m_sndFile.GetNumInstruments())) ? true : false;
-		::EnableWindow(::GetDlgItem(this, IDC_EDIT10), anyFormat);
-		::EnableWindow(::GetDlgItem(this, IDC_EDIT11), anyFormat);
-		::EnableWindow(::GetDlgItem(this, IDC_EDIT7), anyFormat);
+		GetDlgItem(IDC_EDIT10)->setEnabled(anyFormat);
+		GetDlgItem(IDC_EDIT11)->setEnabled(anyFormat);
+		GetDlgItem(IDC_EDIT7)->setEnabled(anyFormat);
 		m_EditName->setEnabled(anyFormat);
 		m_EditFileName->setEnabled(onlyITandMPT);
 		m_CbnMidiCh->setEnabled(anyFormat);
@@ -1456,7 +1455,7 @@ void CCtrlInstruments::UpdateView(UpdateHint hint, QObject *pObj)
 		m_CbnFilterMode->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->filterMode != FilterMode::Unchanged));
 		m_CbnResampling->EnableWindow (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->resampling != SRCMODE_DEFAULT));
 		m_SliderAttack->EnableWindow  (pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
-		::EnableWindow(::GetDlgItem(this, IDC_EDIT2), pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
+		GetDlgItem(IDC_EDIT2)->setEnabled(pIns != nullptr && (m_sndFile.GetType() == MOD_TYPE_MPT || pIns->nVolRampUp));
 
 		if (pIns)
 		{
@@ -2574,7 +2573,7 @@ void CCtrlInstruments::OnMixPlugChanged()
 		}
 
 	}
-	::EnableWindow(::GetDlgItem(this, IDC_INSVIEWPLG), false);
+	GetDlgItem(IDC_INSVIEWPLG)->setEnabled(false);
 }
 
 
@@ -3155,8 +3154,8 @@ void CCtrlInstruments::BuildTuningComboBox()
 
 void CCtrlInstruments::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 {
-	if(nButton == XBUTTON1) OnPrevInstrument();
-	else if(nButton == XBUTTON2) OnNextInstrument();
+	if(nButton == mfcless::XButton::Back) OnPrevInstrument();
+	else if(nButton == mfcless::XButton::Forward) OnNextInstrument();
 	CModControlDlg::OnXButtonUp(nFlags, nButton, point);
 }
 

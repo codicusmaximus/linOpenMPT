@@ -1276,7 +1276,7 @@ void CViewPattern::OnLButtonUp(uint32 nFlags, mfcless::Point point)
 		{
 			SetCursorPosition(m_StartSel);
 		}
-		SetCursor(CMainFrame::curArrow);
+		setCursor(CMainFrame::curArrow);
 		m_Status.reset(psDragnDropEdit);
 	}
 	if(dragType != DragItem::ChannelHeader
@@ -1431,7 +1431,7 @@ void CViewPattern::OnRButtonDown(uint32 flags, mfcless::Point pt)
 			m_bInItemRect = false;
 			ReleaseCapture();
 		}
-		SetCursor(CMainFrame::curArrow);
+		setCursor(CMainFrame::curArrow);
 		return;
 	}
 
@@ -1610,9 +1610,9 @@ void CViewPattern::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point poi
 	std::optional<OrderTransitionMode> transitionMode = CMainFrame::GetInputHandler()->ModifierKeysToTransitionMode();
 	if(*transitionMode == OrderTransitionMode::AtPatternEnd)
 		transitionMode = std::nullopt;
-	if(nButton == XBUTTON1)
+	if(nButton == mfcless::XButton::Back)
 		GotoPreviousOrder(transitionMode);
-	else if(nButton == XBUTTON2)
+	else if(nButton == mfcless::XButton::Forward)
 		GotoNextOrder(transitionMode);
 	if(transitionMode != std::nullopt)
 		PostCtrlMessage(CTRLMSG_FORCEREFRESH);
@@ -1736,7 +1736,7 @@ void CViewPattern::OnMouseMove(uint32 nFlags, mfcless::Point point)
 
 			if(!m_Status[psDragnDropping])
 			{
-				SetCursor(CMainFrame::curDragging);
+				setCursor(CMainFrame::curDragging);
 			}
 			if(!m_Status[psDragnDropping] || moved)
 			{
@@ -6699,16 +6699,16 @@ bool CViewPattern::BuildRowInsDelCtxMenu(mfcless::Menu hMenu, CInputHandler *ih)
 	const auto numRows = m_Selection.GetNumRows();
 	const mpt::ustring label = (numRows != 1) ? MPT_UFORMAT("{} Rows")(numRows) : mpt::ustring(UL_("Row"));
 
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROW, ih->GetKeyTextFromCommand(kcInsertRow, UL_("Insert ") + label + UL_(" (&Selection)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROW, ih->GetKeyTextFromCommand(kcInsertWholeRow, UL_("Insert ") + label + UL_(" (&All Channels)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertRowGlobal, UL_("Insert ") + label + UL_(" (Selection, &Global)")));
-	AppendMenu(subMenuInsert, mfcless::menu::String, ID_PATTERN_INSERTALLROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertWholeRowGlobal, UL_("Insert ") + label + UL_(" (All &Channels, Global)")));
+	subMenuInsert.AppendMenu(mfcless::menu::String, ID_PATTERN_INSERTROW, ih->GetKeyTextFromCommand(kcInsertRow, UL_("Insert ") + label + UL_(" (&Selection)")));
+	subMenuInsert.AppendMenu(mfcless::menu::String, ID_PATTERN_INSERTALLROW, ih->GetKeyTextFromCommand(kcInsertWholeRow, UL_("Insert ") + label + UL_(" (&All Channels)")));
+	subMenuInsert.AppendMenu(mfcless::menu::String, ID_PATTERN_INSERTROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertRowGlobal, UL_("Insert ") + label + UL_(" (Selection, &Global)")));
+	subMenuInsert.AppendMenu(mfcless::menu::String, ID_PATTERN_INSERTALLROWGLOBAL, ih->GetKeyTextFromCommand(kcInsertWholeRowGlobal, UL_("Insert ") + label + UL_(" (All &Channels, Global)")));
 	hMenu.AppendMenu(mfcless::menu::Popup, subMenuInsert, UL_("&Insert ") + label);
 
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROW, ih->GetKeyTextFromCommand(kcDeleteRow, UL_("Delete ") + label + UL_(" (&Selection)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROW, ih->GetKeyTextFromCommand(kcDeleteWholeRow, UL_("Delete ") + label + UL_(" (&All Channels)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteRowGlobal, UL_("Delete ") + label + UL_(" (Selection, &Global)")));
-	AppendMenu(subMenuDelete, mfcless::menu::String, ID_PATTERN_DELETEALLROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteWholeRowGlobal, UL_("Delete ") + label + UL_(" (All &Channels, Global)")));
+	subMenuDelete.AppendMenu(mfcless::menu::String, ID_PATTERN_DELETEROW, ih->GetKeyTextFromCommand(kcDeleteRow, UL_("Delete ") + label + UL_(" (&Selection)")));
+	subMenuDelete.AppendMenu(mfcless::menu::String, ID_PATTERN_DELETEALLROW, ih->GetKeyTextFromCommand(kcDeleteWholeRow, UL_("Delete ") + label + UL_(" (&All Channels)")));
+	subMenuDelete.AppendMenu(mfcless::menu::String, ID_PATTERN_DELETEROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteRowGlobal, UL_("Delete ") + label + UL_(" (Selection, &Global)")));
+	subMenuDelete.AppendMenu(mfcless::menu::String, ID_PATTERN_DELETEALLROWGLOBAL, ih->GetKeyTextFromCommand(kcDeleteWholeRowGlobal, UL_("Delete ") + label + UL_(" (All &Channels, Global)")));
 	hMenu.AppendMenu(mfcless::menu::Popup, subMenuDelete, UL_("&Delete ") + label);
 	return true;
 }

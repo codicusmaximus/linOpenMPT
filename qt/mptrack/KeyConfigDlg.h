@@ -117,7 +117,7 @@ protected:
 	void DefineCommandCategories();
 	void ForceUpdateGUI(bool updateAllKeys = false);
 	void UpdateNoteRepeatCheckbox();
-	void InsertGroup(const mpt::uchar *title, int groupId);
+	void InsertGroup(const mpt::ustring &title, int groupId);
 	void UpdateShortcutList(int category = -1);
 	void UpdateCategory();
 	int GetCategoryFromCommandID(CommandID command) const;
@@ -134,7 +134,7 @@ protected:
 	void ShowRestoreKeymapMenu();
 	void RestoreKeymap(KeyboardPreset preset);
 
-	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
+	void OnDPIChanged() override;
 	void UpdateDialog();
 	void OnKeyboardChanged();
 	void OnKeyChoiceSelect();

@@ -43,6 +43,7 @@ protected:
 	QComboBox *m_TypeBox = nullptr, *m_ChannelsBox = nullptr, *m_TempoModeBox = nullptr, *m_PlugMixBox = nullptr;
 	QAbstractButton *m_CheckBox1 = nullptr, *m_CheckBox2 = nullptr, *m_CheckBox3 = nullptr, *m_CheckBox4 = nullptr, *m_CheckBox5 = nullptr, *m_CheckBoxPT1x = nullptr, *m_CheckBoxFt2VolRamp = nullptr, *m_CheckBoxAmigaLimits = nullptr;
 	QIcon m_warnIcon;
+	int m_warnIconSize = 32;
 
 	CSoundFile &sndFile;
 public:
@@ -185,6 +186,7 @@ public:
 
 public:
 	void Init(QWidget *parent, int octaves = 1, bool cursorNotify = false);
+	void OnDPIChanged();
 	void SetFlags(uint32 key, uint8 flags) { if (key < NOTE_MAX) KeyFlags[key] = flags; }
 	uint8 GetFlags(uint32 key) const { return (key < NOTE_MAX) ? KeyFlags[key] : 0; }
 	void SetSample(uint32 key, SAMPLEINDEX sample) { if (key < NOTE_MAX) m_sampleNum[key] = sample; }
@@ -193,8 +195,6 @@ public:
 protected:
 	void DrawKey(mfcless::PaintDC &dc, const mfcless::Rect rect, int key, bool black) const;
 
-	intptr_t OnDPIChanged(uintptr_t, intptr_t);
-	void OnDestroy();
 	void OnPaint();
 	void OnMouseMove(uint32 nFlags, mfcless::Point point);
 	void OnLButtonDown(uint32 nFlags, mfcless::Point point);

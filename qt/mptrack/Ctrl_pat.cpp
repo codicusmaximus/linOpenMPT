@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Pattern tab, upper panel.
  * Notes  : mfcless twin of upstream's mptrack/Ctrl_pat.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Olivier Lapicque
  *          OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
@@ -79,14 +79,14 @@ void CCtrlPatterns::RegisterMessageMap()
 	AddCommand(ID_PATTERNDETAIL_EFFECT, &CCtrlPatterns::OnDetailEffect);
 	AddCommand(ID_OVERFLOWPASTE, &CCtrlPatterns::OnToggleOverflowPaste);
 	AddNotify(IDC_COMBO_INSTRUMENT, mfcless::Notify::DropDown, &CCtrlPatterns::OnOpenInstrumentDropdown);
-	// ON_CBN_SELENDCANCEL(IDC_COMBO_INSTRUMENT, &CCtrlPatterns::OnCancelInstrumentDropdown): by hand (Qt event override)
-	// ON_CBN_SELENDOK(IDC_COMBO_INSTRUMENT,     &CCtrlPatterns::OnInstrumentChanged): by hand (Qt event override)
+	AddNotify(IDC_COMBO_INSTRUMENT, mfcless::Notify::CloseUp, &CCtrlPatterns::OnCancelInstrumentDropdown);
+	AddNotify(IDC_COMBO_INSTRUMENT, mfcless::Notify::SelChange, &CCtrlPatterns::OnInstrumentChanged);
 	AddCommand(IDC_PATINSTROPLUGGUI, &CCtrlPatterns::TogglePluginEditor);
 	AddNotify(IDC_EDIT_SPACING, mfcless::Notify::EditChange, &CCtrlPatterns::OnSpacingChanged);
 	AddNotify(IDC_EDIT_PATTERNNAME, mfcless::Notify::EditChange, &CCtrlPatterns::OnPatternNameChanged);
 	AddNotify(IDC_EDIT_SEQUENCE_NAME, mfcless::Notify::EditChange, &CCtrlPatterns::OnSequenceNameChanged);
 	AddNotify(IDC_EDIT_SEQNUM, mfcless::Notify::EditChange, &CCtrlPatterns::OnSequenceNumChanged);
-	// ON_NOTIFY(TBN_DROPDOWN, IDC_TOOLBAR1,     &CCtrlPatterns::OnTbnDropDownToolBar): by hand (Qt event override)
+	AddNotify(IDC_TOOLBAR1, mfcless::Notify::DropDown, &CCtrlPatterns::OnTbnDropDownToolBar);
 	AddCommandUpdate(IDC_PATTERN_RECORD, &CCtrlPatterns::OnUpdateRecord);
 	// ON_WM_MOUSEWHEEL() (mfcless::Window)
 }
@@ -115,10 +115,7 @@ ModSequence &CCtrlPatterns::Order() { return m_sndFile.Order(); }
 
 CCtrlPatterns::CCtrlPatterns(CModControlView &parent, CModDoc &document)
 	: CModControlDlg{parent, document}
-	, m_OrderList{*this, document}
 {
-	m_BtnPrev->SetAccessibleText(UL_("Select Previous Order"));
-	m_BtnNext->SetAccessibleText(UL_("Select Next Order"));
 	m_bVUMeters = TrackerSettings::Instance().gbPatternVUMeters;
 	m_bPluginNames = TrackerSettings::Instance().gbPatternPluginNames;
 	m_bRecord = TrackerSettings::Instance().gbPatternRecord;
@@ -135,9 +132,12 @@ bool CCtrlPatterns::OnInitDialog()
 		return true;
 	SetRedraw(false);
 	LockControls();
+	m_BtnPrev->SetAccessibleText(UL_("Select Previous Order"));
+	m_BtnNext->SetAccessibleText(UL_("Select Next Order"));
 	// Order List
+	m_OrderList = new COrderList(*this, m_modDoc);
 	const int cyHScroll = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
-	m_BtnNext->GetWindowRect(&rect);
+	mfcless::GetWindowRect(m_BtnNext, &rect);
 	ScreenToClient(&rect);
 	auto margins = HighDPISupport::ScalePixels(4, this);
 	rcOrderList.left = rect.right + margins;
@@ -148,31 +148,30 @@ bool CCtrlPatterns::OnInitDialog()
 	m_OrderList->Init(rcOrderList);
 	// Toolbar buttons
 	m_ToolBar->Init(CMainFrame::GetMainFrame()->m_PatternIcons, CMainFrame::GetMainFrame()->m_PatternIconsDisabled);
-	m_ToolBar->SetExtendedStyle(m_ToolBar->GetExtendedStyle() | TBSTYLE_EX_DRAWDDARROWS);
-	m_ToolBar->AddButton(IDC_PATTERN_NEW, TIMAGE_PATTERN_NEW, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
+	m_ToolBar->AddButton(IDC_PATTERN_NEW, TIMAGE_PATTERN_NEW, CModControlBar::Button | CModControlBar::DropDown);
 	m_ToolBar->AddButton(IDC_PATTERN_PLAY, TIMAGE_PATTERN_PLAY);
 	m_ToolBar->AddButton(IDC_PATTERN_PLAYFROMSTART, TIMAGE_PATTERN_RESTART);
 	m_ToolBar->AddButton(IDC_PATTERN_STOP, TIMAGE_PATTERN_STOP);
 	m_ToolBar->AddButton(ID_PATTERN_PLAYROW, TIMAGE_PATTERN_PLAYROW);
-	m_ToolBar->AddButton(IDC_PATTERN_RECORD, TIMAGE_PATTERN_RECORD, TBSTYLE_CHECK, (m_bRecord ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
-	m_ToolBar->AddButton(IDC_METRONOME, TIMAGE_METRONOME, TBSTYLE_CHECK | TBSTYLE_DROPDOWN, (TrackerSettings::Instance().metronomeEnabled ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
-	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
-	m_ToolBar->AddButton(ID_PATTERN_VUMETERS, TIMAGE_PATTERN_VUMETERS, TBSTYLE_CHECK, (m_bVUMeters ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
-	m_ToolBar->AddButton(ID_VIEWPLUGNAMES, TIMAGE_PATTERN_PLUGINS, TBSTYLE_CHECK, (m_bPluginNames ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(IDC_PATTERN_RECORD, TIMAGE_PATTERN_RECORD, CModControlBar::Check, (m_bRecord ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(IDC_METRONOME, TIMAGE_METRONOME, CModControlBar::Check | CModControlBar::DropDown, (TrackerSettings::Instance().metronomeEnabled ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(ID_SEPARATOR, 0, CModControlBar::Separator);
+	m_ToolBar->AddButton(ID_PATTERN_VUMETERS, TIMAGE_PATTERN_VUMETERS, CModControlBar::Check, (m_bVUMeters ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(ID_VIEWPLUGNAMES, TIMAGE_PATTERN_PLUGINS, CModControlBar::Check, (m_bPluginNames ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
 	m_ToolBar->AddButton(ID_PATTERN_CHANNELMANAGER, TIMAGE_CHANNELMANAGER);
-	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
+	m_ToolBar->AddButton(ID_SEPARATOR, 0, CModControlBar::Separator);
 	m_ToolBar->AddButton(ID_PATTERN_MIDIMACRO, TIMAGE_MACROEDITOR);
 	m_ToolBar->AddButton(ID_PATTERN_CHORDEDIT, TIMAGE_CHORDEDITOR);
-	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
+	m_ToolBar->AddButton(ID_SEPARATOR, 0, CModControlBar::Separator);
 	m_ToolBar->AddButton(ID_EDIT_UNDO, TIMAGE_UNDO);
 	m_ToolBar->AddButton(ID_PATTERN_PROPERTIES, TIMAGE_PATTERN_PROPERTIES);
 	m_ToolBar->AddButton(ID_PATTERN_EXPAND, TIMAGE_PATTERN_EXPAND);
 	m_ToolBar->AddButton(ID_PATTERN_SHRINK, TIMAGE_PATTERN_SHRINK);
 	//	m_ToolBar->AddButton(ID_PATTERN_AMPLIFY, TIMAGE_SAMPLE_AMPLIFY);
-	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
-	m_ToolBar->AddButton(ID_PATTERNDETAIL_DROPDOWN, TIMAGE_PATTERN_DETAIL, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
-	m_ToolBar->AddButton(ID_SEPARATOR, 0, TBSTYLE_SEP);
-	m_ToolBar->AddButton(ID_OVERFLOWPASTE, TIMAGE_PATTERN_OVERFLOWPASTE, TBSTYLE_CHECK, ((TrackerSettings::Instance().patternSetup & PatternSetup::OverflowPaste) ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
+	m_ToolBar->AddButton(ID_SEPARATOR, 0, CModControlBar::Separator);
+	m_ToolBar->AddButton(ID_PATTERNDETAIL_DROPDOWN, TIMAGE_PATTERN_DETAIL, CModControlBar::Button | CModControlBar::DropDown);
+	m_ToolBar->AddButton(ID_SEPARATOR, 0, CModControlBar::Separator);
+	m_ToolBar->AddButton(ID_OVERFLOWPASTE, TIMAGE_PATTERN_OVERFLOWPASTE, CModControlBar::Check, ((TrackerSettings::Instance().patternSetup & PatternSetup::OverflowPaste) ? CModControlBar::StateChecked : 0) | CModControlBar::StateEnabled);
 
 	m_EditPatName->setMaxLength(MAX_PATTERNNAME - 1);
 	// Spin controls
@@ -205,6 +204,8 @@ bool CCtrlPatterns::OnInitDialog()
 void CCtrlPatterns::OnDPIChanged()
 {
 	m_ToolBar->OnDPIChanged();
+	if(m_OrderList)
+		m_OrderList->OnDPIChanged();
 	CModControlDlg::OnDPIChanged();
 }
 
@@ -220,7 +221,7 @@ void CCtrlPatterns::RecalcLayout()
 		mfcless::Rect rect;
 		int cx, cy, cellcx;
 		int cyHScroll = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
-		m_BtnNext->GetWindowRect(&rect);
+		mfcless::GetWindowRect(m_BtnNext, &rect);
 		ScreenToClient(&rect);
 		cx = -(rect.right + 4);
 		cy = rect.bottom - rect.top + cyHScroll;
@@ -329,7 +330,7 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 					mpt::ustring sDisplayName;
 					if(m_modDoc.GetSplitKeyboardSettings().IsSplitActive())
 					{
-						s.Format(szSplitFormat,
+						s = mfcless::PrintF(szSplitFormat,
 							nSplitIns,
 							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).c_str(),
 							i,
@@ -351,7 +352,7 @@ void CCtrlPatterns::UpdateView(UpdateHint hint, QObject *pObj)
 				for(SAMPLEINDEX i = 1; i <= nmax; i++) if (m_sndFile.GetSample(i).HasSampleData() || m_sndFile.GetSample(i).uFlags[CHN_ADLIB])
 				{
 					if (m_modDoc.GetSplitKeyboardSettings().IsSplitActive())
-						s.Format(szSplitFormat,
+						s = mfcless::PrintF(szSplitFormat,
 							nSplitIns,
 							mpt::ToUnicode(m_sndFile.GetNoteName(noteSplit, nSplitIns)).c_str(),
 							i,
@@ -429,7 +430,7 @@ intptr_t CCtrlPatterns::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		break;
 
 	case CTRLMSG_NOTIFYCURRENTORDER:
-		if(m_OrderList->currentIndex().GetSelCount() > 1 || m_OrderList->m_bDragging)
+		if(m_OrderList->GetCurSel().GetSelCount() > 1 || m_OrderList->m_bDragging)
 		{
 			// Only update play cursor in case there's a selection
 			m_OrderList->update();
@@ -439,7 +440,7 @@ intptr_t CCtrlPatterns::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		[[fallthrough]];
 	case CTRLMSG_SETCURRENTORDER:
 		// Set order list selection and refresh GUI if change successful
-		m_OrderList->setCurrentIndex(static_cast<ORDERINDEX>(lParam), false, false, true);
+		m_OrderList->SetCurSel(static_cast<ORDERINDEX>(lParam), false, false, true);
 		break;
 
 	case CTRLMSG_FORCEREFRESH:
@@ -495,11 +496,11 @@ intptr_t CCtrlPatterns::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		break;
 
 	case CTRLMSG_PREVORDER:
-		m_OrderList->setCurrentIndex(Order().GetPreviousOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
+		m_OrderList->SetCurSel(Order().GetPreviousOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
 		break;
 
 	case CTRLMSG_NEXTORDER:
-		m_OrderList->setCurrentIndex(Order().GetNextOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
+		m_OrderList->SetCurSel(Order().GetNextOrderIgnoringSkips(m_OrderList->GetCurSel(true).firstOrd), true);
 		break;
 
 	case CTRLMSG_PAT_FOLLOWSONG:
@@ -617,7 +618,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 				if(ORDERINDEX ord = m_sndFile.Order(seq).FindOrder(pat); ord != ORDERINDEX_INVALID)
 				{
 					m_OrderList->SelectSequence(seq);
-					m_OrderList->setCurrentIndex(ord, true);
+					m_OrderList->SetCurSel(ord, true);
 					UpdateView(SequenceHint(seq).Names(), nullptr);
 					break;
 				}
@@ -635,7 +636,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 			const auto &order = Order();
 			if(ord < order.size())
 			{
-				m_OrderList->setCurrentIndex(ord);
+				m_OrderList->SetCurSel(ord);
 				SetCurrentPattern(order[ord]);
 			}
 			UpdateView(SequenceHint(static_cast<SEQUENCEINDEX>(seq)).Names(), nullptr);
@@ -653,7 +654,7 @@ void CCtrlPatterns::OnActivatePage(intptr_t lParam)
 		if(patternViewState.initialOrder != ORDERINDEX_INVALID)
 		{
 			if(CMainFrame::GetMainFrame()->GetModPlaying() != &m_modDoc)
-				m_OrderList->setCurrentIndex(patternViewState.initialOrder);
+				m_OrderList->SetCurSel(patternViewState.initialOrder);
 			patternViewState.initialOrder = ORDERINDEX_INVALID;
 		}
 
@@ -693,14 +694,14 @@ void CCtrlPatterns::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pS
 
 void CCtrlPatterns::OnSequencePrev()
 {
-	m_OrderList->setCurrentIndex(m_OrderList->GetCurSel(true).firstOrd - 1);
+	m_OrderList->SetCurSel(m_OrderList->GetCurSel(true).firstOrd - 1);
 	m_OrderList->setFocus();
 }
 
 
 void CCtrlPatterns::OnSequenceNext()
 {
-	m_OrderList->setCurrentIndex(m_OrderList->GetCurSel(true).firstOrd + 1);
+	m_OrderList->SetCurSel(m_OrderList->GetCurSel(true).firstOrd + 1);
 	m_OrderList->setFocus();
 }
 
@@ -749,7 +750,7 @@ void CCtrlPatterns::OnInstrumentChanged()
 			m_instrDropdownOpen = false;
 			SwitchToView();
 		}
-		::EnableWindow(::GetDlgItem(this, IDC_PATINSTROPLUGGUI), HasValidPlug(m_nInstrument));
+		GetDlgItem(IDC_PATINSTROPLUGGUI)->setEnabled(HasValidPlug(m_nInstrument));
 	}
 }
 
@@ -826,7 +827,7 @@ void CCtrlPatterns::OnPatternNew()
 				m_sndFile.Patterns[newPat].SetTempoSwing(m_sndFile.Patterns[curPat].GetTempoSwing());
 		}
 		// move to new pattern
-		m_OrderList->setCurrentIndex(curOrd);
+		m_OrderList->SetCurSel(curOrd);
 		m_OrderList->update();
 		SetCurrentPattern(newPat);
 		m_modDoc.SetModified();
@@ -840,7 +841,7 @@ void CCtrlPatterns::OnPatternNew()
 // Duplicates one or more patterns.
 void CCtrlPatterns::OnPatternDuplicate()
 {
-	OrdSelection selection = m_OrderList->currentIndex();
+	OrdSelection selection = m_OrderList->GetCurSel();
 	const ORDERINDEX insertFrom = selection.firstOrd;
 	const ORDERINDEX insertWhere = selection.lastOrd + 1u;
 	if(insertWhere >= m_sndFile.GetModSpecifications().ordersMax)
@@ -895,7 +896,7 @@ void CCtrlPatterns::OnPatternDuplicate()
 		m_OrderList->InsertUpdatePlaystate(selection.firstOrd, selection.lastOrd);
 
 		m_OrderList->update();
-		m_OrderList->setCurrentIndex(insertWhere, true, false, true);
+		m_OrderList->SetCurSel(insertWhere, true, false, true);
 
 		// If the first duplicated order is e.g. a +++ item, we need to move the pattern display on or else we'll still edit the previously shown pattern.
 		ORDERINDEX showPattern = std::min(insertWhere, order.GetLastIndex());
@@ -923,7 +924,7 @@ void CCtrlPatterns::OnPatternDuplicate()
 // Merges one or more patterns into a single pattern
 void CCtrlPatterns::OnPatternMerge()
 {
-	const OrdSelection selection = m_OrderList->currentIndex();
+	const OrdSelection selection = m_OrderList->GetCurSel();
 	const ORDERINDEX firstOrder = selection.firstOrd;
 	const ORDERINDEX numOrders = selection.GetSelCount();
 
@@ -1169,15 +1170,14 @@ void CCtrlPatterns::OnPatternAmplify()
 
 void CCtrlPatterns::OnPatternPlayRow()
 {
-	::SendMessage(m_hWndView, WM_COMMAND, ID_PATTERN_PLAYROW, 0);
+	mfcless::SendCommand(m_hWndView, ID_PATTERN_PLAYROW);
 	SwitchToViewIfMouse();
 }
 
 
 void CCtrlPatterns::OnUpdateRecord(mfcless::CommandState &state)
 {
-	if(pCmdUI)
-		state.SetCheck((m_bRecord) ? true : false);
+	state.SetCheck((m_bRecord) ? true : false);
 }
 
 
@@ -1198,7 +1198,7 @@ void CCtrlPatterns::OnChangeLoopStatus()
 void CCtrlPatterns::OnEditUndo()
 {
 	if(m_hWndView)
-		::SendMessage(m_hWndView, WM_COMMAND, ID_EDIT_UNDO, 0);
+		mfcless::SendCommand(m_hWndView, ID_EDIT_UNDO);
 	SwitchToViewIfMouse();
 }
 
@@ -1259,13 +1259,12 @@ void CCtrlPatterns::OnChordEditor()
 void CCtrlPatterns::OnTbnDropDownToolBar()
 {
 	CInputHandler *ih = CMainFrame::GetInputHandler();
-	NMTOOLBAR *pToolBar = reinterpret_cast<NMTOOLBAR *>(pNMHDR);
-	ClientToScreen(&(pToolBar->rcButton));
-	const int offset = HighDPISupport::ScalePixels(4, this);  // Compared to the main toolbar, the offset seems to be a bit wrong here...?
-	int x = pToolBar->rcButton.left + offset, y = pToolBar->rcButton.bottom + offset;
+	const uint32 buttonID = static_cast<uint32>(CurrentNotify().item);
+	const QPoint pos = m_ToolBar->GetDropDownPos(buttonID);
+	const int x = pos.x(), y = pos.y();
 	const auto visibleColumns = std::bitset<PatternCursor::numColumns>{static_cast<unsigned long>(SendViewMessage(VIEWMSG_GETDETAIL))};
 	mfcless::Menu menu;
-	switch(pToolBar->iItem)
+	switch(buttonID)
 	{
 	case IDC_PATTERN_NEW:
 		menu.CreatePopupMenu();
@@ -1290,7 +1289,6 @@ void CCtrlPatterns::OnTbnDropDownToolBar()
 		menu.DestroyMenu();
 		break;
 	}
-	CurrentNotify().result = 0;
 }
 
 
@@ -1360,9 +1358,9 @@ bool CCtrlPatterns::OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt)
 
 void CCtrlPatterns::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 {
-	if(nButton == XBUTTON1)
+	if(nButton == mfcless::XButton::Back)
 		OnModCtrlMsg(CTRLMSG_PREVORDER, 0);
-	else if(nButton == XBUTTON2)
+	else if(nButton == mfcless::XButton::Forward)
 		OnModCtrlMsg(CTRLMSG_NEXTORDER, 0);
 	CModControlDlg::OnXButtonUp(nFlags, nButton, point);
 }

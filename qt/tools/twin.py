@@ -147,6 +147,18 @@ TYPES = [
 
 # Applied last to the .cpp twins, once control members are pointers.
 LATE = [
+	# Toolbar buttons (CModControlBar).
+	(r'(?m)^[ \t]*\w+->SetExtendedStyle\(\w+->GetExtendedStyle\(\) \| TBSTYLE_EX_DRAWDDARROWS\);\n', ''),
+	(r'\bTBSTYLE_(BUTTON|SEP|CHECK|DROPDOWN)\b', lambda m: 'CModControlBar::' + {'BUTTON': 'Button', 'SEP': 'Separator', 'CHECK': 'Check', 'DROPDOWN': 'DropDown'}[m.group(1)]),
+	(r'(?<!::)\bXBUTTON1\b', r'mfcless::XButton::Back'),
+	(r'(?<!::)\bXBUTTON2\b', r'mfcless::XButton::Forward'),
+	(r'->mfcless::Window<QComboBox>::ResetContent\(\)', '->clear()'),
+	# Child windows by ID, through the Windows API.
+	(r'::GetDlgItem\((?:this|m_hWnd),\s*(\w+)\)', r'GetDlgItem(\1)'),
+	(r'::ShowWindow\(GetDlgItem\((\w+)\),\s*mfcless::show::Show\)', r'GetDlgItem(\1)->setVisible(true)'),
+	(r'::ShowWindow\(GetDlgItem\((\w+)\),\s*mfcless::show::Hide\)', r'GetDlgItem(\1)->setVisible(false)'),
+	(r'::ShowWindow\(GetDlgItem\((\w+)\),\s*([^;]*)\);', r'GetDlgItem(\1)->setVisible(\2);'),
+	(r'::EnableWindow\(GetDlgItem\((\w+)\),\s*([^;]*)\);', r'GetDlgItem(\1)->setEnabled(\2);'),
 	# Combo box storage hints mean nothing to Qt.
 	(r'(?m)^[ \t]*[\w>.-]+(?:->|\.)InitStorage\([^;]*\);\n', ''),
 	(r'\bGetWindowLongPtr\((\w+)(?:(?:\.|->)m_hWnd)?,\s*GWLP_USERDATA\)', r'\1->property("mfclessUserData").toLongLong()'),
@@ -187,7 +199,17 @@ LATE = [
 	(r'\bGetSysColor\(COLOR_(BTNFACE|3DFACE|BTNSHADOW|3DSHADOW|BTNHIGHLIGHT|3DHILIGHT|3DHIGHLIGHT|BTNTEXT|WINDOW|WINDOWTEXT|HIGHLIGHT|HIGHLIGHTTEXT|GRAYTEXT)\)', lambda m: 'mfcless::SystemColor(mfcless::SysColor::' + {'BTNFACE': 'ButtonFace', '3DFACE': 'ButtonFace', 'BTNSHADOW': 'ButtonShadow', '3DSHADOW': 'ButtonShadow', 'BTNHIGHLIGHT': 'ButtonHighlight', '3DHILIGHT': 'ButtonHighlight', '3DHIGHLIGHT': 'ButtonHighlight', 'BTNTEXT': 'ButtonText', 'WINDOW': 'Window', 'WINDOWTEXT': 'WindowText', 'HIGHLIGHT': 'Highlight', 'HIGHLIGHTTEXT': 'HighlightText', 'GRAYTEXT': 'GrayText'}[m.group(1)] + ')'),
 	(r'((?:\w+::)*\w+\(\)|\w+)->PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(\1, '),
 	(r'((?:\w+::)*\w+\(\)|\w+)->SendMessage\(WM_COMMAND,\s*', r'mfcless::SendCommand(\1, '),
+	(r'\b(m_\w+)\.PostMessage\(WM_COMMAND,\s*', r'mfcless::PostCommand(&\1, '),
+	(r'::SendMessage\((\w+),\s*WM_COMMAND,\s*(\w+),\s*0\)', r'mfcless::SendCommand(\1, \2)'),
 	(r'(?<![\w.>:])PostMessage\(WM_COMMAND,\s*', 'mfcless::PostCommand(this, '),
+	(r'(?<![\w.>:])GetCursorPos\(', 'mfcless::GetCursorPos('),
+	(r'(\w+)->SendMessage\(WM_DPICHANGED\)', r'\1->OnDPIChanged()'),
+	(r'\bGetDlgItem\((\w+)\)->GetWindowRect\(&?(\w+)\)', r'mfcless::GetWindowRect(GetDlgItem(\1), &\2)'),
+	(r'\bGetDlgItem\((\w+)\)->SetWindowPos\(', r'mfcless::SetWindowPos(GetDlgItem(\1), '),
+	(r'(\w+)\.MakeLower\(\);', r'\1 = mpt::ToLowerCase(\1);'),
+	(r'(?<![\w.>:])SetCursor\(CMainFrame::', 'setCursor(CMainFrame::'),
+	(r'(?<![\w.>:])AppendMenu\((\w+),\s*', r'\1.AppendMenu('),
+	(r'(menu::Popup,\s*)\((?:uintptr_t|UINT_PTR)\)\s*(\w+)(?:\.m_hMenu)?', r'\1\2'),
 	(r'(?<![\w.>:])SendMessage\(WM_COMMAND,\s*', 'mfcless::SendCommand(this, '),
 	# Controls looked up by ID.
 	(r'\((?:CComboBox|CComboBoxEx)\s*\*\)\s*GetDlgItem\((\w+)\)', r'Item<QComboBox>(\1)'),
@@ -209,8 +231,8 @@ LATE = [
 	(r'(?<![\w.>])(\w+)->InsertString\(', r'mfcless::InsertItem(\1, '),
 	(r'(?<![\w.>])(\w+)->SetItemData\(', r'mfcless::SetItemData(\1, '),
 	(r'(?<![\w.>])(\w+)->GetItemData\(', r'mfcless::GetItemData(\1, '),
-	(r'->SetCurSel\(', '->setCurrentIndex('),
-	(r'->GetCurSel\(\)', '->currentIndex()'),
+	(r'(?<!m_OrderList)->SetCurSel\(', '->setCurrentIndex('),
+	(r'(?<!m_OrderList)->GetCurSel\(\)', '->currentIndex()'),
 	(r'->ResetContent\(\)', '->clear()'),
 	(r'\bLVCFMT_(LEFT|RIGHT|CENTER)\b', lambda m: 'mfcless::list::Align' + m.group(1).capitalize()),
 	(r'\bLVS_EX_(GRIDLINES|CHECKBOXES|FULLROWSELECT|DOUBLEBUFFER)\b', lambda m: 'mfcless::list::' + {'GRIDLINES': 'GridLines', 'CHECKBOXES': 'CheckBoxes', 'FULLROWSELECT': 'FullRowSelect', 'DOUBLEBUFFER': 'DoubleBuffer'}[m.group(1)]),
@@ -467,7 +489,7 @@ DRAFT_MARK = 'Draft from qt/tools/twin.py, not yet edited by hand.'
 
 NOTIFY = {
 	'CBN_SELCHANGE': 'SelChange', 'CBN_EDITCHANGE': 'EditChange', 'CBN_EDITUPDATE': 'EditUpdate',
-	'CBN_DROPDOWN': 'DropDown', 'CBN_CLOSEUP': 'CloseUp', 'CBN_SETFOCUS': 'SetFocus', 'CBN_KILLFOCUS': 'KillFocus',
+	'CBN_DROPDOWN': 'DropDown', 'CBN_CLOSEUP': 'CloseUp', 'CBN_SELENDOK': 'SelChange', 'CBN_SELENDCANCEL': 'CloseUp', 'TBN_DROPDOWN': 'DropDown', 'CBN_SETFOCUS': 'SetFocus', 'CBN_KILLFOCUS': 'KillFocus',
 	'EN_CHANGE': 'EditChange', 'EN_UPDATE': 'EditUpdate', 'EN_SETFOCUS': 'SetFocus', 'EN_KILLFOCUS': 'KillFocus',
 	'LBN_SELCHANGE': 'SelChange', 'LBN_DBLCLK': 'DoubleClicked', 'CLBN_CHKCHANGE': 'CheckChange',
 	'BN_DOUBLECLICKED': 'DoubleClicked',
@@ -561,6 +583,7 @@ CONTROL_METHODS = {
 		'SetCheck': '->setChecked(', 'GetCheck': '->isChecked(',
 	},
 	'QLineEdit': {
+		'Clear': '->clear(',
 		'SetLimitText': '->setMaxLength(', 'LimitText': '->setMaxLength(', 'SetReadOnly': '->setReadOnly(',
 	},
 	'QProgressBar': {

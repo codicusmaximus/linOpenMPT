@@ -63,6 +63,12 @@ namespace MouseKey
 	inline constexpr uint32_t Left = 0x01, Right = 0x02, Shift = 0x04, Control = 0x08, Middle = 0x10, X1 = 0x20, X2 = 0x40;
 }
 
+// Which extra button an OnXButton handler reports (back = 1, forward = 2).
+namespace XButton
+{
+	inline constexpr uint32_t Back = 1, Forward = 2;
+}
+
 // One notch of a mouse wheel.
 inline constexpr int WheelDelta = 120;
 

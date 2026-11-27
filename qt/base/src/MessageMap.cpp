@@ -18,6 +18,7 @@
 #include <functional>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QAbstractSlider>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
@@ -185,6 +186,32 @@ private:
 	std::function<int(QTreeWidgetItem *)> m_indexOf;
 };
 
+// A combo box's list opening and closing (CBN_DROPDOWN / CBN_CLOSEUP).
+// Qt picks the item before it hides the list, so the close is reported
+// after the selection, as Windows reports CBN_SELENDOK before CBN_CLOSEUP.
+class PopupWatcher : public QObject
+{
+public:
+	PopupWatcher(QComboBox *combo, uint32_t id, MessageMap *target)
+		: QObject(combo), m_combo(combo), m_id(id), m_target(target) {}
+	bool eventFilter(QObject *watched, QEvent *e) override
+	{
+		if(e->type() == QEvent::Show)
+		{
+			Send(m_target, m_id, Notify::DropDown, m_combo);
+		} else if(e->type() == QEvent::Hide)
+		{
+			QMetaObject::invokeMethod(this, [this] { Send(m_target, m_id, Notify::CloseUp, m_combo); }, Qt::QueuedConnection);
+		}
+		return QObject::eventFilter(watched, e);
+	}
+
+private:
+	QComboBox *m_combo;
+	uint32_t m_id;
+	MessageMap *m_target;
+};
+
 } // namespace
 
 
@@ -234,6 +261,8 @@ void ConnectNotifications(QWidget *control, uint32_t id, MessageMap *target)
 	if(auto *combo = qobject_cast<QComboBox *>(control))
 	{
 		QObject::connect(combo, &QComboBox::activated, context, [=] { Send(target, id, Notify::SelChange, control); });
+		if(QWidget *popup = combo->view() ? combo->view()->window() : nullptr; popup && popup != combo->window())
+			popup->installEventFilter(new PopupWatcher(combo, id, target));
 		if(combo->isEditable())
 		{
 			QObject::connect(combo, &QComboBox::editTextChanged, context, [=] {

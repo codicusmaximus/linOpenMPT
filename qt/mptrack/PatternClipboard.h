@@ -122,7 +122,7 @@ protected:
 		PatternClipboardDialog &parent;
 
 	public:
-		CInlineEdit(PatternClipboardDialog &dlg);
+		CInlineEdit(PatternClipboardDialog &dlg, QWidget *parentWidget);
 
 		void focusOutEvent(QFocusEvent *e) override;
 	};
@@ -130,6 +130,7 @@ protected:
 	mfcless::UpDown *m_numClipboardsSpin = nullptr;
 	QListWidget *m_clipList = nullptr;
 	CInlineEdit *m_editNameBox = nullptr;
+	size_t m_editIndex = size_t(-1);  // the clipboard whose name is being edited
 	int m_posX = -1, m_posY = -1;
 	bool m_isLocked = true, m_isCreated = false;
 

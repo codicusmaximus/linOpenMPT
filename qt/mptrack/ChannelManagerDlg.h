@@ -85,8 +85,7 @@ protected:
 
 	std::vector<State> m_states;
 	CModDoc *m_ModDoc = nullptr;
-	mfcless::Bitmap * m_bkgnd = nullptr;
-	QFont m_font;
+	mfcless::Bitmap m_bkgnd;  // the buttons as last drawn
 	mfcless::Rect m_drawableArea;
 	Tab m_currentTab = kSoloMute;
 	int m_downX = 0, m_downY = 0;
@@ -105,7 +104,7 @@ protected:
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
-	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
+	QString GetToolTipText(uintptr_t id) override;
 	void OnApply();
 	void OnClose();
 	void OnSelectAll();

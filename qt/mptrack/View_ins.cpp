@@ -1574,14 +1574,14 @@ void CViewInstrument::OnMouseMove(uint32, mfcless::Point pt)
 			m_dwStatus |= INSSTATUS_SPLITCURSOR;
 			if(!(m_dwStatus & INSSTATUS_DRAGGING))
 				SetCapture();
-			SetCursor(CMainFrame::curVSplit);
+			setCursor(CMainFrame::curVSplit);
 		}
 	} else
 	{
 		if(m_dwStatus & INSSTATUS_SPLITCURSOR)
 		{
 			m_dwStatus &= ~INSSTATUS_SPLITCURSOR;
-			SetCursor(CMainFrame::curArrow);
+			setCursor(CMainFrame::curArrow);
 			if(!(m_dwStatus & INSSTATUS_DRAGGING))
 				ReleaseCapture();
 		}
@@ -1743,7 +1743,7 @@ void CViewInstrument::OnLButtonUp(uint32, mfcless::Point)
 	if(m_dwStatus & INSSTATUS_SPLITCURSOR)
 	{
 		m_dwStatus &= ~INSSTATUS_SPLITCURSOR;
-		SetCursor(CMainFrame::curArrow);
+		setCursor(CMainFrame::curArrow);
 	}
 	if(m_dwStatus & INSSTATUS_DRAGGING)
 	{
@@ -2749,9 +2749,9 @@ bool CViewInstrument::OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point p
 
 void CViewInstrument::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 {
-	if(nButton == XBUTTON1)
+	if(nButton == mfcless::XButton::Back)
 		OnPrevInstrument();
-	else if(nButton == XBUTTON2)
+	else if(nButton == mfcless::XButton::Forward)
 		OnNextInstrument();
 	CModScrollView::OnXButtonUp(nFlags, nButton, point);
 }

@@ -120,7 +120,7 @@ public:
 	// program's messages) to the handlers. True if e was one.
 	bool HandleModMessage(QEvent *e);
 
-	// The notification being handled.
+	// The notification being handled (one with id 0 outside of a handler).
 	const NotifyInfo &CurrentNotify() const { return *m_current; }
 	NotifyInfo &CurrentNotify() { return *m_current; }
 

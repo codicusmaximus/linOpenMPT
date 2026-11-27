@@ -35,6 +35,7 @@ OPENMPT_NAMESPACE_BEGIN
 
 #define ID_EDIT_MIXPASTE ID_EDIT_PASTE_SPECIAL
 
+class CChildFrame;
 class CImageListEx;
 class CModControlView;
 class CModDoc;
@@ -57,8 +58,9 @@ public:
 	bool AddButton(uint32 nID, int iImage=0, uint32 nStyle=Button, uint32 nState=StateEnabled);
 	void OnDPIChanged();
 
-	// mfcless: the toolbar's commands go to target, by ID (dropdown arrows
-	// as the Notify::DropDown notification).
+	// mfcless: the toolbar's commands go to target, by ID. A dropdown arrow
+	// sends Notify::DropDown from the toolbar's own control ID, with the
+	// button's ID in NotifyInfo::item (as TBN_DROPDOWN's iItem).
 	void SetCommandTarget(mfcless::MessageMap *target) { m_target = target; }
 	QAction *GetButton(uint32 nID) const;
 	void CheckButton(uint32 nID, bool check = true);
@@ -95,6 +97,8 @@ public:
 public:
 	void SetViewWnd(QWidget *hwndView) { m_hWndView = hwndView; }
 	QWidget *GetViewWnd() const { return m_hWndView; }
+	// The MDI child frame this panel is in (upstream: CWnd::GetParentFrame).
+	CChildFrame *GetParentFrame() const;
 	intptr_t SendViewMessage(uint32 uMsg, intptr_t lParam = 0) const;
 	bool PostViewMessage(uint32 uMsg, intptr_t lParam = 0) const;
 	void SwitchToView() const;

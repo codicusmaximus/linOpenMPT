@@ -63,7 +63,7 @@ void CCtrlSamples::RegisterMessageMap()
 	CModControlDlg::RegisterMessageMap();
 	AddScroll(Qt::Vertical, &CCtrlSamples::OnVScroll);
 	// ON_WM_XBUTTONUP() (mfcless::Window)
-	// ON_NOTIFY(TBN_DROPDOWN, IDC_TOOLBAR1, &CCtrlSamples::OnTbnDropDownToolBar): by hand (Qt event override)
+	AddNotify(IDC_TOOLBAR1, mfcless::Notify::DropDown, &CCtrlSamples::OnTbnDropDownToolBar);
 	AddCommand(IDC_SAMPLE_NEW, &CCtrlSamples::OnSampleNew);
 	AddCommand(IDC_SAMPLE_DUPLICATE, &CCtrlSamples::OnSampleDuplicate);
 	AddCommand(IDC_SAMPLE_OPEN, &CCtrlSamples::OnSampleOpen);
@@ -238,11 +238,10 @@ bool CCtrlSamples::OnInitDialog()
 	m_ComboZoom->setCurrentIndex(0);
 
 	// File ToolBar
-	m_ToolBar1->SetExtendedStyle(m_ToolBar1->GetExtendedStyle() | TBSTYLE_EX_DRAWDDARROWS);
 	m_ToolBar1->Init(CMainFrame::GetMainFrame()->m_PatternIcons,CMainFrame::GetMainFrame()->m_PatternIconsDisabled);
-	m_ToolBar1->AddButton(IDC_SAMPLE_NEW, TIMAGE_SAMPLE_NEW, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
-	m_ToolBar1->AddButton(IDC_SAMPLE_OPEN, TIMAGE_OPEN, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
-	m_ToolBar1->AddButton(IDC_SAMPLE_SAVEAS, TIMAGE_SAVE, TBSTYLE_BUTTON | TBSTYLE_DROPDOWN);
+	m_ToolBar1->AddButton(IDC_SAMPLE_NEW, TIMAGE_SAMPLE_NEW, CModControlBar::Button | CModControlBar::DropDown);
+	m_ToolBar1->AddButton(IDC_SAMPLE_OPEN, TIMAGE_OPEN, CModControlBar::Button | CModControlBar::DropDown);
+	m_ToolBar1->AddButton(IDC_SAMPLE_SAVEAS, TIMAGE_SAVE, CModControlBar::Button | CModControlBar::DropDown);
 	// Edit ToolBar
 	m_ToolBar2->Init(CMainFrame::GetMainFrame()->m_PatternIcons,CMainFrame::GetMainFrame()->m_PatternIconsDisabled);
 	m_ToolBar2->AddButton(IDC_SAMPLE_PLAY, TIMAGE_PREVIEW);
@@ -2942,8 +2941,8 @@ void CCtrlSamples::PropagateAutoVibratoChanges()
 
 void CCtrlSamples::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 {
-	if(nButton == XBUTTON1) OnPrevInstrument();
-	else if(nButton == XBUTTON2) OnNextInstrument();
+	if(nButton == mfcless::XButton::Back) OnPrevInstrument();
+	else if(nButton == mfcless::XButton::Forward) OnNextInstrument();
 	CModControlDlg::OnXButtonUp(nFlags, nButton, point);
 	SwitchToView();
 }

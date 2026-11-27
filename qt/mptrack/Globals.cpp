@@ -68,7 +68,7 @@ static void RestoreLastFocusItem(QWidget *parent, QWidget *&lastFocusItem)
 
 
 // mfcless: the MDI child frame a view or dialog is in (MFC's GetParentFrame).
-static CChildFrame *GetParentFrame(const QWidget *w)
+static CChildFrame *FindParentFrame(const QWidget *w)
 {
 	for(QWidget *p = w ? w->parentWidget() : nullptr; p != nullptr; p = p->parentWidget())
 	{
@@ -153,12 +153,18 @@ intptr_t CModControlDlg::OnModCtrlMsg(uintptr_t wParam, intptr_t lParam)
 		break;
 
 	case CTRLMSG_SETFOCUS:
-		if(CChildFrame *frame = GetParentFrame(this))
+		if(CChildFrame *frame = FindParentFrame(this))
 			frame->SetActiveView(&m_parent);
 		RestoreLastFocusItem();
 		break;
 	}
 	return 0;
+}
+
+
+CChildFrame *CModControlDlg::GetParentFrame() const
+{
+	return FindParentFrame(this);
 }
 
 
@@ -1034,7 +1040,10 @@ bool CModControlBar::AddButton(uint32 nID, int iImage, uint32 nStyle, uint32 nSt
 			if(m_target)
 			{
 				mfcless::NotifyInfo info;
-				info.id = nID;
+				// As TBN_DROPDOWN: from the toolbar's control ID, the button in item.
+				const QVariant barID = property("mfcless_id");
+				info.id = barID.isValid() ? barID.toUInt() : nID;
+				info.item = static_cast<int>(nID);
 				info.code = mfcless::Notify::DropDown;
 				info.control = this;
 				m_target->DispatchNotify(info);

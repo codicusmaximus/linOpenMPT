@@ -1997,12 +1997,12 @@ bool CViewSample::OnSetCursor(QWidget *pWnd, uint32 nHitTest, uint32 message)
 	if(nHitTest == HTCLIENT && (message == mfcless::msg::MouseMove || message == mfcless::msg::LButtonDown))
 	{
 		mfcless::Point point;
-		GetCursorPos(&point);
+		mfcless::GetCursorPos(&point);
 		ScreenToClient(&point);
 		const auto item = PointToItem(point).first;
 		if(item != HitTestItem::Nothing && item != HitTestItem::SampleData)
 		{
-			SetCursor(CMainFrame::curVSplit);
+			setCursor(CMainFrame::curVSplit);
 			return true;
 		}
 	}
@@ -4132,8 +4132,8 @@ bool CViewSample::OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt)
 
 void CViewSample::OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point)
 {
-	if(nButton == XBUTTON1) OnPrevInstrument();
-	else if(nButton == XBUTTON2) OnNextInstrument();
+	if(nButton == mfcless::XButton::Back) OnPrevInstrument();
+	else if(nButton == mfcless::XButton::Forward) OnNextInstrument();
 	CModScrollView::OnXButtonUp(nFlags, nButton, point);
 }
 

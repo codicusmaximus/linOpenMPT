@@ -3,7 +3,7 @@
  * ------------
  * Purpose: Module to steaming audio (WAV, MP3, etc.) conversion (dialog + conversion code).
  * Notes  : mfcless twin of upstream's mptrack/Mod2wave.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +11,9 @@
 
 #include "mod2wave.h"
 #include "mfcless/Widgets.h"
+#include <cerrno>
+#include <cfloat>
+#include <cstdio>
 #include "Dlsbank.h"
 #include "Mainfrm.h"
 #include "Moddoc.h"
@@ -258,17 +261,17 @@ void CWaveConvert::FillTags()
 	Encoder::Mode mode = (Encoder::Mode)((dwFormat >> 24) & 0xff);
 
 	SetChecked(IDC_CHECK3, (encTraits->canCues && encSettings.Cues) ? 1 : 0);
-	::EnableWindow(::GetDlgItem(this, IDC_CHECK3), encTraits->canCues ? true : false);
+	GetDlgItem(IDC_CHECK3)->setEnabled(encTraits->canCues ? true : false);
 
 	const bool canTags = encTraits->canTags ? true : false;
 	SetChecked(IDC_CHECK7, encSettings.Tags ? canTags : false);
-	::EnableWindow(::GetDlgItem(this, IDC_CHECK7), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_COMBO3), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT11), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT6), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT7), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT8), canTags);
-	::EnableWindow(::GetDlgItem(this, IDC_EDIT9), canTags);
+	GetDlgItem(IDC_CHECK7)->setEnabled(canTags);
+	GetDlgItem(IDC_COMBO3)->setEnabled(canTags);
+	GetDlgItem(IDC_EDIT11)->setEnabled(canTags);
+	GetDlgItem(IDC_EDIT6)->setEnabled(canTags);
+	GetDlgItem(IDC_EDIT7)->setEnabled(canTags);
+	GetDlgItem(IDC_EDIT8)->setEnabled(canTags);
+	GetDlgItem(IDC_EDIT9)->setEnabled(canTags);
 	m_CbnGenre->setEnabled(canTags?true:false);
 	m_EditGenre->setEnabled(canTags?true:false);
 
@@ -276,7 +279,7 @@ void CWaveConvert::FillTags()
 	{
 		m_EditGenre->setVisible(false);
 		m_CbnGenre->setVisible(true);
-		m_EditGenre->Clear();
+		m_EditGenre->clear();
 		m_CbnGenre->clear();
 		mfcless::AddItem(m_CbnGenre, UL_(""));
 		for(const auto &genre : encTraits->genres)
@@ -288,7 +291,7 @@ void CWaveConvert::FillTags()
 		m_CbnGenre->setVisible(false);
 		m_EditGenre->setVisible(true);
 		m_CbnGenre->clear();
-		m_EditGenre->Clear();
+		m_EditGenre->clear();
 	}
 
 }
@@ -314,7 +317,7 @@ void CWaveConvert::FillFileTypes()
 void CWaveConvert::FillSamplerates()
 {
 	EncoderSettingsConf &encSettings = m_Settings.GetEncoderSettings();
-	m_CbnSampleRate->mfcless::Window<QComboBox>::ResetContent();
+	m_CbnSampleRate->clear();
 	int sel = -1;
 	std::vector<uint32> samplerates = (!encTraits->samplerates.empty() ? encTraits->samplerates : TrackerSettings::Instance().GetSampleRates());
 	if(TrackerSettings::Instance().ExportDefaultToSoundcardSamplerate)
@@ -347,7 +350,7 @@ void CWaveConvert::FillSamplerates()
 void CWaveConvert::FillChannels()
 {
 	EncoderSettingsConf &encSettings = m_Settings.GetEncoderSettings();
-	m_CbnChannels->mfcless::Window<QComboBox>::ResetContent();
+	m_CbnChannels->clear();
 	int sel = 0;
 	for(int channels = 4; channels >= 1; channels /= 2)
 	{
@@ -377,7 +380,7 @@ void CWaveConvert::FillChannels()
 void CWaveConvert::FillFormats()
 {
 	EncoderSettingsConf &encSettings = m_Settings.GetEncoderSettings();
-	m_CbnSampleFormat->mfcless::Window<QComboBox>::ResetContent();
+	m_CbnSampleFormat->clear();
 	int sel = -1;
 	int samplerate = static_cast<int>(mfcless::GetItemData(m_CbnSampleRate, m_CbnSampleRate->currentIndex()));
 	int channels = static_cast<int>(mfcless::GetItemData(m_CbnChannels, m_CbnChannels->currentIndex()));
@@ -517,7 +520,7 @@ void CWaveConvert::FillFormats()
 void CWaveConvert::FillDither()
 {
 	EncoderSettingsConf &encSettings = m_Settings.GetEncoderSettings();
-	m_CbnDither->mfcless::Window<QComboBox>::ResetContent();
+	m_CbnDither->clear();
 	int format = mfcless::GetItemData(m_CbnSampleFormat, m_CbnSampleFormat->currentIndex()) & 0xffffff;
 	if((encTraits->modes & Encoder::ModeLossless) && !Encoder::Format::FromInt(format).GetSampleFormat().IsFloat())
 	{
@@ -955,11 +958,7 @@ void CDoWaveConvert::Run()
 	{
 		normalizeBufferData.resize(MIXBUFFERSIZE * 4);
 		normalizeBuffer = normalizeBufferData.data();
-		// Ensure this temporary file is marked as temporary in the file system, to increase the chance it will never be written to disk
-		if(void * hFile = ::CreateFile(normalizeFileName.AsNative().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL); hFile != INVALID_HANDLE_VALUE)
-		{
-			::CloseHandle(hFile);
-		}
+		// (Upstream marks the file as temporary for Windows' file system; it lives in the temporary folder here.)
 		normalizeFile.emplace(normalizeFileName, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
 	}
 
@@ -1403,7 +1402,7 @@ void CDoWaveConvert::Run()
 		for(int retry=0; retry<10; retry++)
 		{
 			// stupid virus scanners
-			if(DeleteFile(normalizeFileName.AsNative().c_str()) != EACCES)
+			if(std::remove(normalizeFileName.AsNative().c_str()) == 0 || errno != EACCES)
 			{
 				break;
 			}

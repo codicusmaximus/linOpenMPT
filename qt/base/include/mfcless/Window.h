@@ -33,6 +33,7 @@
 #include <QtCore/QTimerEvent>
 #include <QtCore/QUrl>
 #include <QtGui/QCloseEvent>
+#include <QtGui/QCursor>
 #include <QtGui/QContextMenuEvent>
 #include <QtGui/QFocusEvent>
 #include <QtGui/QKeyEvent>
@@ -99,6 +100,13 @@ inline bool SetWindowPos(QWidget *w, QWidget * /*insertAfter*/, int x, int y, in
 	else if(flags & swp::HideWindow)
 		w->hide();
 	return true;
+}
+
+// The mouse position, in screen coordinates.
+inline void GetCursorPos(Point *p)
+{
+	if(p)
+		*p = Point(QCursor::pos());
 }
 
 // The window's rectangle, frame included, in screen coordinates.
@@ -419,7 +427,23 @@ protected:
 			return true;
 		if(e->type() == QEvent::ToolTip && ToolTip(static_cast<QHelpEvent *>(e)))
 			return true;
+		if constexpr(IsScrollArea)
+		{
+			// A scroll area's viewport gets the tooltip events.
+			if(e->type() == QEvent::Polish)
+				this->viewport()->installEventFilter(this);
+		}
 		return Base::event(e);
+	}
+
+	bool eventFilter(QObject *watched, QEvent *e) override
+	{
+		if constexpr(IsScrollArea)
+		{
+			if(watched == this->viewport() && e->type() == QEvent::ToolTip && ToolTip(static_cast<QHelpEvent *>(e)))
+				return true;
+		}
+		return Base::eventFilter(watched, e);
 	}
 
 	void mousePressEvent(QMouseEvent *e) override { Mouse(e, false); }

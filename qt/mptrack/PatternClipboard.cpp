@@ -3,7 +3,7 @@
  * --------------------
  * Purpose: Implementation of the pattern clipboard mechanism
  * Notes  : mfcless twin of upstream's mptrack/PatternClipboard.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -715,7 +715,7 @@ bool PatternClipboard::HandlePaste(CSoundFile &sndFile, PatternEditPos &pastePos
 			const bool skipPaste =
 				col >= sndFile.GetNumChannels() ||
 				(doMixPaste && m.IsPcNote()) ||
-				(doMixPaste && data[pos] == 'P' && !m.empty());
+				(doMixPaste && data[pos] == 'P' && !m.IsEmpty());
 
 			if(skipPaste == false)
 			{
@@ -925,7 +925,7 @@ bool PatternClipboard::HandlePaste(CSoundFile &sndFile, PatternEditPos &pastePos
 				// if the original modcommand was empty as otherwise the unchanged parts
 				// of the old modcommand would falsely be interpreted being of type
 				// origFormat and ConvertCommand could change them.
-				if(pasteFormat != sndFile.GetType() && (!doMixPaste || origModCmd.empty()))
+				if(pasteFormat != sndFile.GetType() && (!doMixPaste || origModCmd.IsEmpty()))
 					m.Convert(pasteFormat, sndFile.GetType(), sndFile);
 
 				// Sanitize PC events
@@ -1038,7 +1038,12 @@ void PatternClipboardDialog::RegisterMessageMap()
 	AddNotify(IDC_LIST1, mfcless::Notify::DoubleClicked, &PatternClipboardDialog::OnEditName);
 }
 
-PatternClipboardDialog PatternClipboardDialog::instance;
+PatternClipboardDialog &PatternClipboardDialog::Instance()
+{
+	static PatternClipboardDialog *instance = new PatternClipboardDialog();
+	return *instance;
+}
+
 
 void PatternClipboardDialog::DoDataExchange(DataExchange &dx)
 {
@@ -1047,16 +1052,18 @@ void PatternClipboardDialog::DoDataExchange(DataExchange &dx)
 }
 
 
-PatternClipboardDialog::PatternClipboardDialog() : m_editNameBox(*this)
+PatternClipboardDialog::PatternClipboardDialog()
 {
 }
 
 
 void PatternClipboardDialog::Show()
 {
+	PatternClipboardDialog &instance = Instance();
 	instance.m_isLocked = true;
-	if(!instance.m_isCreated)
+	if(!instance.m_clipList)
 	{
+		// The window is made once and hidden when closed.
 		instance.Create(IDD_CLIPBOARD, CMainFrame::GetMainFrame());
 		instance.m_numClipboardsSpin->SetRange(0, int16_max);
 	}
@@ -1064,8 +1071,10 @@ void PatternClipboardDialog::Show()
 	instance.m_isLocked = false;
 	instance.m_isCreated = true;
 	instance.UpdateList();
-	
-	instance.SetWindowPos(nullptr, instance.m_posX, instance.m_posY, 0, 0, mfcless::swp::ShowWindow | mfcless::swp::NoOwnerZOrder | mfcless::swp::NoSize | mfcless::swp::NoZOrder | (instance.m_posX == -1 ? mfcless::swp::NoMove : 0));
+
+	if(instance.m_posX != -1)
+		instance.move(instance.m_posX, instance.m_posY);
+	instance.show();
 }
 
 
@@ -1083,6 +1092,7 @@ void PatternClipboardDialog::OnNumClipboardsChanged()
 
 void PatternClipboardDialog::UpdateList()
 {
+	PatternClipboardDialog &instance = Instance();
 	if(instance.m_isLocked)
 	{
 		return;
@@ -1091,8 +1101,8 @@ void PatternClipboardDialog::UpdateList()
 	PatternClipboard::clipindex_t i = 0;
 	for(const auto &clip : PatternClipboard::instance.m_clipboards)
 	{
-		const int item = instance.mfcless::AddItem(m_clipList, clip.description);
-		instance.m_clipList->SetItemDataPtr(item, reinterpret_cast<void *>(i));
+		const int item = mfcless::AddItem(instance.m_clipList, clip.description);
+		mfcless::SetItemData(instance.m_clipList, item, i);
 		if(PatternClipboard::instance.m_activeClipboard == i)
 		{
 			instance.m_clipList->setCurrentRow(item);
@@ -1104,11 +1114,11 @@ void PatternClipboardDialog::UpdateList()
 
 void PatternClipboardDialog::OnSelectClipboard()
 {
-	if(m_isLocked)
+	if(m_isLocked || m_clipList->currentRow() < 0)
 	{
 		return;
 	}
-	PatternClipboard::clipindex_t item = reinterpret_cast<PatternClipboard::clipindex_t>(mfcless::GetItemDataPtr(m_clipList, m_clipList->currentRow()));
+	PatternClipboard::clipindex_t item = static_cast<PatternClipboard::clipindex_t>(mfcless::GetItemData(m_clipList, m_clipList->currentRow()));
 	PatternClipboard::SelectClipboard(item);
 	OnEndEdit();
 }
@@ -1117,11 +1127,11 @@ void PatternClipboardDialog::OnSelectClipboard()
 void PatternClipboardDialog::OnOK()
 {
 	const QWidget *focus = mfcless::GetFocus();
-	if(focus == &m_editNameBox)
+	if(m_editNameBox && focus == m_editNameBox)
 	{
 		// User pressed enter in clipboard name edit box => cancel editing
 		OnEndEdit();
-	} else if(focus == &m_clipList)
+	} else if(focus == m_clipList)
 	{
 		// User pressed enter in the clipboard name list => start editing
 		OnEditName();
@@ -1134,10 +1144,10 @@ void PatternClipboardDialog::OnOK()
 
 void PatternClipboardDialog::OnCancel()
 {
-	if(mfcless::GetFocus() == &m_editNameBox)
+	if(m_editNameBox && mfcless::GetFocus() == m_editNameBox)
 	{
 		// User pressed ESC in clipboard name edit box => just cancel editing
-		m_editNameBox->DestroyWindow();
+		OnEndEdit(false);
 		return;
 	}
 
@@ -1146,12 +1156,11 @@ void PatternClipboardDialog::OnCancel()
 	m_isCreated = false;
 	m_isLocked = true;
 
-	mfcless::Rect rect;
-	GetWindowRect(&rect);
-	m_posX = rect.left;
-	m_posY = rect.top;
+	const QRect frame = frameGeometry();
+	m_posX = frame.left();
+	m_posY = frame.top();
 
-	DestroyWindow();
+	hide();
 }
 
 
@@ -1160,67 +1169,66 @@ void PatternClipboardDialog::OnEditName()
 	OnEndEdit();
 
 	const int sel = m_clipList->currentRow();
-	if(sel == LB_ERR)
+	if(sel < 0)
 	{
 		return;
 	}
 
-	mfcless::Rect rect;
-	m_clipList->GetItemRect(sel, rect);
-	rect.InflateRect(0, 2, 0, 2);
+	QRect rect = m_clipList->visualItemRect(m_clipList->item(sel));
+	rect.adjust(0, -2, 0, 2);
 
 	// Create the edit control
-	m_editNameBox->Create(WS_VISIBLE | WS_CHILD | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, rect, &m_clipList, 1);
-	m_editNameBox->SetFont(m_clipList->GetFont());
-	mfcless::SetWindowText(m_editNameBox, PatternClipboard::instance.m_clipboards[sel].description);
-	mfcless::GotoDlgCtrl(m_editNameBox);
-	m_editNameBox->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>((LONG_PTR)mfcless::GetItemDataPtr(m_clipList, sel)));
+	m_editIndex = static_cast<size_t>(mfcless::GetItemData(m_clipList, sel));
+	m_editNameBox = new CInlineEdit(*this, m_clipList->viewport());
+	m_editNameBox->setGeometry(rect);
+	m_editNameBox->setFont(m_clipList->font());
+	if(m_editIndex < PatternClipboard::instance.m_clipboards.size())
+		mfcless::SetWindowText(m_editNameBox, PatternClipboard::instance.m_clipboards[m_editIndex].description);
+	m_editNameBox->show();
+	m_editNameBox->selectAll();
+	m_editNameBox->setFocus();
 }
 
 
 void PatternClipboardDialog::OnEndEdit(bool apply)
 {
-	if(m_editNameBox->this == NULL)
+	CInlineEdit *edit = m_editNameBox;
+	if(edit == nullptr)
 	{
 		return;
 	}
+	// Taken away first: the edit losing the focus ends the edit again.
+	m_editNameBox = nullptr;
+	const size_t sel = m_editIndex;
+	m_editIndex = size_t(-1);
 
-	if(apply)
+	if(apply && sel < PatternClipboard::instance.m_clipboards.size())
 	{
-		size_t sel = m_editNameBox->property("mfclessUserData").toLongLong();
-		if(sel >= PatternClipboard::instance.m_clipboards.size())
-		{
-			// What happened?
-			return;
-		}
-
 		mpt::ustring newName;
-		mfcless::GetWindowText(m_editNameBox, newName);
+		mfcless::GetWindowText(edit, newName);
 
 		PatternClipboard::instance.m_clipboards[sel].description = newName;
 	}
 
-	m_editNameBox->setProperty("mfclessUserData", QVariant::fromValue<qlonglong>(LONG_PTR(-1)));
-	m_editNameBox->DestroyWindow();
+	edit->hide();
+	edit->deleteLater();
 
 	UpdateList();
 }
 
 
-BEGIN_MESSAGE_MAP(PatternClipboardDialog::CInlineEdit, QLineEdit)
-	ON_WM_KILLFOCUS()
-END_MESSAGE_MAP()
-
-
-PatternClipboardDialog::CInlineEdit::CInlineEdit(PatternClipboardDialog &dlg) : parent(dlg)
+PatternClipboardDialog::CInlineEdit::CInlineEdit(PatternClipboardDialog &dlg, QWidget *parentWidget)
+	: QLineEdit(parentWidget)
+	, parent(dlg)
 {
 }
 
 
-void PatternClipboardDialog::CInlineEdit::OnKillFocus(QWidget *newWnd)
+void PatternClipboardDialog::CInlineEdit::focusOutEvent(QFocusEvent *e)
 {
-	parent.OnEndEdit(true);
-	Window::OnKillFocus(newWnd);
+	QLineEdit::focusOutEvent(e);
+	if(parent.m_editNameBox == this)
+		parent.OnEndEdit(true);
 }
 
 
