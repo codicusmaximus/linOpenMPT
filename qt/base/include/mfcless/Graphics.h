@@ -243,6 +243,8 @@ public:
 	// that start at line startScan.
 	int DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors);
 	void DrawImage(const Rect &target, const QImage &image);
+	// StretchDIBits of a whole 4- or 8-bit palette bitmap's part.
+	int StretchDib(int x, int y, int width, int height, int xSrc, int ySrc, int srcWidth, int srcHeight, const void *bits, const DibHeader &header, const DibColor *colors);
 
 	bool TextOut(int x, int y, const Text &text);
 	bool ExtTextOut(int x, int y, uint32_t options, const Rect *r, const Text &text);

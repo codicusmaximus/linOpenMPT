@@ -141,6 +141,12 @@ TabControl::TabControl(QWidget *parent)
 	m_bar->setExpanding(false);
 }
 
+int TabControl::InsertItem(int index, const QString &text) { return m_bar->insertTab(index, text); }
+int TabControl::InsertItem(int index, const char8_t *text) { return InsertItem(index, QString::fromUtf8(reinterpret_cast<const char *>(text))); }
+int TabControl::currentIndex() const { return m_bar->currentIndex(); }
+void TabControl::setCurrentIndex(int index) { m_bar->setCurrentIndex(index); }
+int TabControl::count() const { return m_bar->count(); }
+
 QRect TabControl::DisplayRect() const
 {
 	return QRect(0, m_bar->sizeHint().height(), width(), height() - m_bar->sizeHint().height()).adjusted(4, 4, -4, -4);

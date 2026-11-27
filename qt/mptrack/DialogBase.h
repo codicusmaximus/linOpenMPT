@@ -15,6 +15,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+
+#include <typeinfo>
 #include "Snd_defs.h"
 
 #include "mfcless/DialogBuilder.h"
@@ -90,6 +92,11 @@ public:
 	void CheckRadio(uint32 first, uint32 last, uint32 id);
 	// The checked radio button from first to last, or 0.
 	uint32 GetCheckedRadio(uint32 first, uint32 last) const;
+	// mfcless: a control the dialog makes itself (CWnd::Create with a parent
+	// and an ID), so that its notifications and commands reach the message
+	// map. A later control with the same ID does not replace the first for
+	// GetDlgItem.
+	void AddDynamicItem(uint32 id, QWidget *control);
 	void EnableItem(uint32 id, bool enable = true);
 	void ShowItem(uint32 id, bool show = true);
 
@@ -130,6 +137,9 @@ protected:
 				return member;
 			} else
 			{
+				// The template's control is of another kind than the member
+				// (a multi-line edit for a QLineEdit, say): the member stays null.
+				qWarning("mfcless: dialog control %u is not a %s", static_cast<unsigned>(item.id), typeid(T).name());
 				return made;
 			}
 		};
@@ -266,6 +276,11 @@ public:
 	void SetTitle(const mpt::ustring &title);
 
 	// IDOK (1), IDCANCEL (2), ID_APPLY_NOW (0x3021)
+	// mfcless: a control the dialog makes itself (CWnd::Create with a parent
+	// and an ID), so that its notifications and commands reach the message
+	// map. A later control with the same ID does not replace the first for
+	// GetDlgItem.
+	void AddDynamicItem(uint32 id, QWidget *control);
 	void EnableItem(uint32 id, bool enable = true);
 	QAbstractButton *GetButton(uint32 id) const;
 

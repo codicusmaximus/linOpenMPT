@@ -82,6 +82,12 @@ class TabControl : public QWidget
 public:
 	explicit TabControl(QWidget *parent = nullptr);
 	QTabBar *tabBar() const { return m_bar; }
+	// CTabCtrl's calls for the tabs.
+	int InsertItem(int index, const QString &text);
+	int InsertItem(int index, const char8_t *text);
+	int currentIndex() const;
+	void setCurrentIndex(int index);
+	int count() const;
 	// The area below the tabs, in this widget's coordinates.
 	QRect DisplayRect() const;
 

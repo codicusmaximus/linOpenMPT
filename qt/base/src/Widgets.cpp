@@ -48,10 +48,17 @@ void SetWidgetText(QWidget *w, const QString &text)
 		label->setText(text);
 	else if(auto *plain = qobject_cast<QPlainTextEdit *>(w))
 	{
-		if(plain->toPlainText() != text)
-			plain->setPlainText(text);
+		// Multi-line edits take Windows' CR LF line breaks as one.
+		QString lines = text;
+		lines.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+		if(plain->toPlainText() != lines)
+			plain->setPlainText(lines);
 	} else if(auto *rich = qobject_cast<QTextEdit *>(w))
-		rich->setPlainText(text);
+	{
+		QString lines = text;
+		lines.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+		rich->setPlainText(lines);
+	}
 	else if(auto *group = qobject_cast<QGroupBox *>(w))
 		group->setTitle(text);
 	else

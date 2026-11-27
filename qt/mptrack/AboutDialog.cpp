@@ -3,7 +3,7 @@
  * ---------------
  * Purpose: About dialog with credits, system information and a fancy demo effect.
  * Notes  : mfcless twin of upstream's mptrack/AboutDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -19,6 +19,9 @@
 #include "mpt/format/join.hpp"
 #include "mpt/string/utility.hpp"
 #include "resource.h"
+#include "Image.h"
+
+#include <QtGui/QPainter>
 #include "../common/version.h"
 #include "../misc/mptWine.h"
 
@@ -32,20 +35,11 @@ OPENMPT_NAMESPACE_BEGIN
 
 CAboutDlg *CAboutDlg::instance = nullptr;
 
-void CRippleBitmap::RegisterMessageMap()
+CRippleBitmap::CRippleBitmap(QWidget *parent)
+	: mfcless::Window<QWidget>(parent)
 {
-	mfcless::Window<QWidget>::RegisterMessageMap();
-	// ON_WM_PAINT() (mfcless::Window)
-	// ON_WM_ERASEBKGND(): by hand (Qt event override)
-	// ON_WM_MOUSEMOVE() (mfcless::Window)
-	// ON_WM_MOUSEHOVER(): by hand (Qt event override)
-	// ON_WM_MOUSELEAVE() (mfcless::Window)
-}
-
-
-CRippleBitmap::CRippleBitmap()
-{
-	m_bitmapSrc = LoadPixelImage(GetResource(MAKEINTRESOURCE(IDB_MPTRACK), UL_("PNG")));
+	setMouseTracking(true);
+	m_bitmapSrc = LoadPixelImage(GetResource(IDB_MPTRACK, UL_("PNG")));
 	m_bitmapTarget = std::make_unique<RawGDIDIB>(m_bitmapSrc->Width(), m_bitmapSrc->Height());
 	m_offset1.assign(m_bitmapSrc->Pixels().size(), 0);
 	m_offset2.assign(m_bitmapSrc->Pixels().size(), 0);
@@ -61,23 +55,11 @@ CRippleBitmap::CRippleBitmap()
 		*(out2++) = *(in2++);
 	}
 
-	MemsetZero(m_bi);
-	m_bi.biSize = sizeof(BITMAPINFOHEADER);
-	m_bi.biWidth = m_bitmapSrc->Width();
-	m_bi.biHeight = -(int32)m_bitmapSrc->Height();
-	m_bi.biPlanes = 1;
-	m_bi.biBitCount = 32;
-	m_bi.biCompression = BI_RGB;
-	m_bi.biSizeImage = m_bitmapSrc->Width() * m_bitmapSrc->Height() * 4;
 }
 
 
 CRippleBitmap::~CRippleBitmap()
 {
-	if(!m_showMouse)
-	{
-		ShowCursor(true);
-	}
 }
 
 
@@ -109,26 +91,11 @@ void CRippleBitmap::OnMouseMove(uint32 nFlags, mfcless::Point point)
 	m_damp = !(nFlags & mfcless::MouseKey::Right);
 	m_activity = true;
 
-	// Wine will only ever generate MouseLeave message when the message
-	// queue is completely empty and the hover timeout has expired.
-	// This results in a hidden mouse cursor long after it had already left the
-	// control.
-	// Avoid hiding the mouse cursor on Wine. Interferring with the users input
-	// methods is an absolute no-go.
-	if(mpt::OS::Windows::IsWine())
+	// Hide the cursor while it is over the bitmap (upstream's ShowCursor);
+	// Qt reports leaving the widget.
+	if(m_showMouse)
 	{
-		return;
-	}
-
-	TRACKMOUSEEVENT me;
-	me.cbSize = sizeof(TRACKMOUSEEVENT);
-	me.hwndTrack = this;
-	me.dwFlags = TME_LEAVE | TME_HOVER;
-	me.dwHoverTime = 1500;
-
-	if(TrackMouseEvent(&me) && m_showMouse)
-	{
-		ShowCursor(false);
+		setCursor(Qt::BlankCursor);
 		m_showMouse = false;
 	}
 }
@@ -138,7 +105,7 @@ void CRippleBitmap::OnMouseLeave()
 {
 	if(!m_showMouse)
 	{
-		ShowCursor(true);
+		unsetCursor();
 		m_showMouse = true;
 	}
 }
@@ -146,15 +113,8 @@ void CRippleBitmap::OnMouseLeave()
 
 void CRippleBitmap::OnPaint()
 {
-	mfcless::PaintDC dc(this);
-
-	mfcless::Rect rect;
-	GetClientRect(rect);
-	StretchDIBits(dc.m_hDC,
-		0, 0, rect.Width(), rect.Height(),
-		0, 0, m_bitmapTarget->Width(), m_bitmapTarget->Height(),
-		m_bitmapTarget->Pixels().data(),
-		reinterpret_cast<BITMAPINFO *>(&m_bi), DIB_RGB_COLORS, mfcless::rop::SrcCopy);
+	QPainter painter(this);
+	painter.drawImage(rect(), ToQImage(*m_bitmapTarget));
 }
 
 
@@ -269,12 +229,11 @@ bool CAboutDlg::OnInitDialog()
 
 	SubclassDlgItem(IDC_BITMAP1, m_bmp);
 
-	m_Tab->InsertItem(TCIF_TEXT, 0, UL_("OpenMPT"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 1, UL_("Components"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 2, UL_("Credits"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 3, UL_("License"), 0, 0, 0, 0);
-	m_Tab->InsertItem(TCIF_TEXT, 4, UL_("Resources"), 0, 0, 0, 0);
-	if(mpt::OS::Windows::IsWine()) m_Tab->InsertItem(TCIF_TEXT, 5, UL_("Wine"), 0, 0, 0, 0);
+	m_Tab->InsertItem(0, UL_("OpenMPT"));
+	m_Tab->InsertItem(1, UL_("Components"));
+	m_Tab->InsertItem(2, UL_("Credits"));
+	m_Tab->InsertItem(3, UL_("License"));
+	m_Tab->InsertItem(4, UL_("Resources"));
 	m_Tab->setCurrentIndex(0);
 
 	OnTabChange();
@@ -284,7 +243,7 @@ bool CAboutDlg::OnInitDialog()
 		KillTimer(m_TimerID);
 		m_TimerID = 0;
 	}
-	m_TimerID = SetTimer(TIMERID_ABOUT_DEFAULT, CRippleBitmap::UPDATE_INTERVAL, nullptr);
+	m_TimerID = SetTimer(TIMERID_ABOUT_DEFAULT, CRippleBitmap::UPDATE_INTERVAL);
 
 	return true;
 }
@@ -301,7 +260,7 @@ void CAboutDlg::OnTimer(uintptr_t nIDEvent)
 
 void CAboutDlg::OnTabChange()
 {
-	mfcless::SetWindowText(m_TabEdit, mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->currentIndex()), U_("\n"), U_("\r\n"))));
+	mfcless::SetWindowText(m_TabEdit, mpt::ToUnicode(mpt::replace(GetTabText(m_Tab->currentIndex()), U_("\r\n"), U_("\n"))));
 }
 
 

@@ -696,17 +696,18 @@ PaintDC::PaintDC(QWidget *widget)
 }
 
 
-int DC::DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors)
+// The part of a 4- or 8-bit palette bitmap as an image (see DrawDib).
+static QImage DibPart(int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors)
 {
-	if(!m_painter || !bits || !colors || (header.biBitCount != 4 && header.biBitCount != 8))
-		return 0;
+	if(!bits || !colors || (header.biBitCount != 4 && header.biBitCount != 8))
+		return {};
 	const int dibWidth = header.biWidth;
 	const int dibHeight = std::abs(header.biHeight);
 	const bool bottomUp = header.biHeight > 0;
 	const int stride = ((dibWidth * header.biBitCount + 31) / 32) * 4;
 	width = std::min(width, dibWidth - xSrc);
 	if(width <= 0 || height <= 0)
-		return 0;
+		return {};
 	const int paletteSize = header.biClrUsed ? static_cast<int>(header.biClrUsed) : (1 << header.biBitCount);
 	QList<QRgb> table(256, qRgb(0, 0, 0));
 	for(int i = 0; i < paletteSize && i < 256; i++)
@@ -739,7 +740,30 @@ int DC::DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int sta
 			}
 		}
 	}
+	return image;
+}
+
+
+int DC::DrawDib(int x, int y, int width, int height, int xSrc, int ySrc, int startScan, int scanCount, const void *bits, const DibHeader &header, const DibColor *colors)
+{
+	if(!m_painter)
+		return 0;
+	const QImage image = DibPart(width, height, xSrc, ySrc, startScan, scanCount, bits, header, colors);
+	if(image.isNull())
+		return 0;
 	m_painter->drawImage(QPoint(x, y), image);
+	return image.height();
+}
+
+
+int DC::StretchDib(int x, int y, int width, int height, int xSrc, int ySrc, int srcWidth, int srcHeight, const void *bits, const DibHeader &header, const DibColor *colors)
+{
+	if(!m_painter)
+		return 0;
+	const QImage image = DibPart(srcWidth, srcHeight, xSrc, ySrc, 0, std::abs(header.biHeight), bits, header, colors);
+	if(image.isNull())
+		return 0;
+	m_painter->drawImage(QRect(x, y, width, height), image);
 	return height;
 }
 

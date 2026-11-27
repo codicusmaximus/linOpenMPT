@@ -14,6 +14,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
+#include <memory>
 
 #include "DialogBase.h"
 #include "../soundlib/Snd_defs.h"
@@ -31,20 +32,6 @@ class CTempoSwingDlg : public DialogBase
 {
 	Q_OBJECT
 protected:
-	// Scrollable container for the sliders
-	class SliderContainer : public mfcless::Window<QLabel>
-	{
-	public:
-		CTempoSwingDlg &m_parent;
-
-		SliderContainer(CTempoSwingDlg &parent) : m_parent(parent) { }
-
-		void OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
-		bool OnToolTipNotify(uint32 );
-
-		void RegisterMessageMap() override;
-	};
-
 	enum { SliderResolution = 1000, SliderUnity = SliderResolution / 2 };
 	struct RowCtls
 	{
@@ -58,7 +45,11 @@ protected:
 
 	QAbstractButton *m_checkGroup = nullptr;
 	QScrollBar *m_scrollBar = nullptr;
-	SliderContainer m_container;
+	// mfcless: the static frame holding the rows, and the widget inside it
+	// that the scroll bar moves (upstream scrolls the frame's children).
+	QWidget *m_container = nullptr;
+	QWidget *m_content = nullptr;
+	bool m_settingSliders = false;
 
 	int m_scrollPos;
 	static int m_groupSize;
@@ -83,7 +74,8 @@ protected:
 	void OnUseGlobal();
 	void OnToggleGroup();
 	void OnGroupChanged();
-	void OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar);
+	// Upstream's SliderContainer::OnHScroll: a slider was moved.
+	void OnSliderChanged(QSlider *slider);
 
 	void RegisterMessageMap() override;
 };

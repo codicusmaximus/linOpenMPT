@@ -3,7 +3,8 @@
  * --------------------
  * Purpose: Implementation of the default plugin editor that is used if a plugin does not provide an own editor GUI.
  * Notes  : mfcless twin of upstream's mptrack/DefaultVstEditor.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft: the parameter controls are
+ *          made as Qt widgets, and their signals call the handlers.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -13,6 +14,13 @@
 #include "mfcless/Widgets.h"
 #include "HighDPISupport.h"
 #include "resource.h"
+#include "mfcless/Widgets.h"
+
+#include <QtCore/QSignalBlocker>
+#include <QtGui/QIntValidator>
+#include <QtGui/QWheelEvent>
+#include <QtWidgets/QScrollBar>
+#include <QtWidgets/QSlider>
 #include "../soundlib/Sndfile.h"
 #include "../soundlib/plugins/PlugInterface.h"
 
@@ -55,110 +63,102 @@ struct PluginEditorMeasurements
 
 
 // Create a set of parameter controls
-ParamControlSet::ParamControlSet(QWidget *parent, const mfcless::Rect &rect, int setID, const PluginEditorMeasurements &m)
+ParamControlSet::ParamControlSet(QWidget *parent, const QRect &qrect, int setID, const PluginEditorMeasurements &m)
+	: m_setID(ID_PLUGINEDITOR_SLIDERS_BASE + setID)
 {
+	const mfcless::Rect rect(qrect);
 	// Offset of components on the right side
 	const int horizSplit = rect.left + rect.Width() - m.rightWidth;
-	
+
 	// Parameter name
-	nameLabel.Create(UL_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(rect.left, rect.top, horizSplit - m.spacing, rect.top + m.lineHeight), parent);
-	nameLabel.SetFont(parent->GetFont());
+	nameLabel = new QLabel(parent);
+	nameLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+	nameLabel->setGeometry(QRect(mfcless::Rect(rect.left, rect.top, horizSplit - m.spacing, rect.top + m.lineHeight)));
 
 	// Parameter value as reported by the plugin
-	valueLabel.Create(UL_(""), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(horizSplit, rect.top, rect.right, rect.top + m.lineHeight), parent);
-	valueLabel.SetFont(parent->GetFont());
+	valueLabel = new QLabel(parent);
+	valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+	valueLabel->setGeometry(QRect(mfcless::Rect(horizSplit, rect.top, rect.right, rect.top + m.lineHeight)));
 
 	// Parameter value slider
-	valueSlider.Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP /* | TBS_NOTICKS | TBS_BOTH */ | TBS_AUTOTICKS, mfcless::Rect(rect.left, rect.bottom - m.lineHeight, horizSplit - m.spacing, rect.bottom), parent, ID_PLUGINEDITOR_SLIDERS_BASE + setID);
-	valueSlider.SetFont(parent->GetFont());
-	valueSlider.SetRange(0, PARAM_RESOLUTION);
-	valueSlider.SetTicFreq(PARAM_RESOLUTION / 10);
+	valueSlider = new QSlider(Qt::Horizontal, parent);
+	valueSlider->setGeometry(QRect(mfcless::Rect(rect.left, rect.bottom - m.lineHeight, horizSplit - m.spacing, rect.bottom)));
+	valueSlider->setRange(0, PARAM_RESOLUTION);
+	valueSlider->setTickPosition(QSlider::TicksBelow);
+	valueSlider->setTickInterval(PARAM_RESOLUTION / 10);
 
 	// Parameter value edit box
-	valueEdit.CreateEx(WS_EX_CLIENTEDGE, UL_("EDIT"), NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL | ES_NUMBER, mfcless::Rect(horizSplit, rect.bottom - m.lineHeight, horizSplit + m.editWidth, rect.bottom), parent, ID_PLUGINEDITOR_EDIT_BASE + setID);
-	valueEdit.SetFont(parent->GetFont());
+	valueEdit = new QLineEdit(parent);
+	valueEdit->setGeometry(QRect(mfcless::Rect(horizSplit, rect.bottom - m.lineHeight, horizSplit + m.editWidth, rect.bottom)));
+	valueEdit->setValidator(new QIntValidator(0, 99999, valueEdit));
 
 	// "Per mil" label
-	perMilLabel.Create(mpt::ToUnicode(mpt::Charset::UTF8, "\xE2\x80\xB0"), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, mfcless::Rect(horizSplit + m.editWidth + m.spacing, rect.bottom - m.lineHeight, rect.right, rect.bottom), parent);
-	perMilLabel.SetFont(parent->GetFont());
+	perMilLabel = new QLabel(QString(QChar(0x2030)), parent);
+	perMilLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+	perMilLabel->setGeometry(QRect(mfcless::Rect(horizSplit + m.editWidth + m.spacing, rect.bottom - m.lineHeight, rect.right, rect.bottom)));
+
+	for(QWidget *w : {static_cast<QWidget *>(nameLabel), static_cast<QWidget *>(valueLabel), static_cast<QWidget *>(valueSlider), static_cast<QWidget *>(valueEdit), static_cast<QWidget *>(perMilLabel)})
+		w->show();
 }
 
 
 ParamControlSet::~ParamControlSet()
 {
-	nameLabel.DestroyWindow();
-	valueLabel.DestroyWindow();
-	valueSlider.DestroyWindow();
-	valueEdit.DestroyWindow();
-	perMilLabel.DestroyWindow();
+	delete nameLabel;
+	delete valueLabel;
+	delete valueSlider;
+	delete valueEdit;
+	delete perMilLabel;
 }
 
 
 // Enable a set of parameter controls
 void ParamControlSet::EnableControls(bool enable)
 {
-	const bool b = enable ? true : false;
-	nameLabel.EnableWindow(b);
-	valueLabel.EnableWindow(b);
-	valueSlider.EnableWindow(b);
-	valueEdit.EnableWindow(b);
-	perMilLabel.EnableWindow(b);
+	for(QWidget *w : {static_cast<QWidget *>(nameLabel), static_cast<QWidget *>(valueLabel), static_cast<QWidget *>(valueSlider), static_cast<QWidget *>(valueEdit), static_cast<QWidget *>(perMilLabel)})
+		w->setEnabled(enable);
 }
 
 
 // Reset the content of a set of parameter controls
 void ParamControlSet::ResetContent()
 {
-	mfcless::SetWindowText(nameLabel, UL_(""));
-	mfcless::SetWindowText(valueLabel, UL_(""));
-	valueSlider.SetPos(0);
-	mfcless::SetWindowText(valueEdit, UL_(""));
+	nameLabel->clear();
+	valueLabel->clear();
+	valueSlider->setValue(0);
+	valueEdit->clear();
 }
 
 
 void ParamControlSet::SetParamName(const mpt::ustring &name)
 {
-	mfcless::SetWindowText(nameLabel, name);
+	nameLabel->setText(mfcless::ToQString(name));
 }
 
 
 void ParamControlSet::SetParamValue(int value, const mpt::ustring &text)
 {
-	valueSlider.SetPos(value);
-	if (&valueEdit != valueEdit.GetFocus())
+	valueSlider->setValue(value);
+	if(!valueEdit->hasFocus())
 	{
 		// Don't update textbox when it has focus, else this will prevent user from changing the content.
-		mpt::ustring paramValue;
-		paramValue = mfcless::PrintF(UL_("%0000d"), value);
-		mfcless::SetWindowText(valueEdit, paramValue);
+		valueEdit->setText(QString::number(value));
 	}
-	mfcless::SetWindowText(valueLabel, text);
+	valueLabel->setText(mfcless::ToQString(text));
 }
 
 
 int ParamControlSet::GetParamValueFromSlider() const
 {
-	return valueSlider.GetPos();
+	return valueSlider->value();
 }
 
 
 int ParamControlSet::GetParamValueFromEdit() const
 {
-	mpt::uchar s[16];
-	mfcless::GetWindowText(valueEdit, s, 16);
-	int val = _tstoi(s);
+	int val = valueEdit->text().trimmed().toInt();
 	Limit(val, int(0), int(PARAM_RESOLUTION));
 	return val;
-}
-
-
-void CDefaultVstEditor::RegisterMessageMap()
-{
-	CAbstractVstEditor::RegisterMessageMap();
-	AddNotifyRange(ID_PLUGINEDITOR_EDIT_BASE, ID_PLUGINEDITOR_EDIT_BASE + NUM_PLUGINEDITOR_PARAMETERS - 1, mfcless::Notify::EditChange, &CDefaultVstEditor::OnParamTextboxChanged);
-	AddScroll(Qt::Horizontal, &CDefaultVstEditor::OnHScroll);
-	AddScroll(Qt::Vertical, &CDefaultVstEditor::OnVScroll);
-	// ON_WM_MOUSEWHEEL() (mfcless::Window)
 }
 
 
@@ -197,17 +197,11 @@ void CDefaultVstEditor::CreateControls()
 	}
 	PluginEditorMeasurements m(this);
 
-	mfcless::Rect window;
-	GetWindowRect(&window);
-
-	mfcless::Rect rect;
-	GetClientRect(&rect);
+	mfcless::Rect rect = GetClientRect();
 	int origHeight = rect.bottom;
 
 	// Get parameter scroll bar dimensions and move it to the right side of the window
-	mfcless::Rect scrollRect;
-	paramScroller.GetClientRect(&scrollRect);
-	scrollRect.bottom = rect.bottom;
+	mfcless::Rect scrollRect(0, 0, paramScroller->width(), rect.bottom);
 	scrollRect.MoveToX(rect.right - scrollRect.right);
 
 	// Ignore this space in our calculation from now on.
@@ -221,14 +215,12 @@ void CDefaultVstEditor::CreateControls()
 
 	for(int i = 0; i < NUM_PLUGINEDITOR_PARAMETERS; i++)
 	{
-		try
-		{
-			controls.push_back(new ParamControlSet(this, rect, i, m));
-			rect.OffsetRect(0, m.totalHeight + m.spacing);
-		} catch(mpt::out_of_memory e)
-		{
-			mpt::delete_out_of_memory(e);
-		}
+		auto *set = new ParamControlSet(this, QRect(rect), i, m);
+		controls.push_back(set);
+		const uint32 sliderID = ID_PLUGINEDITOR_SLIDERS_BASE + i, editID = ID_PLUGINEDITOR_EDIT_BASE + i;
+		connect(set->Slider(), &QSlider::valueChanged, this, [this, sliderID] { OnParamSliderChanged(sliderID); });
+		connect(set->Edit(), &QLineEdit::textChanged, this, [this, editID] { OnParamTextboxChanged(editID); });
+		rect.OffsetRect(0, m.totalHeight + m.spacing);
 	}
 
 	// Calculate new ideal window height.
@@ -236,17 +228,15 @@ void CDefaultVstEditor::CreateControls()
 
 	// Update parameter scroll bar height
 	scrollRect.bottom += heightChange;
-	paramScroller.MoveWindow(scrollRect, false);
+	paramScroller->setGeometry(QRect(scrollRect));
 
 	// Resize window height
-	window.bottom += heightChange;
-	MoveWindow(&window);
+	setFixedHeight(height() + heightChange);
 
 	// Set scrollbar page size.
-	SCROLLINFO sbInfo;
-	paramScroller.GetScrollInfo(&sbInfo);
-	sbInfo.nPage = NUM_PLUGINEDITOR_PARAMETERS;
-	paramScroller.SetScrollInfo(&sbInfo);
+	paramScroller->setPageStep(NUM_PLUGINEDITOR_PARAMETERS);
+	paramScroller->setSingleStep(1);
+	connect(paramScroller, &QScrollBar::valueChanged, this, &CDefaultVstEditor::OnVScroll);
 
 	UpdateControls(true);
 }
@@ -258,14 +248,13 @@ void CDefaultVstEditor::UpdateControls(bool updateParamNames)
 	const PlugParamIndex scrollMax = numParams - std::min(numParams, static_cast<PlugParamIndex>(NUM_PLUGINEDITOR_PARAMETERS));
 	LimitMax(paramOffset, scrollMax);
 
-	int curScrollMin, curScrollMax;
-	paramScroller.GetScrollRange(&curScrollMin, &curScrollMax);
-	if(static_cast<PlugParamIndex>(curScrollMax) != scrollMax)
+	if(static_cast<PlugParamIndex>(paramScroller->maximum()) != scrollMax)
 	{
 		// Number of parameters changed - update scrollbar limits
-		paramScroller.SetScrollRange(0, scrollMax);
-		paramScroller.SetScrollPos(paramOffset);
-		paramScroller.EnableWindow(scrollMax > 0 ? true : false);
+		const QSignalBlocker blocker(paramScroller);
+		paramScroller->setRange(0, static_cast<int>(scrollMax));
+		paramScroller->setValue(static_cast<int>(paramOffset));
+		paramScroller->setEnabled(scrollMax > 0);
 		updateParamNames = true;
 	}
 
@@ -278,7 +267,7 @@ void CDefaultVstEditor::UpdateControls(bool updateParamNames)
 		{
 			// This param doesn't exist.
 			controls[i]->EnableControls(false);
-			controls[i]->clear();
+			controls[i]->ResetContent();
 			continue;
 		}
 
@@ -295,114 +284,26 @@ void CDefaultVstEditor::UpdateControls(bool updateParamNames)
 }
 
 
-void CDefaultVstEditor::OnHScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
+void CDefaultVstEditor::OnVScroll(int pos)
 {
-	// Check if any of the value sliders were affected.
-	for(size_t i = 0; i < controls.size(); i++)
-	{
-		if((pScrollBar->GetDlgCtrlID() == controls[i]->GetSliderID()) && (nSBCode != mfcless::ScrollCode::EndScroll))
-		{
-			OnParamSliderChanged(controls[i]->GetSliderID());
-			break;
-		}
-	}
-
-	CAbstractVstEditor::OnHScroll(nSBCode, nPos, pScrollBar);
+	paramOffset = static_cast<PlugParamIndex>(std::max(pos, 0));
+	UpdateControls(true);
 }
 
 
-void CDefaultVstEditor::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
+void CDefaultVstEditor::wheelEvent(QWheelEvent *e)
 {
-	if (pScrollBar == &paramScroller)
-	{
-		// Get the minimum and maximum scrollbar positions.
-		int minpos;
-		int maxpos;
-		pScrollBar->GetScrollRange(&minpos, &maxpos); 
-		//maxpos = pScrollBar->GetScrollLimit();
-
-		SCROLLINFO sbInfo;
-		paramScroller.GetScrollInfo(&sbInfo);
-
-		// Get the current position of scroll box.
-		int curpos = pScrollBar->GetScrollPos();
-
-		// Determine the new position of scroll box.
-		switch(nSBCode)
-		{
-		case mfcless::ScrollCode::Top:			// Scroll to far left.
-			curpos = minpos;
-			break;
-
-		case mfcless::ScrollCode::Bottom:			// Scroll to far right.
-			curpos = maxpos;
-			break;
-
-		case mfcless::ScrollCode::EndScroll:		// End scroll.
-			break;
-
-		case mfcless::ScrollCode::LineUp:		// Scroll left.
-			if(curpos > minpos)
-				curpos--;
-			break;
-
-		case mfcless::ScrollCode::LineDown:		// Scroll right.
-			if(curpos < maxpos)
-				curpos++;
-			break;
-
-		case mfcless::ScrollCode::PageUp:		// Scroll one page left.
-			if(curpos > minpos)
-			{
-				curpos = std::max(minpos, curpos - static_cast<int>(sbInfo.nPage));
-			}
-			break;
-
-		case mfcless::ScrollCode::PageDown:		// Scroll one page right.
-			if(curpos < maxpos)
-			{
-				curpos = std::min(maxpos, curpos + static_cast<int>(sbInfo.nPage));
-			}
-			break;
-
-		case mfcless::ScrollCode::ThumbPosition:	// Scroll to absolute position. nPos is the position
-			curpos = nPos;		// of the scroll box at the end of the drag operation.
-			break;
-
-		case mfcless::ScrollCode::ThumbTrack:		// Drag scroll box to specified position. nPos is the
-			curpos = nPos;		// position that the scroll box has been dragged to.
-			break;
-		}
-
-		// Set the new position of the thumb (scroll box).
-		pScrollBar->SetScrollPos(curpos);
-
-		paramOffset = curpos;
-		UpdateControls(true);
-	}
-
-	CAbstractVstEditor::OnVScroll(nSBCode, nPos, pScrollBar);
-}
-
-
-bool CDefaultVstEditor::OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt)
-{
-	MPT_UNREFERENCED_PARAMETER(nFlags);
-	MPT_UNREFERENCED_PARAMETER(pt);
-
 	// Mouse wheel - scroll parameter list
-	int minpos, maxpos;
-	paramScroller.GetScrollRange(&minpos, &maxpos);
-	if(minpos != maxpos)
+	const int zDelta = e->angleDelta().y();
+	if(paramScroller->minimum() != paramScroller->maximum() && zDelta != 0)
 	{
-		paramOffset -= mpt::signum(zDelta);
-		Limit(paramOffset, PlugParamIndex(minpos), PlugParamIndex(maxpos));
-		paramScroller.SetScrollPos(paramOffset);
-
-		UpdateControls(true);
+		int offset = static_cast<int>(paramOffset) - mpt::signum(zDelta);
+		Limit(offset, paramScroller->minimum(), paramScroller->maximum());
+		paramScroller->setValue(offset);  // updates the controls
+		e->accept();
+		return;
 	}
-
-	return CAbstractVstEditor::OnMouseWheel(nFlags, zDelta, pt);
+	CAbstractVstEditor::wheelEvent(e);
 }
 
 

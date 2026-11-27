@@ -28,6 +28,8 @@ class QLineEdit;
 class QScrollBar;
 class QWidget;
 
+class QPlainTextEdit;
+
 OPENMPT_NAMESPACE_BEGIN
 
 class CSoundFile;
@@ -41,7 +43,7 @@ class COptionsSoundcard: public PropertyPage
 protected:
 	QComboBox *m_CbnDevice = nullptr;
 	QComboBox *m_CbnLatencyMS = nullptr, *m_CbnUpdateIntervalMS = nullptr, *m_CbnMixingFreq = nullptr, *m_CbnChannels = nullptr, *m_CbnSampleFormat = nullptr, *m_CbnDither = nullptr, *m_CbnRecordingChannels = nullptr, *m_CbnRecordingSource = nullptr;
-	QLineEdit *m_EditStatistics = nullptr;
+	QPlainTextEdit *m_EditStatistics = nullptr;
 	QAbstractButton *m_BtnDriverPanel = nullptr;
 
 	QComboBox *m_CbnStoppedMode = nullptr;

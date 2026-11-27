@@ -58,6 +58,9 @@ public:
 	int GetParamValueFromEdit() const;
 
 	int GetSliderID() const { return m_setID; };
+	// mfcless: for connecting the controls' signals.
+	QSlider *Slider() const { return valueSlider; }
+	QLineEdit *Edit() const { return valueEdit; }
 private:
 	int m_setID = 0;  // mfcless: the slider's control ID upstream
 };
@@ -90,11 +93,11 @@ public:
 
 protected:
 
-	void DoDataExchange();
+	void DoDataExchange(DataExchange &dx) override;
 	void OnParamTextboxChanged(uint32 id);
 	void OnParamSliderChanged(uint32 id);
 
-	void OnHScroll(QSlider *slider);
+	// mfcless: the parameter scroll bar moved (upstream's OnVScroll).
 	void OnVScroll(int pos);
 	void wheelEvent(QWheelEvent *e) override;
 

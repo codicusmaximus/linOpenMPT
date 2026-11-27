@@ -18,6 +18,8 @@
 
 class QLineEdit;
 
+class QPlainTextEdit;
+
 OPENMPT_NAMESPACE_BEGIN
 
 class RawGDIDIB;
@@ -32,7 +34,6 @@ public:
 
 protected:
 
-	struct { int32 biWidth = 0, biHeight = 0; } m_bi;  // mfcless: what the bitmap header held that the ripple uses
 	std::unique_ptr<RawGDIDIB> m_bitmapSrc, m_bitmapTarget;
 	std::vector<int32> m_offset1, m_offset2;
 	int32 *m_frontBuf, *m_backBuf;
@@ -45,19 +46,15 @@ protected:
 
 public:
 
-	CRippleBitmap();
+	CRippleBitmap(QWidget *parent = nullptr);
 	~CRippleBitmap();
 	bool Animate();
 
 protected:
-	void OnPaint();
-	bool OnEraseBkgnd(mfcless::DC *) { return true; }
+	void OnPaint() override;
 
-	void OnMouseMove(uint32 nFlags, mfcless::Point point);
-	void OnMouseHover(uint32 nFlags, mfcless::Point point) { OnMouseMove(nFlags, point); }
-	void OnMouseLeave();
-
-	void RegisterMessageMap() override;
+	void OnMouseMove(uint32 nFlags, mfcless::Point point) override;
+	void OnMouseLeave() override;
 };
 
 
@@ -67,7 +64,7 @@ class CAboutDlg : public DialogBase
 protected:
 	CRippleBitmap *m_bmp = nullptr;
 	mfcless::TabControl *m_Tab = nullptr;
-	QLineEdit *m_TabEdit = nullptr;
+	QPlainTextEdit *m_TabEdit = nullptr;
 	uintptr_t m_TimerID = 0;
 	static constexpr uintptr_t TIMERID_ABOUT_DEFAULT = 3;
 
@@ -81,10 +78,10 @@ protected:
 	bool OnInitDialog() override;
 	void OnOK() override;
 	void OnCancel() override;
-	void RegisterMessageMap() override;;
+	void RegisterMessageMap() override;
 	void DoDataExchange(DataExchange &dx) override;
 	void OnTabChange();
-	void OnTimer(uintptr_t nIDEvent);
+	void OnTimer(uintptr_t nIDEvent) override;
 public:
 	static mpt::ustring GetTabText(int tab);
 };

@@ -3,7 +3,7 @@
  * ------------------
  * Purpose: Implementation of the display setup dialog.
  * Notes  : mfcless twin of upstream's mptrack/ColorConfigDlg.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -18,6 +18,10 @@
 #include "Mptrack.h"
 #include "Reporting.h"
 #include "resource.h"
+
+#include <QtCore/QFile>
+#include <QtWidgets/QColorDialog>
+#include <QtWidgets/QFontDialog>
 #include "Settings.h"
 #include "WindowMessages.h"
 #include "../common/mptStringBuffer.h"
@@ -26,23 +30,29 @@
 OPENMPT_NAMESPACE_BEGIN
 
 
-class CFontDialogEx : public CFontDialog
+// mfcless: upstream's CFontDialog (with the size in tenths of a point) is a
+// QFontDialog here.
+static bool ChooseFont(QWidget *parent, FontSetting &font, bool useCurrent)
 {
-	using CFontDialog::CFontDialog;
-
-public:
-	intptr_t DoModal() override
+	QFont initial;
+	if(useCurrent)
 	{
-		// CHOOSEFONT is not compatible with mixed-DPI. Temporarily disable mixed-DPI awareness just for this dialog.
-		// https://blogs.windows.com/windowsdeveloper/2016/10/24/high-dpi-scaling-improvements-for-desktop-applications-and-mixed-mode-dpi-scaling-in-the-windows-10-anniversary-update/
-		HighDPISupport::DPIAwarenessBypass bypass;
-		mfcless::DC * dc = ::GetDC(nullptr);
-		uint32 dpi = ::GetDeviceCaps(dc, LOGPIXELSX);
-		::ReleaseDC(nullptr, dc);
-		m_cf.lpLogFont->lfHeight = -mfcless::MulDiv(m_cf.lpLogFont->lfHeight, dpi, 720);
-		return CFontDialog::DoModal();
+		initial = QFont(mfcless::ToQString(mpt::ToUnicode(font.name)));
+		initial.setPointSizeF((font.size < 10 ? 120 : font.size) / 10.0);
+		initial.setBold(font.flags[FontSetting::Bold]);
+		initial.setItalic(font.flags[FontSetting::Italic]);
 	}
-};
+	bool ok = false;
+	const QFont chosen = QFontDialog::getFont(&ok, initial, parent);
+	if(!ok)
+		return false;
+	font.name = mfcless::FromQString(chosen.family());
+	font.size = static_cast<int32>(std::lround(chosen.pointSizeF() * 10.0));
+	font.flags = FontSetting::None;
+	if(chosen.bold()) font.flags |= FontSetting::Bold;
+	if(chosen.italic()) font.flags |= FontSetting::Italic;
+	return true;
+}
 
 
 static constexpr struct ColorDescriptions
@@ -154,7 +164,7 @@ bool COptionsColors::OnInitDialog()
 {
 	PropertyPage::OnInitDialog();
 	
-	m_pPreviewDib = LoadDib(MAKEINTRESOURCE(IDB_COLORSETUP));
+	m_pPreviewDib = LoadDib(IDB_COLORSETUP);
 	
 	m_ComboDPIAwareness->setUpdatesEnabled(false);
 	static constexpr std::pair<const mpt::uchar *, DPIAwarenessMode> DPIModes[] =
@@ -182,10 +192,7 @@ bool COptionsColors::OnInitDialog()
 	m_ComboItem->setUpdatesEnabled(true);
 	m_ComboItem->setCurrentIndex(0);
 
-	m_BtnPreview->SetWindowPos(nullptr,
-		0, 0,
-		HighDPISupport::ScalePixels(PREVIEWBMP_WIDTH * 2, this) + 2, HighDPISupport::ScalePixels(PREVIEWBMP_HEIGHT * 2, this) + 2,
-		mfcless::swp::NoMove | mfcless::swp::NoZOrder | mfcless::swp::NoActivate);
+	m_BtnPreview->resize(HighDPISupport::ScalePixels(PREVIEWBMP_WIDTH * 2, this) + 2, HighDPISupport::ScalePixels(PREVIEWBMP_HEIGHT * 2, this) + 2);
 	const FlagSet<PatternSetup> patternSetup = TrackerSettings::Instance().patternSetup;
 	if(patternSetup[PatternSetup::HighlightMeasures]) SetChecked(IDC_CHECK1, 1);
 	if(patternSetup[PatternSetup::EffectHighlight]) SetChecked(IDC_CHECK2, 1);
@@ -229,7 +236,7 @@ bool COptionsColors::OnInitDialog()
 
 	m_ComboPreset->setUpdatesEnabled(false);
 	const size_t numItems = 2 + std::size(ColorSchemes);
-	m_ComboPreset->InitStorage(static_cast<int>(numItems), static_cast<uint32>(numItems * 20 * sizeof(mpt::uchar)));
+	MPT_UNUSED(numItems);
 	mfcless::AddItem(m_ComboPreset, UL_("Choose a Colour Scheme..."));
 	mfcless::AddItem(m_ComboPreset, UL_("OpenMPT (Default)"));
 	for(const auto &preset : ColorSchemes)
@@ -336,33 +343,14 @@ bool COptionsColors::OnSetActive()
 
 void COptionsColors::OnChoosePatternFont()
 {
-	LOGFONT lf;
-	MemsetZero(lf);
-	const int32 size = patternFont.size < 10 ? 120 : patternFont.size;
-	// Point size to pixels
-	lf.lfHeight = size;
-	lf.lfWeight = patternFont.flags[FontSetting::Bold] ? FW_BOLD : FW_NORMAL;
-	lf.lfItalic = patternFont.flags[FontSetting::Italic] ? true : false;
-	mpt::String::WriteWinBuf(lf.lfFaceName) = mpt::ToUnicode(patternFont.name);
-	CFontDialogEx dlg(&lf);
-	dlg.m_cf.hwndOwner = this;
-	if(patternFont.name != PATTERNFONT_SMALL && patternFont.name != PATTERNFONT_LARGE)
-	{
-		dlg.m_cf.lpLogFont = &lf;
-	}
-	dlg.m_cf.Flags &= ~CF_EFFECTS;
-	dlg.m_cf.Flags |= /*CF_FIXEDPITCHONLY | */CF_FORCEFONTEXIST | CF_NOSCRIPTSEL;
-	if(dlg.DoModal() == IDOK)
+	FontSetting font = patternFont;
+	if(ChooseFont(this, font, patternFont.name != PATTERNFONT_SMALL && patternFont.name != PATTERNFONT_LARGE))
 	{
 		while(m_ComboFont->count() > 6)
 		{
 			m_ComboFont->removeItem(6);
 		}
-		patternFont.name = mpt::ToUnicode(dlg.GetFaceName());
-		patternFont.size = dlg.GetSize();
-		patternFont.flags = FontSetting::None;
-		if(dlg.IsBold()) patternFont.flags |= FontSetting::Bold;
-		if(dlg.IsItalic()) patternFont.flags |= FontSetting::Italic;
+		patternFont = font;
 		mfcless::AddItem(m_ComboFont, FormatFontName(patternFont));
 		m_ComboFont->setCurrentIndex(6);
 		OnSettingsChanged();
@@ -372,25 +360,8 @@ void COptionsColors::OnChoosePatternFont()
 
 void COptionsColors::OnChooseCommentFont()
 {
-	LOGFONT lf;
-	MemsetZero(lf);
-	// Point size to pixels
-	lf.lfHeight = commentFont.size;
-	lf.lfWeight = commentFont.flags[FontSetting::Bold] ? FW_BOLD : FW_NORMAL;
-	lf.lfItalic = commentFont.flags[FontSetting::Italic] ? true : false;
-	mpt::String::WriteWinBuf(lf.lfFaceName) = mpt::ToUnicode(commentFont.name);
-	CFontDialogEx dlg(&lf);
-	dlg.m_cf.hwndOwner = this;
-	dlg.m_cf.lpLogFont = &lf;
-	dlg.m_cf.Flags &= ~CF_EFFECTS;
-	dlg.m_cf.Flags |= CF_FORCEFONTEXIST | CF_NOSCRIPTSEL;
-	if(dlg.DoModal() == IDOK)
+	if(ChooseFont(this, commentFont, true))
 	{
-		commentFont.name = mpt::ToUnicode(dlg.GetFaceName());
-		commentFont.size = dlg.GetSize();
-		commentFont.flags = FontSetting::None;
-		if(dlg.IsBold()) commentFont.flags |= FontSetting::Bold;
-		if(dlg.IsItalic()) commentFont.flags |= FontSetting::Italic;
 		SetItemText(IDC_BUTTON10, FormatFontName(commentFont));
 		OnSettingsChanged();
 	}
@@ -472,9 +443,8 @@ void COptionsColors::OnDrawItem(int nIdCtl, mfcless::DrawItemInfo * lpdis)
 
 	mfcless::Rect rect = lpdis->rcItem;
 	mfcless::DC * hdc = lpdis->hDC;
-	::DrawEdge(hdc, rect, mfcless::edge::SunkenInner, mfcless::edge::Rect | mfcless::edge::Adjust);
-	StretchDIBits(	hdc,
-					rect.left,
+	hdc->DrawEdge(&rect, mfcless::edge::SunkenInner, mfcless::edge::Rect | mfcless::edge::Adjust);
+	hdc->StretchDib(rect.left,
 					rect.top,
 					rect.Width(),
 					rect.Height(),
@@ -483,9 +453,8 @@ void COptionsColors::OnDrawItem(int nIdCtl, mfcless::DrawItemInfo * lpdis)
 					m_pPreviewDib->bmiHeader.biWidth,
 					PREVIEWBMP_HEIGHT,
 					m_pPreviewDib->lpDibBits,
-					(LPBITMAPINFO)m_pPreviewDib,
-					DIB_RGB_COLORS,
-					mfcless::rop::SrcCopy);
+					m_pPreviewDib->bmiHeader,
+					m_pPreviewDib->bmiColors);
 }
 
 
@@ -501,19 +470,18 @@ static uint32 rgbCustomColors[16] =
 void COptionsColors::SelectColor(int colorIndex)
 {
 	auto &color = CustomColors[colorDefs[m_nColorItem].colorIndex[colorIndex]];
-	CHOOSECOLOR cc;
-	cc.lStructSize = sizeof(CHOOSECOLOR);
-	cc.hwndOwner = this;
-	cc.hInstance = NULL;
-	cc.rgbResult = color;
-	cc.lpCustColors = rgbCustomColors;
-	cc.Flags = CC_RGBINIT | CC_FULLOPEN;
-	cc.lCustData = 0;
-	cc.lpfnHook = nullptr;
-	cc.lpTemplateName = nullptr;
-	if(::ChooseColor(&cc))
+	// The custom colours are kept between calls, as upstream's rgbCustomColors.
+	static bool customColorsSet = false;
+	if(!customColorsSet)
 	{
-		color = cc.rgbResult;
+		for(int i = 0; i < 16 && i < QColorDialog::customCount(); i++)
+			QColorDialog::setCustomColor(i, mfcless::ToQColor(rgbCustomColors[i]));
+		customColorsSet = true;
+	}
+	const QColor chosen = QColorDialog::getColor(mfcless::ToQColor(color), this);
+	if(chosen.isValid())
+	{
+		color = mfcless::Rgb(static_cast<uint8>(chosen.red()), static_cast<uint8>(chosen.green()), static_cast<uint8>(chosen.blue()));
 		m_BtnColor[colorIndex]->SetColor(color);
 		OnSettingsChanged();
 	}
@@ -650,7 +618,7 @@ void COptionsColors::OnClearWindowCache()
 	// First, forget all settings...
 	settings.ForgetAll();
 	// Then make sure they are gone for good.
-	::DeleteFile(theApp.GetSongSettingsFilename().AsNative().c_str());
+	QFile::remove(mfcless::ToQString(theApp.GetSongSettingsFilename().ToUnicode()));
 }
 
 

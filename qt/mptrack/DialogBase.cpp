@@ -96,6 +96,14 @@ void DialogBase::CreateFromTemplate()
 }
 
 
+void DialogBase::AddDynamicItem(uint32 id, QWidget *control)
+{
+	m_items.emplace(id, control);
+	mfcless::ConnectNotifications(control, id, this);
+	control->installEventFilter(this);
+}
+
+
 bool DialogBase::ReplaceItem(uint32 id, QWidget *replacement)
 {
 	auto it = m_items.find(id);

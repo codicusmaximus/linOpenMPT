@@ -3,7 +3,7 @@
  * -------------------
  * Purpose: MIDI Macro Configuration Dialog
  * Notes  : mfcless twin of upstream's mptrack/MIDIMacroDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -131,21 +131,29 @@ bool CMidiMacroSetup::OnInitDialog()
 
 	for(uint32 m = 0; m < kSFxMacros; m++)
 	{
-		m_EditMacro[m].Button.Create(UL_(""), WS_CHILD | WS_VISIBLE | WS_TABSTOP,
-			mfcless::Rect(offsetx, offsety + m * (separatory + height), offsetx + widthMacro, offsety + m * (separatory + height) + height), this, ID_PLUGSELECT + kSFxMacros + m);
-		m_EditMacro[m].Button.SetFont(GetFont());
+		const int top = offsety + m * (separatory + height);
+		auto &edit = m_EditMacro[m];
+		auto *button = new QPushButton(this);
+		button->setGeometry(offsetx, top, widthMacro, height);
+		AddDynamicItem(ID_PLUGSELECT + kSFxMacros + m, button);
+		edit.Button = button;
 
-		m_EditMacro[m].Type.Create(ES_READONLY | WS_CHILD| WS_VISIBLE | WS_TABSTOP | WS_BORDER, 
-			mfcless::Rect(offsetx + separatorx + widthMacro, offsety + m * (separatory + height), offsetx + widthMacro + widthType, offsety + m * (separatory + height) + height), this, ID_PLUGSELECT + kSFxMacros + m);
-		m_EditMacro[m].Type.SetFont(GetFont());
+		edit.Type = new CColourEdit(this);
+		edit.Type->setReadOnly(true);
+		edit.Type->setGeometry(offsetx + separatorx + widthMacro, top, widthType - separatorx, height);
 
-		m_EditMacro[m].Value.Create(ES_CENTER | ES_READONLY | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER, 
-			mfcless::Rect(offsetx + separatorx + widthType + widthMacro, offsety + m * (separatory + height), offsetx + widthMacro + widthType + widthVal, offsety + m * (separatory + height) + height), this, ID_PLUGSELECT + kSFxMacros + m);
-		m_EditMacro[m].Value.SetFont(GetFont());
+		edit.Value = new CColourEdit(this);
+		edit.Value->setReadOnly(true);
+		edit.Value->setAlignment(Qt::AlignCenter);
+		edit.Value->setGeometry(offsetx + separatorx + widthType + widthMacro, top, widthVal - separatorx, height);
 
-		m_EditMacro[m].ShowAll.Create(UL_("Show All..."), WS_CHILD | WS_TABSTOP | WS_VISIBLE,
-			mfcless::Rect(offsetx + separatorx + widthType + widthMacro + widthVal, offsety + m * (separatory + height), offsetx + widthMacro + widthType + widthVal + widthBtn, offsety + m * (separatory + height) + height), this, ID_PLUGSELECT + m);
-		m_EditMacro[m].ShowAll.SetFont(GetFont());
+		auto *showAll = new QPushButton(QStringLiteral("Show All..."), this);
+		showAll->setGeometry(offsetx + separatorx + widthType + widthMacro + widthVal, top, widthBtn - separatorx, height);
+		AddDynamicItem(ID_PLUGSELECT + m, showAll);
+		edit.ShowAll = showAll;
+
+		for(QWidget *w : {static_cast<QWidget *>(edit.Button), static_cast<QWidget *>(edit.Type), static_cast<QWidget *>(edit.Value), static_cast<QWidget *>(edit.ShowAll)})
+			w->show();
 	}
 	UpdateMacroList();
 	m_CbnMacroPlug->Update(PluginComboBox::Config{PluginComboBox::Flags::ShowLibraryNames}, m_SndFile);
@@ -182,11 +190,11 @@ void CMidiMacroSetup::UpdateMacroList(int macro)
 	{
 		// SFx
 		s = mfcless::PrintF(UL_("SF%X"), static_cast<unsigned int>(m));
-		m_EditMacro[m].Button.SetWindowText(s);
+		m_EditMacro[m].Button->setText(mfcless::ToQString(s));
 
 		// Macro value:
-		m_EditMacro[m].Value.SetWindowText(mpt::ToUnicode(mpt::Charset::ASCII, static_cast<std::string>(m_MidiCfg.SFx[m])));
-		m_EditMacro[m].Value.SetBackColor(m == selectedMacro ? mfcless::Rgb(200, 200, 225) : mfcless::Rgb(245, 245, 245));
+		mfcless::SetWindowText(m_EditMacro[m].Value, mpt::ToUnicode(mpt::Charset::ASCII, static_cast<std::string>(m_MidiCfg.SFx[m])));
+		m_EditMacro[m].Value->SetBackColor(m == selectedMacro ? mfcless::Rgb(200, 200, 225) : mfcless::Rgb(245, 245, 245));
 
 		// Macro Type:
 		const ParameteredMacro macroType = m_MidiCfg.GetParameteredMacroType(m);
@@ -200,11 +208,11 @@ void CMidiMacroSetup::UpdateMacroList(int macro)
 			s = m_MidiCfg.GetParameteredMacroName(m);
 			break;
 		}
-		m_EditMacro[m].Type.SetWindowText(s);
-		m_EditMacro[m].Type.SetBackColor(m == selectedMacro ? mfcless::Rgb(200,200,225) : mfcless::Rgb(245,245,245));
+		mfcless::SetWindowText(m_EditMacro[m].Type, s);
+		m_EditMacro[m].Type->SetBackColor(m == selectedMacro ? mfcless::Rgb(200,200,225) : mfcless::Rgb(245,245,245));
 
 		// Param details button:
-		m_EditMacro[m].ShowAll.ShowWindow((macroType == kSFxPlugParam) ? mfcless::show::Show : mfcless::show::Hide);
+		m_EditMacro[m].ShowAll->setVisible(macroType == kSFxPlugParam);
 	}
 }
 
@@ -240,7 +248,7 @@ void CMidiMacroSetup::OnResetCfg()
 
 void CMidiMacroSetup::OnMacroHelp()
 {
-	Reporting::Information(_T("Valid characters in macros:\n\n"
+	Reporting::Information(UL_("Valid characters in macros:\n\n"
 		"0-9, A-F - Raw hex data (4-Bit value)\n"
 		"c - MIDI channel (4-Bit value)\n"
 		"n - Note value\n\n"
@@ -316,7 +324,7 @@ void CMidiMacroSetup::OnSFxEditChanged()
 	uint32 sfx = m_CbnSFx->currentIndex();
 	if(sfx < m_MidiCfg.SFx.size())
 	{
-		if(ValidateMacroString(m_EditSFx, m_MidiCfg.SFx[sfx], true, true, false))
+		if(ValidateMacroString(*m_EditSFx, m_MidiCfg.SFx[sfx], true, true, false))
 		{
 			mpt::ustring s;
 			mfcless::GetWindowText(m_EditSFx, s);
@@ -336,7 +344,7 @@ void CMidiMacroSetup::OnZxxEditChanged()
 	uint32 zxx = m_CbnZxx->currentIndex();
 	if(zxx < m_MidiCfg.Zxx.size())
 	{
-		if(ValidateMacroString(m_EditZxx, m_MidiCfg.Zxx[zxx], false, true, false))
+		if(ValidateMacroString(*m_EditZxx, m_MidiCfg.Zxx[zxx], false, true, false))
 		{
 			mpt::ustring s;
 			mfcless::GetWindowText(m_EditZxx, s);
@@ -387,9 +395,8 @@ void CMidiMacroSetup::OnPlugChanged()
 	if (pVstPlugin != nullptr)
 	{
 		m_CbnMacroParam->setUpdatesEnabled(false);
-		m_CbnMacroParam->Clear();
 		m_CbnMacroParam->clear();
-		AddPluginParameternamesToCombobox(m_CbnMacroParam, *pVstPlugin);
+		AddPluginParameternamesToCombobox(*m_CbnMacroParam, *pVstPlugin);
 		m_CbnMacroParam->setUpdatesEnabled(true);
 
 		int param = m_MidiCfg.MacroToPlugParam(m_CbnSFx->currentIndex());

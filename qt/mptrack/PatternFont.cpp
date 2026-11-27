@@ -3,7 +3,8 @@
  * ---------------
  * Purpose: Code for creating pattern font bitmaps
  * Notes  : mfcless twin of upstream's mptrack/PatternFont.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft: the custom font is drawn
+ *          with QPainter instead of GDI.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -16,6 +17,10 @@
 #include "Mainfrm.h"
 #include "TrackerSettings.h"
 #include "../soundlib/Tables.h"
+
+#include <QtGui/QFontMetrics>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -88,29 +93,45 @@ const PATTERNFONT *PatternFont::currentFont = nullptr;
 static MODPLUGDIB customFontBitmap;
 static MODPLUGDIB customFontBitmapASCII;
 
-static void DrawChar(mfcless::DC * hDC, WCHAR ch, int x, int y, int w, int h)
+// mfcless: the custom font is drawn with a QPainter into a white image, and
+// turned into upstream's 4-bit bitmap (black 0, white 15) afterwards.
+static void DrawChar(QPainter &painter, QChar ch, int x, int y, int w, int h)
 {
-	mfcless::Rect rect(x, y, x + w, y + h);
-	::DrawTextW(hDC, &ch, 1, &rect, mfcless::dt::Center | mfcless::dt::VCenter | mfcless::dt::SingleLine | mfcless::dt::NoPrefix);
+	painter.drawText(QRect(x, y, w, h), Qt::AlignCenter | Qt::TextSingleLine, QString(ch));
 }
 
-static void DrawChar(mfcless::DC * hDC, CHAR ch, int x, int y, int w, int h)
+static void DrawChar(QPainter &painter, char ch, int x, int y, int w, int h)
 {
-	mfcless::Rect rect(x, y, x + w, y + h);
-	::DrawTextA(hDC, &ch, 1, &rect, mfcless::dt::Center | mfcless::dt::VCenter | mfcless::dt::SingleLine | mfcless::dt::NoPrefix);
+	DrawChar(painter, QChar::fromLatin1(ch), x, y, w, h);
 }
 
 #if MPT_CXX_AT_LEAST(20) && MPT_USTRING_MODE_UTF8
-static void DrawChar(mfcless::DC * hDC, char8_t ch8, int x, int y, int w, int h)
+static void DrawChar(QPainter &painter, char8_t ch8, int x, int y, int w, int h)
 {
-	mfcless::Rect rect(x, y, x + w, y + h);
-	CHAR ch = mpt::unsafe_char_convert<char>(ch8);
-	::DrawTextA(hDC, &ch, 1, &rect, mfcless::dt::Center | mfcless::dt::VCenter | mfcless::dt::SingleLine | mfcless::dt::NoPrefix);
+	DrawChar(painter, mpt::unsafe_char_convert<char>(ch8), x, y, w, h);
 }
 #endif
 
+// The image as a top-down 4-bit bitmap of width x height (the width a multiple of 8).
+static uint8 *ToNibbles(const QImage &image, int width, int height)
+{
+	uint8 *bits = new uint8[width * height / 2];
+	for(int y = 0; y < height; y++)
+	{
+		const QRgb *line = reinterpret_cast<const QRgb *>(image.constScanLine(y));
+		uint8 *out = bits + y * width / 2;
+		for(int x = 0; x < width; x += 2)
+		{
+			const uint8 hi = (x < image.width() && qGray(line[x]) < 128) ? 0x0 : 0xF;
+			const uint8 lo = (x + 1 < image.width() && qGray(line[x + 1]) < 128) ? 0x0 : 0xF;
+			out[x / 2] = static_cast<uint8>((hi << 4) | lo);
+		}
+	}
+	return bits;
+}
+
 template<typename char_t>
-static void DrawString(mfcless::DC * hDC, const char_t *text, int len, int x, int y, int w, int h)
+static void DrawString(QPainter &hDC, const char_t *text, int len, int x, int y, int w, int h)
 {
 	for(int i = 0; i < len; i++)
 	{
@@ -163,11 +184,12 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 		customFontBitmap.bmiHeader.biWidth *= builtInFontSize;
 		customFontBitmap.bmiHeader.biHeight *= builtInFontSize;
 		customFontBitmap.bmiHeader.biSizeImage = customFontBitmap.bmiHeader.biWidth * customFontBitmap.bmiHeader.biHeight / 2;
-		customFontBitmap.lpDibBits = new uint8[customFontBitmap.bmiHeader.biSizeImage];
+		uint8 *scaledBits = new uint8[customFontBitmap.bmiHeader.biSizeImage];
+		customFontBitmap.lpDibBits = scaledBits;
 
 		// Upscale the image (ugly code ahead)
 		const uint8 *origPixels = CMainFrame::bmpNotes->lpDibBits;
-		uint8 *scaledPixels = customFontBitmap.lpDibBits;
+		uint8 *scaledPixels = scaledBits;
 		const int bytesPerLine = customFontBitmap.bmiHeader.biWidth / 2, scaleBytes = bytesPerLine * builtInFontSize;
 		bool outPos = false;
 		for(int y = 0; y < CMainFrame::bmpNotes->bmiHeader.biHeight; y++, scaledPixels += scaleBytes - bytesPerLine)
@@ -245,8 +267,8 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 		const int bmWidth2 = pf.dib->bmiHeader.biWidth / 2;
 		for(int y = 0, x = (customFontBitmap.bmiHeader.biHeight - pf.nClrY - pf.nHeight) * bmWidth2 + (pf.nClrX + pf.nWidth - 4) / 2; y < pf.nHeight; y++, x += bmWidth2)
 		{
-			pf.dib->lpDibBits[x] = 0xEC;
-			pf.dib->lpDibBits[x + 1] = 0xC4;
+			scaledBits[x] = 0xEC;
+			scaledBits[x + 1] = 0xC4;
 		}
 
 		return;
@@ -254,17 +276,18 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 
 	// Create our own font!
 
-	mfcless::DC hDC;
-	hDC.CreateCompatibleDC(mfcless::DC::FromHandle(::GetDC(hwnd)));
 	// Point size to pixels
 	font.size = -mfcless::MulDiv(font.size, dpi, 720);
 
-	QFont gdiFont;
-	gdiFont.CreateFont(font.size, 0, 0, 0, font.flags[FontSetting::Bold] ? FW_BOLD : FW_NORMAL, font.flags[FontSetting::Italic] ? true : false, false, false, DEFAULT_CHARSET, OUT_RASTER_PRECIS, CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY, FIXED_PITCH | FF_DONTCARE, mpt::ToUnicode(font.name));
-	QFont *oldFont = hDC.SelectObject(&gdiFont);
+	QFont gdiFont(mfcless::ToQString(mpt::ToUnicode(font.name)));
+	gdiFont.setPixelSize(std::max(1, -font.size));
+	gdiFont.setBold(font.flags[FontSetting::Bold]);
+	gdiFont.setItalic(font.flags[FontSetting::Italic]);
+	gdiFont.setFixedPitch(true);
+	gdiFont.setStyleStrategy(QFont::NoAntialias);
 
-	mfcless::Point pt = hDC.GetTextExtent(UL_("W"));
-	const int charWidth = pt.x, charHeight = pt.y;
+	const QFontMetrics metrics(gdiFont);
+	const int charWidth = std::max(1, metrics.horizontalAdvance(u'W')), charHeight = std::max(1, metrics.height());
 	const int spacing = charWidth / 4;
 	const int width = charWidth * 12 + spacing * 2 + 4, height = charHeight * 21;
 
@@ -312,33 +335,22 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 
 	{
 
-	pf.dib->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	pf.dib->bmiHeader.biSize = 40;
 	pf.dib->bmiHeader.biWidth = ((width + 7) & ~7);	// 4-byte alignment
 	pf.dib->bmiHeader.biHeight = -(int32)height;
 	pf.dib->bmiHeader.biSizeImage = pf.dib->bmiHeader.biWidth * height / 2;
 	pf.dib->bmiHeader.biPlanes = 1;
 	pf.dib->bmiHeader.biBitCount = 4;
-	pf.dib->bmiHeader.biCompression = BI_RGB;
-	pf.dib->lpDibBits = new uint8[pf.dib->bmiHeader.biSizeImage];
+	pf.dib->bmiHeader.biCompression = 0;
 	pf.dib->bmiColors[0] = rgb2quad(mfcless::Rgb(0x00, 0x00, 0x00));
 	pf.dib->bmiColors[15] = rgb2quad(mfcless::Rgb(0xFF, 0xFF, 0xFF));
 
-	uint8 *data = nullptr;
-	mfcless::Bitmap * bitmap = ::CreateDIBSection(hDC, (BITMAPINFO *)&pf.dib->bmiHeader, DIB_RGB_COLORS, (void **)&data, nullptr, 0);
-	if(!bitmap)
+	QImage image(pf.dib->bmiHeader.biWidth, height, QImage::Format_RGB32);
+	image.fill(Qt::white);
 	{
-		hDC.SelectObject(oldFont);
-		gdiFont.DeleteObject();
-		hDC.DeleteDC();
-		currentFont = &gDefaultPatternFont;
-		return;
-	}
-	HGDIOBJ oldBitmap = hDC.SelectObject(bitmap);
-
-	hDC.FillSolidRect(0, 0, width - 4, height, mfcless::Rgb(0xFF, 0xFF, 0xFF));
-	hDC.SetTextColor(mfcless::Rgb(0x00, 0x00, 0x00));
-	hDC.SetBkColor(mfcless::Rgb(0xFF, 0xFF, 0xFF));
-	hDC.SetTextAlign(TA_TOP | TA_LEFT);
+	QPainter hDC(&image);
+	hDC.setFont(gdiFont);
+	hDC.setPen(Qt::black);
 
 	// Empty cells (dots - i-th bit set = dot in the i-th column of a cell)
 	const uint8 dots[5] = { 1 | 2 | 4, 2 | 4, 2 | 4, 1, 1 | 2 };
@@ -406,18 +418,16 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 	DrawChar(hDC, '*', pf.nAlphaNZ_X, pf.nAlphaNZ_Y + 16 * charHeight, charWidth, charHeight);
 	DrawChar(hDC, 'd', pf.nAlphaAM_X, pf.nAlphaAM_Y + 17 * charHeight, charWidth, charHeight);
 
-	::GdiFlush();
-	std::memcpy(pf.dib->lpDibBits, data, pf.dib->bmiHeader.biSizeImage);
+	}
+	uint8 *bits = ToNibbles(image, pf.dib->bmiHeader.biWidth, height);
+	pf.dib->lpDibBits = bits;
 	// Create 4-pixel border
 	const int bmWidth2 = pf.dib->bmiHeader.biWidth / 2;
 	for(int y = 0, x = width / 2 - 2; y < height; y++, x += bmWidth2)
 	{
-		pf.dib->lpDibBits[x] = 0xEC;
-		pf.dib->lpDibBits[x + 1] = 0xC4;
+		bits[x] = 0xEC;
+		bits[x + 1] = 0xC4;
 	}
-
-	hDC.SelectObject(oldBitmap);
-	DeleteBitmap(bitmap);
 
 	}
 
@@ -425,51 +435,29 @@ void PatternFont::UpdateFont(QWidget * hwnd)
 
 		pf.dibASCII = &customFontBitmapASCII;
 
-		pf.dibASCII->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		pf.dibASCII->bmiHeader.biSize = 40;
 		pf.dibASCII->bmiHeader.biWidth = ((charWidth * 128 + 7) & ~7);	// 4-byte alignment
 		pf.dibASCII->bmiHeader.biHeight = -(int32)charHeight;
 		pf.dibASCII->bmiHeader.biSizeImage = pf.dibASCII->bmiHeader.biWidth * charHeight / 2;
 		pf.dibASCII->bmiHeader.biPlanes = 1;
 		pf.dibASCII->bmiHeader.biBitCount = 4;
-		pf.dibASCII->bmiHeader.biCompression = BI_RGB;
-		pf.dibASCII->lpDibBits = new uint8[pf.dibASCII->bmiHeader.biSizeImage];
+		pf.dibASCII->bmiHeader.biCompression = 0;
 		pf.dibASCII->bmiColors[0] = rgb2quad(mfcless::Rgb(0x00, 0x00, 0x00));
 		pf.dibASCII->bmiColors[15] = rgb2quad(mfcless::Rgb(0xFF, 0xFF, 0xFF));
 
-		uint8 *data = nullptr;
-		mfcless::Bitmap * bitmap = ::CreateDIBSection(hDC, (BITMAPINFO *)&pf.dibASCII->bmiHeader, DIB_RGB_COLORS, (void **)&data, nullptr, 0);
-		if(!bitmap)
+		QImage image(pf.dibASCII->bmiHeader.biWidth, charHeight, QImage::Format_RGB32);
+		image.fill(Qt::white);
 		{
-			hDC.SelectObject(oldFont);
-			gdiFont.DeleteObject();
-			hDC.DeleteDC();
-			currentFont = &gDefaultPatternFont;
-			return;
+			QPainter hDC(&image);
+			hDC.setFont(gdiFont);
+			hDC.setPen(Qt::black);
+			for(uint32 c = 32; c < 128; ++c)
+			{
+				DrawChar(hDC, mpt::unsafe_char_convert<char>(static_cast<char32_t>(c)), charWidth * c, 0, charWidth, charHeight);
+			}
 		}
-		HGDIOBJ oldBitmap = hDC.SelectObject(bitmap);
-
-		hDC.FillSolidRect(0, 0, pf.dibASCII->bmiHeader.biWidth, -pf.dibASCII->bmiHeader.biHeight, mfcless::Rgb(0xFF, 0xFF, 0xFF));
-		hDC.SetTextColor(mfcless::Rgb(0x00, 0x00, 0x00));
-		hDC.SetBkColor(mfcless::Rgb(0xFF, 0xFF, 0xFF));
-		hDC.SetTextAlign(TA_TOP | TA_LEFT);
-
-		for(uint32 c = 32; c < 128; ++c)
-		{
-			DrawChar(hDC, mpt::unsafe_char_convert<char>(static_cast<char32_t>(c)), charWidth * c, 0, charWidth, charHeight);
-		}
-		::GdiFlush();
-
-		std::memcpy(pf.dibASCII->lpDibBits, data, pf.dibASCII->bmiHeader.biSizeImage);
-
-		hDC.SelectObject(oldBitmap);
-		DeleteBitmap(bitmap);
-
+		pf.dibASCII->lpDibBits = ToNibbles(image, pf.dibASCII->bmiHeader.biWidth, charHeight);
 	}
-
-	hDC.SelectObject(oldFont);
-	gdiFont.DeleteObject();
-
-	hDC.DeleteDC();
 }
 
 

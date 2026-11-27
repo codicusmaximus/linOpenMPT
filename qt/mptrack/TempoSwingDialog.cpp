@@ -3,7 +3,8 @@
  * --------------------
  * Purpose: Implementation of the tempo swing configuration dialog.
  * Notes  : mfcless twin of upstream's mptrack/TempoSwingDialog.cpp.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft: the rows of sliders are in
+ *          a widget inside the container frame, which the scroll bar moves.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -21,13 +22,13 @@ OPENMPT_NAMESPACE_BEGIN
 void CTempoSwingDlg::RowCtls::SetValue(TempoSwing::value_type v)
 {
 	int32 val = Util::muldivr(static_cast<int32>(v) - TempoSwing::Unity, CTempoSwingDlg::SliderUnity, TempoSwing::Unity);
-	valueSlider.SetPos(val);
+	valueSlider->setValue(val);
 }
 
 
 TempoSwing::value_type CTempoSwingDlg::RowCtls::GetValue() const
 {
-	return Util::muldivr(valueSlider.GetPos(), TempoSwing::Unity, SliderUnity) + TempoSwing::Unity;
+	return Util::muldivr(valueSlider->value(), TempoSwing::Unity, SliderUnity) + TempoSwing::Unity;
 }
 
 
@@ -94,7 +95,6 @@ struct TempoSwingMeasurements
 void CTempoSwingDlg::RegisterMessageMap()
 {
 	DialogBase::RegisterMessageMap();
-	AddScroll(Qt::Vertical, &CTempoSwingDlg::OnVScroll);
 	AddCommand(IDC_BUTTON1, &CTempoSwingDlg::OnReset);
 	AddCommand(IDC_BUTTON2, &CTempoSwingDlg::OnUseGlobal);
 	AddCommand(IDC_CHECK1, &CTempoSwingDlg::OnToggleGroup);
@@ -105,7 +105,6 @@ int CTempoSwingDlg::m_groupSize = 1;
 
 CTempoSwingDlg::CTempoSwingDlg(QWidget *parent, const TempoSwing &currentTempoSwing, CSoundFile &sndFile, PATTERNINDEX pattern)
 	: DialogBase(IDD_TEMPO_SWING, parent)
-	, m_container(*this)
 	, m_scrollPos(0)
 	, m_tempoSwing(currentTempoSwing)
 	, m_origTempoSwing(pattern == PATTERNINDEX_INVALID ? sndFile.m_tempoSwing : sndFile.Patterns[pattern].GetTempoSwing())
@@ -128,72 +127,69 @@ void CTempoSwingDlg::DoDataExchange(DataExchange &dx)
 bool CTempoSwingDlg::OnInitDialog()
 {
 	DialogBase::OnInitDialog();
-	
-	TempoSwingMeasurements m{this};
-	mfcless::Rect windowRect, rect;
-	GetWindowRect(windowRect);
-	GetClientRect(rect);
-	windowRect.bottom = windowRect.top + windowRect.Height() - rect.Height();
 
-	mfcless::Rect mainWindowRect;
-	CMainFrame::GetMainFrame()->GetClientRect(mainWindowRect);
+	TempoSwingMeasurements m{this};
+	mfcless::Rect rect = GetClientRect();
+
+	const int mainWindowHeight = CMainFrame::GetMainFrame()->height();
+	const int frameHeight = frameGeometry().height() - height();
 
 	const int realHeight = static_cast<int>(m_tempoSwing.size()) * m.rowHeight;
-	const int displayHeight = std::min(realHeight, static_cast<int>(mainWindowRect.bottom - windowRect.Height() - m.paddingTop - m.footerHeight));
+	const int displayHeight = std::max(m.rowHeight, std::min(realHeight, mainWindowHeight - frameHeight - m.paddingTop - m.footerHeight));
 
-	mfcless::Rect containerRect;
-	m_container.GetClientRect(containerRect);
-	containerRect.bottom = displayHeight;
-	m_container.SetWindowPos(nullptr, 0, m.paddingTop, rect.right - m.scrollbarWidth, containerRect.bottom, mfcless::swp::NoZOrder);
-	m_container.ModifyStyleEx(0, WS_EX_CONTROLPARENT, 0);
+	const int containerWidth = rect.right - m.scrollbarWidth;
+	m_container->setGeometry(0, m.paddingTop, containerWidth, displayHeight);
+	m_content = new QWidget(m_container);
+	m_content->setGeometry(0, 0, containerWidth, realHeight);
+	m_content->show();
 
 	// Need scrollbar?
 	if(realHeight > displayHeight)
 	{
-		SCROLLINFO info;
-		info.cbSize = sizeof(info);
-		info.fMask = SIF_ALL;
-		info.nMin = 0;
-		info.nMax = realHeight;
-		info.nPage = displayHeight;
-		info.nTrackPos = info.nPos = 0;
-		m_scrollBar->SetScrollInfo(&info, false);
-
-		mfcless::Rect scrollRect;
-		m_scrollBar->GetClientRect(scrollRect);
-		m_scrollBar->SetWindowPos(nullptr, containerRect.right, m.paddingTop, scrollRect.Width(), displayHeight, mfcless::swp::NoZOrder);
+		m_scrollBar->setRange(0, realHeight - displayHeight);
+		m_scrollBar->setPageStep(displayHeight);
+		m_scrollBar->setSingleStep(1);
+		m_scrollBar->setValue(0);
+		m_scrollBar->setGeometry(containerWidth, m.paddingTop, m_scrollBar->width(), displayHeight);
+		connect(m_scrollBar, &QScrollBar::valueChanged, this, [this](int pos) {
+			m_content->move(0, -pos);
+			m_scrollPos = pos;
+		});
 	} else
 	{
 		m_scrollBar->setVisible(false);
 	}
 
-	rect.DeflateRect(m.paddingX, 0, m.paddingX + m.scrollbarWidth, 0);
+	rect = mfcless::Rect(0, 0, containerWidth, realHeight);
+	rect.DeflateRect(m.paddingX, 0, m.paddingX, 0);
 
-	ShowItem(IDC_BUTTON2, (m_pattern != PATTERNINDEX_INVALID) ? mfcless::show::Show : mfcless::show::Hide);
+	ShowItem(IDC_BUTTON2, m_pattern != PATTERNINDEX_INVALID);
 
 	m_controls.resize(m_tempoSwing.size());
-	QFont *font = GetFont();
 	for(size_t i = 0; i < m_controls.size(); i++)
 	{
 		m_controls[i] = std::make_unique<RowCtls>();
 		auto &r = m_controls[i];
 		// Row label
-		r->rowLabel.Create(MPT_UFORMAT("Row {}:")(i + 1), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, m.RowLabelRect(rect), &m_container);
-		r->rowLabel.SetFont(font);
+		r->rowLabel = new QLabel(mfcless::ToQString(MPT_UFORMAT("Row {}:")(i + 1)), m_content);
+		r->rowLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		r->rowLabel->setGeometry(QRect(m.RowLabelRect(rect)));
 
 		// Value label
-		r->valueLabel.Create(UL_("100%"), WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, m.ValueLabelRect(rect), &m_container);
-		r->valueLabel.SetFont(font);
+		r->valueLabel = new QLabel(QStringLiteral("100%"), m_content);
+		r->valueLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+		r->valueLabel->setGeometry(QRect(m.ValueLabelRect(rect)));
 
 		// Value slider
-		r->valueSlider.Create(WS_CHILD | WS_VISIBLE | WS_TABSTOP | TBS_TOOLTIPS | TBS_AUTOTICKS, m.ValueSliderRect(rect), &m_container, 0xFFFF);
-		r->valueSlider.SetFont(font);
-		r->valueSlider.SetRange(-SliderResolution / 2, SliderResolution / 2);
-		r->valueSlider.SetTicFreq(SliderResolution / 8);
-		r->valueSlider.SetPageSize(SliderResolution / 8);
-		r->valueSlider.SetPos(1);	// Work around https://bugs.winehq.org/show_bug.cgi?id=41909
-		SetWindowLongPtr(r->valueSlider, GWLP_USERDATA, i);
+		r->valueSlider = new QSlider(Qt::Horizontal, m_content);
+		r->valueSlider->setGeometry(QRect(m.ValueSliderRect(rect)));
+		r->valueSlider->setRange(-SliderResolution / 2, SliderResolution / 2);
+		r->valueSlider->setTickPosition(QSlider::TicksBelow);
+		r->valueSlider->setTickInterval(SliderResolution / 8);
+		r->valueSlider->setPageStep(SliderResolution / 8);
 		r->SetValue(m_tempoSwing[i]);
+		QSlider *slider = r->valueSlider;
+		connect(slider, &QSlider::valueChanged, this, [this, slider] { if(!m_settingSliders) OnSliderChanged(slider); });
 		rect.MoveToY(rect.top + m.rowHeight);
 	}
 
@@ -201,22 +197,18 @@ bool CTempoSwingDlg::OnInitDialog()
 	SetItemInt(IDC_EDIT1, m_groupSize);
 	OnToggleGroup();
 
-	m_container.OnHScroll(0, 0, reinterpret_cast<CScrollBar *>(&(m_controls[0]->valueSlider)));
-	rect.MoveToY(m.paddingTop + containerRect.bottom + m.paddingY);
+	OnSliderChanged(nullptr);
 	{
 		// Buttons at dialog bottom
-		const int cxEdge = HighDPISupport::GetSystemMetrics(HighDPISupport::SystemMetric::CyHScroll, GetDPI());
-		mfcless::Rect buttonRect;
+		const int buttonY = m.paddingTop + displayHeight + m.paddingY;
 		for(auto i : { IDOK, IDCANCEL, IDC_BUTTON2 })
 		{
-			auto wnd = GetDlgItem(i);
-			wnd->GetWindowRect(buttonRect);
-			wnd->SetWindowPos(nullptr, buttonRect.left - windowRect.left - cxEdge, rect.top, 0, 0, mfcless::swp::NoSize | mfcless::swp::NoActivate | mfcless::swp::NoZOrder);
+			if(auto wnd = GetDlgItem(i))
+				wnd->move(wnd->x(), buttonY);
 		}
 	}
 
-	windowRect.bottom += displayHeight + m.paddingTop + m.footerHeight;
-	SetWindowPos(nullptr, 0, 0, windowRect.Width(), windowRect.Height(), mfcless::swp::NoMove | mfcless::swp::NoActivate | mfcless::swp::NoZOrder);
+	setFixedSize(width(), displayHeight + m.paddingTop + m.footerHeight);
 
 	return true;
 }
@@ -225,29 +217,6 @@ bool CTempoSwingDlg::OnInitDialog()
 void CTempoSwingDlg::OnDPIChanged()
 {
 	DialogBase::OnDPIChanged();
-
-	// For some reason, these controls are not sized automatically and lose their intended font because they are parented in the static text field...
-	TempoSwingMeasurements m{this};
-	QFont *font = GetFont();
-	auto dwp = ::BeginDeferWindowPos(static_cast<int>(m_controls.size() * 3));
-	mfcless::Rect rect;
-	m_container.GetClientRect(rect);
-	rect.DeflateRect(m.paddingX, 0, m.paddingX + m.scrollbarWidth, 0);
-	for(auto &r: m_controls)
-	{
-		r->rowLabel.SetFont(font);
-		r->valueLabel.SetFont(font);
-		r->valueSlider.SetFont(font);
-
-		const mfcless::Rect rowLabelRect = m.RowLabelRect(rect);
-		const mfcless::Rect valueLabelRect = m.ValueLabelRect(rect);
-		const mfcless::Rect valueSliderRect = m.ValueSliderRect(rect);
-		::DeferWindowPos(dwp, r->rowLabel, nullptr, rowLabelRect.left, rowLabelRect.top, rowLabelRect.Width(), rowLabelRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
-		::DeferWindowPos(dwp, r->valueLabel, nullptr, valueLabelRect.left, valueLabelRect.top, valueLabelRect.Width(), valueLabelRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
-		::DeferWindowPos(dwp, r->valueSlider, nullptr, valueSliderRect.left, valueSliderRect.top, valueSliderRect.Width(), valueSliderRect.Height(), mfcless::swp::NoActivate | mfcless::swp::NoZOrder | mfcless::swp::NoCopyBits);
-		rect.MoveToY(rect.top + m.rowHeight);
-	}
-	::EndDeferWindowPos(dwp);
 }
 
 
@@ -294,11 +263,13 @@ void CTempoSwingDlg::OnClose()
 
 void CTempoSwingDlg::OnReset()
 {
+	m_settingSliders = true;
 	for(auto &control : m_controls)
 	{
-		control->valueSlider.SetPos(0);
+		control->valueSlider->setValue(0);
 	}
-	m_container.OnHScroll(0, 0, reinterpret_cast<CScrollBar *>(&(m_controls[0]->valueSlider)));
+	m_settingSliders = false;
+	OnSliderChanged(nullptr);
 }
 
 
@@ -309,11 +280,13 @@ void CTempoSwingDlg::OnUseGlobal()
 		OnReset();
 		return;
 	}
+	m_settingSliders = true;
 	for(size_t i = 0; i < m_controls.size(); i++)
 	{
 		m_controls[i]->SetValue(m_sndFile.m_tempoSwing[i % m_sndFile.m_tempoSwing.size()]);
 	}
-	m_container.OnHScroll(0, 0, reinterpret_cast<CScrollBar *>(&(m_controls[0]->valueSlider)));
+	m_settingSliders = false;
+	OnSliderChanged(nullptr);
 }
 
 
@@ -332,152 +305,55 @@ void CTempoSwingDlg::OnGroupChanged()
 }
 
 
-void CTempoSwingDlg::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *pScrollBar)
+// Upstream's SliderContainer::OnHScroll (the sliders' parent).
+void CTempoSwingDlg::OnSliderChanged(QSlider *slider)
 {
-	if(pScrollBar == &m_scrollBar)
-	{
-		// Get the minimum and maximum scrollbar positions.
-		int minpos;
-		int maxpos;
-		pScrollBar->GetScrollRange(&minpos, &maxpos);
-
-		SCROLLINFO sbInfo;
-		pScrollBar->GetScrollInfo(&sbInfo);
-
-		// Get the current position of scroll box.
-		int curpos = pScrollBar->GetScrollPos();
-
-		// Determine the new position of scroll box.
-		switch(nSBCode)
-		{
-		case mfcless::ScrollCode::Top:			// Scroll to far left.
-			curpos = minpos;
-			break;
-
-		case mfcless::ScrollCode::Bottom:			// Scroll to far right.
-			curpos = maxpos;
-			break;
-
-		case mfcless::ScrollCode::EndScroll:		// End scroll.
-			m_container.Invalidate();
-			break;
-
-		case mfcless::ScrollCode::LineUp:		// Scroll left.
-			if(curpos > minpos)
-				curpos--;
-			break;
-
-		case mfcless::ScrollCode::LineDown:		// Scroll right.
-			if(curpos < maxpos)
-				curpos++;
-			break;
-
-		case mfcless::ScrollCode::PageUp:		// Scroll one page left.
-			if(curpos > minpos)
-			{
-				curpos = std::max(minpos, curpos - static_cast<int>(sbInfo.nPage));
-			}
-			break;
-
-		case mfcless::ScrollCode::PageDown:		// Scroll one page right.
-			if(curpos < maxpos)
-			{
-				curpos = std::min(maxpos, curpos + static_cast<int>(sbInfo.nPage));
-			}
-			break;
-
-		case mfcless::ScrollCode::ThumbPosition:	// Scroll to absolute position. nPos is the position
-			curpos = nPos;		// of the scroll box at the end of the drag operation.
-			break;
-
-		case mfcless::ScrollCode::ThumbTrack:		// Drag scroll box to specified position. nPos is the
-			curpos = nPos;		// position that the scroll box has been dragged to.
-			break;
-		}
-
-		// Set the new position of the thumb (scroll box).
-		pScrollBar->SetScrollPos(curpos);
-
-		m_container.ScrollWindowEx(0, m_scrollPos - curpos, nullptr, nullptr, nullptr, nullptr, SW_SCROLLCHILDREN | SW_INVALIDATE | SW_ERASE);
-		m_scrollPos = curpos;
-	}
-
-	DialogBase::OnVScroll(nSBCode, nPos, pScrollBar);
-}
-
-
-// Scrollable container for the sliders
-BEGIN_MESSAGE_MAP(CTempoSwingDlg::SliderContainer, CStatic)
-	//{{AFX_MSG_MAP(CTempoSwingDlg::SliderContainer)
-	ON_WM_HSCROLL()
-	ON_NOTIFY_EX(TTN_NEEDTEXT, 0, &CTempoSwingDlg::SliderContainer::OnToolTipNotify)
-	//}}AFX_MSG_MAP
-END_MESSAGE_MAP()
-
-
-void CTempoSwingDlg::SliderContainer::OnHScroll(uint32 nSBCode, uint32 nPos, CScrollBar *pScrollBar)
-{
-	if(m_parent.m_checkGroup->isChecked() != 0)
+	if(slider != nullptr && m_checkGroup->isChecked())
 	{
 		// Edit groups
 		size_t editedGroup = 0;
-		int editedValue = reinterpret_cast<QSlider *>(pScrollBar)->GetPos();
-		for(size_t i = 0; i < m_parent.m_controls.size(); i++)
+		const int editedValue = slider->value();
+		for(size_t i = 0; i < m_controls.size(); i++)
 		{
-			if(m_parent.m_controls[i]->valueSlider.m_hWnd == pScrollBar)
+			if(m_controls[i]->valueSlider == slider)
 			{
-				editedGroup = (i / m_parent.m_groupSize) % 2u;
+				editedGroup = (i / m_groupSize) % 2u;
 				break;
 			}
 		}
-		for(size_t i = 0; i < m_parent.m_controls.size(); i++)
+		m_settingSliders = true;
+		for(size_t i = 0; i < m_controls.size(); i++)
 		{
-			if((i / m_parent.m_groupSize) % 2u == editedGroup)
+			if((i / m_groupSize) % 2u == editedGroup)
 			{
-				m_parent.m_controls[i]->valueSlider.SetPos(editedValue);
+				m_controls[i]->valueSlider->setValue(editedValue);
 			}
 		}
+		m_settingSliders = false;
 	}
 
-	for(size_t i = 0; i < m_parent.m_controls.size(); i++)
+	for(size_t i = 0; i < m_controls.size(); i++)
 	{
-		m_parent.m_tempoSwing[i] = m_parent.m_controls[i]->GetValue();
+		m_tempoSwing[i] = m_controls[i]->GetValue();
 	}
-	m_parent.m_tempoSwing.Normalize();
+	m_tempoSwing.Normalize();
 	// Apply preview
-	if(m_parent.m_pattern == PATTERNINDEX_INVALID)
+	if(m_pattern == PATTERNINDEX_INVALID)
 	{
-		m_parent.m_sndFile.m_tempoSwing = m_parent.m_tempoSwing;
+		m_sndFile.m_tempoSwing = m_tempoSwing;
 	} else
 	{
-		m_parent.m_sndFile.Patterns[m_parent.m_pattern].SetTempoSwing(m_parent.m_tempoSwing);
+		m_sndFile.Patterns[m_pattern].SetTempoSwing(m_tempoSwing);
 	}
 
-	for(size_t i = 0; i < m_parent.m_tempoSwing.size(); i++)
+	for(size_t i = 0; i < m_tempoSwing.size(); i++)
 	{
-		mpt::uchar s[32];
-		wsprintf(s, UL_("%i%%"), Util::muldivr(m_parent.m_tempoSwing[i], 100, TempoSwing::Unity));
-		m_parent.m_controls[i]->valueLabel.SetWindowText(s);
+		const int32 percent = Util::muldivr(m_tempoSwing[i], 100, TempoSwing::Unity);
+		m_controls[i]->valueLabel->setText(QStringLiteral("%1%").arg(percent));
+		// The slider's tooltip (TTN_NEEDTEXT)
+		const int32 val = percent - 100;
+		m_controls[i]->valueSlider->setToolTip(QStringLiteral("%1%2").arg(val > 0 ? QStringLiteral("+") : QString()).arg(val));
 	}
-
-	mfcless::Window<QLabel>::OnHScroll(nSBCode, nPos, pScrollBar);
 }
-
-
-bool CTempoSwingDlg::SliderContainer::OnToolTipNotify(uint32 )
-{
-	TOOLTIPTEXT *pTTT = reinterpret_cast<TOOLTIPTEXT *>(pNMHDR);
-	if(!(pTTT->uFlags & TTF_IDISHWND))
-		return false;
-	QSlider *slider = dynamic_cast<QSlider *>(mfcless::Window<QWidget>::FromHandlePermanent(reinterpret_cast<QWidget *>(pNMHDR->idFrom)));
-	if(slider != nullptr)
-	{
-		int32 val = Util::muldivr(m_parent.m_tempoSwing[GetWindowLongPtr(*slider, GWLP_USERDATA)], 100, TempoSwing::Unity) - 100;
-		wsprintf(pTTT->szText, UL_("%s%d"), val > 0 ? UL_("+") : UL_(""), val);
-		return true;
-	}
-	return false;
-}
-
 
 OPENMPT_NAMESPACE_END
