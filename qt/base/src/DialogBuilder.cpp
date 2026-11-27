@@ -9,7 +9,10 @@
 #include "mfcless/Controls.h"
 
 #include <QtCore/QEvent>
+#include <QtGui/QFontInfo>
 #include <QtGui/QFontMetrics>
+
+#include <cmath>
 #include <QtGui/QRegularExpressionValidator>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
@@ -147,6 +150,21 @@ void FrameFor(QFrame *f, const res::DialogItem &item)
 } // namespace
 
 
+QFont DialogFont(const res::DialogTemplate &tmpl)
+{
+	// The application font's family, at the template's point size relative
+	// to the 12 pixels of Windows' 9 pt default, as the MFC build does.
+	QFont font = QApplication::font();
+	const int ui = QFontInfo(font).pixelSize();
+	const double windowsPixels = tmpl.pointSize * 96.0 / 72.0;
+	font.setPixelSize(std::max(1, static_cast<int>(std::lround(windowsPixels * ui / 12.0))));
+	if(tmpl.weight >= 600)
+		font.setBold(true);
+	font.setItalic(tmpl.italic);
+	return font;
+}
+
+
 res::DialogUnits UnitsFor(const QWidget *dialog)
 {
 	const QFontMetrics fm(dialog ? dialog->font() : QApplication::font());
@@ -203,7 +221,14 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent)
 		}
 		break;
 	case Kind::GroupBox:
-		w = new QGroupBox(text, parent);
+	{
+		auto *g = new GroupFrame(text, parent);
+		if((s & 0x300) == 0x300)  // BS_CENTER
+			g->setAlignment(Qt::AlignHCenter);
+		else if(s & 0x200)  // BS_RIGHT
+			g->setAlignment(Qt::AlignRight);
+		w = g;
+	}
 		break;
 	case Kind::Label:
 	{
@@ -402,6 +427,8 @@ bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out)
 	if(!tmpl)
 		return false;
 	out.dlgTemplate = *tmpl;
+	if(tmpl->pointSize && tmpl->pointSize != 0x7FFF)
+		dialog->setFont(DialogFont(*tmpl));
 	out.units = UnitsFor(dialog);
 	const res::DialogUnits &u = out.units;
 	out.size = QSize(u.X(tmpl->cx), u.Y(tmpl->cy));

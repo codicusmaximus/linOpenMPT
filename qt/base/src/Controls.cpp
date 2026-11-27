@@ -102,6 +102,35 @@ QSize UpDown::sizeHint() const
 }
 
 
+void GroupFrame::paintEvent(QPaintEvent *)
+{
+	QPainter p(this);
+	const QFontMetrics fm(font());
+	QRect frame = rect();
+	frame.setTop(fm.height() / 2);
+	// Etched: a dark line with a light one inside it, offset by a pixel.
+	const QColor dark = palette().color(QPalette::Mid), light = palette().color(QPalette::Light);
+	p.setPen(light);
+	p.drawRect(frame.adjusted(1, 1, -1, -1));
+	p.setPen(dark);
+	p.drawRect(frame.adjusted(0, 0, -2, -2));
+	const QString caption = title();
+	if(!caption.isEmpty())
+	{
+		const int width = fm.horizontalAdvance(QString(caption).remove(QLatin1Char('&'))) + 4;
+		int left = 8;
+		if(alignment() & Qt::AlignHCenter)
+			left = (this->width() - width) / 2;
+		else if(alignment() & Qt::AlignRight)
+			left = this->width() - 8 - width;
+		const QRect back(left, 0, std::min(width, this->width() - left), fm.height());
+		p.fillRect(back, palette().color(backgroundRole()));
+		p.setPen(palette().color(isEnabled() ? QPalette::Active : QPalette::Disabled, QPalette::WindowText));
+		style()->drawItemText(&p, back.adjusted(2, 0, 0, 0), Qt::AlignLeft | Qt::AlignTop | Qt::TextShowMnemonic, palette(), isEnabled(), caption);
+	}
+}
+
+
 TabControl::TabControl(QWidget *parent)
 	: QWidget(parent)
 {

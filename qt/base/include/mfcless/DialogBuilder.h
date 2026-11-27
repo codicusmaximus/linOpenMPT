@@ -15,6 +15,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QRect>
 #include <QtCore/QSize>
+#include <QtGui/QFont>
 
 #include <map>
 #include <vector>
@@ -45,10 +46,10 @@ struct BuiltDialog
 	std::vector<QButtonGroup *> radioGroups;
 };
 
-// The dialog units for the font that dialogs use. Windows derives them from
-// the template's font; here the application's font is used, so that text fits
-// the controls on every desktop.
+// The dialog units for the dialog's font, by Windows' rule.
 res::DialogUnits UnitsFor(const QWidget *dialog);
+// The font for a template: the application's, at the template's size.
+QFont DialogFont(const res::DialogTemplate &tmpl);
 
 // Creates the template's controls as children of dialog and sizes it. False
 // if the template is missing.

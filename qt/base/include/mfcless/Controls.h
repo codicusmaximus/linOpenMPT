@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <QtWidgets/QGroupBox>
 #include <QtWidgets/QWidget>
 
 class QLineEdit;
@@ -55,6 +56,19 @@ private:
 	QLineEdit *m_buddy = nullptr;
 	bool m_vertical = true, m_buddyInt = false, m_wrap = false;
 	int m_lower = 100, m_upper = 0, m_pos = 0;
+};
+
+// A Windows group box: an etched frame whose top line runs through the
+// caption. The controls it frames are its siblings, on the dialog's
+// background, which upstream's layouts are made for.
+class GroupFrame : public QGroupBox
+{
+	Q_OBJECT
+public:
+	using QGroupBox::QGroupBox;
+
+protected:
+	void paintEvent(QPaintEvent *e) override;
 };
 
 // SysTabControl32: a tab bar over a framed area. The area is empty: dialogs
