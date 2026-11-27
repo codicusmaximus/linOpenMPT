@@ -537,11 +537,13 @@ bool BuildDialog(QWidget *dialog, uint32_t templateId, BuiltDialog &out, const C
 			// The template's height is that of the drop-down list.
 			rect.setHeight(std::min(rect.height(), std::max(u.Y(12), w->sizeHint().height())));
 		}
+		if(kind == Kind::UpDown && (item.style & 0xC))
+			static_cast<UpDown *>(w)->SetAlign((item.style & 0x4) ? UpDown::Align::Right : UpDown::Align::Left);
 		if(kind == Kind::UpDown && (item.style & 0x10) && lastFocusable)  // UDS_AUTOBUDDY
 		{
 			auto *ud = static_cast<UpDown *>(w);
 			if(auto *edit = qobject_cast<QLineEdit *>(lastFocusable))
-				ud->SetBuddy(edit);
+				ud->ReplaceBuddy(edit);
 			// UDS_ALIGNRIGHT 0x4 / UDS_ALIGNLEFT 0x8: take the space from the buddy.
 			if(item.style & 0xC)
 			{

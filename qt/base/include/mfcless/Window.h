@@ -118,7 +118,14 @@ inline bool SetWindowPos(QWidget *w, QWidget * /*insertAfter*/, int x, int y, in
 	if(!(flags & swp::NoMove))
 		w->move(x, y);
 	if(!(flags & swp::NoSize))
-		w->resize(cx, cy);
+	{
+		// A dialog without a sizing border has a fixed size, which the
+		// program may still change.
+		if(w->isWindow() && w->minimumSize() == w->maximumSize())
+			w->setFixedSize(cx, cy);
+		else
+			w->resize(cx, cy);
+	}
 	if(flags & swp::ShowWindow)
 		w->show();
 	else if(flags & swp::HideWindow)
@@ -339,8 +346,11 @@ public:
 	void ClientToScreen(Rect *r) const { r->OffsetRect(Point(ClientWidget()->mapToGlobal(QPoint(0, 0)))); }
 	void ScreenToClient(Point *p) const { *p = ClientWidget()->mapFromGlobal(QPoint(*p)); }
 	void ScreenToClient(Rect *r) const { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
-	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
-	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
+	void MoveWindow(const Rect &r, bool repaint = true) { MoveWindow(r.left, r.top, r.Width(), r.Height(), repaint); }
+	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true)
+	{
+		mfcless::SetWindowPos(this, nullptr, x, y, width, height, swp::NoZOrder);
+	}
 	// The control's text (an edit's, a button's), or a window's title.
 	void SetWindowText(const Text &text) { SetWidgetText(this, text.value); }
 	bool SetWindowPos(QWidget *insertAfter, int x, int y, int cx, int cy, uint32_t flags) { return mfcless::SetWindowPos(this, insertAfter, x, y, cx, cy, flags); }

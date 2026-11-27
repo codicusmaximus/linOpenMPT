@@ -11,6 +11,8 @@
 #pragma once
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QPointer>
+#include <QtWidgets/QLineEdit>
 #include <vector>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QWidget>
@@ -34,7 +36,15 @@ public:
 	void SetVertical(bool vertical);
 	bool IsVertical() const { return m_vertical; }
 
-	void SetBuddy(QLineEdit *buddy) { m_buddy = buddy; }
+	// With UDS_ALIGNRIGHT or UDS_ALIGNLEFT, attaching a buddy moves the
+	// up-down onto that edge of the buddy and narrows the buddy, as
+	// UDM_SETBUDDY does.
+	enum class Align { None, Right, Left };
+	void SetAlign(Align align) { m_align = align; }
+	void SetBuddy(QLineEdit *buddy);
+	// The buddy was made again in the same place (SubclassDlgItem): it keeps
+	// the up-down where it is.
+	void ReplaceBuddy(QLineEdit *buddy) { m_buddy = buddy; }
 	QLineEdit *GetBuddy() const { return m_buddy; }
 	void SetBuddyInt(bool on) { m_buddyInt = on; }
 	void SetWrap(bool on) { m_wrap = on; }
@@ -67,7 +77,8 @@ private:
 	void Step(int delta);
 
 	QToolButton *m_up = nullptr, *m_down = nullptr;
-	QLineEdit *m_buddy = nullptr;
+	QPointer<QLineEdit> m_buddy;
+	Align m_align = Align::None;
 	bool m_vertical = true, m_buddyInt = false, m_wrap = false;
 	int m_lower = 100, m_upper = 0, m_pos = 0;
 	// Windows' default acceleration

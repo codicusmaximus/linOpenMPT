@@ -53,6 +53,26 @@ void UpDown::SetVertical(bool vertical)
 	updateGeometry();
 }
 
+void UpDown::SetBuddy(QLineEdit *buddy)
+{
+	m_buddy = buddy;
+	if(!buddy || m_align == Align::None || buddy->parentWidget() != parentWidget())
+		return;
+	QRect b = buddy->geometry();
+	const int w = std::max(width(), 16);
+	if(m_align == Align::Right)
+	{
+		setGeometry(b.right() + 1 - w, b.top(), w, b.height());
+		b.setRight(b.right() - w);
+	} else
+	{
+		setGeometry(b.left(), b.top(), w, b.height());
+		b.setLeft(b.left() + w);
+	}
+	buddy->setGeometry(b);
+}
+
+
 void UpDown::SetRange(int lower, int upper)
 {
 	m_lower = lower;

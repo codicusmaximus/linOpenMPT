@@ -16,7 +16,9 @@
 #include "InputHandler.h"
 #include "Mainfrm.h"
 
+#include "mfcless/Controls.h"
 #include "mfcless/DialogBuilder.h"
+#include "mfcless/Widgets.h"
 #include "mfcless/ModMessage.h"
 #include "mfcless/QtString.h"
 #include "mfcless/Resources.h"
@@ -144,6 +146,15 @@ bool DialogBase::ReplaceItem(uint32 id, QWidget *replacement)
 	replacement->setFont(old->font());
 	replacement->stackUnder(old);
 	QWidget::setTabOrder(old, replacement);
+	// Subclassing keeps the window in Windows, and with it the text the
+	// dialog set before, and an up-down control's buddy.
+	if(!qobject_cast<QAbstractButton *>(old) && !qobject_cast<QLabel *>(old))
+		mfcless::SetWidgetText(replacement, mfcless::WidgetText(old));
+	for(auto *spin : findChildren<mfcless::UpDown *>())
+	{
+		if(spin->GetBuddy() == old)
+			spin->ReplaceBuddy(qobject_cast<QLineEdit *>(replacement));
+	}
 	it->second = replacement;
 	std::replace(m_templateOrder.begin(), m_templateOrder.end(), old, replacement);
 	mfcless::ConnectNotifications(replacement, id, this);
