@@ -36,11 +36,32 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMdiArea>
 #include <QtWidgets/QSplitter>
+#include <QtCore/QEvent>
+
+#include <functional>
 
 #include <sstream>
 
 
 OPENMPT_NAMESPACE_BEGIN
+
+namespace
+{
+// Calls back when the watched widget is resized.
+class SplitterResizeWatcher : public QObject
+{
+public:
+	SplitterResizeWatcher(QObject *parent, std::function<void()> onResize) : QObject(parent), m_onResize(std::move(onResize)) {}
+	bool eventFilter(QObject *, QEvent *e) override
+	{
+		if(e->type() == QEvent::Resize)
+			m_onResize();
+		return false;
+	}
+private:
+	std::function<void()> m_onResize;
+};
+}  // namespace
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -91,10 +112,17 @@ bool CChildFrame::OnCreateClient(CModDoc *document, const mfcless::ViewClass *)
 	m_wndSplitter->setChildrenCollapsible(false);
 	m_wndSplitter->setHandleWidth(4);
 	setWidget(m_wndSplitter);
+	// The upper pane keeps its height when the frame is resized, as a
+	// CSplitterWnd's first row does; the view takes the rest.
+	m_wndSplitter->installEventFilter(new SplitterResizeWatcher(m_wndSplitter, [this] { ApplySplitterHeight(); }));
+	QObject::connect(m_wndSplitter, &QSplitter::splitterMoved, this, [this](int pos, int) { m_splitterTop = pos; });
 
 	// add the first splitter pane - the default view in row 0
 	int cy = HighDPISupport::ScalePixels(TrackerSettings::Instance().glGeneralWindowHeight, this);  //rewbs.varWindowSize - default to general tab.
 	auto *pModView = new CModControlView;
+	// Panes may be made smaller than their contents, which are then cut
+	// off, as in a CSplitterWnd.
+	pModView->setMinimumSize(1, 1);
 	m_wndSplitter->addWidget(pModView);
 	pModView->SetDocument(document);
 
@@ -106,7 +134,8 @@ bool CChildFrame::OnCreateClient(CModDoc *document, const mfcless::ViewClass *)
 
 	const bool bStatus = ChangeViewClass(&CViewGlobals::classCViewGlobals);
 	if(cy <= 1) cy = 188;
-	m_wndSplitter->setSizes({cy, std::max(1, height() - cy)});
+	m_splitterTop = cy;
+	ApplySplitterHeight();
 	pModView->OnInitialUpdate();
 
 	// If it all worked, we now have a splitter window which contain two different views
@@ -118,11 +147,20 @@ void CChildFrame::SetSplitterHeight(int cy)
 {
 	if (cy <= 1) cy = 188;	//default to 188? why not..
 	cy = HighDPISupport::ScalePixels(cy, this);
-	if(m_wndSplitter)
-	{
-		const int total = m_wndSplitter->height();
-		m_wndSplitter->setSizes({cy, std::max(15, total - cy - m_wndSplitter->handleWidth())});
-	}
+	m_splitterTop = cy;
+	ApplySplitterHeight();
+}
+
+
+void CChildFrame::ApplySplitterHeight()
+{
+	if(!m_wndSplitter || m_wndSplitter->count() < 2)
+		return;
+	const int total = m_wndSplitter->height() - m_wndSplitter->handleWidth();
+	if(total <= 0)
+		return;
+	const int top = std::max(1, std::min(m_splitterTop, total - 15));
+	m_wndSplitter->setSizes({top, total - top});
 }
 
 
@@ -232,7 +270,6 @@ bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 		}
 	}
 	m_hWndView = nullptr;
-	const QList<int> sizes = m_wndSplitter->sizes();
 	mfcless::DocumentView *view = pViewClass->create(nullptr);
 	if(!view)
 		return false;
@@ -241,13 +278,14 @@ bool CChildFrame::ChangeViewClass(const mfcless::ViewClass *pViewClass)
 	// Shown once it is set up, as a view's window is made without a size
 	// and gets one only after OnInitialUpdate.
 	m_hWndView->hide();
+	m_hWndView->setMinimumSize(1, 1);
 	m_wndSplitter->insertWidget(1, m_hWndView);
-	if(sizes.size() >= 2)
-		m_wndSplitter->setSizes(sizes);
+	ApplySplitterHeight();
 	view->SetDocument(m_document);
 	m_currentViewClassName = pViewClass->m_lpszClassName;
 	view->OnInitialUpdate();
 	m_hWndView->show();
+	ApplySplitterHeight();
 	if ((m_hWndView) && (m_hWndCtrl))
 	{
 		mfcless::PostModMessage(m_hWndView, WM_MOD_VIEWMSG, VIEWMSG_SETCTRLWND, reinterpret_cast<intptr_t>(m_hWndCtrl));
@@ -300,16 +338,8 @@ void CChildFrame::SavePosition(bool force)
 
 int CChildFrame::GetSplitterHeight()
 {
-	if (m_wndSplitter)
-	{
-		QWidget *pWnd = m_wndSplitter->widget(0);
-		if (pWnd)
-		{
-			return HighDPISupport::ScalePixelsInv(pWnd->height(), this);
-		}
-	}
-	return 15;	// tidy default
-};
+	return HighDPISupport::ScalePixelsInv(m_splitterTop, this);
+}
 
 
 intptr_t CChildFrame::SendCtrlMessage(uint32 uMsg, intptr_t lParam) const

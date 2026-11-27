@@ -111,6 +111,7 @@ protected:
 // Attributes
 protected:
 	QSplitter *m_wndSplitter = nullptr;
+	int m_splitterTop = 188;  // the upper pane's height, in pixels
 	QWidget *m_hWndCtrl = nullptr, *m_hWndView = nullptr;
 	GeneralViewState m_ViewGeneral;
 	PatternViewState m_ViewPatterns;
@@ -146,6 +147,7 @@ public:
 	bool IsPatternView() const;
 
 	void SetSplitterHeight(int x);
+	void ApplySplitterHeight();
 	int GetSplitterHeight();
 
 	void SaveAllViewStates();

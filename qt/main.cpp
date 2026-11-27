@@ -87,8 +87,8 @@ void DumpWidgets(QWidget *w, QWidget *origin, int depth)
 		text = edit->text();
 	else if(auto *label = qobject_cast<QLabel *>(w))
 		text = label->text();
-	std::fprintf(stderr, "%*s%p %s (%s) %s%s \"%s\" (%d,%d %dx%d)\n", depth * 2, "", (void *)w, typeid(*w).name(), w->metaObject()->className(),
-		w->isVisible() ? "visible" : "hidden", w->isEnabled() ? "" : " disabled", text.left(40).toLocal8Bit().constData(), topLeft.x(), topLeft.y(), w->width(), w->height());
+	std::fprintf(stderr, "%*s%p %s (%s) %s%s%s \"%s\" (%d,%d %dx%d)\n", depth * 2, "", (void *)w, typeid(*w).name(), w->metaObject()->className(),
+		w->isVisible() ? "visible" : "hidden", w->isEnabled() ? "" : " disabled", w == QApplication::focusWidget() ? " focus" : "", text.left(40).toLocal8Bit().constData(), topLeft.x(), topLeft.y(), w->width(), w->height());
 	for(QObject *child : w->children())
 	{
 		if(auto *cw = qobject_cast<QWidget *>(child); cw && !cw->isWindow())
@@ -206,6 +206,12 @@ void ScheduleTestHooks()
 	const char *file = std::getenv("LINOPENMPT_SCREENSHOT");
 	if(file == nullptr || *file == '\0')
 		return;
+	// A headless X server has no window manager to give the main window the
+	// keyboard focus, as a desktop does.
+	QTimer::singleShot(200, [] {
+		if(QWidget *mainWidget = MainWidget())
+			mainWidget->activateWindow();
+	});
 	if(const char *commands = std::getenv("LINOPENMPT_COMMANDS"))
 	{
 		int when = 500;
