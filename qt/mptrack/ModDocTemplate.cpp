@@ -185,6 +185,9 @@ CChildFrame *CModDocTemplate::CreateNewFrame(CModDoc *doc)
 	// main window is laid out.
 	const int count = static_cast<int>(area->subWindowList().size());
 	area->addSubWindow(frame);
+	// As with MFC, the frame stays hidden while the document loads (dialogs
+	// such as the missing samples list come up then), until InitialUpdateFrame.
+	frame->hide();
 	auto placeFrame = [area, frame, count]
 	{
 		if(frame->isMaximized() || frame->isMinimized())
