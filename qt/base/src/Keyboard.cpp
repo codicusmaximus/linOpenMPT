@@ -70,7 +70,7 @@ const KeyEntry g_keys[] = {
 	{0x23, false, 'H', u"H", u'h', u'H'},
 	{0x24, false, 'J', u"J", u'j', u'J'},
 	{0x25, false, 'K', u"K", u'k', u'K'},
-	{0x26, false, 'u', u"u", u'l', u'u'},
+	{0x26, false, 'L', u"L", u'l', u'L'},
 	{0x27, false, vk::OEM_1, u";", u';', u':'},
 	{0x28, false, vk::OEM_7, u"'", u'\'', u'"'},
 	{0x29, false, vk::OEM_3, u"`", u'`', u'~'},

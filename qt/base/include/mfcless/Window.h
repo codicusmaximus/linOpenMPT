@@ -720,6 +720,9 @@ private:
 			Default();
 			break;
 		}
+		// A window's mouse messages are its own; on Windows they do not go
+		// on to the parent window when it leaves them alone.
+		e->accept();
 	}
 
 	void Key(QKeyEvent *e)

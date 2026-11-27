@@ -12,6 +12,8 @@
 //   that class, Class:id=N selects item N of that window's combo box id
 //   (=last for the last item) as a user's pick, and Class:key=Name sends
 //   that window the keyboard command of that name, as its shortcut would.
+//   Class:click=x/y and Class:rclick=x/y click the left or right mouse
+//   button at x/y in that window's client area.
 // - LINOPENMPT_SCREENSHOT=file.png saves the main window after
 //   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
 //   other window open then (a dialog) as file-1.png, file-2.png, ...
@@ -21,6 +23,7 @@
 // Then the other windows are cancelled and the main window is closed.
 
 #include "stdafx.h"
+#include <QtCore/QPointer>
 #include "../platform/CrashRescue.h"
 #include "CommandSet.h"
 #include "DialogBase.h"
@@ -138,6 +141,30 @@ QWidget *FindTestTarget(const std::string &target)
 	return nullptr;
 }
 
+// A mouse click at pos in a window's client area (a scroll area's viewport).
+void SendClick(const std::string &target, QPoint pos, bool right)
+{
+	QWidget *w = FindTestTarget(target);
+	if(w == nullptr)
+	{
+		std::fprintf(stderr, "openmpt-qt: no visible %s for click\n", target.c_str());
+		return;
+	}
+	if(auto *area = qobject_cast<QAbstractScrollArea *>(w))
+		w = area->viewport();
+	const Qt::MouseButton button = right ? Qt::RightButton : Qt::LeftButton;
+	const QPointF local(pos), global(w->mapToGlobal(pos));
+	QMouseEvent press(QEvent::MouseButtonPress, local, global, button, button, Qt::NoModifier);
+	// The press may run a context menu's loop, in which the test closes
+	// the program.
+	const QPointer<QWidget> guard(w);
+	QApplication::sendEvent(w, &press);
+	if(!guard)
+		return;
+	QMouseEvent release(QEvent::MouseButtonRelease, local, global, button, Qt::NoButton, Qt::NoModifier);
+	QApplication::sendEvent(w, &release);
+}
+
 // What the input handler sends a window when a shortcut is pressed.
 void SendKeyCommand(const std::string &target, const QString &name)
 {
@@ -219,6 +246,16 @@ void ScheduleTestHooks()
 		{
 			const QStringList parts = id.trimmed().split(u':');
 			QString last = parts.back();
+			if((last.startsWith(QLatin1String("click=")) || last.startsWith(QLatin1String("rclick="))) && parts.size() > 1)
+			{
+				const bool right = last.startsWith(u'r');
+				const QStringList xy = last.mid(last.indexOf(u'=') + 1).split(u'/');
+				const QPoint pos(xy.value(0).toInt(), xy.value(1).toInt());
+				const std::string target = parts.front().toStdString();
+				QTimer::singleShot(when, [right, pos, target]() { SendClick(target, pos, right); });
+				when += 500;
+				continue;
+			}
 			if(last.startsWith(QLatin1String("key=")) && parts.size() > 1)
 			{
 				const QString name = last.mid(4);
@@ -297,6 +334,16 @@ void ScheduleTestHooks()
 			Grab(w).save(QStringLiteral("%1-%2%3").arg(base).arg(++index).arg(suffix));
 			if(dump)
 				DumpWidgets(w, w, 0);
+		}
+		// An open popup menu (a context menu) as file-menu.png; it is closed
+		// first, as a click elsewhere would.
+		for(QWidget *w : QApplication::topLevelWidgets())
+		{
+			if(w->isVisible() && w->windowType() == Qt::Popup)
+			{
+				Grab(w).save(QStringLiteral("%1-menu%2").arg(base, suffix));
+				w->close();
+			}
 		}
 		CloseAll(mainWidget, 0);
 	});

@@ -116,6 +116,8 @@ QPixmap Grab(QWidget *w)
 //   last item) and notifies the window (CBN_SELCHANGE), as a user's pick.
 //   Class:key=Name sends that window the keyboard command of that name (as
 //   in the keyboard setup, "Show Note Properties"), as its shortcut would.
+//   Class:click=x/y and Class:rclick=x/y click the left or right mouse
+//   button at x/y in that window's client area.
 // - LINOPENMPT_SCREENSHOT=file.png saves the main window after
 //   LINOPENMPT_SCREENSHOT_DELAY milliseconds (3000 by default), and any
 //   other window open then (a dialog) as file-1.png, file-2.png, ...
@@ -213,6 +215,27 @@ void ScheduleTestHooks()
 			const QStringList parts = id.trimmed().split(u':');
 			QString last = parts.back();
 			// Class:key=Name sends a keyboard command (a shortcut's).
+			// Class:click=x/y and Class:rclick=x/y click a mouse button at x/y
+			// in that window's client area.
+			if((last.startsWith(QLatin1String("click=")) || last.startsWith(QLatin1String("rclick="))) && parts.size() > 1)
+			{
+				const bool right = last.startsWith(u'r');
+				const QStringList xy = last.mid(last.indexOf(u'=') + 1).split(u'/');
+				const LPARAM pos = MAKELPARAM(xy.value(0).toInt(), xy.value(1).toInt());
+				const std::string target = parts.front().toStdString();
+				QTimer::singleShot(when, [right, pos, target]() {
+					HWND hwnd = FindTestTarget(target);
+					if(hwnd == nullptr)
+					{
+						std::fprintf(stderr, "linOpenMPT: no visible %s for click\n", target.c_str());
+						return;
+					}
+					::PostMessage(hwnd, right ? WM_RBUTTONDOWN : WM_LBUTTONDOWN, right ? MK_RBUTTON : MK_LBUTTON, pos);
+					::PostMessage(hwnd, right ? WM_RBUTTONUP : WM_LBUTTONUP, 0, pos);
+				});
+				when += 500;
+				continue;
+			}
 			if(last.startsWith(QLatin1String("key=")) && parts.size() > 1)
 			{
 				const QString name = last.mid(4);
