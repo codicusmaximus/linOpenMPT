@@ -55,7 +55,23 @@ public:
 				SyncModifierState(ke->modifiers());
 		}
 
-		return PreTranslate(widget, KeyMessage(ke, widget));
+		Message m = KeyMessage(ke, widget);
+		if(PreTranslate(widget, m))
+			return true;
+		// TranslateMessage: a key down that typed characters also queues a
+		// WM_CHAR for each, which goes through PreTranslateMessage as well.
+		if(m.message == msg::KeyDown || m.message == msg::SysKeyDown)
+		{
+			const bool sys = (m.message == msg::SysKeyDown);
+			for(const QChar c : ke->text())
+			{
+				m.message = sys ? msg::SysChar : msg::Char;
+				m.wParam = c.unicode();
+				if(PreTranslate(widget, m))
+					return true;
+			}
+		}
+		return false;
 	}
 
 private:
