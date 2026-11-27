@@ -3,7 +3,7 @@
 // of this process's architecture) from the rest, which go through the Wine
 // bridge (vstbridge/). Upstream's own bridge executables (a Windows
 // component) are never available here.
-// Compiled as part of mpt_common (tracker configuration).
+// Compiled as part of mpt_common (MFC build) or the tracker (mfcless build).
 #include "stdafx.h"
 
 #ifdef MPT_WITH_VST

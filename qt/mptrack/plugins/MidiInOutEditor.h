@@ -3,7 +3,7 @@
  * -----------------
  * Purpose: Editor interface for the MidiInOut plugin.
  * Notes  : mfcless twin of upstream's mptrack/plugins/MidiInOutEditor.h.
- *          Draft from qt/tools/twin.py, not yet edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: Johannes Schultz (OpenMPT Devs)
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -44,7 +44,7 @@ public:
 	// Refresh current input / output device in GUI
 	void SetCurrentDevice(bool asInputDevice, MidiDevice::ID device)
 	{
-		QComboBox &combo = asInputDevice ? *m_inputCombo : *m_outputCombo;
+		QComboBox *combo = asInputDevice ? m_inputCombo : m_outputCombo;
 		SetCurrentDevice(combo, device);
 	}
 
@@ -56,10 +56,10 @@ public:
 protected:
 
 	// Update lists of available input / output devices
-	static void PopulateList(QComboBox &combo, RtMidi &rtDevice, MidiDevice &midiDevice, bool isInput);
+	static void PopulateList(QComboBox *combo, RtMidi &rtDevice, MidiDevice &midiDevice, bool isInput);
 	void UpdateOutputPlugin();
 	// Refresh current input / output device in GUI
-	void SetCurrentDevice(QComboBox &combo, MidiDevice::ID device);
+	void SetCurrentDevice(QComboBox *combo, MidiDevice::ID device);
 
 	void UpdateMidiDump();
 

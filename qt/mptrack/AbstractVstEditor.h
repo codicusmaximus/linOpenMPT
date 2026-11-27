@@ -105,7 +105,7 @@ public:
 	void OnDropFiles(const QStringList &files) override;
 
 	// mfcless: posted to the editor, as PostMessage was (WM_MOD_* IDs).
-	void PostModMessage(uint32 msg, uintptr_t wParam = 0, intptr_t lParam = 0);
+	void PostModMessage(uint32 msg, uintptr_t wParam = 0, intptr_t lParam = 0) { mfcless::PostModMessage(this, msg, wParam, lParam); }
 	// mfcless: whether the editor window exists (upstream: m_hWnd != nullptr).
 	bool HasWindow() const { return m_hasWindow; }
 

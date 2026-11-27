@@ -3,7 +3,7 @@
  * --------
  * Purpose: Implementation of various player setup dialogs.
  * Notes  : mfcless twin of upstream's mptrack/Mpdlgs.h.
- *          Draft from qt/tools/twin.py, partly edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -156,13 +156,13 @@ class CEQSlider: public mfcless::Window<QSlider>
 {
 	Q_OBJECT
 public:
-	QWidget *m_pParent;
-	uint32 m_nSliderNo;
-	short int m_x, m_y;
+	QWidget *m_pParent = nullptr;
+	uint32 m_nSliderNo = 0;
+	short int m_x = 0, m_y = 0;
 public:
-	CEQSlider() = default;
-	void Init(uint32 nID, uint32 n, QWidget *parent);
-	bool PreTranslateMessage(mfcless::Message *pMsg);
+	explicit CEQSlider(QWidget *parent = nullptr) : Window(parent) {}
+	void Init(uint32 n, QWidget *parent);
+	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 };
 
 #endif // !NO_EQ

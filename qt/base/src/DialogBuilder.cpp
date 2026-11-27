@@ -380,6 +380,10 @@ QWidget *CreateControl(const res::DialogItem &item, QWidget *parent, QWidget *gi
 		auto *sl = Make<QSlider>(given, parent);
 		if(!sl) break;
 		sl->setOrientation((s & 0x2) ? Qt::Vertical : Qt::Horizontal);
+		// A vertical trackbar has its minimum at the top, and Up / the wheel
+		// moves the thumb up (towards the minimum).
+		sl->setInvertedAppearance(s & 0x2);
+		sl->setInvertedControls(s & 0x2);
 		sl->setRange(0, 100);
 		if(s & 0x10)  // TBS_NOTICKS
 			sl->setTickPosition(QSlider::NoTicks);

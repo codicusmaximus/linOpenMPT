@@ -74,5 +74,7 @@ else()
   if(LINOPENMPT_BUILD_TESTS)
     enable_testing()
   endif()
+  # Windows VST2 plugins, through Wine (needs MinGW to build).
+  add_subdirectory(vstbridge)
   add_subdirectory(qt)
 endif()

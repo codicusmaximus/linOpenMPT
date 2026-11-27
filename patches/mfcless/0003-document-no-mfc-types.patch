@@ -1178,3 +1178,149 @@ index 222a8e9..5f5265a 100644
  					}
  					pChildFrm->SetWindowPlacement(&wnd);
  				}
+diff --git a/mptrack/Modedit.cpp b/mptrack/Modedit.cpp
+index 7d03d13..b9d1840 100644
+--- a/mptrack/Modedit.cpp
++++ b/mptrack/Modedit.cpp
+@@ -51,9 +51,7 @@ bool CModDoc::ChangeNumChannels(CHANNELINDEX nNewChannels, const bool showCancel
+ 
+ 	if(nNewChannels > maxChans)
+ 	{
+-		CString error;
+-		error.Format(_T("Error: Max number of channels for this file type is %u"), maxChans);
+-		Reporting::Warning(error);
++		Reporting::Warning(MPT_UFORMAT("Error: Max number of channels for this file type is {}")(maxChans));
+ 		return false;
+ 	}
+ 
+@@ -118,12 +116,12 @@ bool CModDoc::RemoveChannels(const std::vector<bool> &keepMask, bool verbose)
+ 	{
+ 		if(verbose)
+ 		{
+-			CString str;
++			mpt::ustring str;
+ 			if(nRemainingChannels == GetNumChannels())
+-				str = _T("No channels chosen to be removed.");
++				str = U_("No channels chosen to be removed.");
+ 			else
+-				str = _T("No removal done - channel number is already at minimum.");
+-			Reporting::Information(str, _T("Remove Channels"));
++				str = U_("No removal done - channel number is already at minimum.");
++			Reporting::Information(str, U_("Remove Channels"));
+ 		}
+ 		return false;
+ 	}
+@@ -162,9 +160,7 @@ CHANNELINDEX CModDoc::ReArrangeChannels(const std::vector<CHANNELINDEX> &newOrde
+ 
+ 	if(newNumChannels > specs.channelsMax || newNumChannels < specs.channelsMin)
+ 	{
+-		CString str;
+-		str.Format(_T("Can't apply change: Number of channels should be between %u and %u."), specs.channelsMin, specs.channelsMax);
+-		Reporting::Error(str, _T("Rearrange Channels"));
++		Reporting::Error(MPT_UFORMAT("Can't apply change: Number of channels should be between {} and {}.")(specs.channelsMin, specs.channelsMax), U_("Rearrange Channels"));
+ 		return CHANNELINDEX_INVALID;
+ 	}
+ 
+@@ -650,7 +646,7 @@ void CModDoc::ClonePlugin(SNDMIXPLUGIN &target, const SNDMIXPLUGIN &source)
+ 	if(target.editorX != int32_min)
+ 	{
+ 		// Move target editor a bit to visually distinguish it from the original editor
+-		int addPixels = HighDPISupport::ScalePixels(16, CMainFrame::GetMainFrame()->m_hWnd);
++		int addPixels = HighDPISupport::ScalePixels(16, CMainFrame::GetMainFrame());
+ 		target.editorX += addPixels;
+ 		target.editorY += addPixels;
+ 	}
+@@ -978,7 +974,7 @@ bool CModDoc::MoveOrder(ORDERINDEX sourceOrd, ORDERINDEX destOrd, bool update, b
+ }
+ 
+ 
+-BOOL CModDoc::ExpandPattern(PATTERNINDEX nPattern)
++bool CModDoc::ExpandPattern(PATTERNINDEX nPattern)
+ {
+ 	ROWINDEX numRows;
+ 
+@@ -1007,7 +1003,7 @@ BOOL CModDoc::ExpandPattern(PATTERNINDEX nPattern)
+ }
+ 
+ 
+-BOOL CModDoc::ShrinkPattern(PATTERNINDEX nPattern)
++bool CModDoc::ShrinkPattern(PATTERNINDEX nPattern)
+ {
+ 	ROWINDEX numRows;
+ 
+@@ -1042,7 +1038,7 @@ BOOL CModDoc::ShrinkPattern(PATTERNINDEX nPattern)
+ static constexpr const char pszEnvHdr[] = "ModPlug Tracker Envelope\r\n";
+ static constexpr const char pszEnvFmt[] = "%d,%d,%d,%d,%d,%d,%d,%d\r\n";
+ 
+-static bool EnvelopeToString(CStringA &s, const InstrumentEnvelope &env)
++static bool EnvelopeToString(std::string &s, const InstrumentEnvelope &env)
+ {
+ 	// We don't want to copy empty envelopes
+ 	if(env.empty())
+@@ -1050,16 +1046,16 @@ static bool EnvelopeToString(CStringA &s, const InstrumentEnvelope &env)
+ 		return false;
+ 	}
+ 
+-	s.Preallocate(2048);
++	s.reserve(2048);
+ 	s = pszEnvHdr;
+-	s.AppendFormat(pszEnvFmt, env.size(), env.nSustainStart, env.nSustainEnd, env.nLoopStart, env.nLoopEnd, env.dwFlags[ENV_SUSTAIN] ? 1 : 0, env.dwFlags[ENV_LOOP] ? 1 : 0, env.dwFlags[ENV_CARRY] ? 1 : 0);
++	s += MPT_AFORMAT("{},{},{},{},{},{},{},{}\r\n")(env.size(), env.nSustainStart, env.nSustainEnd, env.nLoopStart, env.nLoopEnd, env.dwFlags[ENV_SUSTAIN] ? 1 : 0, env.dwFlags[ENV_LOOP] ? 1 : 0, env.dwFlags[ENV_CARRY] ? 1 : 0);
+ 	for(auto &p : env)
+ 	{
+-		s.AppendFormat("%d,%d\r\n", p.tick, p.value);
++		s += MPT_AFORMAT("{},{}\r\n")(p.tick, p.value);
+ 	}
+ 
+ 	// Writing release node
+-	s.AppendFormat("%u\r\n", env.nReleaseNode);
++	s += MPT_AFORMAT("{}\r\n")(env.nReleaseNode);
+ 	return true;
+ }
+ 
+@@ -1156,14 +1152,14 @@ bool CModDoc::CopyEnvelope(INSTRUMENTINDEX nIns, EnvelopeType nEnv)
+ 	if(pIns == nullptr)
+ 		return false;
+ 
+-	CStringA s;
++	std::string s;
+ 	EnvelopeToString(s, pIns->GetEnvelope(nEnv));
+ 
+-	int memSize = s.GetLength() + 1;
+-	Clipboard clipboard(CF_TEXT, memSize);
++	int memSize = static_cast<int>(s.length()) + 1;
++	Clipboard clipboard(mfcless::clip::Text, memSize);
+ 	if(auto p = clipboard.As<char>())
+ 	{
+-		memcpy(p, s.GetString(), memSize);
++		memcpy(p, s.c_str(), memSize);
+ 	}
+ 	EndWaitCursor();
+ 	return true;
+@@ -1179,7 +1175,7 @@ bool CModDoc::SaveEnvelope(INSTRUMENTINDEX ins, EnvelopeType env, const mpt::Pat
+ 	if(pIns == nullptr)
+ 		return false;
+ 
+-	CStringA s;
++	std::string s;
+ 	EnvelopeToString(s, pIns->GetEnvelope(env));
+ 
+ 	bool ok = false;
+@@ -1189,7 +1185,7 @@ bool CModDoc::SaveEnvelope(INSTRUMENTINDEX ins, EnvelopeType env, const mpt::Pat
+ 		mpt::IO::ofstream &f = sf;
+ 		f.exceptions(f.exceptions() | std::ios::badbit | std::ios::failbit);
+ 		if(f)
+-			ok = mpt::IO::WriteRaw(f, s.GetString(), s.GetLength());
++			ok = mpt::IO::WriteRaw(f, s.data(), s.length());
+ 		else
+ 			ok = false;
+ 	} catch(const std::exception &)
+@@ -1207,7 +1203,7 @@ bool CModDoc::PasteEnvelope(INSTRUMENTINDEX ins, EnvelopeType env)
+ 	if(ins < 1 || ins > m_SndFile.m_nInstruments || !m_SndFile.Instruments[ins] || !pMainFrm)
+ 		return false;
+ 	BeginWaitCursor();
+-	Clipboard clipboard(CF_TEXT);
++	Clipboard clipboard(mfcless::clip::Text);
+ 	auto data = clipboard.GetString();
+ 	if(!data.length())
+ 	{

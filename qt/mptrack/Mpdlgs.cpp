@@ -3,7 +3,7 @@
  * ----------
  * Purpose: Implementation of various player setup dialogs.
  * Notes  : mfcless twin of upstream's mptrack/Mpdlgs.cpp.
- *          Draft from qt/tools/twin.py, partly edited by hand.
+ *          Hand-edited from the twin.py draft.
  * Authors: OpenMPT Devs
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -325,7 +325,7 @@ void COptionsSoundcard::UpdateEverything()
 		SetChecked(IDC_CHECK_SOUNDCARD_SHOWALL, TrackerSettings::Instance().m_SoundShowDeprecatedDevices ? 1 : 0);
 
 		m_CbnDevice->clear();
-		m_CbnDevice->SetImageList(&CMainFrame::GetMainFrame()->m_MiscIcons);
+		const CImageListEx &deviceIcons = CMainFrame::GetMainFrame()->m_MiscIcons;
 
 		uint32 iItem = 0;
 
@@ -341,38 +341,40 @@ void COptionsSoundcard::UpdateEverything()
 			}
 
 			{
-				COMBOBOXEXITEM cbi;
-				MemsetZero(cbi);
-				cbi.iItem = iItem;
-				cbi.cchTextMax = 0;
-				cbi.mask = CBEIF_LPARAM | CBEIF_TEXT;
+				// mfcless: a combo box item with an icon (upstream: COMBOBOXEXITEM)
+				struct
+				{
+					uint32 mask = 0;
+					int iImage = 0;
+					uintptr_t lParam = 0;
+				} cbi;
 				cbi.lParam = theApp.GetSoundDevicesManager()->GetGlobalID(it.GetIdentifier());
 				mpt::ustring TypeWineNative = U_("Wine-Native");
 				if(it.type == SoundDevice::TypeWAVEOUT || it.type == SoundDevice::TypePORTAUDIO_WMME)
 				{
-					cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+					cbi.mask = 1;
 					cbi.iImage = IMAGE_WAVEOUT;
 				} else if(it.type == SoundDevice::TypeDSOUND || it.type == SoundDevice::TypePORTAUDIO_DS || it.type == U_("RtAudio-ds"))
 				{
-					cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+					cbi.mask = 1;
 					cbi.iImage = IMAGE_DIRECTX;
 				} else if(it.type == SoundDevice::TypeASIO || it.type == U_("RtAudio-asio"))
 				{
-					cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+					cbi.mask = 1;
 					cbi.iImage = IMAGE_ASIO;
 				} else if(it.type == SoundDevice::TypePORTAUDIO_WASAPI || it.type == U_("RtAudio-wasapi"))
 				{
-					cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+					cbi.mask = 1;
 					cbi.iImage = IMAGE_SAMPLEMUTE; // // No real image available for now,
 				} else if(it.type == SoundDevice::TypePORTAUDIO_WDMKS)
 				{
-					cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+					cbi.mask = 1;
 					cbi.iImage = IMAGE_CHIP; // No real image available for now,
 				} else if(it.type.find(TypeWineNative + U_("-")) == 0)
 				{
 					if(theApp.GetWineVersion() && (theApp.GetWineVersion()->HostClass() == mpt::osinfo::osclass::Linux))
 					{
-						cbi.mask |= CBEIF_IMAGE | CBEIF_SELECTEDIMAGE | CBEIF_OVERLAY;
+						cbi.mask = 1;
 						cbi.iImage = IMAGE_TUX;
 					} else
 					{
@@ -382,12 +384,8 @@ void COptionsSoundcard::UpdateEverything()
 				{
 					cbi.iImage = 0;
 				}
-				cbi.iSelectedImage = cbi.iImage;
-				cbi.iOverlay = cbi.iImage;
-				mpt::ustring tmp = mpt::ToUnicode(it.GetDisplayName());
-				cbi.pszText = const_cast<mpt::uchar *>(tmp.c_str());
-				cbi.iIndent = 0;
-				int pos = m_CbnDevice->InsertItem(&cbi);
+				const int pos = m_CbnDevice->count();
+				m_CbnDevice->addItem(cbi.mask ? deviceIcons.GetIcon(cbi.iImage) : QIcon(), mfcless::ToQString(mpt::ToUnicode(it.GetDisplayName())), QVariant::fromValue<qulonglong>(cbi.lParam));
 				if(static_cast<SoundDevice::Manager::GlobalID>(cbi.lParam) == theApp.GetSoundDevicesManager()->GetGlobalID(m_CurrentDeviceInfo.GetIdentifier()))
 				{
 					m_CbnDevice->setCurrentIndex(pos);
@@ -486,7 +484,7 @@ void COptionsSoundcard::UpdateRecording()
 			sel = -1;
 			for(size_t ch = 0; ch < m_CurrentDeviceDynamicCaps.inputSourceNames.size(); ch++)
 			{
-				const int pos = (int)::SendMessageW(m_CbnRecordingSource, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.inputSourceNames[ch].second.c_str());
+				const int pos = mfcless::AddItem(m_CbnRecordingSource, mpt::ToUnicode(m_CurrentDeviceDynamicCaps.inputSourceNames[ch].second));
 				mfcless::SetItemData(m_CbnRecordingSource, pos, (uintptr_t)m_CurrentDeviceDynamicCaps.inputSourceNames[ch].first);
 				if(m_CurrentDeviceDynamicCaps.inputSourceNames[ch].first == m_Settings.InputSourceID)
 				{
@@ -609,7 +607,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		EnableItem(IDC_STATIC_CHANNEL_REAR, true);
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
-			QComboBox *combo = &m_CbnChannelMapping[mch];
+			QComboBox *combo = m_CbnChannelMapping[mch];
 			combo->setEnabled(true);
 		}
 	}
@@ -631,7 +629,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 	}
 	for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)	// Host channels
 	{
-		QComboBox *combo = &m_CbnChannelMapping[mch];
+		QComboBox *combo = m_CbnChannelMapping[mch];
 		combo->setEnabled((m_CurrentDeviceCaps.CanChannelMapping && mch < usedChannels) ? true : false);
 		combo->clear();
 		if(m_CurrentDeviceCaps.CanChannelMapping)
@@ -642,7 +640,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 			{
 				for(size_t dch = 0; dch < m_CurrentDeviceDynamicCaps.channelNames.size(); dch++)	// Device channels
 				{
-					const int pos = (int)::SendMessageW(combo, CB_ADDSTRING, 0, (intptr_t)m_CurrentDeviceDynamicCaps.channelNames[dch].c_str());
+					const int pos = mfcless::AddItem(combo, mpt::ToUnicode(m_CurrentDeviceDynamicCaps.channelNames[dch]));
 					mfcless::SetItemData(combo, pos, (uintptr_t)dch);
 					if(static_cast<int32>(dch) == m_Settings.Channels.ToDevice(mch))
 					{
@@ -659,7 +657,7 @@ void COptionsSoundcard::UpdateChannelMapping()
 		EnableItem(IDC_STATIC_CHANNEL_REAR, false);
 		for(int mch = 0; mch < NUM_CHANNELCOMBOBOXES; mch++)
 		{
-			QComboBox *combo = &m_CbnChannelMapping[mch];
+			QComboBox *combo = m_CbnChannelMapping[mch];
 			combo->setEnabled(false);
 		}
 	}
@@ -706,8 +704,8 @@ void COptionsSoundcard::OnSoundCardDriverPanel()
 
 void COptionsSoundcard::OnChannelChanged(int channel)
 {
-	QComboBox *combo = &m_CbnChannelMapping[channel];
-	const LONG_PTR newChn = mfcless::GetItemData(combo, combo->currentIndex());
+	QComboBox *combo = m_CbnChannelMapping[channel];
+	const intptr_t newChn = static_cast<intptr_t>(mfcless::GetItemData(combo, combo->currentIndex()));
 	if(newChn == -1)
 	{
 		return;
@@ -717,7 +715,7 @@ void COptionsSoundcard::OnChannelChanged(int channel)
 	{
 		if(mch != channel)
 		{
-			combo = &m_CbnChannelMapping[mch];
+			combo = m_CbnChannelMapping[mch];
 			if((int)mfcless::GetItemData(combo, combo->currentIndex()) == newChn)
 			{
 				// find an unused channel
@@ -728,7 +726,7 @@ void COptionsSoundcard::OnChannelChanged(int channel)
 					bool used = false;
 					for(int hostChannel = 0; hostChannel < NUM_CHANNELCOMBOBOXES; ++hostChannel)
 					{
-						if(static_cast<int>(m_CbnChannelMapping[hostChannel].GetItemData(m_CbnChannelMapping[hostChannel].GetCurSel())) == deviceChannel)
+						if(static_cast<int>(mfcless::GetItemData(m_CbnChannelMapping[hostChannel], m_CbnChannelMapping[hostChannel]->currentIndex())) == deviceChannel)
 						{
 							used = true;
 							break;
@@ -820,7 +818,7 @@ void COptionsSoundcard::UpdateControls()
 	EnableItem(IDC_CHECK9, m_CurrentDeviceCaps.CanUseHardwareTiming ? true : false);
 	EnableItem(IDC_STATIC_UPDATEINTERVAL, m_CurrentDeviceCaps.CanUpdateInterval ? true : false);
 	EnableItem(IDC_COMBO_UPDATEINTERVAL, m_CurrentDeviceCaps.CanUpdateInterval ? true : false);
-	GetDlgItem(IDC_CHECK4)->SetWindowText(mpt::ToUnicode(m_CurrentDeviceCaps.ExclusiveModeDescription));
+	SetItemText(IDC_CHECK4, mpt::ToUnicode(m_CurrentDeviceCaps.ExclusiveModeDescription));
 	SetChecked(IDC_CHECK4, m_CurrentDeviceCaps.CanExclusiveMode && m_Settings.ExclusiveMode ? 1 : 0);
 	SetChecked(IDC_CHECK5, m_CurrentDeviceCaps.CanBoostThreadPriority && m_Settings.BoostThreadPriority ? 1 : 0);
 	SetChecked(IDC_CHECK9, m_CurrentDeviceCaps.CanUseHardwareTiming && m_Settings.UseHardwareTiming ? 1 : 0);
@@ -905,7 +903,7 @@ void COptionsSoundcard::OnOK()
 			std::vector<int32> channels(numChannels);
 			for(int mch = 0; mch < numChannels; mch++)	// Host channels
 			{
-				QComboBox *combo = &m_CbnChannelMapping[mch];
+				QComboBox *combo = m_CbnChannelMapping[mch];
 				channels[mch] = static_cast<int32>(mfcless::GetItemData(combo, combo->currentIndex()));
 			}
 			m_Settings.Channels = channels;
@@ -1155,7 +1153,7 @@ void COptionsMixer::OnDefaultRampSettings()
 void COptionsMixer::OnHScroll(mfcless::ScrollCode n, int pos, QWidget *p)
 {
 	PropertyPage::OnHScroll(n, pos, p);
-	if(p == (CScrollBar *)&m_SliderStereoSep)
+	if(p == m_SliderStereoSep)
 	{
 		UpdateStereoSep();
 		OnSettingsChanged();
@@ -1271,7 +1269,7 @@ bool CEQSavePresetDlg::OnInitDialog()
 		{
 			int n = mfcless::AddItem(pCombo, mpt::ToUnicode(mpt::Charset::Locale, TrackerSettings::Instance().m_EqUserPresets[i].szName));
 			mfcless::SetItemData(pCombo,  n, i);
-			if (!lstrcmpiA(TrackerSettings::Instance().m_EqUserPresets[i].szName, m_EQ.szName)) ndx = n;
+			if (!mpt::CompareNoCaseAscii(std::string_view(TrackerSettings::Instance().m_EqUserPresets[i].szName), std::string_view(m_EQ.szName))) ndx = n;
 		}
 		pCombo->setCurrentIndex(ndx);
 	}
@@ -1296,11 +1294,11 @@ void CEQSavePresetDlg::OnOK()
 }
 
 
-void CEQSlider::Init(uint32 nID, uint32 n, QWidget *parent)
+void CEQSlider::Init(uint32 n, QWidget *parent)
 {
+	// mfcless: the dialog makes the slider as a CEQSlider (DoDataExchange) instead of subclassing it
 	m_nSliderNo = n;
 	m_pParent = parent;
-	SubclassDlgItem(nID, parent);
 }
 
 
@@ -1308,9 +1306,9 @@ bool CEQSlider::PreTranslateMessage(mfcless::Message *pMsg)
 {
 	if ((pMsg) && (pMsg->message == mfcless::msg::RButtonUp) && (m_pParent))
 	{
-		m_x = LOWORD(pMsg->lParam);
-		m_y = HIWORD(pMsg->lParam);
-		mfcless::PostCommand(m_pParent, ID_EQSLIDER_BASE+m_nSliderNo, 0);
+		m_x = static_cast<short int>(pMsg->lParam & 0xFFFF);
+		m_y = static_cast<short int>((pMsg->lParam >> 16) & 0xFFFF);
+		mfcless::PostCommand(m_pParent, ID_EQSLIDER_BASE+m_nSliderNo);
 	}
 	return WindowBase::PreTranslateMessage(pMsg);
 }
@@ -1374,6 +1372,10 @@ void COptionsPlayer::DoDataExchange(DataExchange &dx)
 	ExchangeControl(dx, IDC_SLIDER5, m_SbSurroundDepth);
 	ExchangeControl(dx, IDC_SLIDER6, m_SbSurroundDelay);
 	ExchangeControl(dx, IDC_SLIDER4, m_SbBitCrushBits);
+#ifndef NO_EQ
+	for(uint32 i = 0; i < MAX_EQ_BANDS; i++)
+		ExchangeControl(dx, IDC_SLIDER7 + i, m_Sliders[i]);
+#endif
 	//}}AFX_DATA_MAP
 }
 
@@ -1395,9 +1397,9 @@ bool COptionsPlayer::OnInitDialog()
 #ifndef NO_EQ
 	for (uint32 i = 0; i < MAX_EQ_BANDS; i++)
 	{
-		m_Sliders[i].Init(IDC_SLIDER7 + i, i, this);
-		m_Sliders[i].SetRange(0, 32);
-		m_Sliders[i].SetTicFreq(4);
+		m_Sliders[i]->Init(i, this);
+		m_Sliders[i]->setRange(0, 32);
+		m_Sliders[i]->setTickInterval(4);
 	}
 
 	UpdateDialog();
@@ -1605,7 +1607,7 @@ void COptionsPlayer::OnVScroll(mfcless::ScrollCode nSBCode, int nPos, QWidget *p
 	PropertyPage::OnVScroll(nSBCode, nPos, pScrollBar);
 	for (uint32 i=0; i<MAX_EQ_BANDS; i++)
 	{
-		int n = 32 - m_Sliders[i].GetPos();
+		int n = 32 - m_Sliders[i]->value();
 		if ((n >= 0) && (n <= 32)) m_EQPreset.Gains[i] = n;
 	}
 	UpdateEQ(false);
@@ -1657,7 +1659,7 @@ void COptionsPlayer::UpdateDialog()
 		int n = 32 - m_EQPreset.Gains[i];
 		if (n < 0) n = 0;
 		if (n > 32) n = 32;
-		if (n != (m_Sliders[i].GetPos() & 0xFFFF)) m_Sliders[i].SetPos(n);
+		if (n != (m_Sliders[i]->value() & 0xFFFF)) m_Sliders[i]->setValue(n);
 		SetItemText(IDC_TEXT1 + i, f2s(m_EQPreset.Freqs[i]));
 	}
 	for(unsigned int i = 0; i < std::size(TrackerSettings::Instance().m_EqUserPresets); i++)
@@ -1682,8 +1684,8 @@ void COptionsPlayer::OnSliderMenu(uint32 nID)
 			if (m_EQPreset.Freqs[m_nSliderMenu] == pFreqs[i]) d |= mfcless::menu::Checked;
 			hMenu.AppendMenu(d, ID_EQMENU_BASE+i, f2s(pFreqs[i]));
 		}
-		mfcless::Point pt(m_Sliders[m_nSliderMenu].m_x, m_Sliders[m_nSliderMenu].m_y);
-		m_Sliders[m_nSliderMenu].ClientToScreen(&pt);
+		mfcless::Point pt(m_Sliders[m_nSliderMenu]->m_x, m_Sliders[m_nSliderMenu]->m_y);
+		m_Sliders[m_nSliderMenu]->ClientToScreen(&pt);
 		hMenu.TrackPopupMenu(mfcless::menu::LeftAlign|mfcless::menu::RightButton, pt.x, pt.y, this);
 		hMenu.DestroyMenu();
 	}
@@ -1921,7 +1923,7 @@ void CMidiSetupDlg::OnOK()
 	if(n >= 0)
 		m_nMidiDevice = static_cast<uint32>(mfcless::GetItemData(m_InputDevice, n));
 	else
-		m_nMidiDevice = MIDI_MAPPER;
+		m_nMidiDevice = static_cast<uint32>(-1);  // MIDI_MAPPER
 
 	TrackerSettings::Instance().aftertouchBehaviour = static_cast<RecordAftertouch>(mfcless::GetItemData(m_ATBehaviour, m_ATBehaviour->currentIndex()));
 	TrackerSettings::Instance().pitchBendBehaviour = static_cast<RecordPitchBend>(mfcless::GetItemData(m_RecordPitchBend, m_RecordPitchBend->currentIndex()));

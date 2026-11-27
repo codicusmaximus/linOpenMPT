@@ -39,6 +39,20 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// The UI toolkit's side of embedding an editor and of calling back on the
+// UI thread: mfc-qt in the MFC build, mfcless in the Qt one.
+#ifdef MPT_MFCLESS
+#include "mfcless/ForeignWindows.h"
+namespace hostui = mfcless;
+#else
+namespace hostui
+{
+inline bool EmbedX11Window(uintptr_t parent, uintptr_t child, void (*moved)(void *context, int x, int y), void *context) { return MfcQtEmbedX11Window(parent, child, moved, context) != FALSE; }
+inline void UnembedX11Window(uintptr_t child) { MfcQtUnembedX11Window(child); }
+inline void PostToMainThread(void (*fn)(void *context), void *context) { MfcQtPostToMainThread(fn, context); }
+}
+#endif
+
 extern char **environ;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -225,7 +239,7 @@ public:
 	~BridgedPlugin()
 	{
 		if(m_editorWindow != 0)
-			MfcQtUnembedX11Window(m_editorWindow);
+			hostui::UnembedX11Window(m_editorWindow);
 		{
 			std::lock_guard<std::mutex> lock(g_pluginsMutex);
 			g_plugins.erase(this);
@@ -520,7 +534,7 @@ private:
 			if(message.type != MsgType::notify || message.payload.size() < sizeof(DispatchPayload))
 				continue;
 			auto *copy = new std::pair<BridgedPlugin *, Message>(this, message);
-			MfcQtPostToMainThread([](void *context) {
+			hostui::PostToMainThread([](void *context) {
 				std::unique_ptr<std::pair<BridgedPlugin *, Message>> item(static_cast<std::pair<BridgedPlugin *, Message> *>(context));
 				{
 					std::lock_guard<std::mutex> lock(g_pluginsMutex);
@@ -560,7 +574,7 @@ private:
 
 		if(opcode == Vst::effEditClose && m_editorWindow != 0)
 		{
-			MfcQtUnembedX11Window(m_editorWindow);
+			hostui::UnembedX11Window(m_editorWindow);
 			m_editorWindow = 0;
 		}
 
@@ -666,7 +680,7 @@ private:
 				{
 					int64_t window = 0;
 					std::memcpy(&window, out, sizeof(window));
-					if(window == 0 || !MfcQtEmbedX11Window(reinterpret_cast<uintptr_t>(ptr), static_cast<uintptr_t>(window), EditorMovedThunk, this))
+					if(window == 0 || !hostui::EmbedX11Window(reinterpret_cast<uintptr_t>(ptr), static_cast<uintptr_t>(window), EditorMovedThunk, this))
 						return 0;
 					m_editorWindow = static_cast<uintptr_t>(window);
 				}

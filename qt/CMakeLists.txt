@@ -24,14 +24,24 @@ foreach(source ${MFCLESS_ALL_TWIN_SOURCES})
 endforeach()
 # Upstream mptrack/ files compiled from the worktree, unchanged or patched
 # by patches/mfcless/ (mostly logic, with only a little UI code in them).
-set(MFCLESS_UPSTREAM_UI_FILES Moddoc.cpp CommandSet.cpp)
+set(MFCLESS_UPSTREAM_UI_FILES Moddoc.cpp Modedit.cpp ModConvert.cpp AppendModule.cpp MPTHacks.cpp CommandSet.cpp plugins/MidiInOut.cpp)
 list(TRANSFORM MFCLESS_UPSTREAM_UI_FILES PREPEND ${MPT_UPSTREAM_DIR}/mptrack/)
 list(APPEND MFCLESS_TWIN_SOURCES ${MFCLESS_UPSTREAM_UI_FILES})
 # The crash handler is linOpenMPT's own Linux one (platform/), shared with
 # the MFC build.
 # Base helpers that need upstream's string types.
-add_library(mfcless_ui STATIC ${MFCLESS_TWIN_SOURCES} ${CMAKE_SOURCE_DIR}/platform/ExceptionHandler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/base/src/Widgets.cpp)
+# The twin headers are listed too, so that AUTOMOC finds those whose source
+# is spelled differently (Mainfrm.h and MainFrm.cpp) or that have none
+# (CListCtrl.h).
+file(GLOB_RECURSE MFCLESS_TWIN_HEADER_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/mptrack ${CMAKE_CURRENT_SOURCE_DIR}/mptrack/*.h)
+list(TRANSFORM MFCLESS_TWIN_HEADER_FILES PREPEND ${MPT_UPSTREAM_DIR}/mptrack/)
+add_library(mfcless_ui STATIC ${MFCLESS_TWIN_SOURCES} ${MFCLESS_TWIN_HEADER_FILES} ${CMAKE_SOURCE_DIR}/platform/ExceptionHandler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/base/src/Widgets.cpp)
 target_include_directories(mfcless_ui PRIVATE ${CMAKE_SOURCE_DIR}/platform)
+# The VST host's Linux side, shared with the MFC build: native (ELF)
+# plugins load in-process, Windows ones through the Wine bridge (vstbridge/).
+target_sources(mfcless_ui PRIVATE ${CMAKE_SOURCE_DIR}/vstbridge/host.cpp ${CMAKE_SOURCE_DIR}/vstbridge/native.cpp)
+target_include_directories(mfcless_ui PRIVATE ${CMAKE_SOURCE_DIR}/vstbridge)
+target_compile_definitions(mfcless_ui PRIVATE LINOPENMPT_VSTBRIDGE_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/lib/linopenmpt")
 target_link_libraries(mfcless_ui PUBLIC mpt_tracker_logic mfcless_base mfcless_resources Qt6::Widgets Qt6::Network)
 target_compile_options(mfcless_ui PRIVATE -fpermissive -w)
 

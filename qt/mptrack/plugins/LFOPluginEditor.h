@@ -3,6 +3,7 @@
  * -----------------
  * Purpose: Editor interface for the LFO plugin.
  * Notes  : mfcless twin of upstream's mptrack/plugins/LFOPluginEditor.h.
+ *          Hand-edited from the twin.py draft.
  * Authors: Johannes Schultz (OpenMPT Devs)
  * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
  */
@@ -11,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Controls.h"
 
 #include "../AbstractVstEditor.h"
 #include "../PluginComboBox.h"
@@ -18,8 +20,8 @@
 
 class QComboBox;
 class QLineEdit;
+class QScrollBar;
 class QSlider;
-class QSpinBox;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -34,7 +36,7 @@ protected:
 	PluginComboBox *m_outPlug = nullptr;
 	QSlider *m_amplitudeSlider = nullptr, *m_offsetSlider = nullptr, *m_frequencySlider = nullptr;
 	QLineEdit *m_midiChnEdit = nullptr;
-	QSpinBox *m_midiChnSpin = nullptr;
+	mfcless::UpDown *m_midiChnSpin = nullptr;
 	LFOPlugin &m_lfoPlugin;
 	bool m_locked : 1;
 	static constexpr int SLIDER_GRANULARITY = 1000;
@@ -52,13 +54,13 @@ public:
 	void UpdateView(UpdateHint hint) override;
 
 protected:
-	void DoDataExchange();
-	void OnHScroll(QSlider *slider);
+	void DoDataExchange(DataExchange &dx) override;
+	void OnHScroll(mfcless::ScrollCode nCode, int nPos, QWidget *pSB) override;
 
-	void InitSlider(QSlider &slider, LFOPlugin::Parameters param);
+	void InitSlider(QSlider *slider, LFOPlugin::Parameters param);
 	void SetSliderText(LFOPlugin::Parameters param);
-	void SetSliderValue(QSlider &slider, float value);
-	float GetSliderValue(QSlider &slider);
+	void SetSliderValue(QSlider *slider, float value);
+	float GetSliderValue(QSlider *slider);
 
 	void OnPolarityChanged();
 	void OnTempoSyncChanged();
@@ -71,6 +73,8 @@ protected:
 	void OnOutputPlugChanged();
 	void OnPluginEditor();
 	intptr_t OnUpdateParam(uintptr_t wParam, intptr_t lParam);
+
+	void RegisterMessageMap() override;
 };
 
 OPENMPT_NAMESPACE_END
