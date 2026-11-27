@@ -217,6 +217,24 @@ with MinGW and run with Wine (`g++-mingw-w64-x86-64 wine wine64 libxcb1-dev`, an
 `g++-mingw-w64-i686` and, after `sudo dpkg --add-architecture i386 && sudo
 apt update`, `wine32:i386`. Then follow steps 2 to 5 above.
 
+## The mfcless build (pure Qt 6, no MFC)
+
+The `mfcless` branch also builds OpenMPT without the MFC bridge: upstream's
+UI is rewritten in Qt 6 (`qt/`), and upstream's engine and non-UI files are
+compiled from a patched worktree of `upstream/` (see `docs/MFCLESS-MAP.md`
+and `patches/mfcless/README.md`). It needs the same dependencies.
+
+```sh
+git checkout mfcless
+cmake -S . -B build-qt -G Ninja -DLINOPENMPT_UI=qt
+cmake --build build-qt --target openmpt-qt
+./build-qt/qt/openmpt-qt                    # or: ./build-qt/qt/openmpt-qt song.it
+```
+
+It shares `~/.config/OpenMPT/` with the MFC build. After editing a file in
+`build-qt/upstream-mfcless/`, run `sh scripts/mfcless-save-patches.sh` before
+building, so the change is kept in `patches/mfcless/`.
+
 ## Build options
 
 Pass these to the first `cmake` command as `-DNAME=OFF`:

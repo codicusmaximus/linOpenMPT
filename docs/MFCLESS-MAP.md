@@ -24,7 +24,22 @@ Checked so far, all matching in layout and content:
   pages and their views.
 - Setup: all eleven pages of the options dialog.
 - Dialogs: About, song properties, channel manager, plugin manager, MIDI
-  mapping, pattern properties, go to, keyboard split, MPT hacks, edit history.
+  mapping, pattern properties, go to, keyboard split, MPT hacks, edit history,
+  find/replace, amplify, transpose, cleanup, sample map, envelope scale,
+  quick fade, resample, cross-fade, autotune, quantize, time at row, effect
+  visualizer, missing external samples.
+- Real mouse and keyboard input (xdotool): note entry, pattern drag selection,
+  sample selection and pencil drawing, envelope dragging, the instrument
+  sample map, the comments lists (rename), the tree (double-click, context
+  menus), the Setup keyboard page (search, assigning a key), File and Window
+  menus, Save/Save As/Close/Exit, WAV export, playback following the song.
+- Upstream's `test/test.mptm`: every page.
+
+Not yet checked against the MFC build: external VST plugins (native `.so` and
+Windows plugins through the bridge), MIDI input from hardware, and audio
+output on a real sound device (tests ran on a PulseAudio null sink). Known
+cosmetic differences: disabled sliders look the same as enabled ones in Qt's
+Fusion style, and the menu bar is not greyed while a modal dialog is open.
 
 Linux and Qt idioms used on purpose: Qt's tree and list look (group headers,
 expand arrows), button box icons, a Help button in place of the title bar's
