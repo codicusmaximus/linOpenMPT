@@ -15,6 +15,7 @@
 #include "openmpt/all/BuildSettings.hpp"
 #include "DialogBase.h"
 #include "mfcless/Controls.h"
+#include "mfcless/Geometry.h"
 #include "DocumentView.h"
 #include "AccessibleControls.h"
 #include "ColorPickerButton.h"
@@ -24,8 +25,6 @@
 class QAbstractButton;
 class QComboBox;
 class QObject;
-class QPoint;
-class QRect;
 class QScrollBar;
 class QSlider;
 
@@ -42,7 +41,7 @@ class CViewGlobals: public DialogBase, public mfcless::DocumentView
 {
 	Q_OBJECT
 protected:
-	QRect m_rcClient;
+	mfcless::Rect m_rcClient;
 	mfcless::TabControl *m_TabCtrl = nullptr;
 	PluginComboBox *m_CbnEffects[CHANNELS_IN_TAB] = {};
 	PluginComboBox *m_CbnPlugin = nullptr;
@@ -86,7 +85,7 @@ public:
 	void OnInitialUpdate() override;
 	void DoDataExchange(DataExchange &dx) override;
 	void OnUpdate(CView *pSender, intptr_t lHint, QObject *pHint) override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr);
 	intptr_t OnModViewMsg(uintptr_t, intptr_t);

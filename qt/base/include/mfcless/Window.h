@@ -37,6 +37,7 @@
 #include <QtWidgets/QAbstractScrollArea>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QToolTip>
 #include <QtWidgets/QWidget>
 
 #include <map>
@@ -51,10 +52,28 @@ namespace size
 	inline constexpr uint32_t Restored = 0, Minimized = 1, Maximized = 2;
 }
 
+// What OnToolHitTest reports about the tool (area) under the mouse.
+struct ToolInfo
+{
+	QWidget *hwnd = nullptr;
+	uintptr_t uId = 0;
+	Rect rect;       // the area, in client coordinates
+	QString text;    // empty: ask GetToolTipText(uId)
+	uint32_t uFlags = 0;
+};
+
 // What all windows have, whatever their Qt class.
 class WindowBase : public MessageMap
 {
 public:
+	// The tool (area with its own tooltip) at point, or -1.
+	virtual intptr_t OnToolHitTest(Point /*point*/, ToolInfo * /*ti*/) const { return -1; }
+	// The tooltip of a tool that OnToolHitTest gave no text.
+	virtual QString GetToolTipText(uintptr_t /*id*/) { return {}; }
+	// Called after DestroyWindow, once the window is gone (from the event
+	// loop); windows that own themselves delete themselves here.
+	virtual void PostNcDestroy() {}
+
 	// Called for key and mouse messages to this window or its children
 	// before they are delivered (for mouse messages, lParam holds the
 	// position in the receiver's coordinates). True if the message was handled (and is not delivered).
@@ -114,6 +133,45 @@ public:
 	bool HasCapture() const { return QWidget::mouseGrabber() == const_cast<Window *>(this)->ClientWidget(); }
 
 	void DragAcceptFiles(bool accept = true) { this->setAcceptDrops(accept); }
+
+	// Window functions as upstream calls them.
+	void ShowWindow(bool show) { this->setVisible(show); }
+	bool IsWindowVisible() const { return this->isVisible(); }
+	void EnableWindow(bool enable = true) { this->setEnabled(enable); }
+	bool IsWindowEnabled() const { return this->isEnabled(); }
+	void Invalidate(bool /*erase*/ = true) { ClientWidget()->update(); }
+	void InvalidateRect(const Rect *r, bool /*erase*/ = true)
+	{
+		if(r)
+			ClientWidget()->update(QRect(*r));
+		else
+			ClientWidget()->update();
+	}
+	void InvalidateRect(const Rect &r, bool erase = true) { InvalidateRect(&r, erase); }
+	// Qt paints from the event loop; this paints what is due now.
+	void UpdateWindow() { ClientWidget()->repaint(); }
+	void GetClientRect(Rect *r) { *r = GetClientRect(); }
+	// In screen coordinates.
+	void GetWindowRect(Rect *r) const
+	{
+		const QWidget *w = this;
+		*r = Rect(QRect(w->mapToGlobal(QPoint(0, 0)), w->size()));
+	}
+	void ClientToScreen(Point *p) { *p = ClientWidget()->mapToGlobal(QPoint(*p)); }
+	void ClientToScreen(Rect *r) { r->OffsetRect(Point(ClientWidget()->mapToGlobal(QPoint(0, 0)))); }
+	void ScreenToClient(Point *p) { *p = ClientWidget()->mapFromGlobal(QPoint(*p)); }
+	void ScreenToClient(Rect *r) { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
+	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
+	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
+	void SetWindowText(const QString &text) { this->setWindowTitle(text); }
+	QString GetWindowText() const { return this->windowTitle(); }
+	// Hides the window; PostNcDestroy follows from the event loop.
+	bool DestroyWindow()
+	{
+		this->hide();
+		QMetaObject::invokeMethod(this, [this] { PostNcDestroy(); }, Qt::QueuedConnection);
+		return true;
+	}
 
 	// Handlers. Each one's default is the Qt base class's handling of the
 	// event that led to it.
@@ -208,6 +266,8 @@ protected:
 	bool event(QEvent *e) override
 	{
 		if(HandleModMessage(e))
+			return true;
+		if(e->type() == QEvent::ToolTip && ToolTip(static_cast<QHelpEvent *>(e)))
 			return true;
 		return Base::event(e);
 	}
@@ -357,6 +417,26 @@ private:
 			w->m_defaultDone = prevDone;
 		}
 	};
+
+	bool ToolTip(QHelpEvent *e)
+	{
+		ToolInfo ti;
+		ti.hwnd = this;
+		const QPoint client = ClientWidget()->mapFromGlobal(e->globalPos());
+		const intptr_t id = OnToolHitTest(Point(client), &ti);
+		if(id < 0)
+			return false;
+		if(ti.text.isEmpty())
+			ti.text = GetToolTipText(ti.uId ? ti.uId : static_cast<uintptr_t>(id));
+		if(ti.text.isEmpty())
+		{
+			QToolTip::hideText();
+			return true;
+		}
+		const QRect area = ti.rect.IsRectEmpty() ? QRect() : QRect(ti.rect);
+		QToolTip::showText(e->globalPos(), ti.text, ClientWidget(), area);
+		return true;
+	}
 
 	void DefaultContextMenu()
 	{

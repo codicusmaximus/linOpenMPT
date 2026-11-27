@@ -81,7 +81,7 @@ protected:
 	void UpdateParamList();
 
 	// When a combobox is focussed, check the corresponding checkbox.
-	void CheckOnChange(int buttonID) { CheckDlgButton(buttonID, BST_CHECKED); CheckReplace(buttonID); };
+	void CheckOnChange(int buttonID) { SetChecked(buttonID, 1); CheckReplace(buttonID); };
 	void OnNoteChanged();
 	void OnInstrChanged();
 	void OnVolCmdChanged();

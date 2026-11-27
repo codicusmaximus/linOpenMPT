@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "DocumentView.h"
 #include <QtCore/QObject>
 
 #include "mpt/base/namespace.hpp"
@@ -30,7 +31,7 @@ class CModDocTemplate: public QObject
 	std::unordered_set<CModDoc *> m_documents;	// Allow faster lookup of open documents than MFC's linear search allows for
 
 public:
-	CModDocTemplate(uint32 nIDResource, CRuntimeClass* pDocClass, CRuntimeClass* pFrameClass, CRuntimeClass* pViewClass):
+	CModDocTemplate(uint32 nIDResource, const mfcless::ViewClass * pDocClass, const mfcless::ViewClass * pFrameClass, const mfcless::ViewClass * pViewClass):
 		CMultiDocTemplate(nIDResource, pDocClass, pFrameClass, pViewClass) {}
 
 	CDocument* OpenTemplateFile(const mpt::PathString &filename, bool isExampleTune = false);

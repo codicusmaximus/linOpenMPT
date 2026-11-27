@@ -14,6 +14,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Keyboard.h"
+#include "DocumentView.h"
 #include "Globals.h"
 
 class QLineEdit;
@@ -36,7 +37,7 @@ public:
 	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
-	CRuntimeClass *GetAssociatedViewClass() override;
+	const mfcless::ViewClass *GetAssociatedViewClass() override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;

@@ -12,14 +12,13 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 
 #include "DialogBase.h"
 #include "EffectInfo.h"
 
 class QComboBox;
 class QLineEdit;
-class QPoint;
-class QRect;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -65,8 +64,8 @@ protected:
 	
 	void DrawNodes();
 	void DrawGrid();
-	void ShowVis(CDC *pDC);
-	void ShowVisImage(CDC *pDC);
+	void ShowVis(mfcless::DC *pDC);
+	void ShowVisImage(mfcless::DC *pDC);
 	void InvalidateRow(int row);
 	
 	std::pair<ROWINDEX, ROWINDEX> GetTimeSignature() const;
@@ -86,14 +85,14 @@ protected:
 
 	void OnClose();
 	void OnPaint();
-	void OnLButtonDown(uint32 nFlags, QPoint point);
-	void OnLButtonUp(uint32 nFlags, QPoint point);
-	void OnMouseMove(uint32 nFlags, QPoint point);
-	void OnRButtonDown(uint32 nFlags, QPoint point);
-	void OnRButtonUp(uint32 nFlags, QPoint point);
+	void OnLButtonDown(uint32 nFlags, mfcless::Point point);
+	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
+	void OnMouseMove(uint32 nFlags, mfcless::Point point);
+	void OnRButtonDown(uint32 nFlags, mfcless::Point point);
+	void OnRButtonUp(uint32 nFlags, mfcless::Point point);
 	void OnEffectChanged();
 	void OnActionChanged();
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 
 	void RegisterMessageMap() override;
 
@@ -101,14 +100,14 @@ protected:
 	CModDoc &m_ModDoc;
 	CSoundFile &m_SndFile;
 	CViewPattern *m_pViewPattern = nullptr;
-	QRect m_rcDraw;
-	QRect m_rcFullWin;
+	mfcless::Rect m_rcDraw;
+	mfcless::Rect m_rcFullWin;
 
 	QComboBox *m_cmbEffectList = nullptr, *m_cmbActionList = nullptr;
 	QLineEdit *m_edVisStatus = nullptr;
-	CBitmap m_bGrid, m_bNodes, m_bPlayPos;
-	HBITMAP m_pbOldGrid = nullptr, m_pbOldNodes = nullptr, m_pbOldPlayPos = nullptr;
-	CDC m_dcGrid, m_dcNodes, m_dcPlayPos;
+	mfcless::Bitmap m_bGrid, m_bNodes, m_bPlayPos;
+	mfcless::Bitmap *m_pbOldGrid = nullptr, *m_pbOldNodes = nullptr, *m_pbOldPlayPos = nullptr;
+	mfcless::DC m_dcGrid, m_dcNodes, m_dcPlayPos;
 
 	EffectInfo m_effectInfo;
 

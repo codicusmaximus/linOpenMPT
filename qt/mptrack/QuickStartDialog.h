@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/Keyboard.h"
 
 #include "AccessibleControls.h"
@@ -60,7 +61,7 @@ protected:
 	CListCtrlEx *m_list = nullptr;
 	QLineEdit *m_find = nullptr;
 	AccessibleButton *m_newButton = nullptr, *m_openButton = nullptr;
-	CBitmap m_bmpNew, m_bmpOpen;
+	mfcless::Bitmap m_bmpNew, m_bmpOpen;
 	std::array<std::vector<mpt::PathString>, 3> m_paths;
 	int m_prevDPI = 0;
 	bool m_groupsEnabled = false;

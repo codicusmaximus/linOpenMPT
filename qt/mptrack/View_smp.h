@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 #include "Globals.h"
@@ -23,10 +24,6 @@
 
 class QFont;
 class QObject;
-class QPoint;
-class QRect;
-class QSize;
-class QStringList;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -77,11 +74,11 @@ protected:
 	};
 
 	std::unique_ptr<OPLInstrDlg> m_oplEditor;
-	QRect m_rcClient;
-	CDC m_offScreenDC, m_waveformDC;
-	CBitmap m_offScreenBitmap, m_waveformBitmap;
+	mfcless::Rect m_rcClient;
+	mfcless::DC m_offScreenDC, m_waveformDC;
+	mfcless::Bitmap m_offScreenBitmap, m_waveformBitmap;
 	QFont m_timelineFont;
-	SIZE m_sizeTotal;
+	mfcless::Size m_sizeTotal;
 	uint32 m_nBtnMouseOver = 0xFFFF;
 	int m_nZoom = 0;	// < 0: Zoom into sample (2^x:1 ratio), 0: Auto zoom, > 0: Zoom out (1:2^x ratio)
 	int m_timelineHeight = 0;
@@ -94,12 +91,12 @@ protected:
 	SmpLength m_nGridSegments = 0;
 	SAMPLEINDEX m_nSample = 1;
 	HitTestItem m_dragItem = HitTestItem::Nothing;
-	QPoint m_startDragPoint;
+	mfcless::Point m_startDragPoint;
 	SmpLength m_startDragValue = MAX_SAMPLE_LENGTH;
 	bool m_dragPreparedUndo = false, m_fineDrag = false, m_forceRedrawWaveform = true, m_scrolledSinceLastMouseMove = false;
 
 	// Sample drawing
-	QPoint m_lastDrawPoint;		// For drawing horizontal lines
+	mfcless::Point m_lastDrawPoint;		// For drawing horizontal lines
 	int m_drawChannel;			// Which sample channel are we drawing on?
 
 	// Note-off event buffer for MIDI sustain pedal
@@ -126,7 +123,7 @@ protected:
 	SmpLength ScreenToSample(int32 x, bool ignoreSampleLength = false) const;
 	int32 SecondsToScreen(double x) const;
 	double ScreenToSeconds(int32 x, bool ignoreSampleLength = false) const;
-	std::pair<HitTestItem, SmpLength> PointToItem(QPoint point, QRect *rect = nullptr) const;
+	std::pair<HitTestItem, SmpLength> PointToItem(mfcless::Point point, mfcless::Rect *rect = nullptr) const;
 	void PlayNote(ModCommand::NOTE note, const SmpLength nStartPos = 0, int volume = -1);
 	void NoteOff(ModCommand::NOTE note);
 	void InvalidateSample(bool invalidateWaveform = true);
@@ -134,28 +131,28 @@ protected:
 	void SetCurSel(SmpLength nBegin, SmpLength nEnd);
 	void ScrollToPosition(int x);
 	void DrawPositionMarks();
-	void DrawSampleData1(HDC hdc, int ymed, int cx, int cy, SmpLength len, SampleFlags uFlags, const void *pSampleData);
-	void DrawSampleData2(HDC hdc, int ymed, int cx, int cy, SmpLength len, SampleFlags uFlags, const void *pSampleData);
-	void DrawNcButton(CDC *pDC, uint32 nBtn);
-	bool GetNcButtonRect(uint32 button, QRect &rect) const;
-	uint32 GetNcButtonAtPoint(QPoint point, QRect *outRect = nullptr) const;
+	void DrawSampleData1(mfcless::DC * hdc, int ymed, int cx, int cy, SmpLength len, SampleFlags uFlags, const void *pSampleData);
+	void DrawSampleData2(mfcless::DC * hdc, int ymed, int cx, int cy, SmpLength len, SampleFlags uFlags, const void *pSampleData);
+	void DrawNcButton(mfcless::DC *pDC, uint32 nBtn);
+	bool GetNcButtonRect(uint32 button, mfcless::Rect &rect) const;
+	uint32 GetNcButtonAtPoint(mfcless::Point point, mfcless::Rect *outRect = nullptr) const;
 	void UpdateNcButtonState();
 	void DoPaste(PasteMode pasteMode);
 
 	// Sets sample data on sample draw.
 	template<class T>
-	void SetSampleData(ModSample &smp, const QPoint &point, const SmpLength old);
+	void SetSampleData(ModSample &smp, const mfcless::Point &point, const SmpLength old);
 
 	// Sets initial draw point on sample draw.
 	template<class T>
-	void SetInitialDrawPoint(ModSample &smp, const QPoint &point);
+	void SetInitialDrawPoint(ModSample &smp, const mfcless::Point &point);
 
 	// Returns sample value corresponding given point in the sample view.
 	template<class T>
-	T GetSampleValueFromPoint(const ModSample &smp, const QPoint &point) const;
+	T GetSampleValueFromPoint(const ModSample &smp, const mfcless::Point &point) const;
 
 	int GetZoomLevel(SmpLength length) const;
-	void DoZoom(int direction, const QPoint &zoomPoint = QPoint(-1, -1));
+	void DoZoom(int direction, const mfcless::Point &zoomPoint = mfcless::Point(-1, -1));
 	bool CanZoomSelection() const;
 	void ScrollToSample(SmpLength sample, bool refresh = true, ScrollTarget target = ScrollTarget::Center);
 
@@ -175,33 +172,33 @@ protected:
 	void PlayOrSetCuePoint(size_t cue);
 
 public:
-	void OnDraw(CDC *) override;
+	void OnDraw(mfcless::DC *) override;
 	void OnInitialUpdate() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	bool OnDragonDrop(bool, const DRAGONDROP *) override;
 	intptr_t OnPlayerNotify(Notification *) override;
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
-	bool OnScrollBy(QSize sizeScroll, bool bDoScroll = true) override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
+	bool OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll = true) override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 protected:
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	// cppcheck-suppress duplInheritedMember
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnSize(uint32 nType, int cx, int cy);
 	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
-	intptr_t OnNcHitTest(QPoint point);
+	intptr_t OnNcHitTest(mfcless::Point point);
 	void OnNcPaint();
 	void OnChar(uint32 nChar, uint32 nRepCnt, uint32 nFlags);
-	void OnNcMouseMove(uint32 nHitTest, QPoint point);
-	void OnNcLButtonDown(uint32, QPoint);
-	void OnNcLButtonUp(uint32, QPoint);
-	void OnNcLButtonDblClk(uint32, QPoint);
-	void OnLButtonDblClk(uint32 nFlags, QPoint point);
-	void OnLButtonDown(uint32 nFlags, QPoint point);
-	void OnLButtonUp(uint32 nFlags, QPoint point);
-	void OnRButtonUp(uint32, QPoint);
-	void OnMouseMove(uint32, QPoint);
+	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
+	void OnNcLButtonDown(uint32, mfcless::Point);
+	void OnNcLButtonUp(uint32, mfcless::Point);
+	void OnNcLButtonDblClk(uint32, mfcless::Point);
+	void OnLButtonDblClk(uint32 nFlags, mfcless::Point point);
+	void OnLButtonDown(uint32 nFlags, mfcless::Point point);
+	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
+	void OnRButtonUp(uint32, mfcless::Point);
+	void OnMouseMove(uint32, mfcless::Point);
 	bool OnSetCursor(QWidget *pWnd, uint32 nHitTest, uint32 message);
 	void OnEditSelectAll();
 	void OnEditDelete();
@@ -243,8 +240,8 @@ protected:
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t); //rewbs.customKeys
 	// cppcheck-suppress duplInheritedMember
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 	void OnUpdateUndo(mfcless::CommandState &state);
 	void OnUpdateRedo(mfcless::CommandState &state);
 	void OnSampleSliceCuePoints();
@@ -258,7 +255,7 @@ protected:
 	void SetTimelineFormat(TimelineFormat fmt);
 	void RegisterMessageMap() override;
 
-	bool OnGestureZoom(QPoint ptCenter, long lDelta) override
+	bool OnGestureZoom(mfcless::Point ptCenter, long lDelta) override
 	{
 		DoZoom(lDelta / 10, ptCenter);
 		return true;

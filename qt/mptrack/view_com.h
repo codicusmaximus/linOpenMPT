@@ -36,7 +36,7 @@ protected:
 	CModControlBar *m_ToolBar = nullptr;
 	CListCtrlEx *m_ItemList = nullptr;
 	QFont m_fixedFont;
-	HFONT m_oldFont = nullptr;
+	QFont m_oldFont;
 	int m_nCurrentListId = 0, m_nListId = 0;
 	ModCommand::NOTE m_lastNote = NOTE_NONE;
 	CHANNELINDEX m_noteChannel = CHANNELINDEX_INVALID;

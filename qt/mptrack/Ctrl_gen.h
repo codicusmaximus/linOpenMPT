@@ -14,7 +14,9 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
+#include "DocumentView.h"
 #include <QtWidgets/QWidget>
 
 #include "CDecimalSupport.h"
@@ -43,7 +45,7 @@ public:
 	void SetVuMeter(int level, bool force = false);
 
 protected:
-	void DrawVuMeter(CDC &dc, bool redraw = false);
+	void DrawVuMeter(mfcless::DC &dc, bool redraw = false);
 
 protected:
 	void OnPaint();
@@ -80,7 +82,7 @@ private:
 	void DoDataExchange(DataExchange &dx) override;  // DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
-	CRuntimeClass *GetAssociatedViewClass() override;
+	const mfcless::ViewClass *GetAssociatedViewClass() override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
 	mpt::ustring GetToolTipText(uint32 uId, QWidget * hwnd) const override;

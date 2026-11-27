@@ -14,7 +14,9 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
+#include "DocumentView.h"
 #include <QtWidgets/QLabel>
 
 #include "CDecimalSupport.h"
@@ -26,7 +28,6 @@ class QAbstractButton;
 class QComboBox;
 class QLineEdit;
 class QObject;
-class QPoint;
 class QScrollBar;
 class QSlider;
 class QWidget;
@@ -77,14 +78,14 @@ public:
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
 protected:
-	void OnLButtonDown(uint32, QPoint);
-	void OnMButtonDown(uint32 flags, QPoint pt) { OnLButtonDown(flags, pt); }
-	void OnRButtonUp(uint32, QPoint);
-	void OnLButtonDblClk(uint32, QPoint);
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
+	void OnLButtonDown(uint32, mfcless::Point);
+	void OnMButtonDown(uint32 flags, mfcless::Point pt) { OnLButtonDown(flags, pt); }
+	void OnRButtonUp(uint32, mfcless::Point);
+	void OnLButtonDblClk(uint32, mfcless::Point);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnKillFocus(QWidget *pNewWnd);
-	bool OnEraseBkGnd(CDC *) { return true; }
+	bool OnEraseBkGnd(mfcless::DC *) { return true; }
 	void OnPaint();
 	void OnMapCopySample();
 	void OnMapCopyNote();
@@ -150,7 +151,7 @@ public:
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
 	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
-	CRuntimeClass *GetAssociatedViewClass() override;
+	const mfcless::ViewClass *GetAssociatedViewClass() override;
 	void RecalcLayout() override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
@@ -207,7 +208,7 @@ protected:
 	void OnBnClickedCheckPitchtempolock();
 	void OnEnKillFocusEditPitchTempoLock();
 	void OnEnKillFocusEditFadeOut();
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 	void RegisterMessageMap() override;
 };
 

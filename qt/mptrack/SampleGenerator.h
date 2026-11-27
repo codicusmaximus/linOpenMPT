@@ -131,7 +131,7 @@ protected:
 	// preset slots
 	CSmpGenPresets presets;
 
-	HFONT hButtonFont; // "Marlett" font for "dropdown" button
+	QFont hButtonFont; // "Marlett" font for "dropdown" button
 
 	void RecalcParameters(bool secondsChanged, bool forceRefresh = false);
 

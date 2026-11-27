@@ -39,11 +39,52 @@ TYPES = [
 	(r'\bLPCTSTR\b', 'const mpt::uchar *'),
 	(r'\bHWND\b', 'QWidget *'),
 	(r'\bCWnd\b', 'QWidget'),
-	(r'\bCRect\b', 'QRect'),
-	(r'\bCPoint\b', 'QPoint'),
-	(r'\bCSize\b', 'QSize'),
+	(r'\bLPC?RECT\b', 'mfcless::Rect *'),
+	(r'\bLPPOINT\b', 'mfcless::Point *'),
+	(r'\b(?:CRect|RECT)\b', 'mfcless::Rect'),
+	(r'\b(?:CPoint|POINT)\b', 'mfcless::Point'),
+	(r'\b(?:CSize|SIZE)\b', 'mfcless::Size'),
+	(r'\b(?:CDC|CMemDC)\b', 'mfcless::DC'),
+	(r'\b(?:CPaintDC|CClientDC|CWindowDC)\b', 'mfcless::PaintDC'),
+	(r'\bHDC\b', 'mfcless::DC *'),
+	(r'\bCPen\b', 'mfcless::Pen'),
+	(r'\bHPEN\b', 'mfcless::Pen'),
+	(r'\bCBrush\b', 'mfcless::Brush'),
+	(r'\bHBRUSH\b', 'mfcless::Brush'),
+	(r'\bCBitmap\b', 'mfcless::Bitmap'),
+	(r'\bHBITMAP\b', 'mfcless::Bitmap *'),
+	(r'\bHFONT\b', 'QFont'),
+	(r'\bHICON\b', 'QIcon'),
+	(r'\bHCURSOR\b', 'QCursor'),
+	(r'\bGetRValue\(', 'mfcless::RedOf('),
+	(r'\bGetGValue\(', 'mfcless::GreenOf('),
+	(r'\bGetBValue\(', 'mfcless::BlueOf('),
+	(r'\bDT_(LEFT|CENTER|RIGHT|VCENTER|BOTTOM|TOP|WORDBREAK|SINGLELINE|EXPANDTABS|NOCLIP|CALCRECT|NOPREFIX|END_ELLIPSIS|PATH_ELLIPSIS|WORD_ELLIPSIS|HIDEPREFIX|EDITCONTROL)\b', lambda m: 'mfcless::dt::' + {'LEFT': 'Left', 'CENTER': 'Center', 'RIGHT': 'Right', 'VCENTER': 'VCenter', 'BOTTOM': 'Bottom', 'TOP': 'Top', 'WORDBREAK': 'WordBreak', 'SINGLELINE': 'SingleLine', 'EXPANDTABS': 'ExpandTabs', 'NOCLIP': 'NoClip', 'CALCRECT': 'CalcRect', 'NOPREFIX': 'NoPrefix', 'END_ELLIPSIS': 'EndEllipsis', 'PATH_ELLIPSIS': 'PathEllipsis', 'WORD_ELLIPSIS': 'WordEllipsis', 'HIDEPREFIX': 'HidePrefix', 'EDITCONTROL': 'EditControl'}[m.group(1)]),
+	(r'\b(SRCCOPY|SRCPAINT|SRCAND|SRCINVERT|NOTSRCCOPY|PATCOPY|PATINVERT|DSTINVERT|BLACKNESS|WHITENESS)\b', lambda m: 'mfcless::rop::' + {'SRCCOPY': 'SrcCopy', 'SRCPAINT': 'SrcPaint', 'SRCAND': 'SrcAnd', 'SRCINVERT': 'SrcInvert', 'NOTSRCCOPY': 'NotSrcCopy', 'PATCOPY': 'PatCopy', 'PATINVERT': 'PatInvert', 'DSTINVERT': 'DstInvert', 'BLACKNESS': 'Blackness', 'WHITENESS': 'Whiteness'}[m.group(1)]),
+	(r'\bPS_(SOLID|DASH|DOT|DASHDOT|DASHDOTDOT|NULL|INSIDEFRAME)\b', lambda m: 'mfcless::pen::' + {'SOLID': 'Solid', 'DASH': 'Dash', 'DOT': 'Dot', 'DASHDOT': 'DashDot', 'DASHDOTDOT': 'DashDotDot', 'NULL': 'Null', 'INSIDEFRAME': 'InsideFrame'}[m.group(1)]),
+	(r'\bSetBkMode\(TRANSPARENT\)', 'SetBkMode(mfcless::bk::Transparent)'),
+	(r'\bSetBkMode\(OPAQUE\)', 'SetBkMode(mfcless::bk::Opaque)'),
+	(r'\bETO_(OPAQUE|CLIPPED)\b', lambda m: 'mfcless::eto::' + m.group(1).capitalize()),
+	(r'\b(BDR_RAISEDOUTER|BDR_SUNKENOUTER|BDR_RAISEDINNER|BDR_SUNKENINNER|EDGE_RAISED|EDGE_SUNKEN|EDGE_ETCHED|EDGE_BUMP|BF_LEFT|BF_TOP|BF_RIGHT|BF_BOTTOM|BF_RECT|BF_MIDDLE|BF_SOFT|BF_ADJUST|BF_FLAT|BF_MONO)\b', lambda m: 'mfcless::edge::' + {'BDR_RAISEDOUTER': 'RaisedOuter', 'BDR_SUNKENOUTER': 'SunkenOuter', 'BDR_RAISEDINNER': 'RaisedInner', 'BDR_SUNKENINNER': 'SunkenInner', 'EDGE_RAISED': 'Raised', 'EDGE_SUNKEN': 'Sunken', 'EDGE_ETCHED': 'Etched', 'EDGE_BUMP': 'Bump', 'BF_LEFT': 'Left', 'BF_TOP': 'Top', 'BF_RIGHT': 'Right', 'BF_BOTTOM': 'Bottom', 'BF_RECT': 'Rect', 'BF_MIDDLE': 'Middle', 'BF_SOFT': 'Soft', 'BF_ADJUST': 'Adjust', 'BF_FLAT': 'Flat', 'BF_MONO': 'Mono'}[m.group(1)]),
+	(r'\bSelectStockObject\((NULL_PEN|BLACK_PEN|WHITE_PEN|DC_PEN|NULL_BRUSH|BLACK_BRUSH|WHITE_BRUSH|GRAY_BRUSH|DC_BRUSH|DEFAULT_GUI_FONT|HOLLOW_BRUSH)\)', lambda m: 'SelectStockObject(mfcless::Stock::' + {'NULL_PEN': 'NullPen', 'BLACK_PEN': 'BlackPen', 'WHITE_PEN': 'WhitePen', 'DC_PEN': 'DCPen', 'NULL_BRUSH': 'NullBrush', 'HOLLOW_BRUSH': 'NullBrush', 'BLACK_BRUSH': 'BlackBrush', 'WHITE_BRUSH': 'WhiteBrush', 'GRAY_BRUSH': 'GrayBrush', 'DC_BRUSH': 'DCBrush', 'DEFAULT_GUI_FONT': 'DefaultGuiFont'}[m.group(1)] + ')'),
+	(r'\bSIZE_(RESTORED|MINIMIZED|MAXIMIZED)\b', lambda m: 'mfcless::size::' + m.group(1).capitalize()),
 	(r'\bCFont\b', 'QFont'),
-	(r'\bCMenu\b', 'QMenu'),
+	(r'\b(?:const\s+)?CRuntimeClass\s*\*', 'const mfcless::ViewClass *'),
+	(r'\bRUNTIME_CLASS\((\w+)\)', r'(&\1::class\1)'),
+	(r'\bTOOLINFO\b', 'mfcless::ToolInfo'),
+	(r'\bSetScrollSizes\(MM_TEXT,\s*', 'SetScrollSizes('),
+	(r'\b(QFont|QIcon|QCursor|mfcless::Pen|mfcless::Brush)(\s+\w+)\s*=\s*(?:nullptr|NULL)\s*;', r'\1\2;'),
+	(r'\b(?:CMenu|HMENU)\s*\*?\s*(\w+)\s*=\s*::CreatePopupMenu\(\)', r'mfcless::Menu \1 = mfcless::Menu::CreatePopup()'),
+	(r'\bCMenu\s*\*\s*', 'mfcless::Menu '),
+	(r'\bHMENU\b', 'mfcless::Menu'),
+	(r'\bCMenu\b', 'mfcless::Menu'),
+	(r'::(AppendMenu|InsertMenu|DeleteMenu|RemoveMenu|ModifyMenu|CheckMenuItem|EnableMenuItem|GetMenuItemCount|GetMenuItemID|GetSubMenu|SetMenuDefaultItem)\((\w+),\s*', lambda m: m.group(2) + '.' + {'SetMenuDefaultItem': 'SetDefaultItem'}.get(m.group(1), m.group(1)) + '('),
+	(r'(?<![.>\w])(AppendMenu|InsertMenu|CheckMenuItem|EnableMenuItem)\((h\w*Menu\w*|\w*[mM]enu),\s*', r'\2.\1('),
+	(r'::TrackPopupMenu\((\w+),\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*0,\s*(?:m_hWnd|\*?this|GetSafeHwnd\(\)),\s*(?:NULL|nullptr)\)', r'\1.TrackPopupMenu(\2, \3, \4, this)'),
+	(r'::DestroyMenu\((\w+)\)', r'\1.DestroyMenu()'),
+	(r'reinterpret_cast<(?:UINT_PTR|uintptr_t)>\((\w+)(?:\.m_hMenu|->m_hMenu|\.GetSafeHmenu\(\)|->GetSafeHmenu\(\))?\)', r'\1'),
+	(r'\bMF_(STRING|ENABLED|UNCHECKED|BYCOMMAND|GRAYED|DISABLED|CHECKED|POPUP|MENUBARBREAK|MENUBREAK|BYPOSITION|SEPARATOR)\b', lambda m: 'mfcless::menu::' + {'STRING': 'String', 'ENABLED': 'Enabled', 'UNCHECKED': 'Unchecked', 'BYCOMMAND': 'ByCommand', 'GRAYED': 'Grayed', 'DISABLED': 'Disabled', 'CHECKED': 'Checked', 'POPUP': 'Popup', 'MENUBARBREAK': 'MenuBarBreak', 'MENUBREAK': 'MenuBreak', 'BYPOSITION': 'ByPosition', 'SEPARATOR': 'Separator'}[m.group(1)]),
+	(r'\bTPM_(LEFTALIGN|LEFTBUTTON|TOPALIGN|RIGHTBUTTON|CENTERALIGN|RIGHTALIGN|VCENTERALIGN|BOTTOMALIGN|NONOTIFY|RETURNCMD)\b', lambda m: 'mfcless::menu::' + {'LEFTALIGN': 'LeftAlign', 'LEFTBUTTON': 'LeftButton', 'TOPALIGN': 'TopAlign', 'RIGHTBUTTON': 'RightButton', 'CENTERALIGN': 'CenterAlign', 'RIGHTALIGN': 'RightAlign', 'VCENTERALIGN': 'VCenterAlign', 'BOTTOMALIGN': 'BottomAlign', 'NONOTIFY': 'NoNotify', 'RETURNCMD': 'ReturnCmd'}[m.group(1)]),
 	(r'\bCObject\b', 'QObject'),
 	(r'\bHTREEITEM\b', 'QTreeWidgetItem *'),
 	(r'\bCComboBoxEx\b', 'QComboBox'),
@@ -124,7 +165,17 @@ def keys(text):
 	text = re.sub(r'void OnDropFiles\(HDROP\s*\w*\)', 'void OnDropFiles(const QStringList &files)', text)
 	return text
 
+POINTER_HANDLES = {'HTREEITEM': 'QTreeWidgetItem', 'HWND': 'QWidget', 'HDC': 'mfcless::DC', 'HBITMAP': 'mfcless::Bitmap'}
+
+def pointer_handles(text):
+	# "HWND a = nullptr, b = nullptr;" -> "QWidget *a = nullptr, *b = nullptr;"
+	def repl(m):
+		decls = [d.strip() for d in m.group(3).split(',')]
+		return '%s%s %s;' % (m.group(1), POINTER_HANDLES[m.group(2)], ', '.join('*' + d for d in decls))
+	return re.sub(r'^(\s*)(' + '|'.join(POINTER_HANDLES) + r')\s+(\w+(?:\s*=\s*\w+)?(?:\s*,\s*\w+(?:\s*=\s*\w+)?)+);', repl, text, flags=re.M)
+
 def twin(text):
+	text = pointer_handles(text)
 	for k, v in BASES.items():
 		text = re.sub(r'(:\s*(?:public|protected|private)\s+)' + k + r'\b', r'\1' + v, text)
 	# Classes now based on a Qt class get Q_OBJECT.
@@ -148,6 +199,7 @@ def twin(text):
 	text = keys(text)
 	for a, b in TYPES:
 		text = re.sub(a, b, text)
+	text = dialog_helpers(text)
 	text = re.sub(r'\bafx_msg\s+', '', text)
 	text = re.sub(r'^\s*DECLARE_(?:DYNCREATE|SERIAL)\((\w+)\)\s*\n', r'public:\n\tstatic const mfcless::ViewClass class\1;\n', text, flags=re.M)
 	text = re.sub(r'^\s*DECLARE_DYNAMIC\(\w+\)\s*\n', '', text, flags=re.M)
@@ -158,7 +210,7 @@ def twin(text):
 	text = re.sub(r'void (On[HV]Scroll)\(uint32\s*\w*,\s*uint32\s*\w*,\s*CScrollBar\s*\*\s*\w*\)( override)?;', r'void \1(mfcless::ScrollCode code, int pos, QWidget *control);', text)
 	text = re.sub(r'void (\w+)\(CCmdUI\s*\*\s*\w*\)', r'void \1(mfcless::CommandState &state)', text)
 	# Forward declarations of the Qt classes now named, outside the namespace.
-	used = sorted(set(re.findall(r'\b(Q[A-Z][A-Za-z]+)\b', text)) - {'Q_OBJECT'})
+	used = sorted(set(re.findall(r'\b(Q[A-Z][A-Za-z]+)\b', text)) - {'Q_OBJECT', 'QStringList'})
 	# Base classes must be complete: include them rather than declare them.
 	bases = sorted(set(re.findall(r':\s*public\s+(?:mfcless::Window<)?(Q[A-Z][A-Za-z]+)\b', text)))
 	used = [q for q in used if q not in bases]
@@ -187,6 +239,14 @@ def twin(text):
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Window.h"\n', 1)
 	elif re.search(r'mfcless::(vk|MouseKey|msg|Message)\b', text) and '"mfcless/Keyboard.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Keyboard.h"\n', 1)
+	if re.search(r'mfcless::(DC|PaintDC|Pen|Brush|Bitmap|dt|rop|pen|bk|eto|edge|Stock)\b', text) and '"mfcless/Graphics.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Graphics.h"\n', 1)
+	elif re.search(r'mfcless::(Rect|Point|Size)\b', text) and '"mfcless/Geometry.h"' not in text and '"mfcless/Window.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Geometry.h"\n', 1)
+	if re.search(r'mfcless::(RedOf|GreenOf|BlueOf|Rgb)\b', text) and '"mfcless/System.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/System.h"\n', 1)
+	if re.search(r'mfcless::(Menu|menu)\b', text) and '"mfcless/Menus.h"' not in text:
+		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Menus.h"\n', 1)
 	if re.search(r'mfcless::(UpDown|TabControl|GroupFrame)', text) and '"mfcless/Controls.h"' not in text:
 		text = text.replace('#include "openmpt/all/BuildSettings.hpp"\n', '#include "openmpt/all/BuildSettings.hpp"\n#include "mfcless/Controls.h"\n', 1)
 	# Dialog bases need their header.
@@ -302,25 +362,7 @@ CONTROL_METHODS = {
 	},
 }
 
-def member_types(header):
-	types = {}
-	for m in re.finditer(r'^\s*([\w:]+)\s+((?:\*\s*\w+(?:\[[^\]]*\])?\s*=\s*(?:nullptr|\{\})\s*,?\s*)+);', header, flags=re.M):
-		for n in re.findall(r'\*\s*(\w+)', m.group(2)):
-			types[n] = m.group(1)
-	return types
-
-def twin_cpp(text, header):
-	text = re.sub(r'^#include "stdafx.h"\n', '', text, flags=re.M)
-	text = re.sub(r'^BEGIN_MESSAGE_MAP\((\w+),\s*(\w+)\)\n(.*?)^END_MESSAGE_MAP\(\)', message_map, text, flags=re.M | re.S)
-	text = re.sub(r'^IMPLEMENT_(DYNAMIC|DYNCREATE|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
-	# Data exchange
-	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
-	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)) + '::DoDataExchange(dx)', text)
-	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'Bind(\1, \2)', text)
-	for k, v in DDX.items():
-		text = re.sub(k + r'\(pDX,', v + '(dx,', text)
-	text = re.sub(r'DDV_MinMax\w+\(pDX,', 'ValidateMinMax(dx,', text)
-	text = re.sub(r'pDX->m_bSaveAndValidate', 'dx.save', text)
+def dialog_helpers(text):
 	# Dialog item helpers
 	text = re.sub(r'GetDlgItem\(([^()]+)\)->EnableWindow\(', r'EnableItem(\1, ', text)
 	text = re.sub(r'GetDlgItem\(([^()]+)\)->ShowWindow\(', r'ShowItem(\1, ', text)
@@ -337,6 +379,29 @@ def twin_cpp(text, header):
 	text = re.sub(r'\bBST_INDETERMINATE\b', '2', text)
 	text = re.sub(r'\bSW_SHOW(NA|NOACTIVATE|NORMAL)?\b', 'true', text)
 	text = re.sub(r'\bSW_HIDE\b', 'false', text)
+	return text
+
+def member_types(header):
+	types = {}
+	for m in re.finditer(r'^\s*([\w:]+)\s+((?:\*\s*\w+(?:\[[^\]]*\])?\s*=\s*(?:nullptr|\{\})\s*,?\s*)+);', header, flags=re.M):
+		for n in re.findall(r'\*\s*(\w+)', m.group(2)):
+			types[n] = m.group(1)
+	return types
+
+def twin_cpp(text, header):
+	text = pointer_handles(text)
+	text = re.sub(r'^#include "stdafx.h"\n', '', text, flags=re.M)
+	text = re.sub(r'^BEGIN_MESSAGE_MAP\((\w+),\s*(\w+)\)\n(.*?)^END_MESSAGE_MAP\(\)', message_map, text, flags=re.M | re.S)
+	text = re.sub(r'^IMPLEMENT_(DYNAMIC|DYNCREATE|SERIAL)\(.*\)\s*\n', '', text, flags=re.M)
+	# Data exchange
+	text = re.sub(r'void (\w+)::DoDataExchange\(CDataExchange\s*\*\s*\w*\)', r'void \1::DoDataExchange(DataExchange &dx)', text)
+	text = re.sub(r'(\w+)::DoDataExchange\(pDX\)', lambda m: BASES.get(m.group(1), m.group(1)) + '::DoDataExchange(dx)', text)
+	text = re.sub(r'DDX_Control\(pDX,\s*([^,]+),\s*([^)]+)\)', r'Bind(\1, \2)', text)
+	for k, v in DDX.items():
+		text = re.sub(k + r'\(pDX,', v + '(dx,', text)
+	text = re.sub(r'DDV_MinMax\w+\(pDX,', 'ValidateMinMax(dx,', text)
+	text = re.sub(r'pDX->m_bSaveAndValidate', 'dx.save', text)
+	text = dialog_helpers(text)
 	# Handler signatures
 	text = re.sub(r'void (\w+)::(On[HV]Scroll)\(UINT\s*\w*,\s*UINT\s*\w*,\s*CScrollBar\s*\*\s*(\w*)\)', r'void \1::\2(mfcless::ScrollCode code, int pos, QWidget *\3)', text)
 	text = re.sub(r'void (\w+)::(\w+)\(CCmdUI\s*\*\s*(\w+)\)', r'void \1::\2(mfcless::CommandState &state)', text)

@@ -14,17 +14,18 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
+#include "DocumentView.h"
 #include <QtWidgets/QWidget>
 
 #include "AccessibleControls.h"
 #include "Globals.h"
 
 class QComboBox;
+class QFont;
 class QLineEdit;
 class QObject;
-class QPoint;
-class QRect;
 class QScrollBar;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -44,7 +45,7 @@ class COrderList: public mfcless::Window<QWidget>
 	Q_OBJECT
 	friend class CCtrlPatterns;
 protected:
-	HFONT m_hFont = nullptr;
+	QFont m_hFont;
 	int m_cxFont = 0, m_cyFont = 0;
 
 	CModDoc &m_modDoc;
@@ -64,7 +65,7 @@ public:
 	COrderList(CCtrlPatterns &parent, CModDoc &document);
 
 public:
-	bool Init(const QRect &);
+	bool Init(const mfcless::Rect &);
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr);
 	void InvalidateSelection();
 	PATTERNINDEX GetCurrentPattern() const;
@@ -88,8 +89,8 @@ public:
 	// Check if this module is currently playing
 	bool IsPlaying() const;
 
-	ORDERINDEX GetOrderFromPoint(const QPoint &pt) const;
-	QRect GetRectFromOrder(ORDERINDEX ord) const;
+	ORDERINDEX GetOrderFromPoint(const mfcless::Point &pt) const;
+	mfcless::Rect GetRectFromOrder(ORDERINDEX ord) const;
 
 	// Get the currently selected pattern(s).
 	// Set ignoreSelection to true if only the first selected point is important.
@@ -136,7 +137,7 @@ public:
 	// Update play state and order lock ranges after deleting order items.
 	void DeleteUpdatePlaystate(ORDERINDEX first, ORDERINDEX last);
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO* pTI) const override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo* pTI) const override;
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
 protected:
 	ModSequence& Order();
@@ -149,15 +150,15 @@ protected:
 	bool EnsureEditable(ORDERINDEX ord);
 	intptr_t OnDPIChangedAfterParent(uintptr_t, intptr_t);
 	void OnPaint();
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	void OnSetFocus(QWidget *);
 	void OnKillFocus(QWidget *);
-	void OnLButtonDown(uint32, QPoint);
-	void OnLButtonDblClk(uint32, QPoint);
-	void OnRButtonUp(uint32, QPoint);
-	void OnLButtonUp(uint32, QPoint);
-	void OnMButtonDown(uint32, QPoint);
-	void OnMouseMove(uint32, QPoint);
+	void OnLButtonDown(uint32, mfcless::Point);
+	void OnLButtonDblClk(uint32, mfcless::Point);
+	void OnRButtonUp(uint32, mfcless::Point);
+	void OnLButtonUp(uint32, mfcless::Point);
+	void OnMButtonDown(uint32, mfcless::Point);
+	void OnMouseMove(uint32, mfcless::Point);
 	void OnHScroll(uint32 nSBCode, uint32 nPos, QScrollBar *);
 	void OnSize(uint32 nType, int cx, int cy);
 	void OnSwitchToView();
@@ -225,7 +226,7 @@ public:
 	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
 	void RecalcLayout() override;
 	void UpdateView(UpdateHint hint = UpdateHint(), QObject *pObj = nullptr) override;
-	CRuntimeClass *GetAssociatedViewClass() override;
+	const mfcless::ViewClass *GetAssociatedViewClass() override;
 	intptr_t OnModCtrlMsg(uintptr_t wParam, intptr_t lParam) override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
@@ -282,8 +283,8 @@ protected:
 private:
 	bool HasValidPlug(INSTRUMENTINDEX instr) const;
 public:
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 };
 
 OPENMPT_NAMESPACE_END

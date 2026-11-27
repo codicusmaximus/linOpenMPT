@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -26,10 +27,7 @@
 
 class QFont;
 class QObject;
-class QPoint;
-class QRect;
 class QScrollBar;
-class QSize;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -54,12 +52,12 @@ public:
 	void SetOrientation(bool h) { horizontal = h; }
 
 protected:
-	void DrawVuMeters(CDC &dc, bool redraw = false);
-	void DrawVuMeter(CDC &dc, const QRect &rect, int index, bool redraw = false);
+	void DrawVuMeters(mfcless::DC &dc, bool redraw = false);
+	void DrawVuMeter(mfcless::DC &dc, const mfcless::Rect &rect, int index, bool redraw = false);
 
 protected:
 	void OnPaint();
-	void OnLButtonDown(uint32, QPoint);
+	void OnLButtonDown(uint32, mfcless::Point);
 	void RegisterMessageMap() override;;
 };
 
@@ -102,7 +100,7 @@ public:
 	void SetButtonVisibility(int index, bool visible);
 
 public:
-	QSize CalcDynamicLayout(int nLength, uint32 dwMode) override;
+	mfcless::Size CalcDynamicLayout(int nLength, uint32 dwMode) override;
 	virtual void SetHorizontal();
 	virtual void SetVertical();
 };
@@ -188,7 +186,7 @@ public:
 protected:
 	FlagSet<Status> m_status;
 	uint32 m_nCursorDrag = 0;
-	QPoint ptDragging;
+	mfcless::Point ptDragging;
 	uint32 m_cxOriginal = 0, m_cyOriginal = 0, m_nTrackPos = 0;
 	uint32 m_nTreeSplitRatio = 0;
 
@@ -207,8 +205,8 @@ public:
 public:
 	void Init();
 	void RecalcLayout();
-	void DoMouseMove(QPoint point);
-	void DoLButtonDown(QPoint point);
+	void DoMouseMove(mfcless::Point point);
+	void DoLButtonDown(mfcless::Point point);
 	void DoLButtonUp();
 	void CancelTracking();
 	void OnInvertTracker(uint32 x);
@@ -227,7 +225,7 @@ public:
 	bool BarOnLeft() { return (GetBarStyle() & CBRS_ALIGN_LEFT); }
 
 protected:
-	QSize CalcFixedLayout(bool bStretch, bool bHorz) override;
+	mfcless::Size CalcFixedLayout(bool bStretch, bool bHorz) override;
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void CloseTreeFilter();
 	void CancelTimer();
@@ -236,17 +234,17 @@ protected:
 
 protected:
 	void OnNcPaint();
-	intptr_t OnNcHitTest(QPoint point);
+	intptr_t OnNcHitTest(mfcless::Point point);
 	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
 	void OnSize(uint32 nType, int cx, int cy);
-	void OnNcMouseMove(uint32 nHitTest, QPoint point);
-	void OnMouseMove(uint32 nFlags, QPoint point);
-	void OnNcLButtonDown(uint32, QPoint);
-	void OnLButtonDown(uint32, QPoint);
-	void OnNcLButtonUp(uint32, QPoint);
-	void OnLButtonUp(uint32, QPoint);
-	void OnNcRButtonDown(uint32, QPoint) { CancelTracking(); }
-	void OnRButtonDown(uint32, QPoint) { CancelTracking(); }
+	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
+	void OnMouseMove(uint32 nFlags, mfcless::Point point);
+	void OnNcLButtonDown(uint32, mfcless::Point);
+	void OnLButtonDown(uint32, mfcless::Point);
+	void OnNcLButtonUp(uint32, mfcless::Point);
+	void OnLButtonUp(uint32, mfcless::Point);
+	void OnNcRButtonDown(uint32, mfcless::Point) { CancelTracking(); }
+	void OnRButtonDown(uint32, mfcless::Point) { CancelTracking(); }
 	intptr_t OnInitDialog(uintptr_t, intptr_t);
 	void OnFilterChanged();
 	void OnFilterLostFocus();

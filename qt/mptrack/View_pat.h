@@ -13,6 +13,8 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Menus.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 
@@ -25,10 +27,7 @@
 #include "UpdateHints.h"
 
 class QObject;
-class QPoint;
-class QRect;
 class QScrollBar;
-class QSize;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -125,11 +124,11 @@ protected:
 	};
 
 	CFastBitmap m_Dib;
-	CDC m_offScreenDC, m_vuMeterDC;
-	CBitmap m_offScreenBitmap, m_vuMeterBitmap;
+	mfcless::DC m_offScreenDC, m_vuMeterDC;
+	mfcless::Bitmap m_offScreenBitmap, m_vuMeterBitmap;
 	CEditCommand *m_pEditWnd = nullptr;
-	QSize m_szHeader, m_szPluginHeader, m_szCell;
-	QRect m_oldClient;
+	mfcless::Size m_szHeader, m_szPluginHeader, m_szCell;
+	mfcless::Rect m_oldClient;
 	uint32 m_nMidRow, m_nSpacing, m_nLastPlayedRow, m_nLastPlayedOrder;
 	FlagSet<PatternStatus> m_Status;
 	ROWINDEX m_nPlayRow, m_nNextPlayRow;
@@ -151,7 +150,7 @@ protected:
 	// Drag&Drop
 	DragItem m_nDragItem;  // Currently dragged item
 	DragItem m_nDropItem;  // Currently hovered item during dragondrop
-	RECT m_rcDragItem, m_rcDropItem;
+	mfcless::Rect m_rcDragItem, m_rcDropItem;
 	bool m_bInItemRect = false;
 
 	// Drag-select record group
@@ -243,10 +242,10 @@ public:
 	void SanitizeCursor();
 
 	uint32 GetColumnOffset(PatternCursor::Columns column) const;
-	POINT GetPointFromPosition(PatternCursor cursor) const;
-	PatternCursor GetPositionFromPoint(POINT pt) const;
+	mfcless::Point GetPointFromPosition(PatternCursor cursor) const;
+	PatternCursor GetPositionFromPoint(mfcless::Point pt) const;
 
-	DragItem GetDragItem(QPoint point, RECT &rect) const;
+	DragItem GetDragItem(mfcless::Point point, mfcless::Rect &rect) const;
 	
 	void StartRecordGroupDragging(const DragItem source);
 	void ResetRecordGroupDragging() { m_initialDragRecordStatus.clear(); }
@@ -299,7 +298,7 @@ public:
 	void OnDropSelection();
 
 public:
-	void DrawPatternData(HDC hdc, const int lineWidth, PATTERNINDEX nPattern, bool selEnable, bool isPlaying, ROWINDEX startRow, ROWINDEX numRows, CHANNELINDEX startChan, QRect &rcClient, int *pypaint);
+	void DrawPatternData(mfcless::DC * hdc, const int lineWidth, PATTERNINDEX nPattern, bool selEnable, bool isPlaying, ROWINDEX startRow, ROWINDEX numRows, CHANNELINDEX startChan, mfcless::Rect &rcClient, int *pypaint);
 	void DrawLetter(int x, int y, char letter, int sizex = 10, int ofsx = 0);
 	void DrawLetter(int x, int y, wchar_t letter, int sizex = 10, int ofsx = 0);
 #if MPT_CXX_AT_LEAST(20)
@@ -308,9 +307,9 @@ public:
 	void DrawNote(int x, int y, uint32 note, CTuning *pTuning = nullptr);
 	void DrawInstrument(int x, int y, uint32 instr);
 	void DrawVolumeCommand(int x, int y, const ModCommand &mc, std::optional<int> defaultVolume, bool hex);
-	void DrawChannelVUMeter(HDC hdc, int x, int y, uint32 nChn);
+	void DrawChannelVUMeter(mfcless::DC * hdc, int x, int y, uint32 nChn);
 	void UpdateAllVUMeters(Notification *pnotify);
-	void DrawDragSel(HDC hdc);
+	void DrawDragSel(mfcless::DC * hdc);
 	void OnDrawDragSel();
 	// Returns result of GetDefaultVolume if default volume should be drawn, std::nullopt otherwise
 	std::optional<int> DrawDefaultVolume(const ModCommand &m) const;
@@ -359,28 +358,28 @@ public:
 	void ResetChannel(CHANNELINDEX chn);
 
 public:
-	void OnDraw(CDC *) override;
+	void OnDraw(mfcless::DC *) override;
 	void OnInitialUpdate() override;
 	void OnDPIChanged() override;
-	bool OnScrollBy(QSize sizeScroll, bool bDoScroll = true) override;
+	bool OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll = true) override;
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	intptr_t OnPlayerNotify(Notification *) override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 protected:
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	void OnSize(uint32 nType, int cx, int cy);
 	// cppcheck-suppress duplInheritedMember
 	void OnDestroy();
 	// cppcheck-suppress duplInheritedMember
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
-	void OnMouseMove(uint32, QPoint);
-	void OnLButtonUp(uint32, QPoint);
-	void OnLButtonDown(uint32, QPoint);
-	void OnLButtonDblClk(uint32, QPoint);
-	void OnRButtonDown(uint32, QPoint);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
+	void OnMouseMove(uint32, mfcless::Point);
+	void OnLButtonUp(uint32, mfcless::Point);
+	void OnLButtonDown(uint32, mfcless::Point);
+	void OnLButtonDblClk(uint32, mfcless::Point);
+	void OnRButtonDown(uint32, mfcless::Point);
 	void OnVScroll(uint32 nSBCode, uint32 nPos, QScrollBar *pScrollBar);
 	// cppcheck-suppress duplInheritedMember
 	void OnSetFocus(QWidget *pOldWnd);
@@ -483,23 +482,23 @@ private:
 
 	CHANNELINDEX FindGroupRecordChannel(RecordGroup recordGroup, bool forceFreeChannel, CHANNELINDEX startChannel = 0) const;
 
-	bool BuildChannelControlCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildPluginCtxMenu(HMENU hMenu, uint32 nChn, const CSoundFile &sndFile) const;
-	bool BuildRecordCtxMenu(HMENU hMenu, CInputHandler *ih, CHANNELINDEX nChn) const;
-	bool BuildSoloMuteCtxMenu(HMENU hMenu, CInputHandler *ih, uint32 nChn, const CSoundFile &sndFile) const;
-	bool BuildRowInsDelCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildMiscCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildSelectionCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildGrowShrinkCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildInterpolationCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildInterpolationCtxMenu(HMENU hMenu, PatternCursor::Columns colType, mpt::ustring label, uint32 command) const;
-	bool BuildEditCtxMenu(HMENU hMenu, CInputHandler *ih, CModDoc *pModDoc) const;
-	bool BuildVisFXCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildTransposeCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildSetInstCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildAmplifyCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildPCNoteCtxMenu(HMENU hMenu, CInputHandler *ih) const;
-	bool BuildTogglePlugEditorCtxMenu(HMENU hMenu, CInputHandler *ih) const;
+	bool BuildChannelControlCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildPluginCtxMenu(mfcless::Menu hMenu, uint32 nChn, const CSoundFile &sndFile) const;
+	bool BuildRecordCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, CHANNELINDEX nChn) const;
+	bool BuildSoloMuteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, uint32 nChn, const CSoundFile &sndFile) const;
+	bool BuildRowInsDelCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildMiscCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildSelectionCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildGrowShrinkCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildInterpolationCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildInterpolationCtxMenu(mfcless::Menu hMenu, PatternCursor::Columns colType, mpt::ustring label, uint32 command) const;
+	bool BuildEditCtxMenu(mfcless::Menu hMenu, CInputHandler *ih, CModDoc *pModDoc) const;
+	bool BuildVisFXCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildTransposeCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildSetInstCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildAmplifyCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildPCNoteCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
+	bool BuildTogglePlugEditorCtxMenu(mfcless::Menu hMenu, CInputHandler *ih) const;
 
 	// Returns an ordered list of all channels in which a given column type is selected.
 	CHANNELINDEX ListChansWhereColSelected(PatternCursor::Columns colType, std::vector<CHANNELINDEX> &chans) const;
@@ -554,7 +553,7 @@ private:
 	PatternCursor::Columns LastVisibleColumn() const noexcept;
 
 public:
-	void OnRButtonUp(uint32 nFlags, QPoint point);
+	void OnRButtonUp(uint32 nFlags, mfcless::Point point);
 
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
 };

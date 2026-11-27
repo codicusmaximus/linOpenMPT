@@ -12,12 +12,12 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 #include "DialogBase.h"
 
 class QLineEdit;
-class QPoint;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -52,10 +52,10 @@ public:
 
 protected:
 	void OnPaint();
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 
-	void OnMouseMove(uint32 nFlags, QPoint point);
-	void OnMouseHover(uint32 nFlags, QPoint point) { OnMouseMove(nFlags, point); }
+	void OnMouseMove(uint32 nFlags, mfcless::Point point);
+	void OnMouseHover(uint32 nFlags, mfcless::Point point) { OnMouseMove(nFlags, point); }
 	void OnMouseLeave();
 
 	void RegisterMessageMap() override;

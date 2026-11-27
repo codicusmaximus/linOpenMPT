@@ -52,7 +52,7 @@ public:
 
 	void SetItemDataPtr(int item, void *value)
 	{
-		SetItemData(item, reinterpret_cast<uintptr_t>(value));
+		SetItemData(item, value);
 	}
 
 	void *GetItemDataPtr(int item)

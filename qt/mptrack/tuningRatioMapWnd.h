@@ -19,7 +19,6 @@
 #include "../soundlib/modcommand.h"
 
 class QFont;
-class QPoint;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -52,8 +51,8 @@ public:
 
 protected:
 
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
-	void OnLButtonDown(uint32, QPoint);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
+	void OnLButtonDown(uint32, mfcless::Point);
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnKillFocus(QWidget *pNewWnd);
 	void OnPaint();

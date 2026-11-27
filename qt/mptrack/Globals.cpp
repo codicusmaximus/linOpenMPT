@@ -293,6 +293,13 @@ void CModControlView::OnSetFocus(QWidget *pOldWnd)
 }
 
 
+void CModControlView::OnPaint()
+{
+	mfcless::PaintDC dc(this);
+	OnDraw(&dc);
+}
+
+
 void CModControlView::OnSize(uint32 nType, int cx, int cy)
 {
 	Window::OnSize(nType, cx, cy);
@@ -754,7 +761,7 @@ bool CModScrollView::OnMouseWheel(uint32 fFlags, short zDelta, mfcless::Point po
 	int scroll = -steps * lines * std::max(1, m_lineDev.height()) / mfcless::WheelDelta;
 	if(m_pageDev.height() > 0)
 		scroll = std::clamp(scroll, -m_pageDev.height(), m_pageDev.height());
-	return OnScrollBy(QSize(0, scroll), true);
+	return OnScrollBy(mfcless::Size(0, scroll), true);
 }
 
 
@@ -769,7 +776,7 @@ void CModScrollView::OnMouseHWheel(uint32 fFlags, short zDelta, mfcless::Point p
 		return;
 	}
 
-	if(OnScrollBy(QSize(zDelta * m_lineDev.width() / mfcless::WheelDelta, 0), true))
+	if(OnScrollBy(mfcless::Size(zDelta * m_lineDev.width() / mfcless::WheelDelta, 0), true))
 		viewport()->update();
 }
 
@@ -827,19 +834,19 @@ bool CModScrollView::OnScroll(uint32 nScrollCode, uint32 nPos, bool bDoScroll)
 		}
 	};
 	const QPoint cur = GetScrollPosition();
-	const QSize scroll(
+	const mfcless::Size scroll(
 		(nScrollCode & 0xFF) != 0xFF ? delta(codeX, static_cast<int>(nPos), cur.x(), m_lineDev.width(), m_pageDev.width(), horizontalScrollBar()->maximum()) : 0,
 		(nScrollCode >> 8) != 0xFF ? delta(codeY, static_cast<int>(nPos), cur.y(), m_lineDev.height(), m_pageDev.height(), verticalScrollBar()->maximum()) : 0);
 	return OnScrollBy(scroll, bDoScroll);
 }
 
 
-bool CModScrollView::OnScrollBy(QSize sizeScroll, bool bDoScroll)
+bool CModScrollView::OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll)
 {
 	// mfcless: CScrollView::OnScrollBy
 	const QPoint cur = GetScrollPosition();
-	const int x = std::clamp(cur.x() + sizeScroll.width(), 0, horizontalScrollBar()->maximum());
-	const int y = std::clamp(cur.y() + sizeScroll.height(), 0, verticalScrollBar()->maximum());
+	const int x = std::clamp(cur.x() + sizeScroll.cx, 0, horizontalScrollBar()->maximum());
+	const int y = std::clamp(cur.y() + sizeScroll.cy, 0, verticalScrollBar()->maximum());
 	bool ret = (x != cur.x() || y != cur.y());
 	if(ret && bDoScroll)
 	{
@@ -851,9 +858,9 @@ bool CModScrollView::OnScrollBy(QSize sizeScroll, bool bDoScroll)
 	}
 	if(ret)
 	{
-		if(sizeScroll.width())
+		if(sizeScroll.cx)
 			m_nScrollPosX = x;
-		if(sizeScroll.height())
+		if(sizeScroll.cy)
 			m_nScrollPosY = y;
 		if(bDoScroll)
 			m_nScrollPosXfine = m_nScrollPosYfine = 0;
@@ -893,16 +900,17 @@ QPoint CModScrollView::GetScrollPosition() const
 
 void CModScrollView::ScrollToPosition(QPoint pt)
 {
-	OnScrollBy(QSize(pt.x() - GetScrollPosition().x(), pt.y() - GetScrollPosition().y()), true);
+	OnScrollBy(mfcless::Size(pt.x() - GetScrollPosition().x(), pt.y() - GetScrollPosition().y()), true);
 }
 
 
-void CModScrollView::SetScrollSizes(QSize sizeTotal, QSize sizePage, QSize sizeLine)
+void CModScrollView::SetScrollSizes(mfcless::Size sizeTotal, const mfcless::Size &sizePageIn, const mfcless::Size &sizeLineIn)
 {
+	const QSize sizePage = sizePageIn, sizeLine = sizeLineIn;
 	m_totalDev = sizeTotal;
 	// CScrollView's defaults: a tenth of the total size per page and a tenth
 	// of the page per line.
-	m_pageDev = sizePage.isEmpty() ? QSize(sizeTotal.width() / 10, sizeTotal.height() / 10) : sizePage;
+	m_pageDev = sizePage.isEmpty() ? QSize(sizeTotal.cx / 10, sizeTotal.cy / 10) : sizePage;
 	m_lineDev = sizeLine.isEmpty() ? QSize(m_pageDev.width() / 10, m_pageDev.height() / 10) : sizeLine;
 	UpdateBars();
 	// Fix scroll positions
@@ -922,6 +930,13 @@ void CModScrollView::UpdateBars()
 	verticalScrollBar()->setPageStep(std::max(1, view.height()));
 	verticalScrollBar()->setSingleStep(std::max(1, m_lineDev.height()));
 	m_inScroll = false;
+}
+
+
+void CModScrollView::OnPaint()
+{
+	mfcless::PaintDC dc(this);
+	OnDraw(&dc);
 }
 
 

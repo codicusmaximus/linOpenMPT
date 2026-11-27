@@ -23,7 +23,6 @@
 class QAbstractButton;
 class QComboBox;
 class QLineEdit;
-class QPoint;
 class QTreeWidgetItem;
 class QWidget;
 
@@ -134,8 +133,8 @@ public:
 	void SetDragging(bool state = true) {m_Dragging = state;}
 	bool IsDragging() {return m_Dragging;}
 
-	void OnMouseMove(uint32 nFlags, QPoint point);
-	void OnLButtonUp(uint32 nFlags, QPoint point);
+	void OnMouseMove(uint32 nFlags, mfcless::Point point);
+	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
 	void RegisterMessageMap() override;
 };
 

@@ -12,11 +12,10 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Geometry.h"
 #include "mfcless/MessageMap.h"
 #include <QtCore/QObject>
 
-class QPoint;
-class QRect;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -37,12 +36,12 @@ protected:
 	PopAction m_popAction = PopAction::Undetermined;
 
 public:
-	bool ShowUpdate(QWidget &parent, const mpt::ustring &newVersion, const mpt::ustring &infoURL, const QRect rectClient, const QPoint ptScreen, const int buttonID);
+	bool ShowUpdate(QWidget &parent, const mpt::ustring &newVersion, const mpt::ustring &infoURL, const mfcless::Rect rectClient, const mfcless::Point ptScreen, const int buttonID);
 
 protected:
 	void SetResult(PopAction action);
 
-	void OnLButtonUp(uint32 nFlags, QPoint point);
+	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
 	void OnPop();
 	void OnShow();
 	void OnLinkClick();

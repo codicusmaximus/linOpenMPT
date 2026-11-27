@@ -20,9 +20,9 @@
 
 class QAbstractButton;
 class QComboBox;
+class QIcon;
 class QLabel;
 class QListWidget;
-class QPoint;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -93,7 +93,7 @@ protected:
 	QLineEdit *m_eFind = nullptr;
 	QLineEdit *m_eChordWaitTime = nullptr;
 	QAbstractButton *m_restoreDefaultButton = nullptr;
-	HICON m_infoIcon = nullptr, m_warnIcon = nullptr;
+	QIcon m_infoIcon = nullptr, m_warnIcon = nullptr;
 	
 	mpt::ustring m_lastWarning;
 	std::vector<CommandCategory> commandCategories;
@@ -160,7 +160,7 @@ protected:
 	void OnClearSearch();
 	void OnEnableFindHotKey();
 	void OnFindHotKey();
-	void OnLButtonDblClk(uint32 flags, QPoint point);
+	void OnLButtonDblClk(uint32 flags, mfcless::Point point);
 	void OnDestroy();
 
 	void RegisterMessageMap() override;

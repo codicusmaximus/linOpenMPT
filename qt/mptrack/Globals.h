@@ -197,6 +197,8 @@ protected:
 	void OnSize(uint32 nType, int cx, int cy) override;
 	void OnDestroy();
 	void OnSetFocus(QWidget *pOldWnd) override;
+	// mfcless: CView's, drawing with OnDraw.
+	void OnPaint() override;
 	void OnTabSelchange();
 	void OnEditCut();
 	void OnEditCopy();
@@ -269,6 +271,8 @@ protected:
 	void scrollContentsBy(int dx, int dy) override;
 	// mfcless: CScrollView's (the scroll bars follow the size).
 	void OnSize(uint32 nType, int cx, int cy) override;
+	// mfcless: CView's, drawing with OnDraw (in client coordinates).
+	void OnPaint() override;
 	void OnDestroy();
 	intptr_t OnReceiveModViewMsg(uintptr_t wParam, intptr_t lParam);
 	bool OnMouseWheel(uint32 fFlags, short zDelta, mfcless::Point point) override;
@@ -281,9 +285,9 @@ protected:
 	// (mfcless: code is a mfcless::ScrollCode, for the horizontal bar in the
 	// low byte and the vertical one in the high byte, as on Windows)
 	virtual bool OnScroll(uint32 nScrollCode, uint32 nPos, bool bDoScroll = true);
-	virtual bool OnScrollBy(QSize sizeScroll, bool bDoScroll = true);
+	virtual bool OnScrollBy(mfcless::Size sizeScroll, bool bDoScroll = true);
 	int SetScrollPos(Qt::Orientation bar, int nPos, bool bRedraw = true);
-	void SetScrollSizes(QSize sizeTotal, QSize sizePage = {}, QSize sizeLine = {});
+	void SetScrollSizes(mfcless::Size sizeTotal, const mfcless::Size &sizePage = {}, const mfcless::Size &sizeLine = {});
 	void RegisterMessageMap() override;
 
 private:

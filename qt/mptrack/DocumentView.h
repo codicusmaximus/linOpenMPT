@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/MessageMap.h"
 
 class QObject;
@@ -55,6 +56,8 @@ public:
 
 	// Called once the view has its document and frame.
 	virtual void OnInitialUpdate() {}
+	// Draws the view (from its OnPaint, on a PaintDC).
+	virtual void OnDraw(mfcless::DC * /*pDC*/) {}
 
 protected:
 	CModDoc *m_document = nullptr;

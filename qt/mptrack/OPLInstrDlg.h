@@ -11,6 +11,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Geometry.h"
 #include "mfcless/Keyboard.h"
 #include "DialogBase.h"
 #include "../soundlib/Snd_defs.h"
@@ -18,7 +19,6 @@
 class QAbstractButton;
 class QComboBox;
 class QScrollBar;
-class QSize;
 class QSlider;
 class QWidget;
 
@@ -32,7 +32,7 @@ class OPLInstrDlg : public DialogBase
 	QAbstractButton *m_additive = nullptr, *m_sustain[2] = {}, *m_scaleEnv[2] = {}, *m_vibrato[2] = {}, *m_tremolo[2] = {};
 	QSlider *m_feedback = nullptr, *m_attackRate[2] = {}, *m_decayRate[2] = {}, *m_sustainLevel[2] = {}, *m_releaseRate[2] = {}, *m_volume[2] = {}, *m_levelScaling[2] = {}, *m_freqMultiplier[2] = {};
 	QComboBox *m_waveform[2] = {};
-	QSize m_windowSize;
+	mfcless::Size m_windowSize;
 	QWidget &m_parent;
 	QWidget * m_lastFocusItem = nullptr;
 	const CSoundFile &m_sndFile;
@@ -43,7 +43,7 @@ public:
 	~OPLInstrDlg();
 	void SetEnabled(bool enabled);
 	void SetPatch(OPLPatch &patch);
-	QSize GetMinimumSize() const { return m_windowSize; }
+	mfcless::Size GetMinimumSize() const { return m_windowSize; }
 
 protected:
 	void ParamsChanged();

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/Keyboard.h"
 
 #include "AbstractVstEditor.h"
@@ -46,7 +47,7 @@ public:
 	void DoClose() override;
 
 protected:
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	void OnPaint();
 
 	intptr_t OnPreTranslateKeyDown(uintptr_t wParam, intptr_t lParam) { return HandlePreTranslateMessage(mfcless::msg::KeyDown, wParam, lParam); }

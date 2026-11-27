@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Geometry.h"
 #include "mfcless/Keyboard.h"
 
 #include "DialogBase.h"
@@ -27,7 +28,6 @@
 class QAbstractButton;
 class QComboBox;
 class QLineEdit;
-class QPoint;
 class QScrollBar;
 class QSlider;
 class QWidget;
@@ -123,11 +123,11 @@ protected:
 
 	void PrepareUndo(const char *description);
 	void DoDataExchange(DataExchange &dx) override;
-	void OnOK() override { ShowWindow(SW_HIDE); }
-	void OnCancel() override { ShowWindow(SW_HIDE); }
+	void OnOK() override { ShowWindow(false); }
+	void OnCancel() override { ShowWindow(false); }
 	bool PreTranslateMessage(mfcless::Message *pMsg) override;
 	void OnActivate(uint32 nState, QWidget *pWndOther, bool bMinimized);
-	void OnClose()	{ ShowWindow(SW_HIDE); }
+	void OnClose()	{ ShowWindow(false); }
 
 	void OnNoteChanged();
 	void OnVolCmdChanged();
@@ -225,7 +225,7 @@ public:
 	QuickChannelProperties() = default;
 	~QuickChannelProperties();
 
-	void Show(CModDoc *modDoc, CHANNELINDEX chn, QPoint position);
+	void Show(CModDoc *modDoc, CHANNELINDEX chn, mfcless::Point position);
 	void UpdateDisplay();
 	CHANNELINDEX GetChannel() const { return m_channel; }
 

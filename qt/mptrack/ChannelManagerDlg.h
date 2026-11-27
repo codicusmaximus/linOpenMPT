@@ -12,12 +12,11 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "DialogBase.h"
 
 class QFont;
 class QObject;
-class QPoint;
-class QRect;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -75,7 +74,7 @@ protected:
 
 	struct State
 	{
-		QRect move;
+		mfcless::Rect move;
 		CHANNELINDEX sourceChn = 0;
 		bool removed = false;
 		bool select = false;
@@ -86,9 +85,9 @@ protected:
 
 	std::vector<State> m_states;
 	CModDoc *m_ModDoc = nullptr;
-	HBITMAP m_bkgnd = nullptr;
+	mfcless::Bitmap * m_bkgnd = nullptr;
 	QFont m_font;
-	QRect m_drawableArea;
+	mfcless::Rect m_drawableArea;
 	Tab m_currentTab = kSoloMute;
 	int m_downX = 0, m_downY = 0;
 	int m_moveX = 0, m_moveY = 0;
@@ -99,13 +98,13 @@ protected:
 	bool m_moveRect = false;
 	bool m_show = false;
 
-	CHANNELINDEX ButtonHit(QPoint point, QRect *invalidate = nullptr) const;
-	void MouseEvent(uint32 nFlags, QPoint point, MouseButton button);
+	CHANNELINDEX ButtonHit(mfcless::Point point, mfcless::Rect *invalidate = nullptr) const;
+	void MouseEvent(uint32 nFlags, mfcless::Point point, MouseButton button);
 	void ResetState(bool bSelection = true, bool bMove = true, bool bInternal = true, bool bOrder = false);
 	void ResizeWindow();
 	bool OnInitDialog() override;
 	void OnDPIChanged() override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 	mpt::ustring GetToolTipText(uint32 id, QWidget * hwnd) const override;
 	void OnApply();
 	void OnClose();
@@ -118,14 +117,14 @@ protected:
 	void OnRestore();
 	void OnTabSelchange();
 	void OnPaint();
-	void OnMouseMove(uint32 nFlags,QPoint point);
-	void OnLButtonUp(uint32 nFlags,QPoint point);
-	void OnLButtonDown(uint32 nFlags,QPoint point);
-	void OnRButtonUp(uint32 nFlags,QPoint point);
-	void OnRButtonDown(uint32 nFlags,QPoint point);
-	void OnMButtonDown(uint32 nFlags,QPoint point);
-	void OnLButtonDblClk(uint32 nFlags, QPoint point);
-	void OnRButtonDblClk(uint32 nFlags, QPoint point);
+	void OnMouseMove(uint32 nFlags,mfcless::Point point);
+	void OnLButtonUp(uint32 nFlags,mfcless::Point point);
+	void OnLButtonDown(uint32 nFlags,mfcless::Point point);
+	void OnRButtonUp(uint32 nFlags,mfcless::Point point);
+	void OnRButtonDown(uint32 nFlags,mfcless::Point point);
+	void OnMButtonDown(uint32 nFlags,mfcless::Point point);
+	void OnLButtonDblClk(uint32 nFlags, mfcless::Point point);
+	void OnRButtonDblClk(uint32 nFlags, mfcless::Point point);
 	void RegisterMessageMap() override;;
 };
 

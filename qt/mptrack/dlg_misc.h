@@ -13,6 +13,7 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
 #include <QtWidgets/QWidget>
 
@@ -24,9 +25,8 @@
 class QAbstractButton;
 class QComboBox;
 class QFont;
+class QIcon;
 class QListWidget;
-class QPoint;
-class QRect;
 class QScrollBar;
 class QSlider;
 
@@ -42,7 +42,7 @@ class CModTypeDlg : public DialogBase
 protected:
 	QComboBox *m_TypeBox = nullptr, *m_ChannelsBox = nullptr, *m_TempoModeBox = nullptr, *m_PlugMixBox = nullptr;
 	QAbstractButton *m_CheckBox1 = nullptr, *m_CheckBox2 = nullptr, *m_CheckBox3 = nullptr, *m_CheckBox4 = nullptr, *m_CheckBox5 = nullptr, *m_CheckBoxPT1x = nullptr, *m_CheckBoxFt2VolRamp = nullptr, *m_CheckBoxAmigaLimits = nullptr;
-	HICON m_warnIcon = nullptr;
+	QIcon m_warnIcon;
 
 	CSoundFile &sndFile;
 public:
@@ -191,14 +191,14 @@ public:
 	SAMPLEINDEX GetSample(uint32 key) const { return (key < NOTE_MAX) ? m_sampleNum[key] : 0; }
 
 protected:
-	void DrawKey(CPaintDC &dc, const QRect rect, int key, bool black) const;
+	void DrawKey(mfcless::PaintDC &dc, const mfcless::Rect rect, int key, bool black) const;
 
 	intptr_t OnDPIChanged(uintptr_t, intptr_t);
 	void OnDestroy();
 	void OnPaint();
-	void OnMouseMove(uint32 nFlags, QPoint point);
-	void OnLButtonDown(uint32 nFlags, QPoint point);
-	void OnLButtonUp(uint32 nFlags, QPoint point);
+	void OnMouseMove(uint32 nFlags, mfcless::Point point);
+	void OnLButtonDown(uint32 nFlags, mfcless::Point point);
+	void OnLButtonUp(uint32 nFlags, mfcless::Point point);
 	void RegisterMessageMap() override;
 };
 

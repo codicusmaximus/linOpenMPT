@@ -13,6 +13,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/Keyboard.h"
 #include "DocumentView.h"
 #include "Globals.h"
@@ -20,9 +21,6 @@
 #include "../soundlib/Snd_defs.h"
 
 class QObject;
-class QPoint;
-class QRect;
-class QStringList;
 class QWidget;
 
 OPENMPT_NAMESPACE_BEGIN
@@ -48,13 +46,13 @@ class CViewInstrument: public CModScrollView
 {
 	Q_OBJECT
 protected:
-	QPoint m_ptMenu;
-	QRect m_rcClient, m_rcOldClient;
+	mfcless::Point m_ptMenu;
+	mfcless::Rect m_rcClient, m_rcOldClient;
 
-	CBitmap m_bmpGrid;
-	CBitmap m_bmpMemMain;
-	HBITMAP m_pbmpOldGrid = nullptr;
-	HBITMAP oldBitmap = nullptr;
+	mfcless::Bitmap m_bmpGrid;
+	mfcless::Bitmap m_bmpMemMain;
+	mfcless::Bitmap * m_pbmpOldGrid = nullptr;
+	mfcless::Bitmap * oldBitmap = nullptr;
 
 	EnvelopeType m_nEnv = ENV_VOLUME;
 	uint32 m_nDragItem = 1, m_nBtnMouseOver = 0xFFFF;
@@ -63,8 +61,8 @@ protected:
 
 	INSTRUMENTINDEX m_nInstrument = 1;
 
-	CDC m_dcMemMain;
-	CDC m_dcGrid;
+	mfcless::DC m_dcMemMain;
+	mfcless::DC m_dcGrid;
 	int m_GridScrollPos = -1;
 	int m_GridSpeed = -1;
 
@@ -163,7 +161,7 @@ protected:
 	bool SetCurrentInstrument(INSTRUMENTINDEX nIns, EnvelopeType m_nEnv = ENV_VOLUME);
 	ModInstrument *GetInstrumentPtr() const;
 	InstrumentEnvelope *GetEnvelopePtr() const;
-	bool InsertAtPoint(QPoint pt);
+	bool InsertAtPoint(mfcless::Point pt);
 	uint32 EnvInsertPoint(int nTick, int nValue);
 	bool EnvRemovePoint(uint32 nPoint);
 	uint32 DragItemToEnvPoint() const;
@@ -175,12 +173,12 @@ protected:
 	int ScreenToValue(int y) const;
 	void InvalidateEnvelope() { InvalidateRect(NULL, false); }
 	void DrawPositionMarks();
-	void DrawNcButton(CDC *pDC, uint32 nBtn);
-	bool GetNcButtonRect(uint32 button, QRect &rect) const;
-	uint32 GetNcButtonAtPoint(QPoint point, QRect *outRect = nullptr) const;
+	void DrawNcButton(mfcless::DC *pDC, uint32 nBtn);
+	bool GetNcButtonRect(uint32 button, mfcless::Rect &rect) const;
+	uint32 GetNcButtonAtPoint(mfcless::Point point, mfcless::Rect *outRect = nullptr) const;
 	void UpdateNcButtonState();
 	void PlayNote(ModCommand::NOTE note);
-	void DrawGrid(CDC *memDC, uint32 speed);
+	void DrawGrid(mfcless::DC *memDC, uint32 speed);
 	void UpdateIndicator();
 	void UpdateIndicator(int tick, int val);
 	mpt::ustring EnvValueToString(int tick, int val) const;
@@ -190,7 +188,7 @@ protected:
 	void EnvSetZoom(float fNewZoom);
 
 public:
-	void OnDraw(CDC *) override;
+	void OnDraw(mfcless::DC *) override;
 	void OnInitialUpdate() override;
 	void OnDPIChanged() override;
 	void UpdateView(UpdateHint hint, QObject *pObj = nullptr) override;
@@ -199,28 +197,28 @@ public:
 	intptr_t OnModViewMsg(uintptr_t, intptr_t) override;
 	intptr_t OnPlayerNotify(Notification *) override;
 	HRESULT get_accName(VARIANT varChild, BSTR *pszName) override;
-	intptr_t OnToolHitTest(QPoint point, TOOLINFO *pTI) const override;
+	intptr_t OnToolHitTest(mfcless::Point point, mfcless::ToolInfo *pTI) const override;
 protected:
-	bool OnEraseBkgnd(CDC *) { return true; }
+	bool OnEraseBkgnd(mfcless::DC *) { return true; }
 	// cppcheck-suppress duplInheritedMember
 	void OnSetFocus(QWidget *pOldWnd);
 	void OnSize(uint32 nType, int cx, int cy);
 	// cppcheck-suppress duplInheritedMember
 	void OnNcCalcSize(bool bCalcValidRects, NCCALCSIZE_PARAMS* lpncsp);
-	intptr_t OnNcHitTest(QPoint point);
+	intptr_t OnNcHitTest(mfcless::Point point);
 	void OnNcPaint();
 	void OnPrevInstrument();
 	void OnNextInstrument();
-	void OnMouseMove(uint32, QPoint);
-	void OnLButtonDown(uint32, QPoint);
-	void OnLButtonUp(uint32, QPoint);
-	void OnLButtonDblClk(uint32 /*nFlags*/, QPoint point) { InsertAtPoint(point); }
-	void OnRButtonUp(uint32, QPoint);
-	void OnMButtonUp(uint32, QPoint);
-	void OnNcMouseMove(uint32 nHitTest, QPoint point);
-	void OnNcLButtonDown(uint32, QPoint);
-	void OnNcLButtonUp(uint32, QPoint);
-	void OnNcLButtonDblClk(uint32, QPoint);
+	void OnMouseMove(uint32, mfcless::Point);
+	void OnLButtonDown(uint32, mfcless::Point);
+	void OnLButtonUp(uint32, mfcless::Point);
+	void OnLButtonDblClk(uint32 /*nFlags*/, mfcless::Point point) { InsertAtPoint(point); }
+	void OnRButtonUp(uint32, mfcless::Point);
+	void OnMButtonUp(uint32, mfcless::Point);
+	void OnNcMouseMove(uint32 nHitTest, mfcless::Point point);
+	void OnNcLButtonDown(uint32, mfcless::Point);
+	void OnNcLButtonUp(uint32, mfcless::Point);
+	void OnNcLButtonDblClk(uint32, mfcless::Point);
 	void OnEnvLoopChanged();
 	void OnEnvSustainChanged();
 	void OnEnvCarryChanged();
@@ -245,8 +243,8 @@ protected:
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
 	intptr_t OnMidiMsg(uintptr_t, intptr_t);
 	// cppcheck-suppress duplInheritedMember
-	bool OnMouseWheel(uint32 nFlags, short zDelta, QPoint pt);
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	bool OnMouseWheel(uint32 nFlags, short zDelta, mfcless::Point pt);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 	void OnEditUndo();
 	void OnEditRedo();
 	void OnUpdateUndo(mfcless::CommandState &state);

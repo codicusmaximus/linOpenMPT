@@ -12,11 +12,11 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Geometry.h"
 #include "InputHandler.h"
 #include "ResizableDialog.h"
 
 class QListWidget;
-class QPoint;
 
 OPENMPT_NAMESPACE_BEGIN
 
@@ -27,7 +27,7 @@ class CloseMainDialog: public ResizableDialog
 	Q_OBJECT
 protected:
 	QListWidget *m_List = nullptr;
-	QPoint m_minSize;
+	mfcless::Point m_minSize;
 	BypassInputHandler m_bih;
 
 	static mpt::ustring FormatTitle(const CModDoc &modDoc, bool fullPath);

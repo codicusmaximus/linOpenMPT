@@ -14,7 +14,9 @@
 
 #include "openmpt/all/BuildSettings.hpp"
 #include "mfcless/Controls.h"
+#include "mfcless/Geometry.h"
 #include "mfcless/Keyboard.h"
+#include "DocumentView.h"
 
 #include "AccessibleControls.h"
 #include "CDecimalSupport.h"
@@ -28,7 +30,6 @@ class QAbstractButton;
 class QComboBox;
 class QLineEdit;
 class QObject;
-class QPoint;
 class QScrollBar;
 class QWidget;
 
@@ -102,7 +103,7 @@ public:
 	Setting<int32> &GetSplitPosRef() override;
 	bool OnInitDialog() override;
 	void DoDataExchange(DataExchange &dx) override;	// DDX/DDV support
-	CRuntimeClass *GetAssociatedViewClass() override;
+	const mfcless::ViewClass *GetAssociatedViewClass() override;
 	void RecalcLayout() override;
 	void OnActivatePage(intptr_t) override;
 	void OnDeactivatePage() override;
@@ -159,7 +160,7 @@ protected:
 	void OnKeepSampleOnDisk();
 	void OnVScroll(uint32, uint32, QScrollBar *);
 	intptr_t OnCustomKeyMsg(uintptr_t, intptr_t);
-	void OnXButtonUp(uint32 nFlags, uint32 nButton, QPoint point);
+	void OnXButtonUp(uint32 nFlags, uint32 nButton, mfcless::Point point);
 
 	void OnPitchShiftTimeStretch();
 	void OnToggleTimestretchQuality();

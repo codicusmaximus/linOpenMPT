@@ -8105,6 +8105,74 @@ index 2fddaaa..f5afcad 100644
  
  	// Swaps the positions of two elements.
  	void Swap(const size_t a, const size_t b);
+diff --git a/mptrack/PatternCursor.h b/mptrack/PatternCursor.h
+index 0c3b3fa..d7b7b86 100644
+--- a/mptrack/PatternCursor.h
++++ b/mptrack/PatternCursor.h
+@@ -302,40 +302,40 @@ public:
+ 	// Get first row of selection
+ 	ROWINDEX GetStartRow() const
+ 	{
+-		ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
++		MPT_ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
+ 		return upperLeft.GetRow();
+ 	}
+ 
+ 	// Get last row of selection
+ 	ROWINDEX GetEndRow() const
+ 	{
+-		ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
++		MPT_ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
+ 		return lowerRight.GetRow();
+ 	}
+ 
+ 	// Get first channel of selection
+ 	CHANNELINDEX GetStartChannel() const
+ 	{
+-		ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
++		MPT_ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
+ 		return upperLeft.GetChannel();
+ 	}
+ 
+ 	// Get last channel of selection
+ 	CHANNELINDEX GetEndChannel() const
+ 	{
+-		ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
++		MPT_ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
+ 		return lowerRight.GetChannel();
+ 	}
+ 
+ 	PatternCursor::Columns GetStartColumn() const
+ 	{
+-		ASSERT((upperLeft.cursor & 0xFFFF) <= (lowerRight.cursor & 0xFFFF));
++		MPT_ASSERT((upperLeft.cursor & 0xFFFF) <= (lowerRight.cursor & 0xFFFF));
+ 		return upperLeft.GetColumnType();
+ 	}
+ 
+ 	PatternCursor::Columns GetEndColumn() const
+ 	{
+-		ASSERT((upperLeft.cursor & 0xFFFF) <= (lowerRight.cursor & 0xFFFF));
++		MPT_ASSERT((upperLeft.cursor & 0xFFFF) <= (lowerRight.cursor & 0xFFFF));
+ 		return lowerRight.GetColumnType();
+ 	}
+ 
+@@ -368,14 +368,14 @@ public:
+ 	// Get number of rows in selection
+ 	ROWINDEX GetNumRows() const
+ 	{
+-		ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
++		MPT_ASSERT(upperLeft.GetRow() <= lowerRight.GetRow());
+ 		return 1 + GetEndRow() - GetStartRow();
+ 	}
+ 
+ 	// Get number of channels in selection
+ 	CHANNELINDEX GetNumChannels() const
+ 	{
+-		ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
++		MPT_ASSERT(upperLeft.GetChannel() <= lowerRight.GetChannel());
+ 		return 1 + GetEndChannel() - GetStartChannel();
+ 	}
+ 
 diff --git a/mptrack/Settings.cpp b/mptrack/Settings.cpp
 index febb79f..cd1f303 100644
 --- a/mptrack/Settings.cpp

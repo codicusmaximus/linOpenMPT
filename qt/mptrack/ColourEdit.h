@@ -12,6 +12,7 @@
 #pragma once
 
 #include "openmpt/all/BuildSettings.hpp"
+#include "mfcless/Graphics.h"
 #include "mfcless/Window.h"
 #include <QtWidgets/QLineEdit>
 
@@ -31,10 +32,10 @@ public:
 private:
 	uint32 m_crText;
 	uint32 m_crBackGnd;
-	CBrush m_brBackGnd;
+	mfcless::Brush m_brBackGnd;
 
 protected:
-	HBRUSH CtlColor(CDC* pDC, uint32 nCtlColor);
+	mfcless::Brush CtlColor(mfcless::DC* pDC, uint32 nCtlColor);
 	void RegisterMessageMap() override;
 
 };
