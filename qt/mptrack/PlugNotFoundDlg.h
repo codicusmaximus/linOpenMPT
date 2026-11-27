@@ -1,0 +1,42 @@
+/*
+ * PlugNotFoundDlg.h
+ * -----------------
+ * Purpose: Dialog for handling missing plugins
+ * Notes  : mfcless twin of upstream's mptrack/PlugNotFoundDlg.h.
+ *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Authors: OpenMPT Devs
+ * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+ */
+
+
+#pragma once
+
+#include "openmpt/all/BuildSettings.hpp"
+
+#include "ResizableDialog.h"
+#include "CListCtrl.h"
+
+class QWidget;
+
+OPENMPT_NAMESPACE_BEGIN
+
+struct VSTPluginLib;
+
+class PlugNotFoundDialog : public ResizableDialog
+{
+	Q_OBJECT
+	std::vector<VSTPluginLib *> &m_plugins;
+	CListCtrlEx m_List;
+
+public:
+	PlugNotFoundDialog(std::vector<VSTPluginLib *> &plugins, QWidget *parent);
+
+	void DoDataExchange();
+	bool OnInitDialog() override;
+
+	void OnRemove();
+
+	DECLARE_MESSAGE_MAP();
+};
+
+OPENMPT_NAMESPACE_END

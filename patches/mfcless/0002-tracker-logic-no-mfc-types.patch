@@ -2472,6 +2472,19 @@ index a875a5c..283b50e 100644
  public:
  	IniFileSettingsBackend(const mpt::PathString &filename);
  	~IniFileSettingsBackend() override;
+diff --git a/mptrack/StreamEncoderSettings.cpp b/mptrack/StreamEncoderSettings.cpp
+index f5b0c4e..751b35e 100644
+--- a/mptrack/StreamEncoderSettings.cpp
++++ b/mptrack/StreamEncoderSettings.cpp
+@@ -20,7 +20,7 @@ OPENMPT_NAMESPACE_BEGIN
+ 
+ static mpt::ustring GetDefaultYear()
+ {
+-	return mpt::ToUnicode(CTime::GetCurrentTime().Format(_T("%Y")));
++	return mpt::ufmt::val(mpt::Date::UnixAsLocal(mpt::Date::UnixNow()).year);
+ }
+ 
+ 
 diff --git a/mptrack/StreamEncoderSettings.h b/mptrack/StreamEncoderSettings.h
 index 6cad226..7ce8112 100644
 --- a/mptrack/StreamEncoderSettings.h
@@ -2486,10 +2499,27 @@ index 6cad226..7ce8112 100644
  	else if(val.as<mpt::ustring>() == U_("CBR")) { return Encoder::ModeCBR; }
  	else if(val.as<mpt::ustring>() == U_("ABR")) { return Encoder::ModeABR; }
 diff --git a/mptrack/TrackerSettings.cpp b/mptrack/TrackerSettings.cpp
-index 679d3fe..0e226e0 100644
+index 679d3fe..4b576c0 100644
 --- a/mptrack/TrackerSettings.cpp
 +++ b/mptrack/TrackerSettings.cpp
-@@ -247,7 +247,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+@@ -98,11 +98,16 @@ void SampleUndoBufferSize::CalculateSize()
+ {
+ 	if(sizePercent < 0)
+ 		sizePercent = 0;
++#if defined(MPT_MFCLESS)
++	// The setting is a percentage of the memory that's actually *available* to OpenMPT.
++	sizeByte = mpt::saturate_cast<size_t>(std::min(mpt::OS::Windows::GetSystemMemorySize(), uint64(SIZE_MAX)) * sizePercent / 100);
++#else
+ 	MEMORYSTATUSEX memStatus;
+ 	memStatus.dwLength = sizeof(MEMORYSTATUSEX);
+ 	GlobalMemoryStatusEx(&memStatus);
+ 	// The setting is a percentage of the memory that's actually *available* to OpenMPT, which is a max of 4GB in 32-bit mode.
+ 	sizeByte = mpt::saturate_cast<size_t>(std::min(memStatus.ullTotalPhys, DWORDLONG(SIZE_T_MAX)) * sizePercent / 100);
++#endif
+ 
+ 	// Pretend there's at least one MiB of memory (haha)
+ 	if(sizePercent != 0 && sizeByte < 1 * 1024 * 1024)
+@@ -247,7 +252,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
  	, SoundAllowDeferredProcessing(conf, UL_("Sound Settings"), UL_("AllowDeferredProcessing"), SoundDevice::AppInfo().AllowDeferredProcessing)
  	// MIDI Settings
  	, m_nMidiDevice(conf, UL_("MIDI Settings"), UL_("MidiDevice"), 0)
@@ -2498,7 +2528,7 @@ index 679d3fe..0e226e0 100644
  	, midiSetup(conf, UL_("MIDI Settings"), UL_("MidiSetup"), MidiSetup::Default)
  	, aftertouchBehaviour(conf, UL_("MIDI Settings"), UL_("AftertouchBehaviour"), RecordAftertouch::DoNotRecord)
  	, pitchBendBehaviour(conf, UL_("MIDI Settings"), UL_("PitchBendBehaviour"), RecordPitchBend::RecordAsFinetune)
-@@ -279,7 +279,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+@@ -279,7 +284,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
  	, effectVisHeight(conf, UL_("Pattern Editor"), UL_("EffectVisHeight"), -1)
  	, effectVisX(conf, UL_("Pattern Editor"), UL_("EffectVisX"), int32_min)
  	, effectVisY(conf, UL_("Pattern Editor"), UL_("EffectVisY"), int32_min)
@@ -2507,7 +2537,7 @@ index 679d3fe..0e226e0 100644
  	, patternAlwaysDrawWholePatternOnScrollSlow(conf, UL_("Pattern Editor"), UL_("AlwaysDrawWholePatternOnScrollSlow"), false)
  	, orderListOldDropBehaviour(conf, UL_("Pattern Editor"), UL_("OrderListOldDropBehaviour"), false)
  	, autoHideVolumeColumnForMOD(conf, UL_("Pattern Editor"), UL_("AutoHideVolumeColumnForMOD"), false)
-@@ -356,7 +356,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
+@@ -356,7 +361,7 @@ TrackerSettings::TrackerSettings(SettingsContainer &conf)
  	, UpdateStatistics(conf, UL_("Update"), UL_("Statistis"), false)
  	, UpdateSendGUID_DEPRECATED(conf, UL_("Update"), UL_("SendGUID"), false)
  	, UpdateShowUpdateHint(conf, UL_("Update"), UL_("ShowUpdateHint"), true)
@@ -2516,16 +2546,114 @@ index 679d3fe..0e226e0 100644
  	, UpdateSkipSignatureVerificationUNSECURE(conf, UL_("Update"), UL_("SkipSignatureVerification"), false)
  	, UpdateSigningKeysRootAnchors(conf, UL_("Update"), UL_("SigningKeysRootAnchors"), CUpdateCheck::GetDefaultUpdateSigningKeysRootAnchors())
  #endif // MPT_ENABLE_UPDATE
-@@ -1259,7 +1259,7 @@ void TrackerSettings::SetResamplerSettings(const CResamplerSettings &settings)
+@@ -1026,15 +1031,15 @@ void TrackerSettings::MigrateTunings(const Version storedVersion)
+ {
+ 	if(!mpt::native_fs{}.is_directory(PathTunings.GetDefaultDir()))
+ 	{
+-		CreateDirectory(PathTunings.GetDefaultDir().AsNative().c_str(), 0);
++		mpt::native_fs{}.create_directory(PathTunings.GetDefaultDir());
+ 	}
+ 	if(!mpt::native_fs{}.is_directory(PathTunings.GetDefaultDir() + P_("Built-in\\")))
+ 	{
+-		CreateDirectory((PathTunings.GetDefaultDir() + P_("Built-in\\")).AsNative().c_str(), 0);
++		mpt::native_fs{}.create_directory((PathTunings.GetDefaultDir() + P_("Built-in\\")));
+ 	}
+ 	if(!mpt::native_fs{}.is_directory(PathTunings.GetDefaultDir() + P_("Locale\\")))
+ 	{
+-		CreateDirectory((PathTunings.GetDefaultDir() + P_("Local\\")).AsNative().c_str(), 0);
++		mpt::native_fs{}.create_directory((PathTunings.GetDefaultDir() + P_("Local\\")));
+ 	}
+ 	{
+ 		mpt::PathString fn = PathTunings.GetDefaultDir() + P_("Built-in\\12TET.tun");
+@@ -1259,50 +1264,50 @@ void TrackerSettings::SetResamplerSettings(const CResamplerSettings &settings)
  }
  
  
 -void TrackerSettings::GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS> &colours)
 +void TrackerSettings::GetDefaultColourScheme(std::array<uint32, MAX_MODCOLORS> &colours)
  {
- 	colours[MODCOLOR_BACKNORMAL] = RGB(0xFF, 0xFF, 0xFF);
- 	colours[MODCOLOR_TEXTNORMAL] = RGB(0x00, 0x00, 0x00);
-@@ -1310,7 +1310,7 @@ void TrackerSettings::GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS>
+-	colours[MODCOLOR_BACKNORMAL] = RGB(0xFF, 0xFF, 0xFF);
+-	colours[MODCOLOR_TEXTNORMAL] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_BACKCURROW] = RGB(0xC0, 0xC0, 0xC0);
+-	colours[MODCOLOR_BACKRECORDROW] = RGB(0xC0, 0xC0, 0xC0);
+-	colours[MODCOLOR_TEXTCURROW] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_BACKSELECTED] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_TEXTSELECTED] = RGB(0xFF, 0xFF, 0xFF);
+-	colours[MODCOLOR_SAMPLE] = RGB(0xFF, 0x00, 0x00);
+-	colours[MODCOLOR_BACKPLAYCURSOR] = RGB(0xFF, 0xFF, 0x80);
+-	colours[MODCOLOR_TEXTPLAYCURSOR] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_BACKHILIGHT] = RGB(0xE0, 0xE8, 0xE0);
++	colours[MODCOLOR_BACKNORMAL] = mfcless::Rgb(0xFF, 0xFF, 0xFF);
++	colours[MODCOLOR_TEXTNORMAL] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_BACKCURROW] = mfcless::Rgb(0xC0, 0xC0, 0xC0);
++	colours[MODCOLOR_BACKRECORDROW] = mfcless::Rgb(0xC0, 0xC0, 0xC0);
++	colours[MODCOLOR_TEXTCURROW] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_BACKSELECTED] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_TEXTSELECTED] = mfcless::Rgb(0xFF, 0xFF, 0xFF);
++	colours[MODCOLOR_SAMPLE] = mfcless::Rgb(0xFF, 0x00, 0x00);
++	colours[MODCOLOR_BACKPLAYCURSOR] = mfcless::Rgb(0xFF, 0xFF, 0x80);
++	colours[MODCOLOR_TEXTPLAYCURSOR] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_BACKHILIGHT] = mfcless::Rgb(0xE0, 0xE8, 0xE0);
+ 	// Effect Colors
+-	colours[MODCOLOR_NOTE] = RGB(0x00, 0x00, 0x80);
+-	colours[MODCOLOR_INSTRUMENT] = RGB(0x00, 0x80, 0x80);
+-	colours[MODCOLOR_VOLUME] = RGB(0x00, 0x80, 0x00);
+-	colours[MODCOLOR_PANNING] = RGB(0x00, 0x80, 0x80);
+-	colours[MODCOLOR_PITCH] = RGB(0x80, 0x80, 0x00);
+-	colours[MODCOLOR_GLOBALS] = RGB(0x80, 0x00, 0x00);
++	colours[MODCOLOR_NOTE] = mfcless::Rgb(0x00, 0x00, 0x80);
++	colours[MODCOLOR_INSTRUMENT] = mfcless::Rgb(0x00, 0x80, 0x80);
++	colours[MODCOLOR_VOLUME] = mfcless::Rgb(0x00, 0x80, 0x00);
++	colours[MODCOLOR_PANNING] = mfcless::Rgb(0x00, 0x80, 0x80);
++	colours[MODCOLOR_PITCH] = mfcless::Rgb(0x80, 0x80, 0x00);
++	colours[MODCOLOR_GLOBALS] = mfcless::Rgb(0x80, 0x00, 0x00);
+ 	// VU-Meters
+-	colours[MODCOLOR_VUMETER_LO] = RGB(0x00, 0xC8, 0x00);
+-	colours[MODCOLOR_VUMETER_MED] = RGB(0xFF, 0xC8, 0x00);
+-	colours[MODCOLOR_VUMETER_HI] = RGB(0xE1, 0x00, 0x00);
+-	colours[MODCOLOR_VUMETER_LO_VST] = RGB(0x18, 0x96, 0xE1);
+-	colours[MODCOLOR_VUMETER_MED_VST] = RGB(0xFF, 0xC8, 0x00);
+-	colours[MODCOLOR_VUMETER_HI_VST] = RGB(0xE1, 0x00, 0x00);
++	colours[MODCOLOR_VUMETER_LO] = mfcless::Rgb(0x00, 0xC8, 0x00);
++	colours[MODCOLOR_VUMETER_MED] = mfcless::Rgb(0xFF, 0xC8, 0x00);
++	colours[MODCOLOR_VUMETER_HI] = mfcless::Rgb(0xE1, 0x00, 0x00);
++	colours[MODCOLOR_VUMETER_LO_VST] = mfcless::Rgb(0x18, 0x96, 0xE1);
++	colours[MODCOLOR_VUMETER_MED_VST] = mfcless::Rgb(0xFF, 0xC8, 0x00);
++	colours[MODCOLOR_VUMETER_HI_VST] = mfcless::Rgb(0xE1, 0x00, 0x00);
+ 	// Channel separators
+-	colours[MODCOLOR_SEPSHADOW] = GetSysColor(COLOR_BTNSHADOW);
+-	colours[MODCOLOR_SEPFACE] = GetSysColor(COLOR_BTNFACE);
+-	colours[MODCOLOR_SEPHILITE] = GetSysColor(COLOR_BTNHIGHLIGHT);
++	colours[MODCOLOR_SEPSHADOW] = mfcless::SystemColor(mfcless::SysColor::ButtonShadow);
++	colours[MODCOLOR_SEPFACE] = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
++	colours[MODCOLOR_SEPHILITE] = mfcless::SystemColor(mfcless::SysColor::ButtonHighlight);
+ 	// Pattern blend colour
+-	colours[MODCOLOR_BLENDCOLOR] = GetSysColor(COLOR_BTNFACE);
++	colours[MODCOLOR_BLENDCOLOR] = mfcless::SystemColor(mfcless::SysColor::ButtonFace);
+ 	// Dodgy commands
+-	colours[MODCOLOR_DODGY_COMMANDS] = RGB(0xC0, 0x00, 0x00);
++	colours[MODCOLOR_DODGY_COMMANDS] = mfcless::Rgb(0xC0, 0x00, 0x00);
+ 	// Sample / instrument editor
+-	colours[MODCOLOR_BACKSAMPLE] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_SAMPLESELECTED] = RGB(0xFF, 0xFF, 0xFF);
+-	colours[MODCOLOR_BACKENV] = RGB(0x00, 0x00, 0x00);
+-	colours[MODCOLOR_ENVELOPES] = RGB(0x00, 0x00, 0xFF);
+-	colours[MODCOLOR_ENVELOPE_RELEASE] = RGB(0xFF, 0xFF, 0x00);
+-	colours[MODCOLOR_SAMPLE_LOOPMARKER] = RGB(0x30, 0xCC, 0x30);
+-	colours[MODCOLOR_SAMPLE_SUSTAINMARKER] = RGB(50, 0xCC, 0xCC);
+-	colours[MODCOLOR_SAMPLE_CUEPOINT] = RGB(0xFF, 0xCC, 0x30);
++	colours[MODCOLOR_BACKSAMPLE] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_SAMPLESELECTED] = mfcless::Rgb(0xFF, 0xFF, 0xFF);
++	colours[MODCOLOR_BACKENV] = mfcless::Rgb(0x00, 0x00, 0x00);
++	colours[MODCOLOR_ENVELOPES] = mfcless::Rgb(0x00, 0x00, 0xFF);
++	colours[MODCOLOR_ENVELOPE_RELEASE] = mfcless::Rgb(0xFF, 0xFF, 0x00);
++	colours[MODCOLOR_SAMPLE_LOOPMARKER] = mfcless::Rgb(0x30, 0xCC, 0x30);
++	colours[MODCOLOR_SAMPLE_SUSTAINMARKER] = mfcless::Rgb(50, 0xCC, 0xCC);
++	colours[MODCOLOR_SAMPLE_CUEPOINT] = mfcless::Rgb(0xFF, 0xCC, 0x30);
+ }
+ 
+ 
+@@ -1310,7 +1315,7 @@ void TrackerSettings::GetDefaultColourScheme(std::array<COLORREF, MAX_MODCOLORS>
  
  void TrackerSettings::FixupEQ(EQPreset &eqSettings)
  {
@@ -2534,16 +2662,52 @@ index 679d3fe..0e226e0 100644
  	{
  		if(eqSettings.Gains[i] > 32)
  			eqSettings.Gains[i] = 16;
-@@ -1510,7 +1510,7 @@ void TrackerSettings::SaveChords(MPTChords &chords)
+@@ -1325,9 +1330,15 @@ void TrackerSettings::FixupEQ(EQPreset &eqSettings)
+ 
+ void TrackerSettings::SaveSettings()
+ {
++#if defined(MPT_MFCLESS)
++	// The window's geometry is Qt's (CMainFrame::SaveWindowGeometry), in a
++	// key of its own so that the MFC build's WindowPlacement stays valid.
++	CMainFrame::GetMainFrame()->SaveWindowGeometry(conf);
++#else
+ 	WINDOWPLACEMENT wpl;
+ 	HighDPISupport::GetWindowPlacement(*CMainFrame::GetMainFrame(), wpl);
+ 	conf.Write<WINDOWPLACEMENT>(UL_("Display"), UL_("WindowPlacement"), wpl);
++#endif
+ 
+ 	conf.Write<int32>(UL_("Pattern Editor"), UL_("NumClipboards"), mpt::saturate_cast<int32>(PatternClipboard::GetClipboardSize()));
+ 
+@@ -1441,6 +1452,10 @@ mpt::PathString TrackerSettings::GetDefaultAutosavePath()
+ 		path = theApp.GetInstallPath().WithTrailingSlash();
+ 	} else
+ 	{
++#if defined(MPT_MFCLESS)
++		// The XDG data folder (~/.local/share/OpenMPT/Autosave).
++		path = mfcless::DataDirectory().WithTrailingSlash();
++#else
+ 		// Try to find non-roaming (local) app data first, fall back to other directory
+ 		TCHAR dir[MAX_PATH] = {0};
+ 		if((SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, dir) == S_OK)
+@@ -1453,6 +1468,7 @@ mpt::PathString TrackerSettings::GetDefaultAutosavePath()
+ 			path = mpt::common_directories::get_temp_directory();
+ 		}
+ 		path = path.WithTrailingSlash() + P_("OpenMPT\\");
++#endif
+ 	}
+ 	return path + P_("Autosave");
+ }
+@@ -1510,7 +1526,8 @@ void TrackerSettings::SaveChords(MPTChords &chords)
  }
  
  
 -void TrackerSettings::SetMIDIDevice(UINT id)
++#if !defined(MPT_MFCLESS) // mfcless: qt/logic/TrackerSettingsMIDI.cpp (RtMidi)
 +void TrackerSettings::SetMIDIDevice(uint32 id)
  {
  	m_nMidiDevice = id;
  	MIDIINCAPS mic;
-@@ -1522,17 +1522,17 @@ void TrackerSettings::SetMIDIDevice(UINT id)
+@@ -1522,17 +1539,17 @@ void TrackerSettings::SetMIDIDevice(UINT id)
  }
  
  
@@ -2565,7 +2729,7 @@ index 679d3fe..0e226e0 100644
  	{
  		mic.szPname[0] = 0;
  		if(midiInGetDevCaps(i, &mic, sizeof(mic)) != MMSYSERR_NOERROR)
-@@ -1548,7 +1548,7 @@ UINT TrackerSettings::GetCurrentMIDIDevice()
+@@ -1548,7 +1565,7 @@ UINT TrackerSettings::GetCurrentMIDIDevice()
  			else
  				break;
  		}
@@ -2574,7 +2738,15 @@ index 679d3fe..0e226e0 100644
  		{
  			candidate = i;
  			numDevs = m_nMidiDevice + 1;
-@@ -1585,17 +1585,17 @@ mpt::ustring IgnoredCCsToString(const std::bitset<128> &midiIgnoreCCs)
+@@ -1561,6 +1578,7 @@ UINT TrackerSettings::GetCurrentMIDIDevice()
+ 	m_nMidiDevice = candidate;
+ 	return candidate;
+ }
++#endif // !MPT_MFCLESS
+ 
+ 
+ mpt::ustring IgnoredCCsToString(const std::bitset<128> &midiIgnoreCCs)
+@@ -1585,18 +1603,30 @@ mpt::ustring IgnoredCCsToString(const std::bitset<128> &midiIgnoreCCs)
  
  std::bitset<128> StringToIgnoredCCs(const mpt::ustring &in)
  {
@@ -2582,6 +2754,17 @@ index 679d3fe..0e226e0 100644
 +	mpt::ustring cc = mpt::ToUnicode(in);
  	std::bitset<128> midiIgnoreCCs;
  	midiIgnoreCCs.reset();
++#if defined(MPT_MFCLESS)
++	// As CString::Tokenize: any of the delimiter characters separate tokens.
++	for(const auto &ccToken : mpt::split(mpt::replace(cc, U_(" "), U_(",")), U_(",")))
++	{
++		if(ccToken.empty())
++			continue;
++		int ccNumber = mpt::parse<int>(ccToken);
++		if(ccNumber >= 0 && ccNumber <= 127)
++			midiIgnoreCCs.set(ccNumber);
++	}
++#else
  	int curPos = 0;
 -	CString ccToken = cc.Tokenize(_T(", "), curPos);
 -	while(ccToken != _T(""))
@@ -2594,8 +2777,10 @@ index 679d3fe..0e226e0 100644
 -		ccToken = cc.Tokenize(_T(", "), curPos);
 +		ccToken = cc.Tokenize(U_(", "), curPos);
  	}
++#endif
  	return midiIgnoreCCs;
  }
+ 
 diff --git a/mptrack/TrackerSettings.h b/mptrack/TrackerSettings.h
 index 488daca..d882837 100644
 --- a/mptrack/TrackerSettings.h

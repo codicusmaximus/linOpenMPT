@@ -373,6 +373,11 @@ public:
 
 	void UpdateDocumentCount();
 
+	// mfcless: the window geometry, as Qt's saveGeometry() in Display/WindowGeometry
+	// (upstream keeps a WINDOWPLACEMENT in Display/WindowPlacement).
+	void SaveWindowGeometry(SettingsContainer &conf);
+	void RestoreWindowGeometry(SettingsContainer &conf);
+
 // Overrides
 protected:
 	// mfcless: CFrameWnd's overrides, as Qt event handlers.

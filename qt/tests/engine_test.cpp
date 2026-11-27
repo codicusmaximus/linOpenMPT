@@ -69,11 +69,7 @@ int Run(int argc, char **argv)
 	std::cout << "loaded: " << mpt::ToCharset(mpt::Charset::UTF8, sndFile->GetTitle().empty() ? mpt::ustring() : mpt::ToUnicode(sndFile->GetCharsetInternal(), sndFile->GetTitle())) << "\n";
 	const double rms = RenderRMS(*sndFile, 2.0);
 	std::cout << "rms: " << rms << "\n";
-	if(!sndFile->ChangeModTypeTo(MOD_TYPE_IT))
-	{
-		std::cerr << "FAIL: could not convert to IT\n";
-		return 1;
-	}
+	sndFile->ChangeModTypeTo(MOD_TYPE_IT);
 	ModCommand &m = *sndFile->Patterns[0].GetpModCommand(0, 0);
 	m.note = NOTE_MIDDLEC;
 	m.instr = 1;

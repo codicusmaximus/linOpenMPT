@@ -4,7 +4,7 @@
 # such names gets a Qt twin in qt/ or a patch in patches/mfcless/ instead.
 #
 # Sources compiled inside mpt_common, because they need upstream's headers.
-set(LINOPENMPT_COMPAT_MPT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/mpt_extras.cpp PARENT_SCOPE)
+set(LINOPENMPT_COMPAT_MPT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/mpt_extras.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/System.cpp PARENT_SCOPE)
 set(LINOPENMPT_FORCE_INCLUDES
   "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${MPT_UPSTREAM_DIR}/build/pch/PCH.h>"
   "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/mfcless/mpt_extras.h>"

@@ -80,4 +80,30 @@ protected:
 	InputDevice m_lastInputDevice = InputDevice::Unknown;
 };
 
+
+// mfcless: the role of MFC's CPropertyPage (one page of a tabbed dialog such
+// as the options). Created from its dialog template like any dialog; the
+// sheet calls these as MFC's property sheet does.
+class PropertyPage : public DialogBase
+{
+	Q_OBJECT
+public:
+	using DialogBase::DialogBase;
+
+	virtual bool OnSetActive() { return true; }
+	virtual bool OnKillActive() { return true; }
+	virtual bool OnApply() { OnOK(); return true; }
+	void OnOK() override { }
+	void OnCancel() override { }
+	// Marks the page as changed, which enables the sheet's Apply button.
+	void SetModified(bool changed = true);
+	bool IsModified() const { return m_modified; }
+
+signals:
+	void modifiedChanged(bool changed);
+
+private:
+	bool m_modified = false;
+};
+
 OPENMPT_NAMESPACE_END

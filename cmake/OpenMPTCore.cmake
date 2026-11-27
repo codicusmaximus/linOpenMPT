@@ -147,7 +147,7 @@ if(LINOPENMPT_TRACKER_SOUNDLIB)
   add_library(linopenmpt::tracker_logic ALIAS mpt_tracker_logic)
   target_include_directories(mpt_tracker_logic PUBLIC ${MPT_UPSTREAM_DIR}/mptrack PRIVATE ${MPT_UPSTREAM_DIR}/include/SignalsmithStretch ${MPT_UPSTREAM_DIR}/include/r8brain)
   target_compile_options(mpt_tracker_logic PRIVATE ${MPT_WARN_OPTS})
-  target_link_libraries(mpt_tracker_logic PUBLIC mpt_soundlib mpt_sounddevice)
+  target_link_libraries(mpt_tracker_logic PUBLIC mpt_soundlib mpt_sounddevice mpt_rtmidi)
   endif() # mfc / qt
 endif()
 

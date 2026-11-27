@@ -1,0 +1,90 @@
+/*
+ * AboutDialog.h
+ * -------------
+ * Purpose: About dialog with credits, system information and a fancy demo effect.
+ * Notes  : mfcless twin of upstream's mptrack/AboutDialog.h.
+ *          Draft from qt/tools/twin.py, not yet edited by hand.
+ * Authors: OpenMPT Devs
+ * The OpenMPT source code is released under the BSD license. Read LICENSE for more details.
+ */
+
+#pragma once
+
+#include "openmpt/all/BuildSettings.hpp"
+#include <QtWidgets/QWidget>
+#include "DialogBase.h"
+
+class QLineEdit;
+class QPoint;
+class QTabBar;
+
+OPENMPT_NAMESPACE_BEGIN
+
+class RawGDIDIB;
+
+class CRippleBitmap: public QWidget
+{
+	Q_OBJECT
+
+public:
+
+	static constexpr uint32 UPDATE_INTERVAL = 15; // milliseconds
+
+protected:
+
+	BITMAPINFOHEADER m_bi;
+	std::unique_ptr<RawGDIDIB> m_bitmapSrc, m_bitmapTarget;
+	std::vector<int32> m_offset1, m_offset2;
+	int32 *m_frontBuf, *m_backBuf;
+	uint32 m_lastFrame = 0;	// Time of last frame
+	uint32 m_lastRipple = 0;	// Time of last added ripple
+	bool m_frame = false;		// Backbuffer toggle
+	bool m_damp = true;		// Ripple damping status
+	bool m_activity = true;	// There are actually some ripples
+	bool m_showMouse = true;
+
+public:
+
+	CRippleBitmap();
+	~CRippleBitmap();
+	bool Animate();
+
+protected:
+	void OnPaint();
+	bool OnEraseBkgnd(CDC *) { return true; }
+
+	void OnMouseMove(uint32 nFlags, QPoint point);
+	void OnMouseHover(uint32 nFlags, QPoint point) { OnMouseMove(nFlags, point); }
+	void OnMouseLeave();
+};
+
+
+class CAboutDlg : public DialogBase
+{
+	Q_OBJECT
+protected:
+	CRippleBitmap m_bmp;
+	QTabBar *m_Tab = nullptr;
+	QLineEdit *m_TabEdit = nullptr;
+	uintptr_t m_TimerID = 0;
+	static constexpr uintptr_t TIMERID_ABOUT_DEFAULT = 3;
+
+public:
+	static CAboutDlg *instance;
+
+	~CAboutDlg();
+
+	// Implementation
+protected:
+	bool OnInitDialog() override;
+	void OnOK() override;
+	void OnCancel() override;
+	DECLARE_MESSAGE_MAP();
+	void DoDataExchange();
+	void OnTabChange();
+	void OnTimer(uintptr_t nIDEvent);
+public:
+	static mpt::ustring GetTabText(int tab);
+};
+
+OPENMPT_NAMESPACE_END

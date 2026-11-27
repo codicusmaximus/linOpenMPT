@@ -290,4 +290,6 @@ inline mpt::PathString PortablePathLiteral(const mpt::PathString &path)
 #undef P_
 #define P_(x) ::linopenmpt::PortablePathLiteral(MPT_PATHSTRING(x))
 
+#include "mfcless/System.h"
+
 #endif // MODPLUG_TRACKER && !MPT_OS_WINDOWS
