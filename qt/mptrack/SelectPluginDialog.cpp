@@ -343,7 +343,7 @@ void CSelectPluginDlg::UpdatePluginsList(const VSTPluginLib *forceSelect)
 		{ PluginCategory::Hidden,         UL_("Legacy Plugins") },
 	};
 
-	const QTreeWidgetItem * noPlug = AddTreeItem(UL_("No plugin (empty slot)"), IMAGE_NOPLUGIN, false);
+	QTreeWidgetItem * const noPlug = AddTreeItem(UL_("No plugin (empty slot)"), IMAGE_NOPLUGIN, false);
 	QTreeWidgetItem * currentPlug = noPlug;
 
 	std::bitset<uint8(PluginCategory::NumCategories)> categoryUsed;
@@ -845,7 +845,7 @@ void CSelectPluginDlg::ReloadMissingPlugins(const VSTPluginLib &lib) const
 
 void CSelectPluginDlg::OnRemovePlugin()
 {
-	const QTreeWidgetItem * pluginToDelete = m_treePlugins->GetSelectedItem();
+	QTreeWidgetItem * const pluginToDelete = m_treePlugins->GetSelectedItem();
 	VSTPluginLib *plugin = GetSelectedPlugin();
 	CVstPluginManager *plugManager = theApp.GetPluginManager();
 

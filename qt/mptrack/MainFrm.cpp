@@ -3558,7 +3558,7 @@ void CMainFrame::CreateTemplateModulesMenu()
 
 void CMainFrame::UpdateMRUList()
 {
-	const auto [pMenu, firstMenu] = FindMenuItemByCommand(*GetMenu(), ID_MRU_LIST_FIRST);
+	auto [pMenu, firstMenu] = FindMenuItemByCommand(*GetMenu(), ID_MRU_LIST_FIRST);
 	MPT_ASSERT(pMenu);
 	if(!pMenu)
 		return;

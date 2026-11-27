@@ -66,7 +66,7 @@ namespace size
 // What OnToolHitTest reports about the tool (area) under the mouse.
 struct ToolInfo
 {
-	QWidget *hwnd = nullptr;
+	const QWidget *hwnd = nullptr;
 	uintptr_t uId = 0;
 	Rect rect;       // the area, in client coordinates
 	QString text;    // empty: ask GetToolTipText(uId)
@@ -237,7 +237,14 @@ public:
 		else
 			return this;
 	}
-	Rect GetClientRect()
+	const QWidget *ClientWidget() const
+	{
+		if constexpr(IsScrollArea)
+			return this->viewport();
+		else
+			return this;
+	}
+	Rect GetClientRect() const
 	{
 		return Rect(0, 0, ClientWidget()->width(), ClientWidget()->height());
 	}
@@ -320,18 +327,18 @@ public:
 	}
 	// Qt paints from the event loop; this paints what is due now.
 	void UpdateWindow() { ClientWidget()->repaint(); }
-	void GetClientRect(Rect *r) { *r = GetClientRect(); }
-	void GetClientRect(Rect &r) { r = GetClientRect(); }
+	void GetClientRect(Rect *r) const { *r = GetClientRect(); }
+	void GetClientRect(Rect &r) const { r = GetClientRect(); }
 	// In screen coordinates.
 	void GetWindowRect(Rect *r) const
 	{
 		const QWidget *w = this;
 		*r = Rect(QRect(w->mapToGlobal(QPoint(0, 0)), w->size()));
 	}
-	void ClientToScreen(Point *p) { *p = ClientWidget()->mapToGlobal(QPoint(*p)); }
-	void ClientToScreen(Rect *r) { r->OffsetRect(Point(ClientWidget()->mapToGlobal(QPoint(0, 0)))); }
-	void ScreenToClient(Point *p) { *p = ClientWidget()->mapFromGlobal(QPoint(*p)); }
-	void ScreenToClient(Rect *r) { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
+	void ClientToScreen(Point *p) const { *p = ClientWidget()->mapToGlobal(QPoint(*p)); }
+	void ClientToScreen(Rect *r) const { r->OffsetRect(Point(ClientWidget()->mapToGlobal(QPoint(0, 0)))); }
+	void ScreenToClient(Point *p) const { *p = ClientWidget()->mapFromGlobal(QPoint(*p)); }
+	void ScreenToClient(Rect *r) const { const QPoint o = ClientWidget()->mapFromGlobal(QPoint(0, 0)); r->OffsetRect(o.x(), o.y()); }
 	void MoveWindow(const Rect &r, bool /*repaint*/ = true) { this->setGeometry(QRect(r)); }
 	void MoveWindow(int x, int y, int width, int height, bool /*repaint*/ = true) { this->setGeometry(x, y, width, height); }
 	// The control's text (an edit's, a button's), or a window's title.

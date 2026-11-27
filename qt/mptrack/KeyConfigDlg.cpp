@@ -794,7 +794,7 @@ void COptionsKeyboard::OnListenForKeys()
 
 void COptionsKeyboard::EnableKeyChoice(bool enable)
 {
-	if(!enable && mfcless::GetFocus() == &m_eCustHotKey)
+	if(!enable && mfcless::GetFocus() == m_eCustHotKey)
 		mfcless::GotoDlgCtrl(GetDlgItem(IDC_BUTTON1));
 	m_eCustHotKey->Bypass(!enable);
 	SetItemText(IDC_BUTTON1, enable ? UL_("Cancel") : UL_("&Set"));
@@ -824,7 +824,7 @@ void COptionsKeyboard::OnDeleteKeyChoice()
 
 void COptionsKeyboard::OnCancelKeyChoice(const QWidget *source)
 {
-	if(source == &m_eFindHotKey)
+	if(source == m_eFindHotKey)
 	{
 		ShowItem(IDC_BUTTON2, mfcless::show::Show);
 		ShowItem(IDC_FINDHOTKEY_LABEL, mfcless::show::Hide);
@@ -838,7 +838,7 @@ void COptionsKeyboard::OnCancelKeyChoice(const QWidget *source)
 
 void COptionsKeyboard::OnSetKeyChoice(const QWidget *source)
 {
-	if(source == &m_eFindHotKey)
+	if(source == m_eFindHotKey)
 	{
 		OnFindHotKey();
 		return;

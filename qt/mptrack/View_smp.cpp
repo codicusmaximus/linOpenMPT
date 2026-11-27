@@ -346,8 +346,8 @@ int CViewSample::CalcScroll(int &currentPos, int amount, int style, int bar)
 	}
 
 	// Adjust current position
-	int orig = GetScrollPos(bar);
-	currentPos = Clamp(orig + amount, 0, GetScrollLimit(bar));
+	int orig = GetScrollPos(static_cast<Qt::Orientation>(bar));
+	currentPos = Clamp(orig + amount, 0, GetScrollLimit(static_cast<Qt::Orientation>(bar)));
 
 	return -(currentPos - orig);
 }

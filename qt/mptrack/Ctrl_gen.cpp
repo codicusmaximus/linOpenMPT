@@ -408,7 +408,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 	{
 		QWidget* pSlider = static_cast<QWidget*>(pscroll);
 
-		if (pSlider == &m_SliderTempo)
+		if (pSlider == m_SliderTempo)
 		{
 			const TEMPO tempo = SliderToTempo(m_SliderTempo->value());
 			if ((tempo >= m_sndFile.GetModSpecifications().GetTempoMin()) && (tempo <= m_sndFile.GetModSpecifications().GetTempoMax()) && (tempo != m_sndFile.Order().GetDefaultTempo()))
@@ -420,7 +420,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 			}
 		}
 
-		else if (pSlider == &m_SliderGlobalVol)
+		else if (pSlider == m_SliderGlobalVol)
 		{
 			const uint32 gv = MAX_GLOBAL_VOLUME - m_SliderGlobalVol->value();
 			if ((gv >= 0) && (gv <= MAX_GLOBAL_VOLUME) && (gv != m_sndFile.m_nDefaultGlobalVolume))
@@ -433,7 +433,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 			}
 		}
 
-		else if (pSlider == &m_SliderSamplePreAmp)
+		else if (pSlider == m_SliderSamplePreAmp)
 		{
 			const uint32 spa = MAX_SLIDER_SAMPLE_VOL - m_SliderSamplePreAmp->value();
 			if ((spa >= 0) && (spa <= MAX_SLIDER_SAMPLE_VOL) && (spa != m_sndFile.m_nSamplePreAmp))
@@ -446,7 +446,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 			}
 		}
 
-		else if (pSlider == &m_SliderVSTiVol)
+		else if (pSlider == m_SliderVSTiVol)
 		{
 			const uint32 vv = MAX_SLIDER_VSTI_VOL - m_SliderVSTiVol->value();
 			if ((vv >= 0) && (vv <= MAX_SLIDER_VSTI_VOL) && (vv != m_sndFile.m_nVSTiVolume))
@@ -459,7 +459,7 @@ void CCtrlGeneral::OnVScroll(mfcless::ScrollCode code, int pos, QWidget *pscroll
 			}
 		}
 
-		else if(pSlider == (QSlider*)&m_SpinTempo)
+		else if(pSlider == m_SpinTempo)
 		{
 			int pos32 = m_SpinTempo->GetPos();
 			if(pos32 != 0)
